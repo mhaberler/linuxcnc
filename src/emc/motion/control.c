@@ -25,11 +25,19 @@
 #include "simple_tp.h"
 #include "motion_debug.h"
 #include "config.h"
+#include "motion_types.h"
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
 
 extern int abort_and_switchback(); // command.c
+
+/* kinematics flags */
+KINEMATICS_FORWARD_FLAGS fflags = 0;
+KINEMATICS_INVERSE_FLAGS iflags = 0;
+
+/* 1/servo cycle time */
+double servo_freq;
 
 /***********************************************************************
 *                  LOCAL VARIABLE DECLARATIONS                         *
@@ -45,15 +53,12 @@ unsigned long last_period = 0;
 double servo_period;
 double servo_freq;
 
-
 /*! \todo FIXME - debugging - uncomment the following line to log changes in
    JOINT_FLAG and MOTION_FLAG */
 // #define WATCH_FLAGS 1
 
 // ignore jog moves during pause if feed too low
 #define MINIMUM_JOG_VELOCITY 0.1 // FIXME: questionable
-
-
 /* debugging function - it watches a particular variable and
    prints a message when the value changes.  Right now there are
    calls to this scattered throughout this and other files.
@@ -94,7 +99,6 @@ void check_stuff(const char *location)
 }
 #endif /* ENABLE_CHECK_STUFF */
 
-
 /***********************************************************************
 *                      LOCAL FUNCTION PROTOTYPES                       *
 ************************************************************************/
@@ -126,7 +130,6 @@ static void do_forward_kins(void);
    cartesian feedback position is latched when the probe fires, and it
    should be based on the feedback read in on this servo cycle.
 */
-
 static void process_probe_inputs(void);
 
 /* 'check_for_faults()' is responsible for detecting fault conditions
@@ -178,7 +181,6 @@ static void handle_jogwheels(void);
 */
 
 static void get_pos_cmds(long period);
-
 /* 'compute_screw_comp()' is responsible for calculating backlash and
    lead screw error compensation.  (Leadscrew error compensation is
    a more sophisticated version that includes backlash comp.)  It uses
@@ -210,7 +212,6 @@ static void output_to_hal(void);
 */
 static void update_status(void);
 
-
 /***********************************************************************
 *                        PUBLIC FUNCTION CODE                          *
 ************************************************************************/
@@ -225,7 +226,6 @@ static void update_status(void);
   Inactive axes are still calculated, but the PIDs are inhibited and
   the amp enable/disable are inhibited
   */
-
 void emcmotController(void *arg, long period)
 {
     // - overrun detection -
@@ -356,90 +356,6 @@ check_stuff ( "after update_status()" );
    prototypes"
 */
 
-static void process_probe_inputs(void) {
-    static int old_probeVal = 0;
-    unsigned char probe_type = emcmotStatus->probe_type;
-
-    // don't error
-    char probe_suppress = probe_type & 1;
-
-    // trigger when the probe clears, instead of the usual case of triggering when it trips
-    char probe_whenclears = !!(probe_type & 2);
-    
-    /* read probe input */
-    emcmotStatus->probeVal = !!*(emcmot_hal_data->probe_input);
-    if (emcmotStatus->probing) {
-        /* check if the probe has been tripped */
-        if (emcmotStatus->probeVal ^ probe_whenclears) {
-            /* remember the current position */
-            emcmotStatus->probedPos = emcmotStatus->carte_pos_fb; 
-            /* stop! */
-            emcmotStatus->probing = 0;
-            emcmotStatus->probeTripped = 1;
-            abort_and_switchback(); // tpAbort(emcmotQueue);
-        /* check if the probe hasn't tripped, but the move finished */
-        } else if (GET_MOTION_INPOS_FLAG() && tpQueueDepth(emcmotQueue) == 0) {
-            /* we are already stopped, but we need to remember the current 
-               position here, because it will still be queried */
-            emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
-            emcmotStatus->probing = 0;
-            if (probe_suppress) {
-                emcmotStatus->probeTripped = 0;
-            } else if(probe_whenclears) {
-                reportError(_("G38.4 move finished without breaking contact."));
-                SET_MOTION_ERROR_FLAG(1);
-            } else {
-                reportError(_("G38.2 move finished without making contact."));
-                SET_MOTION_ERROR_FLAG(1);
-            }
-        }
-    } else if (!old_probeVal && emcmotStatus->probeVal) {
-        // not probing, but we have a rising edge on the probe.
-        // this could be expensive if we don't stop.
-        int i;
-        int aborted = 0;
-
-        if(!GET_MOTION_INPOS_FLAG() && tpQueueDepth(emcmotQueue) &&
-           tpGetExecId(emcmotQueue) <= 0) {
-            // running an MDI command
-            abort_and_switchback(); // tpAbort(emcmotQueue);
-            reportError(_("Probe tripped during non-probe MDI command."));
-	    SET_MOTION_ERROR_FLAG(1);
-        }
-
-        for(i=0; i<num_joints; i++) {
-            emcmot_joint_t *joint = &joints[i];
-
-            if (!GET_JOINT_ACTIVE_FLAG(joint)) {
-                /* if joint is not active, skip it */
-                continue;
-            }
-
-            // abort any homing
-            if(GET_JOINT_HOMING_FLAG(joint)) {
-                joint->home_state = HOME_ABORT;
-                aborted=1;
-            }
-
-            // abort any jogs
-            if(joint->free_tp.enable == 1) {
-                joint->free_tp.enable = 0;
-                // since homing uses free_tp, this protection of aborted
-                // is needed so the user gets the correct error.
-                if(!aborted) aborted=2;
-            }
-        }
-
-        if(aborted == 1) {
-            reportError(_("Probe tripped during homing motion."));
-        }
-
-        if(aborted == 2) {
-            reportError(_("Probe tripped during a jog."));
-        }
-    }
-    old_probeVal = emcmotStatus->probeVal;
-}
 
 #define EQUAL_EMC_POSE(p1,p2) \
     (((p1).tran.x == (p2).tran.x) && \
@@ -469,7 +385,6 @@ static void update_offset_pose()
     nt->v = *emcmot_hal_data->pause_offset_v + ipp->v;
     nt->w = *emcmot_hal_data->pause_offset_w + ipp->w;
 }
-
 static void process_inputs(void)
 {
     int joint_num;
@@ -492,7 +407,11 @@ static void process_inputs(void)
     /* feed scaling first:  feed_scale, adaptive_feed, and feed_hold */
     scale = 1.0;
     if ( enables & FS_ENABLED ) {
-	scale *= emcmotStatus->feed_scale;
+        if (emcmotStatus->motionType == EMC_MOTION_TYPE_TRAVERSE) {
+            scale *= emcmotStatus->rapid_scale;
+        } else {
+            scale *= emcmotStatus->feed_scale;
+        }
     }
     if ( enables & AF_ENABLED ) {
 	/* read and clamp (0.0 to 1.0) adaptive feed HAL pin */
@@ -920,6 +839,92 @@ static void do_forward_kins(void)
 	emcmotStatus->carte_pos_fb_ok = 0;
 	break;
     }
+}
+
+static void process_probe_inputs(void)
+{
+    static int old_probeVal = 0;
+    unsigned char probe_type = emcmotStatus->probe_type;
+
+    // don't error
+    char probe_suppress = probe_type & 1;
+
+    // trigger when the probe clears, instead of the usual case of triggering when it trips
+    char probe_whenclears = !!(probe_type & 2);
+
+    /* read probe input */
+    emcmotStatus->probeVal = !!*(emcmot_hal_data->probe_input);
+    if (emcmotStatus->probing) {
+        /* check if the probe has been tripped */
+        if (emcmotStatus->probeVal ^ probe_whenclears) {
+            /* remember the current position */
+            emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
+            /* stop! */
+            emcmotStatus->probing = 0;
+            emcmotStatus->probeTripped = 1;
+            tpAbort(&emcmotDebug->tp);
+        /* check if the probe hasn't tripped, but the move finished */
+        } else if (GET_MOTION_INPOS_FLAG() && tpQueueDepth(&emcmotDebug->tp) == 0) {
+            /* we are already stopped, but we need to remember the current
+               position here, because it will still be queried */
+            emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
+            emcmotStatus->probing = 0;
+            if (probe_suppress) {
+                emcmotStatus->probeTripped = 0;
+            } else if(probe_whenclears) {
+                reportError(_("G38.4 move finished without breaking contact."));
+                SET_MOTION_ERROR_FLAG(1);
+            } else {
+                reportError(_("G38.2 move finished without making contact."));
+                SET_MOTION_ERROR_FLAG(1);
+            }
+        }
+    } else if (!old_probeVal && emcmotStatus->probeVal) {
+        // not probing, but we have a rising edge on the probe.
+        // this could be expensive if we don't stop.
+        int i;
+        int aborted = 0;
+
+        if(!GET_MOTION_INPOS_FLAG() && tpQueueDepth(&emcmotDebug->tp) &&
+           tpGetExecId(&emcmotDebug->tp) <= 0) {
+            // running an MDI command
+            tpAbort(&emcmotDebug->tp);
+            reportError(_("Probe tripped during non-probe MDI command."));
+	    SET_MOTION_ERROR_FLAG(1);
+        }
+
+        for(i=0; i<num_joints; i++) {
+            emcmot_joint_t *joint = &joints[i];
+
+            if (!GET_JOINT_ACTIVE_FLAG(joint)) {
+                /* if joint is not active, skip it */
+                continue;
+            }
+
+            // abort any homing
+            if(GET_JOINT_HOMING_FLAG(joint)) {
+                joint->home_state = HOME_ABORT;
+                aborted=1;
+            }
+
+            // abort any jogs
+            if(joint->free_tp.enable == 1) {
+                joint->free_tp.enable = 0;
+                // since homing uses free_tp, this protection of aborted
+                // is needed so the user gets the correct error.
+                if(!aborted) aborted=2;
+            }
+        }
+
+        if(aborted == 1) {
+            reportError(_("Probe tripped during homing motion."));
+        }
+
+        if(aborted == 2) {
+            reportError(_("Probe tripped during a jog."));
+        }
+    }
+    old_probeVal = emcmotStatus->probeVal;
 }
 
 static void check_for_faults(void)
