@@ -937,7 +937,7 @@ check_stuff ( "before command_handler()" );
 	    break;
 
 	case EMCMOT_SET_TERM_COND:
-	    /* sets termination condition for motion emcmotDebug->tp */
+	    /* sets termination condition for motion emcmotDebug->coord_tp */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_TERM_COND");
 	    tpSetTermCond(emcmotQueue, emcmotCommand->termCond, emcmotCommand->tolerance);
 	    break;
@@ -947,8 +947,8 @@ check_stuff ( "before command_handler()" );
             break;
 
 	case EMCMOT_SET_LINE:
-	    /* emcmotDebug->tp up a linear move */
-	    /* requires coordinated mode, enable off, not on limits */
+	    /* emcmotDebug->coord_tp up a linear move */
+	    /* requires motion enabled, coordinated mode, not on limits */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_LINE");
 	    if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
 		reportError(_("need to be enabled, in coord mode for linear move"));
@@ -983,7 +983,6 @@ check_stuff ( "before command_handler()" );
 		reportError(_("can't add linear move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    } else {
@@ -996,7 +995,7 @@ check_stuff ( "before command_handler()" );
 	    break;
 
 	case EMCMOT_SET_CIRCLE:
-	    /* emcmotDebug->tp up a circular move */
+	    /* emcmotDebug->coord_tp up a circular move */
 	    /* requires coordinated mode, enable on, not on limits */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_CIRCLE");
 	    if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
@@ -1007,14 +1006,12 @@ check_stuff ( "before command_handler()" );
 	    } else if (!inRange(emcmotCommand->pos, emcmotCommand->id, "Circular")) {
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    } else if (!limits_ok()) {
 		reportError(_("can't do circular move with limits exceeded"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    }
@@ -1024,7 +1021,6 @@ check_stuff ( "before command_handler()" );
             }
 	    /* append it to the emcmotDebug->queue */
 	    tpSetId(emcmotQueue, emcmotCommand->id);
-
 	    if (-1 ==
 		tpAddCircle(emcmotQueue, emcmotCommand->pos,
                             emcmotCommand->center, emcmotCommand->normal,
@@ -1034,7 +1030,6 @@ check_stuff ( "before command_handler()" );
 		reportError(_("can't add circular move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    } else {
@@ -1402,7 +1397,7 @@ check_stuff ( "before command_handler()" );
 
 	case EMCMOT_PROBE:
 	    /* most of this is taken from EMCMOT_SET_LINE */
-	    /* emcmotDebug->tp up a linear move */
+	    /* emcmotDebug->coord_tp up a linear move */
 	    /* requires coordinated mode, enable off, not on limits */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "PROBE");
 	    if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
@@ -1444,11 +1439,9 @@ check_stuff ( "before command_handler()" );
 	    /* append it to the emcmotDebug->queue */
 	    tpSetId(emcmotQueue, emcmotCommand->id);
 	    if (-1 == tpAddLine(emcmotQueue, emcmotCommand->pos, emcmotCommand->motion_type, emcmotCommand->vel, emcmotCommand->ini_maxvel, emcmotCommand->acc, emcmotStatus->enables_new, 0, -1)) {
-
 		reportError(_("can't add probe move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    } else {
@@ -1464,7 +1457,7 @@ check_stuff ( "before command_handler()" );
 
 	case EMCMOT_RIGID_TAP:
 	    /* most of this is taken from EMCMOT_SET_LINE */
-	    /* emcmotDebug->tp up a linear move */
+	    /* emcmotDebug->coord_tp up a linear move */
 	    /* requires coordinated mode, enable off, not on limits */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "RIGID_TAP");
 	    if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
@@ -1475,7 +1468,6 @@ check_stuff ( "before command_handler()" );
 	    } else if (!inRange(emcmotCommand->pos, emcmotCommand->id, "Rigid tap")) {
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    } else if (!limits_ok()) {
@@ -1489,12 +1481,10 @@ check_stuff ( "before command_handler()" );
 	    /* append it to the emcmotDebug->queue */
 	    tpSetId(emcmotQueue, emcmotCommand->id);
 	    if (-1 == tpAddRigidTap(emcmotQueue, emcmotCommand->pos, emcmotCommand->vel, emcmotCommand->ini_maxvel, emcmotCommand->acc, emcmotStatus->enables_new)) {
-
                 emcmotStatus->atspeed_next_feed = 0; /* rigid tap always waits for spindle to be at-speed */
 		reportError(_("can't add rigid tap move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
-
 		SET_MOTION_ERROR_FLAG(1);
 		break;
 	    } else {

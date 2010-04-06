@@ -862,9 +862,9 @@ static void process_probe_inputs(void)
             /* stop! */
             emcmotStatus->probing = 0;
             emcmotStatus->probeTripped = 1;
-            tpAbort(&emcmotDebug->tp);
+            tpAbort(&emcmotDebug->coord_tp);
         /* check if the probe hasn't tripped, but the move finished */
-        } else if (GET_MOTION_INPOS_FLAG() && tpQueueDepth(&emcmotDebug->tp) == 0) {
+        } else if (GET_MOTION_INPOS_FLAG() && tpQueueDepth(&emcmotDebug->coord_tp) == 0) {
             /* we are already stopped, but we need to remember the current
                position here, because it will still be queried */
             emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
@@ -885,10 +885,10 @@ static void process_probe_inputs(void)
         int i;
         int aborted = 0;
 
-        if(!GET_MOTION_INPOS_FLAG() && tpQueueDepth(&emcmotDebug->tp) &&
-           tpGetExecId(&emcmotDebug->tp) <= 0) {
+        if(!GET_MOTION_INPOS_FLAG() && tpQueueDepth(&emcmotDebug->coord_tp) &&
+           tpGetExecId(&emcmotDebug->coord_tp) <= 0) {
             // running an MDI command
-            tpAbort(&emcmotDebug->tp);
+            tpAbort(&emcmotDebug->coord_tp);
             reportError(_("Probe tripped during non-probe MDI command."));
 	    SET_MOTION_ERROR_FLAG(1);
         }
@@ -1051,7 +1051,6 @@ static void set_operating_mode(void)
 
 	    /* update coordinated emcmotDebug->queue position */
 	    tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd);
-
 	    /* drain the cubics so they'll synch up */
 	    for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
 		/* point to joint data */
@@ -1095,7 +1094,6 @@ static void set_operating_mode(void)
 	    if (GET_MOTION_INPOS_FLAG()) {
 		/* preset traj planner to current position */
 		tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd);
-
 		/* drain the cubics so they'll synch up */
 		for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
 		    /* point to joint data */
@@ -1397,10 +1395,8 @@ static void get_pos_cmds(long period)
 	    /* they're empty, pull next point(s) off Cartesian planner */
 	    /* run coordinated trajectory planning cycle */
 	    tpRunCycle(emcmotQueue, period);
-
 	    /* gt new commanded traj pos */
 	    tpGetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd);
-
 	    /* OUTPUT KINEMATICS - convert to joints in local array */
 	    kinematicsInverse(&emcmotStatus->carte_pos_cmd, positions,
 		&iflags, &fflags);

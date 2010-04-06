@@ -770,7 +770,6 @@ static int init_comm_buffers(void)
 	    "MOTION: failed to create motion emcmotPrimQueue\n");
 	return -1;
     }
-
     // and the alternate queue
     if (-1 == tpCreate(emcmotAltQueue, DEFAULT_ALT_TC_QUEUE_SIZE,
 	    emcmotDebug->altqueueTcSpace)) {
