@@ -23,8 +23,8 @@ XXAPI_COMMON_SRCS := \
 	rtapi/rtapi_common.c \
 	rtapi/rtapi_task.c \
 	rtapi/rtapi_shmem.c \
-	rtapi/rtapi_ring.c \
 	rtapi/rtapi_time.c \
+	rtapi/rtapi_exception.c \
 	rtapi/$(THREADS_SOURCE).c
 XXAPI_COMMON_OBJS := $(patsubst %.c,%.o,$(XXAPI_COMMON_SRCS))
 
@@ -54,7 +54,7 @@ endif
 FLAVOR_ULAPI_SRCS := $(patsubst rtapi/%,rtapi/$(threads)/%,$(ULAPI_SRCS))
 
 $(FLAVOR_ULAPI_SRCS) : rtapi/$(threads)/%: rtapi/%
-	ln -s . rtapi/$(threads)
+	test -L rtapi/$(threads) || ln -sf . rtapi/$(threads)
 
 # resolved at loadtime
 $(call TOOBJSDEPS, $(FLAVOR_ULAPI_SRCS)): EXTRAFLAGS += \
@@ -76,14 +76,42 @@ $(ULAPISO): ../lib/liblinuxcnchal.so ../lib/liblinuxcncshm.so \
 USERSRCS += $(FLAVOR_ULAPI_SRCS)
 TARGETS += $(ULAPISO)
 
+##################################################################
+#                 The ulapi autoload library
+#
+# provides ULAPI with loading-on-first-reference of RTAPI methods
+##################################################################
+
+ULAPI_AUTOLOAD_SRCS := \
+	rtapi/ulapi_autoload.c \
+	rtapi/rtapi_compat.c \
+	rtapi/rtapi_support.c
+
+USERSRCS += $(ULAPI_AUTOLOAD_SRCS)
+
+ULAPI_AUTOLOAD_LIB := ../lib/liblinuxcnculapi.so
+TARGETS += $(ULAPI_AUTOLOAD_LIB)
+
+$(call TOOBJSDEPS, $(ULAPI_AUTOLOAD_SRCS)): EXTRAFLAGS += -DULAPI -fPIC
+
+$(ULAPI_AUTOLOAD_LIB).0: $(call TOOBJS, $(ULAPI_AUTOLOAD_SRCS)) \
+	../lib/liblinuxcncini.so \
+	../lib/liblinuxcncshm.so
+	$(ECHO) Creating shared library $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CC) $(LDFLAGS) -Wl,-rpath,$(EMC2_RTLIB_DIR) \
+	    -Wl,-soname,$(notdir $@) -shared \
+	    -o $@ $^ -ldl $(RT_LDFLAGS)
+
 
 ##################################################################
 #                 USERLAND THREAD STYLES
 ##################################################################
 ifeq ($(BUILD_SYS),user-dso)
 # Build only during real module build, i.e. when 'make modules
-# threads=<flavor> KERNELDIR=userland_build'
-ifeq ($(BUILD_ALL_FLAVORS)$(BUILD_THREAD_MODULES),)
+# threads=<flavor>'
+ifeq ($(BUILD_THREAD_MODULES),yes)
 
 # the rtapi.so module
 obj-$(CONFIG_RTAPI) += rtapi.o
@@ -111,7 +139,7 @@ RTAPI_APP_SRCS := \
 	rtapi/$(threads)/rtapi_compat.c
 
 $(RTAPI_APP_SRCS): rtapi/$(threads)/%: rtapi/%
-	ln -s . rtapi/$(threads)
+	ln -sf . rtapi/$(threads)
 
 USERSRCS += $(RTAPI_APP_SRCS)
 
@@ -139,7 +167,9 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	    -o $@ $^ $(RT_LDFLAGS) $(LIBUDEV_LIBS) -ldl
 
 modules:  ../libexec/rtapi_app_$(threads)
-endif # BUILD_SYS == user-dso
+endif # BUILD_THREAD_MODULES
+
+
 ##################################################################
 #                     KERNEL THREAD STYLES
 ##################################################################

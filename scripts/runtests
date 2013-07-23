@@ -37,14 +37,11 @@ run_shell_script () {
 
     pushd $testdir > /dev/null
     if [ $VERBOSE -eq 1 ]; then
-        ( realtime start;
-	    bash -x $testname | tee result;
-	    realtime stop ) 3>&1 1>&2 2>&3 | tee stderr
+        (bash -x $testname | tee result) 3>&1 1>&2 2>&3 | tee stderr
     else
-        (realtime start;bash -x $testname;realtime stop) > result 2> stderr
+        bash -x $testname > result 2> stderr
     fi
     exitcode=$?
-
     popd > /dev/null
     return $exitcode
 }
@@ -102,6 +99,7 @@ run_tests () {
 	    fi
 	fi
 	NUM=$(($NUM+1))
+	logger -p local1.info "Running test: $testdir"
 	echo "Running test: $testdir" 1>&2
         case $testname in
         *.hal) run_without_overruns $testname ;;

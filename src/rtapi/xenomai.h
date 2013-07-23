@@ -4,11 +4,7 @@
 *               the Xenomai user land thread system
 ********************************************************************/
 
-/* rtapi_common.c */
-// Init rt_stats for RTAPI
-#ifdef RTAPI
-#define HAVE_INIT_RTAPI_DATA_HOOK
-#endif
+#define FLAVOR_FLAGS XENOMAI_FLAVOR_FLAGS // see rtapi_compat.h
 
 /* rtapi_proc */
 #ifdef RTAPI
@@ -27,7 +23,7 @@
 #define HAVE_RTAPI_WAIT_HOOK
 #define HAVE_RTAPI_TASK_RESUME_HOOK
 #define HAVE_RTAPI_TASK_SELF_HOOK
-
+#define HAVE_RTAPI_TASK_UPDATE_STATS_HOOK
 
 /* rtapi_time.c */
 #define RTAPI_TIME_NO_CLOCK_MONOTONIC  // Xenomai has its own time features
@@ -36,7 +32,7 @@
 
 /* rtapi_main.c */
 #define HAVE_RTAPI_MODULE_INIT_HOOK   // arm SGXCPU handler
+#define HAVE_RTAPI_MODULE_EXIT_HOOK   // disarm SGXCPU handler
 
 /* misc */
-#define HAVE_RTAPI_BACKTRACE_HOOK
 

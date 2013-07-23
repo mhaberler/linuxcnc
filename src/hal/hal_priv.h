@@ -189,20 +189,6 @@ typedef struct {
 // indexed by rtapi_instance of mapped namespace
 extern hal_namespace_map_t hal_mappings[]; 
 
-// namespace operations (move to hal.h XXX)
-// these operations affect the following globally visible 
-// fields in the local hal_data segment:
-//
-// the namespaces map adds/removes a new entry
-//
-// in the hal_data segment of the namespace being referred to,
-// hal_namespace_attach() increases the refcount
-// hal_namespace_attach() decreases it.
-
-extern int halpr_namespace_attach(int instance);
-
-extern int hal_namespace_detach(int instance);
-
 static inline char *my_shm_base(void)
 {
     return hal_mappings[rtapi_instance].shmbase;
@@ -378,8 +364,6 @@ typedef struct {
     void (*funct) (void *, long);	/* ptr to function code */
     int funct_ptr;		/* pointer to function */
 } hal_funct_entry_t;
-
-#define HAL_STACKSIZE 32768	/* realtime task stacksize */
 
 typedef struct {
     int next_ptr;		/* next thread in linked list */

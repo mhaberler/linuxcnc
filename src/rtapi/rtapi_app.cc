@@ -47,7 +47,6 @@
 #include <limits.h>
 
 #include <sys/mman.h>
-#include <execinfo.h>
 #include <sys/prctl.h>
 #include <grp.h>
 
@@ -58,8 +57,6 @@
 #include "rtapi/shmdrv/shmdrv.h"
 
 #define XENO_GID_SYSFS "/sys/module/xeno_nucleus/parameters/xenomai_gid"
-
-#define BACKTRACE_SIZE 1000
 
 using namespace std;
 
@@ -456,21 +453,43 @@ static int attach_global_segment()
     int retval = 0;
     int globalkey = OS_KEY(GLOBAL_KEY, instance_id);
     int size = 0;
+    int tries = 10; // 5 sec deadline for msgd/globaldata to come up
 
     shm_common_init();
+    do {
+	retval = shm_common_new(globalkey, &size,
+				instance_id, (void **) &global_data, 0);
+	if (retval < 0) {
+	    tries--;
+	    if (tries == 0) {
+		syslog(LOG_ERR,
+		       "rt:%d ERROR: cannot attach global segment key=0x%x %s\n",
+		       instance_id, globalkey, strerror(-retval));
+		return retval;
+	    }
+	    struct timespec ts = {0, 500 * 1000 * 1000}; //ms
+	    nanosleep(&ts, NULL);
+	}
+    } while (retval < 0);
 
-    retval = shm_common_new(globalkey, &size,
-			    instance_id, (void **) &global_data, 0);
-    if (retval < 0) {
-	syslog(LOG_ERR,
-	       "rt:%d ERROR: cannot attach global segment key=0x%x %s\n",
-	       instance_id, globalkey, strerror(-retval));
-    }
     if (size != sizeof(global_data_t)) {
 	syslog(LOG_ERR,
 	       "rt:%d global segment size mismatch: expect %zu got %d\n", 
 	       instance_id, sizeof(global_data_t), size);
 	return -EINVAL;
+    }
+
+    tries = 10;
+    while  (global_data->magic !=  GLOBAL_READY) {
+	tries--;
+	if (tries == 0) {
+	    syslog(LOG_ERR,
+		   "rt:%d ERROR: global segment magic not changing to ready: magic=0x%x\n",
+		   instance_id, global_data->magic);
+	    return -EINVAL;
+	}
+	struct timespec ts = {0, 500 * 1000 * 1000}; //ms
+	nanosleep(&ts, NULL);
     }
     return retval;
 }
@@ -488,7 +507,7 @@ static void write_exitcode(int fd, int value)
 	return;
 
     if (write(fd, &value, sizeof(value)) != sizeof(value)) {
-	fprintf(stderr, "rtapi_app:%d write to status pipe failed: %s\n",
+	syslog(LOG_ERR, "rtapi_app:%d write to status pipe failed: %s\n",
 		instance_id, strerror(errno));
     }
     close(fd);
@@ -552,13 +571,13 @@ static int master(size_t  argc, char **argv, int fd, vector<string> args) {
     // set this thread's name so it can be identified in ps/top as
     // rtapi:<instance>
     if (prctl(PR_SET_NAME, argv[0]) < 0) {
-	fprintf(stderr,	"rtapi_app: prctl(PR_SETNAME,%s) failed: %s\n",
+	syslog(LOG_ERR,	"rtapi_app: prctl(PR_SETNAME,%s) failed: %s\n",
 		argv[0], strerror(errno));
     }
 
     // attach global segment which rtapi_msgd already prepared
     if ((retval = attach_global_segment()) != 0) {
-	fprintf(stderr, "%s: FATAL - failed to attach to global segment\n", 
+	syslog(LOG_ERR, "%s: FATAL - failed to attach to global segment\n",
 		argv[0]);
 	write_exitcode(statuspipe[1], 1);
 	exit(retval);
@@ -567,10 +586,10 @@ static int master(size_t  argc, char **argv, int fd, vector<string> args) {
     // make sure rtapi_msgd's pid is valid and msgd is running, 
     // in case we caught a leftover shmseg
     // otherwise log messages would vanish
-    // kinda hard to diagnose errors that way
+
     if ((global_data->rtapi_msgd_pid == 0) ||
 	kill(global_data->rtapi_msgd_pid, 0) != 0) {
-	fprintf(stderr,"%s: rtapi_msgd pid invalid: %d, exiting\n",
+	syslog(LOG_ERR,"%s: rtapi_msgd pid invalid: %d, exiting\n",
 		argv[0], global_data->rtapi_msgd_pid);
 	write_exitcode(statuspipe[1], 2);
 	exit(EXIT_FAILURE);
@@ -735,44 +754,42 @@ static int configure_memory(void) {
 	return 0;
 }
 
-// this is called on signals handled by rtapi_app only (SEGV SIGILL SIGFPE)
-// SIGXCPU (xenomai) is handled in the Xenomai rtapi
-extern "C" void 
-backtrace_handler(int sig, siginfo_t *si, void *uctx)
+// it might make sense to call the RTAPI exception handler with a RTAPI_SHUTDOWN
+// type to give RTAPI a chance to exit (and maybe estop)
+extern "C" void
+signal_handler(int sig, siginfo_t *si, void *uctx)
 {
-    void *buffer[BACKTRACE_SIZE];
-    int j, nptrs;
-    char **strings;
-
-    rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app:%d: signal %d - '%s' received\n",
-		    instance_id, sig, strsignal(sig));
-
-    nptrs = backtrace(buffer, BACKTRACE_SIZE);
-
-    strings = backtrace_symbols(buffer, nptrs);
-    if (strings == NULL) {
-        rtapi_print_msg(RTAPI_MSG_ERR,"backtrace_symbols(): %s",
-		  strerror(errno));
-    } else {
-	for (j = 0; j < nptrs; j++) {
-	    char *s =  strings[j];
-	    if (s && strlen(s)) 
-		rtapi_print_msg(RTAPI_MSG_ERR,"%s", s);
-	}
-	free(strings);
-    }
-    rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app:%d exiting%s", 
-	      instance_id,
-	      sig == SIGSEGV ? ", core dumped" : "");
-
     if (global_data)
 	global_data->rtapi_app_pid = 0;
 
-    if (sig == SIGSEGV) {
-	sleep(1); // let syslog drain or we might loose
-      	abort();  // some important stuff
+    switch (sig) {
+    case SIGXCPU:
+	// should not happen - must be handled in RTAPI if enabled
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"rtapi_app:%d: BUG: SIGXCPU received - exiting\n",
+			instance_id);
+	exit_actions();
+	exit(0);
+	break;
+
+    case SIGTERM:
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"rtapi_app:%d: SIGTERM - shutting down\n",
+			instance_id);
+	exit_actions();
+	exit(0);
+	break;
+
+    default: // pretty bad
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"rtapi_app:%d: caught signal %d - dumping core\n",
+			instance_id, sig);
+	sleep(1); // let syslog drain
+	signal(SIGABRT, SIG_DFL);
+	abort();
+	break;
     }
-    exit(sig);
+    exit(1);
 }
 
 static void
@@ -851,12 +868,14 @@ static int harden_rt()
     // prevent stopping of RT threads by ^Z
     sigaction(SIGTSTP, &sig_act, (struct sigaction *) NULL); 
 
-    sig_act.sa_sigaction = backtrace_handler;
+    sig_act.sa_sigaction = signal_handler;
     sig_act.sa_flags   = SA_SIGINFO;
 
     sigaction(SIGSEGV, &sig_act, (struct sigaction *) NULL);
     sigaction(SIGILL,  &sig_act, (struct sigaction *) NULL);
     sigaction(SIGFPE,  &sig_act, (struct sigaction *) NULL);
+    sigaction(SIGTERM, &sig_act, (struct sigaction *) NULL);
+    sigaction(SIGINT, &sig_act, (struct sigaction *) NULL);
 
     if (flavor->id == RTAPI_XENOMAI_ID) {
 	int numgroups;

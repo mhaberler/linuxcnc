@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "rtapi.h"
+#include "rtapi_compat.h"
 #include "inifile.h"           /* iniFind() */
 
 #include <stdio.h>
@@ -63,67 +64,59 @@ int kernel_is_rtpreempt()
 
 
 flavor_t flavors[] = {
-    // #if BUILD_POSIX
-
-    { .name = "posix",
+    { .name = RTAPI_POSIX_NAME,
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
       .id = RTAPI_POSIX_ID,
-      .flags = 0
+      .flags = POSIX_FLAVOR_FLAGS // FLAVOR_USABLE
     },
-    { .name = "sim", // alias - old habíts die hard
+    { .name = "sim", // alias for above- old habíts die hard
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
       .id = RTAPI_POSIX_ID,
-      .flags = 0
+      .flags = POSIX_FLAVOR_FLAGS
     },
-    // #endif
-
-    // #if BUILD_RT_PREEMPT
-    { .name = "rt-preempt",
+    { .name = RTAPI_RT_PREEMPT_NAME,
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
       .id = RTAPI_RT_PREEMPT_ID,
-      .flags = FLAVOR_DOES_IO,
+      .flags = RTPREEMPT_FLAVOR_FLAGS
     },
-    // #endif
-    // #if BUILD_XEMNOMAI
-
-    { .name = "xenomai",
+     { .name = RTAPI_XENOMAI_NAME,
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
       .id = RTAPI_XENOMAI_ID,
-      .flags = FLAVOR_DOES_IO,
+      .flags = XENOMAI_FLAVOR_FLAGS
     },
-    // #endif
-
-    // #if BUILD_RTAI_KERNEL
-
-    { .name = "rtai-kernel",
+    { .name = RTAPI_RTAI_KERNEL_NAME,
       .mod_ext = ".ko",
       .so_ext = ".so",
       .build_sys = "kbuild",
       .id = RTAPI_RTAI_KERNEL_ID,
-      .flags = FLAVOR_DOES_IO|FLAVOR_KERNEL_BUILD,
+      .flags = RTAI_KERNEL_FLAVOR_FLAGS
     },
-    // #endif
 
-    // #if BUILD_XENOMAI_KERNEL
-
-    { .name = "xenomai-kernel",
+    { .name = RTAPI_XENOMAI_KERNEL_NAME,
       .mod_ext = ".ko",
       .so_ext = ".so",
       .build_sys = "kbuild",
       .id = RTAPI_XENOMAI_KERNEL_ID,
-      .flags = FLAVOR_DOES_IO|FLAVOR_KERNEL_BUILD,
+      .flags =  XENOMAI_KERNEL_FLAVOR_FLAGS
     },
-    // #endif
 
-    { .name = NULL, // sentinel
+    { .name = RTAPI_NOTLOADED_NAME,
+      .mod_ext = "",
+      .so_ext = "",
+      .build_sys = "n/a",
+      .id = RTAPI_NOTLOADED_ID,
+      .flags = 0
+    },
+
+    { .name = NULL, // list sentinel
       .id = -1,
       .flags = 0
     }
@@ -244,6 +237,8 @@ int module_path(char *result, const char *basename)
     /* Find a kernel module's path */
     struct stat sb;
     char buf[PATH_MAX];
+    char rtlib_result[PATH_MAX];
+    int has_rtdir;
     struct utsname uts;
 	
     // Initialize kmodule_dir, only once
@@ -256,8 +251,15 @@ int module_path(char *result, const char *basename)
 	    if (get_rtapi_config(buf,"RTLIB_DIR",PATH_MAX) != 0)
 		return -ENOENT;
 
-	    snprintf(kmodule_dir,PATH_MAX,"%s/%s/%s",
-		     buf, default_flavor()->name, uts.release);
+	    if (strcmp(default_flavor()->build_sys,"user-dso") == 0) {
+		// point user threads to a common directory
+		snprintf(kmodule_dir,PATH_MAX,"%s/userland/%s",
+			 buf, uts.release);
+	    } else {
+		// kthreads each have their own directory
+		snprintf(kmodule_dir,PATH_MAX,"%s/%s/%s",
+			 buf, default_flavor()->name, uts.release);
+	    }
 	} else {
 	    // Complete RTLIB_DIR should be /lib/modules/<uname -r>/linuxcnc
 	    snprintf(kmodule_dir, PATH_MAX,
@@ -266,22 +268,27 @@ int module_path(char *result, const char *basename)
     }
 
     // Look for module in kmodule_dir/RTLIB_DIR
-    snprintf(result, PATH_MAX, "%s/%s%s",
-	     kmodule_dir,
-	     basename,
-	     default_flavor()->mod_ext);
+    snprintf(result, PATH_MAX, "%s/%s.ko", kmodule_dir, basename);
     if ((stat(result, &sb) == 0)  && (S_ISREG(sb.st_mode)))
 	return 0;
+
+    // Not found; save result for possible later diagnostic msg
+    strcpy(rtlib_result,result);
 
     // Check RTDIR as well (RTAI)
-    if (get_rtapi_config(buf, "RTDIR", PATH_MAX) != 0 || buf[0] == 0)
-	return -ENOENT;  // not defined or empty
-    snprintf(result, PATH_MAX, "%s/%s%s",
-	     buf, basename, default_flavor()->mod_ext);
-    if ((stat(result, &sb) == 0)  && (S_ISREG(sb.st_mode)))
-	return 0;
+    has_rtdir = (get_rtapi_config(buf, "RTDIR", PATH_MAX) == 0 && buf[0] != 0);
+    if (has_rtdir) {
+	snprintf(result, PATH_MAX, "%s/%s.ko", buf, basename);
+	if ((stat(result, &sb) == 0)  && (S_ISREG(sb.st_mode)))
+	    return 0;
+    }
 
     // Module not found
+    fprintf(stderr, "module '%s.ko' not found in directory\n\t%s\n",
+	    basename, kmodule_dir);
+    if (has_rtdir)
+	fprintf(stderr, "\tor directory %s\n", buf);
+
     return -ENOENT;
 }
 

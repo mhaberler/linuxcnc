@@ -40,6 +40,8 @@
     HAL/RTAPI instances within a single machine.
 */
 #include "rtapi_shmkeys.h"
+#include "rtapi_exception.h"  // thread status descriptors
+#include "ring.h"             // ring buffer ops & structures
 
 
 #define MESSAGE_RING_SIZE 32768
@@ -47,7 +49,7 @@
 
 // the universally shared global structure
 typedef struct {
-    int magic;
+    unsigned magic;
     int layout_version; 
     unsigned long mutex;
 
@@ -62,22 +64,30 @@ typedef struct {
     int user_msg_level;            // message level for non-RT 
     int next_module_id;            // for userland threads module id's
     int hal_size;                  // make HAL data segment size configurable
+    int hal_thread_stack_size;     // stack size passed to rtapi_task_new()
+                                   // in hal_create_thread()
     int rtapi_app_pid;
     int rtapi_msgd_pid;
 
-    // stats
+    // unified thread status monitoring
+    rtapi_threadstatus_t thread_status[RTAPI_MAX_TASKS + 1];
+
+    // stats for rtapi_messages
     int error_ring_full;
     int error_ring_locked;
 
     ringheader_t rtapi_messages;   // ringbuffer for RTAPI messages
     char buf[SIZE_ALIGN(MESSAGE_RING_SIZE)];
     ringtrailer_t rtapi_messages_trailer;
-    // caveat - if rtapi_messages had a scratchpad, it would go here:
-    // char buf[SIZE_ALIGN(MESSAGE_RING_SCRATCHPAD_SIZE)];
 } global_data_t;
 
 #define GLOBAL_LAYOUT_VERSION 42   // bump on layout changes of global_data_t
-#define GLOBAL_MAGIC 0xdeadbeef
+
+// use global_data->magic to reflect rtapi_msgd state
+#define GLOBAL_INITIALIZING  0x0eadbeefU
+#define GLOBAL_READY         0x0eadbeadU
+#define GLOBAL_EXITED        0x0eadfeefU // trap attach to leftover shm segments
+
 #define GLOBAL_DATA_PERMISSIONS	0666
 
 extern global_data_t *global_data;

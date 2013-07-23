@@ -113,7 +113,6 @@ typedef __s64		s64;
 #endif
 
 #include <rtapi_errno.h>
-#include <rtapi_ring.h>
 #include <rtapi_global.h>
 #include <rtapi_exception.h>
 
@@ -197,10 +196,10 @@ extern int kernel_is_rtpreempt();
 
 #endif // ULAPI
 
-enum flavor_flags {
-    FLAVOR_DOES_IO=1,		// whether iopl() needs to be called
-    FLAVOR_KERNEL_BUILD=2,	// set when defined(BUILD_SYS_KBUILD)
-};
+// this applies only to ULAPI in hal_lib.c atm:
+#define  FLAVOR_DOES_IO        RTAPI_BIT(0) // userland: whether iopl() needs to be called
+#define  FLAVOR_KERNEL_BUILD   RTAPI_BIT(1) // set when defined(BUILD_SYS_KBUILD)
+#define  FLAVOR_RTAPI_DATA_IN_SHM   RTAPI_BIT(2) // this flavor keeps rtapi_data in a shm segment
 
 typedef struct {
     const char *name;
@@ -209,7 +208,6 @@ typedef struct {
     const char *build_sys;
     int id;
     unsigned long flags;
-
 } flavor_t, *flavor_ptr;
 
 extern flavor_t flavors[];
@@ -721,15 +719,18 @@ typedef int (*rtapi_task_self_t)(void);
     rtapi_switch->rtapi_task_self()
 extern int _rtapi_task_self(void);
 
-#endif /* RTAPI */
+/** 'rtapi_task_update_stats()' will update the thread statistics
+    in the global_data_t structure.
 
-/** 'rtapi_backtrace()' writes a stack trace to the log.
- available in all flavors and ULAPI/RTAPI
+    Call only from a realtime task.
+    returns a negative value on error, or the thread's task id.
 */
-typedef void (*rtapi_backtrace_t)(int);
-#define rtapi_backtrace(msglevel)			\
-    rtapi_switch->rtapi_backtrace(msglevel)
-extern void _rtapi_backtrace(int msglevel);
+typedef int (*rtapi_task_update_stats_t)(void);
+#define rtapi_task_update_stats()			\
+    rtapi_switch->rtapi_task_update_stats()
+extern int _rtapi_task_update_stats(void);
+
+#endif /* RTAPI */
 
 /***********************************************************************
 *                  SHARED MEMORY RELATED FUNCTIONS                     *
@@ -796,27 +797,6 @@ typedef int (*rtapi_shmem_getptr_inst_t)(int, int, void **);
 #define rtapi_shmem_getptr_inst(shmem_id, instance, ptr)	\
     rtapi_switch->rtapi_shmem_getptr_inst(shmem_id, instance, ptr)
 extern int _rtapi_shmem_getptr_inst(int shmem_id, int instance, void **ptr);
-
-/***********************************************************************
-*                        Ringbuffer related functions                  *
-************************************************************************/
-
-typedef int (*rtapi_ring_new_t) (size_t, size_t, int, int);
-#define rtapi_ring_new(size, sp_size, module_id, flags) \
-    rtapi_switch->rtapi_ring_new(size, sp_size, module_id, flags)
-extern int _rtapi_ring_new(size_t size, size_t sp_size, int module_id, int flags);
-
-typedef int (*rtapi_ring_attach_t) (int,ringbuffer_t *, int);
-#define rtapi_ring_attach(handle, ptr, module_id)			\
-    rtapi_switch->rtapi_ring_attach(handle, ptr, module_id)
-extern int _rtapi_ring_attach(int handle, ringbuffer_t *ptr, int module_id);
-
-typedef int (*rtapi_ring_detach_t) (int,int);
-#define rtapi_ring_detach(handle, module_id) \
-    rtapi_switch->rtapi_ring_detach(handle, module_id)
-extern int _rtapi_ring_detach(int handle, int module_id);
-
-// rtapi_ring_refcount(ringheader_t *ptr) defined in rtapi_ring.h
 
 
 /***********************************************************************
@@ -898,6 +878,8 @@ typedef struct {
     const char *git_version;
     const char *thread_flavor_name; // for messsages
     int  thread_flavor_id;
+    unsigned long thread_flavor_flags;
+
     // init & exit functions
     rtapi_init_t rtapi_init;
     rtapi_exit_t rtapi_exit;
@@ -945,20 +927,16 @@ typedef struct {
     rtapi_shmem_getptr_t rtapi_shmem_getptr;
     rtapi_shmem_getptr_inst_t rtapi_shmem_getptr_inst;
 
-    // ringbuffer functions
-    // these will be removed once the new hal_lib.c ring
-    // support code is in place, since rings are just
-    // glorified HAL shared memory segments and do not
-    // warrant an own rtapi data object per se
-    rtapi_ring_new_t rtapi_ring_new;
-    rtapi_ring_attach_t rtapi_ring_attach;
-    rtapi_ring_detach_t rtapi_ring_detach;
 #ifdef RTAPI
     rtapi_set_exception_t rtapi_set_exception;
 #else
     rtapi_dummy_t rtapi_set_exception;
 #endif
-    rtapi_backtrace_t rtapi_backtrace;
+#ifdef RTAPI
+    rtapi_task_update_stats_t rtapi_task_update_stats;
+#else
+    rtapi_dummy_t rtapi_task_update_stats;
+#endif
 
 } rtapi_switch_t;
 

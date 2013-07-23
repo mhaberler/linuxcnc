@@ -2,10 +2,7 @@
 #include "config.h"
 #include "rtapi.h"
 #include "rtapi_common.h"
-
-#ifdef BUILD_SYS_USER_DSO
-#include <execinfo.h>           /* backtrace(), backtrace_symbols() */
-#endif
+#include "rtapi_compat.h"
 
 #ifndef MODULE
 #include <stdlib.h>		/* strtol() */
@@ -13,7 +10,6 @@
 
 #if defined(BUILD_SYS_KBUILD) && defined(ULAPI)
 #include <stdio.h>		/* putchar */
-#include <execinfo.h>           /* backtrace(), backtrace_symbols() */
 #endif
 
 
@@ -35,23 +31,17 @@ rtapi_data_t *rtapi_data = &local_rtapi_data;
 task_data *task_array =  local_rtapi_data.task_array;
 shmem_data *shmem_array = local_rtapi_data.shmem_array;
 module_data *module_array = local_rtapi_data.module_array;
-ring_data *ring_array = local_rtapi_data.ring_array;
 #else
 rtapi_data_t *rtapi_data = NULL;
 task_data *task_array = NULL;
 shmem_data *shmem_array = NULL;
 module_data *module_array = NULL;
-ring_data *ring_array = NULL;
 #endif
 
-// in the RTAPI scenario,  
-// global_data is exported by instance.ko and referenced
-// by rtapi.ko and hal_lib.ko
-
-// in ULAPI, we have only hal_lib which calls 'down'
-// onto ulapi.so to init, so in this case global_data
-// is exported by hal_lib and referenced by ulapi.so
-
+// RTAPI:
+// global_data is exported by rtapi_module.c (kthreads)
+// or rtapi_main.c (uthreads)
+// ULAPI: exported in ulapi_autoload.c
 extern global_data_t *global_data;
 
 /* 
@@ -74,6 +64,8 @@ static rtapi_switch_t rtapi_switch_struct = {
     .git_version = GIT_VERSION,
     .thread_flavor_name = THREAD_FLAVOR_NAME,
     .thread_flavor_id = THREAD_FLAVOR_ID,
+    .thread_flavor_flags = FLAVOR_FLAGS,
+
     // init & exit functions
     .rtapi_init = &_rtapi_init,
     .rtapi_exit = &_rtapi_exit,
@@ -124,18 +116,16 @@ static rtapi_switch_t rtapi_switch_struct = {
     .rtapi_shmem_getptr = &_rtapi_shmem_getptr,
     .rtapi_shmem_getptr_inst = &_rtapi_shmem_getptr_inst,
 
-    // ringbuffer functions
-    .rtapi_ring_new = &_rtapi_ring_new,
-    .rtapi_ring_attach = &_rtapi_ring_attach,
-    .rtapi_ring_detach = &_rtapi_ring_detach,
-
 #ifdef RTAPI
     .rtapi_set_exception = &_rtapi_set_exception,
 #else
     .rtapi_set_exception = &_rtapi_dummy,
 #endif
-    .rtapi_backtrace = &_rtapi_backtrace,
-
+#ifdef RTAPI
+    .rtapi_task_update_stats = &_rtapi_task_update_stats,
+#else
+    .rtapi_task_update_stats = &_rtapi_dummy,
+#endif
 };
 
 // any API, any style:
@@ -175,9 +165,6 @@ extern global_data_t *global_data;
 
 
 /* global init code */
-#ifdef HAVE_INIT_RTAPI_DATA_HOOK  // declare a prototype
-void init_rtapi_data_hook(rtapi_data_t * data);
-#endif
 
 void init_rtapi_data(rtapi_data_t * data)
 {
@@ -224,88 +211,69 @@ void init_rtapi_data(rtapi_data_t * data)
 	    data->shmem_array[n].bitmap[m] = 0;
 	}
     }
-    for (n = 0; n <= RTAPI_MAX_RINGS; n++) {
-	data->ring_array[n].magic = 0;
-	data->ring_array[n].key = 0;
-	data->ring_array[n].owner = 0;
-    }
-#ifdef HAVE_INIT_RTAPI_DATA_HOOK
-    init_rtapi_data_hook(data);
-#endif
 
     /* done, release the mutex */
     rtapi_mutex_give(&(data->mutex));
     return;
 }
-
 /***********************************************************************
-*                           RT scheduling exception handling           *
+*                           RT Thread statistics collection            *
+*
+* Thread statistics are recorded in the global_data_t thread_status.
+* array. Values therein are updated when:
+*
+* - an exception happens, and it is safe to do so
+* - by an explicit call to rtapi_task_update_stats() from an RT thread
+*
+* This avoids the overhead of permanently updating thread status, while
+* giving the user the option to track thread status from a HAL component
+* thread function if so desired.
+*
+* Updating thread status is necessarily a flavor-dependent
+* operation and hence goes through a hook.
+*
+* Inspecting thread status (e.g. in halcmd) needs to evaluate
+* the thread status information based on the current flavor.
 ************************************************************************/
 
-#define MAX_RT_ERRORS 10
-
-// this default handler just writes to the log
-// for a more intelligent way to handle RT faults, see
-// hal/components/rtmon.comp which uses rtapi_set_exception(handler)
-// to override this default handler during module lifetime
-
-int rtapi_default_rt_exception_handler(int cause, int param, const char *msg)
+#ifdef RTAPI
+int _rtapi_task_update_stats(void)
 {
-    static int error_printed = 0;
-    int level = (error_printed == 0) ? RTAPI_MSG_ERR : RTAPI_MSG_WARN;
+#ifdef HAVE_RTAPI_TASK_UPDATE_STATS_HOOK
+    extern int _rtapi_task_update_stats_hook();
 
-    // apply output policy in one place only.
-    switch (cause) {
-
-    case RTAI_RTE_TMROVRN:
-    case RTAI_RTE_UNBLKD:
-    case RTAI_RTE_UNCLASSIFIED:
-    case XK_ETIMEDOUT:
-    case XU_ETIMEDOUT:
-    case RTP_DEADLINE_MISSED:
-
-	if (error_printed < MAX_RT_ERRORS)
-	    rtapi_print_msg(level, "RTAPI:%d %d:%d %s", 
-			    rtapi_instance, cause, param, msg);
-	error_printed++;
-	if (error_printed == MAX_RT_ERRORS)
-	    rtapi_print_msg(RTAPI_MSG_WARN,
-			    "RTAPI: (further messages will be suppressed)\n");
-	break;
-
-    case RTAI_TRAP:
-    case XK_TRAP:
-	rtapi_print_msg(RTAPI_MSG_ERR, "RTAPI:%d %d:%d %s", 
-			rtapi_instance, cause, param, msg);
-	break;
-
-    case XK_EWOULDBLOCK:
-    case XK_EINTR:
-    case XK_EPERM:
-    case XK_OTHER:
-    case XU_SIGXCPU:
-    case XU_EWOULDBLOCK:
-    case XU_EINTR:
-    case XU_EPERM:
-    case XU_OTHER:
-    case RTP_SIGNAL:
-    default:
-	rtapi_print_msg(level, "RTAPI:%d %d:%d %s", 
-		    rtapi_instance, cause, param, msg);
-	error_printed++;
-    }
-    return 0;
+    return _rtapi_task_update_stats_hook();
+#else
+    return -ENOSYS;  // not implemented in this flavor
+#endif
 }
+#endif
+/***********************************************************************
+*                           RT exception handling                      *
+*
+*  all exceptions are funneled through a common exception handler
+*  the default exception handler is defined in rtapi_exception.c but
+*  may be redefined by a user-defined handler.
+*
+*  NB: the exception handler executes in a restricted context like
+*  an in-kernel trap, or a signal handler. Limit processing in the
+*  handler to an absolute minimum, and watch the stack size.
+************************************************************************/
 
-rtapi_exception_handler_t rt_exception_handler = rtapi_default_rt_exception_handler;
+#ifdef RTAPI
+// not available in ULAPI
+extern rtapi_exception_handler_t rt_exception_handler;
 
 // may override default exception handler
+// returns the current handler so it might be restored
+// does NOT go through rtapi_switch (!)
 rtapi_exception_handler_t _rtapi_set_exception(rtapi_exception_handler_t h)
 {
     rtapi_exception_handler_t previous = rt_exception_handler;
     rt_exception_handler = h;
     return previous;
 }
+#endif
 
 // defined and initialized in rtapi_module.c (kthreads), rtapi_main.c (userthreads)
 extern ringbuffer_t rtapi_message_buffer;   // error ring access strcuture
@@ -320,44 +288,6 @@ int  _rtapi_next_module_id(void)
     next_id = global_data->next_module_id++;
     rtapi_mutex_give(&(global_data->mutex));
     return next_id;
-}
-
-
-/* the chance to output threadsystem specific detail to the log */
-#ifdef HAVE_RTAPI_BACKTRACE_HOOK
-int _rtapi_backtrace_hook(int msglevel);
-#endif
-
-#define BACKTRACE_SIZE 1000
-
-void _rtapi_backtrace(int msglevel)
-{
-#ifdef HAVE_RTAPI_BACKTRACE_HOOK
-    _rtapi_backtrace_hook(msglevel);
-#endif
-#if defined(BUILD_SYS_KBUILD) && defined(RTAPI)
-    dump_stack();
-#endif
-#if defined(ULAPI) || (defined(BUILD_SYS_USER_DSO) && defined(RTAPI))
-    void *buffer[BACKTRACE_SIZE];
-    int j, nptrs;
-    char **strings;
-
-    nptrs = backtrace(buffer, BACKTRACE_SIZE);
-
-    strings = backtrace_symbols(buffer, nptrs);
-    if (strings == NULL) {
-        rtapi_print_msg(RTAPI_MSG_ERR,"backtrace_symbols(): %s",
-		  strerror(errno));
-    } else {
-	for (j = 0; j < nptrs; j++) {
-	    char *s =  strings[j];
-	    if (s && strlen(s))
-		rtapi_print_msg(msglevel, "%s", s);
-	}
-	free(strings);
-    }
-#endif
 }
 
 /* simple_strtol defined in

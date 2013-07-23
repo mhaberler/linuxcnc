@@ -203,7 +203,7 @@ AC_DEFUN([_cfg_flavor_params],
 [FLAVOR_DOES_IO|FLAVOR_KERNEL_BUILD],[xeno_math]],
 	 [[rtai-kernel],[4],[kbuild],[rtai-kernel],[.ko],[.so],dnl
 [FLAVOR_DOES_IO|FLAVOR_KERNEL_BUILD],dnl
-[rtai_hal rtai_sched rtai_fifos rtai_shm rtai_sem rtai_math]]])
+[rtai_hal rtai_sched rtai_fifos rtai_sem rtai_math]]])
 
 
 dnl #--------------------------------------------------------#
@@ -916,19 +916,74 @@ find_kernels
 # - Sanity checks and configuration generation                               #
 ##############################################################################
 
+# By default, build all flavors.  If a --with-<flavor> arg is found,
+# do not build all by default.
+all_flavors_default=yes
+
+AC_PRESERVE_HELP_ORDER()
 AC_ARG_WITH(posix,
     [AS_HELP_STRING([--with-posix],
         [build POSIX (simulator) non-realtime threads modules
         (enabled by default)])],
-    [],
-    [with_posix=yes])
+    [test $withval = yes && all_flavors_default=no],
+    [with_posix=check])
 
 AC_ARG_WITH(rt-preempt,
     [AS_HELP_STRING([--with-rt-preempt],
         [build RT_PREEMPT threads modules])],
-    [],
+    [test $withval = yes && all_flavors_default=no],
     [with_rt_preempt=check])
 
+AC_ARG_WITH(xenomai,
+    [AS_HELP_STRING([--with-xenomai],
+        [build Xenomai userland threads])],
+    [xenomai_from_cmdline=yes
+     test $withval = yes && all_flavors_default=no],
+    [with_xenomai=check])
+
+AC_ARG_WITH(xenomai-kernel,
+    [AS_HELP_STRING([--with-xenomai-kernel],
+        [build Xenomai kernel-space realtime threads (deprecated)])],
+    [xenomai_from_cmdline=yes
+     test $withval = yes && all_flavors_default=no],
+    [with_xenomai_kernel=check])
+# XENOMAI_THREADS_RTS:  locate the 'xeno-config' executable
+AC_ARG_WITH(xeno-config,
+    [AS_HELP_STRING([--with-xeno-config=<path>],
+    [location of the xeno-config executable])],
+    [xeno_config_from_cmdline=yes],
+    [
+	with_xenomai_config=""
+    ])
+
+AC_ARG_WITH(rtai-kernel,
+    [AS_HELP_STRING([--with-rtai-kernel],
+        [build RTAI kernel-space realtime threads modules])],
+    [test $withval = yes && all_flavors_default=no],
+    [with_rtai_kernel=check])
+# RTAI_KERNEL_THREADS_RTS:  locate the 'rtai-config' executable
+AC_ARG_WITH(rtai-config,
+    [AS_HELP_STRING([--with-rtai-config=<path>],
+    [location of the rtai-config executable])],
+    [rtai_config_from_cmdline=yes],
+    [
+	with_rtai_config=""
+    ])
+
+
+# If a --with-<flavor> flag was found, disable all flavors not
+# explicitly enabled
+if test $all_flavors_default = no; then
+    for f in posix rt_preempt xenomai xenomai_kernel rtai_kernel; do
+        if eval "test \$with_$f = check"; then
+	    eval "with_$f=no"
+	fi
+    done
+fi
+
+
+##############################################################################
+# POSIX and RT_PREEMPT flavor checks
 if test "$with_rt_preempt" != no -o "$with_posix" != no; then
     LIBS_hold=$LIBS
     LIBS="$LIBS -lrt"
@@ -975,26 +1030,9 @@ if test "$with_rt_preempt" = yes; then
 fi
 
 
-# check for xenomai threads, both userland and kernel
-AC_PRESERVE_HELP_ORDER()
-AC_ARG_WITH(xenomai,
-    [AS_HELP_STRING([--with-xenomai],
-        [build Xenomai userland threads])],
-    [xenomai_from_cmdline=yes],
-    [with_xenomai=check])
-AC_ARG_WITH(xenomai-kernel,
-    [AS_HELP_STRING([--with-xenomai-kernel],
-        [build Xenomai kernel-space realtime threads (deprecated)])],
-    [xenomai_from_cmdline=yes],
-    [with_xenomai_kernel=check])
-# XENOMAI_THREADS_RTS:  locate the 'xeno-config' executable
-AC_ARG_WITH(xeno-config,
-    [AS_HELP_STRING([--with-xeno-config=<path>],
-    [location of the xeno-config executable])],
-    [xeno_config_from_cmdline=yes],
-    [
-	with_xenomai_config=""
-    ])
+##############################################################################
+# Xenomai flavor checks, both userland and kthreads
+
 if test "$with_xenomai" != no -o "$with_xenomai_kernel" != no; then
     # XENOMAI_THREADS_RTS:  look for the xeno-config executable
     XENOMAI_THREADS_RTS=''
@@ -1106,22 +1144,9 @@ fi
 AC_MSG_RESULT($with_xenomai_kernel)
 
 
-# check for --with-rtai-kernel option
-AC_PRESERVE_HELP_ORDER()
-AC_ARG_WITH(rtai-kernel,
-    [AS_HELP_STRING([--with-rtai-kernel],
-        [build RTAI kernel-space realtime threads modules])],
-    [],
-    [with_rtai_kernel=check])
+##############################################################################
+# RTAI flavor checks
 
-# RTAI_KERNEL_THREADS_RTS:  locate the 'rtai-config' executable
-AC_ARG_WITH(rtai-config,
-    [AS_HELP_STRING([--with-rtai-config=<path>],
-    [location of the rtai-config executable])],
-    [rtai_config_from_cmdline=yes],
-    [
-	with_rtai_config=""
-    ])
 if test "$with_rtai_kernel" != no; then
     # look for rtai-config path
     RTAI_KERNEL_THREADS_RTS=''
@@ -1946,13 +1971,23 @@ AH_TOP([/********************************************************************
 #define RTAPI_MAX_MODULES	64
 #define RTAPI_MAX_TASKS		64
 #define RTAPI_MAX_SHMEMS	32
-#define RTAPI_MAX_RINGS	        32
 
 #define MAX_INSTANCES           16
 
 // default size of the HAL data segment
 // can be overridden by the rtapi.so/ko module param hal_size=<n>
 #define HAL_SIZE                262000
+
+// default size of the thread stack size passed to rtapi_task_new()
+// in hal_create_thread()
+// can be overridden by an option to rtapi_msgd
+#define HAL_STACKSIZE           32768
+
+// a pseudo-flavor id to indicate ulapi<flavor>.so is not yet loaded
+// not a build target, just a state indicator for ulapi_autoload.c
+#define RTAPI_NOTLOADED_NAME  "not-yet-loaded"
+#define RTAPI_NOTLOADED_ID    99
+
 ]
 // flavor IDs for the various threads systems
 // and conditional to set thread system and build_sys macros
@@ -2039,9 +2074,11 @@ AC_ARG_WITH(tclConfig,
 
 # if not specified, search for tclConfig.sh
 if (test "x$TCLCONFIG" = "x"); then
-    TCLCONFIG=$(find /usr/lib* -maxdepth 2 -name tclConfig.sh | head -n1)
+    TCLCONFIG=$(find /usr/lib* -maxdepth 2 -name tclConfig.sh 2>/dev/null \
+	| head -n1)
     if (test "x$TCLCONFIG" = "x"); then
-	TCLCONFIG=$(find /usr/local/lib* -maxdepth 2 -name tclConfig.sh | head -n1)
+	TCLCONFIG=$(find /usr/local/lib* -maxdepth 2 -name tclConfig.sh \
+	    2>/dev/null | head -n1)
     fi
 fi
 
@@ -2076,9 +2113,11 @@ if test -z "$TKCONFIG"; then
 fi
 if (test "x$TKCONFIG" = "x"); then
     # search for tkConfig.sh
-    TKCONFIG=$(find /usr/lib -maxdepth 2 -name tkConfig.sh | head -n1)
+    TKCONFIG=$(find /usr/lib -maxdepth 2 -name tkConfig.sh 2>/dev/null \
+	| head -n1)
     if (test "x$TKCONFIG" = "x"); then
-	TKCONFIG=$(find /usr/local/lib -maxdepth 2 -name tkConfig.sh | head -n1)
+	TKCONFIG=$(find /usr/local/lib -maxdepth 2 -name tkConfig.sh \
+	    2>/dev/null | head -n1)
     fi
 fi
 

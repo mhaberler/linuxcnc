@@ -31,6 +31,7 @@
 #include <rtapi.h>
 #include "rtapi/shmdrv/shmdrv.h"
 #include "rtapi_kdetect.h"          // environment autodetection
+#include "ring.h"          // environment autodetection
 
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
@@ -45,6 +46,7 @@ static int usr_msglevel = RTAPI_MSG_INFO ;
 static int rt_msglevel = RTAPI_MSG_INFO ;
 static int halsize = HAL_SIZE;
 static const char *instance_name;
+static int hal_thread_stack_size = HAL_STACKSIZE;
 
 // messages tend to come bunched together, e.g during startup and shutdown
 // poll faster if a message was read, and decay the poll timer up to msg_poll_max
@@ -63,6 +65,7 @@ global_data_t *global_data;
 static ringbuffer_t rtapi_msg_buffer;   // ring access strcuture for messages
 static const char *progname;
 static char proctitle[20];
+static int exit_code  = 0;
 
 static const char *origins[] = { "kernel","rt","user" };
 //static const char *encodings[] = { "ascii","stashf","protobuf" };
@@ -78,9 +81,8 @@ static int create_global_segment()
     int globalkey = OS_KEY(GLOBAL_KEY, rtapi_instance);
     int size = sizeof(global_data_t);
 
-
     if (shm_common_exists(globalkey)) {
-	fprintf(stderr, "MSGD:%d ERROR: found existing global segment key=0x%x\n",
+	syslog(LOG_ERR, "MSGD:%d ERROR: found existing global segment key=0x%x\n",
 		rtapi_instance, globalkey);
 	return -EEXIST;
     }
@@ -90,11 +92,11 @@ static int create_global_segment()
     retval = shm_common_new(globalkey, &size,
 			    rtapi_instance, (void **) &global_data, 1);
     if (retval < 0) {
-	fprintf(stderr, "MSGD:%d ERROR: cannot create global segment key=0x%x %s\n",
+	syslog(LOG_ERR, "MSGD:%d ERROR: cannot create global segment key=0x%x %s\n",
 	       rtapi_instance, globalkey, strerror(-retval));
     }
     if (size != sizeof(global_data_t)) {
-	fprintf(stderr, "MSGD:%d ERROR: global segment size mismatch: expect %d got %d\n", 
+	syslog(LOG_ERR, "MSGD:%d ERROR: global segment size mismatch: expect %d got %d\n",
 	       rtapi_instance, sizeof(global_data_t), size);
 	return -EINVAL;
     }
@@ -104,12 +106,22 @@ static int create_global_segment()
 void init_global_data(global_data_t * data, int flavor,
 		      int instance_id, int hal_size, 
 		      int rt_level, int user_level,
-		      const char *name)
+		      const char *name, int stack_size)
 {
     // force-lock - we're first, so thats a bit theoretical
     rtapi_mutex_try(&(data->mutex));
-    /* set magic number so nobody else init's the block */
-    data->magic = GLOBAL_MAGIC;
+    // touch all memory exposed to RT
+    memset(data, 0, sizeof(global_data_t));
+
+    // lock the global data segment
+    if (flavor != RTAPI_POSIX_ID) {
+	if (mlock(data, sizeof(global_data_t))) {
+	    syslog(LOG_ERR, "MSGD:%d mlock(global) failed: %d '%s'\n",
+		   instance_id, errno,strerror(errno)); 
+	}
+    }
+    // report progress
+    data->magic = GLOBAL_INITIALIZING;
     /* set version code so other modules can check it */
     data->layout_version = GLOBAL_LAYOUT_VERSION;
 
@@ -136,18 +148,21 @@ void init_global_data(global_data_t * data, int flavor,
     // HAL segment size
     data->hal_size = hal_size;
 
+    // stack size passed to rtapi_task_new() in hal_create_thread()
+    data->hal_thread_stack_size = stack_size;
+
     // init the error ring
-    rtapi_ringheader_init(&data->rtapi_messages, 0, SIZE_ALIGN(MESSAGE_RING_SIZE), 0);
+    ringheader_init(&data->rtapi_messages, 0, SIZE_ALIGN(MESSAGE_RING_SIZE), 0);
     memset(&data->rtapi_messages.buf[0], 0, SIZE_ALIGN(MESSAGE_RING_SIZE));
 
     // attach to the message ringbuffer
-    rtapi_ringbuffer_init(&data->rtapi_messages, &rtapi_msg_buffer);
+    ringbuffer_init(&data->rtapi_messages, &rtapi_msg_buffer);
     rtapi_msg_buffer.header->refcount = 1; // rtapi not yet attached
     rtapi_msg_buffer.header->reader = getpid();
     data->rtapi_messages.use_wmutex = 1; // locking hint
 
     // demon pids
-    data->rtapi_app_pid = 0;
+    data->rtapi_app_pid = -1; // not yet started
     data->rtapi_msgd_pid = 0;
 
     /* done, release the mutex */
@@ -197,8 +212,39 @@ static int flavor_and_kernel_compatible(flavor_ptr f)
 
 static void signal_handler(int sig, siginfo_t *si, void *context)
 {
-    syslog(LOG_INFO,"exiting - got signal: %s", strsignal(sig));
-    msgd_exit++;
+    if (global_data) {
+	global_data->magic = GLOBAL_EXITED;
+	global_data->rtapi_msgd_pid = 0;
+    }
+
+    switch (sig) {
+    case SIGTERM:
+	syslog(LOG_INFO, "msgd:%d: SIGTERM - shutting down\n",
+	       rtapi_instance);
+
+	// hint if error ring couldnt be served fast enough,
+	// or there was contention
+	// none observed so far
+	// this might be interesting to hear about
+	if (global_data && (global_data->error_ring_full ||
+			    global_data->error_ring_locked))
+	    syslog(LOG_INFO, "msgd:%d: message ring stats: full=%d locked=%d ",
+		   rtapi_instance,
+		   global_data->error_ring_full,
+		   global_data->error_ring_locked);
+	msgd_exit++;
+	break;
+
+    default: // pretty bad
+	syslog(LOG_ERR,
+	       "msgd:%d: caught signal %d - dumping core\n",
+	       rtapi_instance, sig);
+	closelog();
+	sleep(1); // let syslog drain
+	signal(SIGABRT, SIG_DFL);
+	abort();
+	break;
+    }
 }
 
 static void
@@ -207,6 +253,8 @@ cleanup_actions(void)
     int retval;
 
     if (global_data) {
+	// in case some process catches a leftover shm segment
+	global_data->magic = GLOBAL_EXITED;
 	global_data->rtapi_msgd_pid = 0;
 	if (rtapi_msg_buffer.header != NULL)
 	    rtapi_msg_buffer.header->refcount--;
@@ -216,7 +264,7 @@ cleanup_actions(void)
 		   strerror(-retval));
 	} else {
 	    shm_common_unlink(OS_KEY(GLOBAL_KEY, rtapi_instance));
-	    syslog(LOG_DEBUG,"shutdown - global segment detached");
+	    syslog(LOG_DEBUG,"normal shutdown - global segment detached");
 	}
 	global_data = NULL;
     }
@@ -230,8 +278,16 @@ static int message_thread()
     int retval;
     char *cp;
 
+    global_data->magic = GLOBAL_READY;
+
     do {
-	while ((retval = rtapi_record_read(&rtapi_msg_buffer, 
+	if (global_data->rtapi_app_pid == 0) {
+	    syslog(LOG_ERR,
+		   "msgd:%d: rtapi_app exit detected - shutting down",
+		   rtapi_instance);
+	    msgd_exit++;
+	}
+	while ((retval = record_read(&rtapi_msg_buffer,
 					   (const void **) &msg, &msg_size)) == 0) {
 	    payload_length = msg_size - sizeof(rtapi_msgheader_t);
 
@@ -261,7 +317,7 @@ static int message_thread()
 	    default: ;
 		// whine
 	    }
-	    rtapi_record_shift(&rtapi_msg_buffer);
+	    record_shift(&rtapi_msg_buffer);
 	    msg_poll = msg_poll_min;
 	}
 	struct timespec ts = {0, msg_poll * 1000 * 1000};
@@ -286,6 +342,7 @@ static struct option long_options[] = {
     {"instance_name", required_argument, 0, 'i'},
     {"flavor",   required_argument, 0, 'f'},
     {"halsize",  required_argument, 0, 'H'},
+    {"halstacksize",  required_argument, 0, 'R'},
     {"shmdrv",  no_argument,        0, 'S'},
 
     {0, 0, 0, 0}
@@ -315,6 +372,9 @@ int main(int argc, char **argv)
 	    break;
 	case 'I':
 	    rtapi_instance = atoi(optarg);
+	    break;
+	case 'R':
+	    hal_thread_stack_size = atoi(optarg);
 	    break;
 	case 'i':
 	    instance_name = optarg;
@@ -395,9 +455,11 @@ int main(int argc, char **argv)
         if (sid < 0) {
 	    exit(EXIT_FAILURE);
         }
+#if 0
         if ((chdir("/")) < 0) {
 	    exit(EXIT_FAILURE);
         }
+#endif
     }
 
     // set new process name
@@ -423,7 +485,7 @@ int main(int argc, char **argv)
     // gets initialized - no reinitialization from elsewhere
     init_global_data(global_data, flavor->id, rtapi_instance,
     		     halsize, rt_msglevel, usr_msglevel,
-    		     instance_name);
+		     instance_name,hal_thread_stack_size);
 
     syslog(LOG_INFO,
 	   "startup instance=%s pid=%d flavor=%s "
@@ -461,15 +523,16 @@ int main(int argc, char **argv)
     sig_act.sa_sigaction = signal_handler;
     sig_act.sa_flags   = SA_SIGINFO;
 
-    sigaction(SIGINT, &sig_act, (struct sigaction *) NULL);
+    sigaction(SIGINT,  &sig_act, (struct sigaction *) NULL);
+    sigaction(SIGKILL, &sig_act, (struct sigaction *) NULL);
     sigaction(SIGTERM, &sig_act, (struct sigaction *) NULL);
     sigaction(SIGSEGV, &sig_act, (struct sigaction *) NULL);
+    sigaction(SIGFPE,  &sig_act, (struct sigaction *) NULL);
 
     message_thread();
 
     // signal received - check if rtapi_app running, and shut it down
-    // TBD.
     cleanup_actions();
-
-    exit(EXIT_SUCCESS);
+    closelog();
+    exit(exit_code);
 }

@@ -57,16 +57,23 @@ ECHO=@true
 VECHO=true
 endif
 
-# if $(threads) wasn't passed in on the command line, build modules
-# for all RTOS flavors
 ifeq ($(threads),)
+# if $(threads) wasn't passed in on the command line, rerun make for
+# each flavor/(optional)kernel-source combo
 BUILD_ALL_FLAVORS = yes
+BUILD_THREAD_MODULES = no
 else
-# if $(KERNELDIR) wasn't passed in on the command line, build modules
-# for all kernels
-ifeq ($(KERNELDIR),)
+# $(threads) was passed in; build modules for this flavor and (if
+# applicable) kernel-source
+BUILD_ALL_FLAVORS = no
 BUILD_THREAD_MODULES = yes
-endif
+endif # $(threads)
+
+# if KERNELRELEASE is non-empty, we're in kbuild
+ifeq ($(KERNELRELEASE),)
+BUILD_KBUILD = no
+else
+BUILD_KBUILD = yes
 endif
 
 ifeq ($(BASEPWD),)
@@ -91,23 +98,48 @@ $(error "$(threads)" is not a valid RTOS flavor; please pick one of:\
     $(BUILD_THREAD_FLAVORS))
 endif
 
-ifeq ($(BUILD_ALL_FLAVORS),yes)
-modules:
-	@for f in $(BUILD_THREAD_FLAVORS); do \
-	    echo "Making modules for flavor $$f"; \
-	    $(MAKE) threads=$$f || exit 1; \
-	done
-endif
+# default target:  put before everything else
+default:
 
-ifeq ($(BUILD_THREAD_MODULES),yes)
+ifeq ($(BUILD_ALL_FLAVORS),yes)
+# Top-level modules target
+#
+# Re-run 'make modules', once for each configured userland threads
+# flavor, and once for each detected kernel for each configured kernel
+# threads flavor.  Set 'threads' and where applicable 'KERNELDIR'.
+#
+# Following tradition, this incarnation of the modules recipe is
+# placed far away from all others.
+FLAVORUP = $(shell echo $(1) | tr a-z- A-Z_)
+FLAVORVAR = $($(call FLAVORUP,$(1))_THREADS_$(2))
 modules:
-	@kdirs="$(KERNEL_DIRS)"; \
-	test -z "$(KERNEL_DIRS)" && kdirs=userland_build; \
-	for k in $$kdirs; do \
-	    echo "...Making modules for flavor $(threads) ($$k)"; \
-	    $(MAKE) KERNELDIR=$$k threads=$(threads) || exit 1; \
-	done
+	@$(foreach f,$(BUILD_THREAD_FLAVORS),\
+	    echo "Making modules for flavor $(f)"; \
+	    $(if $(findstring kbuild,$(call FLAVORVAR,$(f),BUILD_SYS)),\
+		$(foreach kd,$(call FLAVORVAR,$(f),KERNEL_DIRS),\
+		    echo "    kernel source dir $(kd)"; \
+		    $(MAKE) threads=$(f) KERNELDIR=$(kd);\
+		    ),\
+	        $(MAKE) threads=$(f);\
+	    )\
+	)
+ifeq ($(RUN_IN_PLACE)+$(BUILD_DRIVERS),yes+yes)
+	@test -f ../libexec/linuxcnc_module_helper -a \
+		\( `stat -c %u ../libexec/linuxcnc_module_helper` -ne 0 -o \
+		    ! -u ../libexec/linuxcnc_module_helper \) \
+	    && need_setuid=1; \
+	for f in $(filter-out %-kernel,$(BUILD_THREAD_FLAVORS)); do \
+	    test -f ../libexec/rtapi_app_$$f -a \
+		    \( 0`stat -c %u ../libexec/rtapi_app_$$f 2>/dev/null` \
+			-ne 0 -o ! -u ../libexec/rtapi_app_$$f \) \
+		&& need_setuid=1; \
+	done; \
+	test "$$need_setuid" = 1 && \
+	    $(VECHO) -n "You now need to run 'sudo make setuid' " && \
+	    $(VECHO) "in order to run in place." || true
 endif
+endif # BUILD_ALL_FLAVORS
+
 
 ifneq ($(KERNELDIR),)
 KERNEL_VERS = $(shell $(BASEPWD)/../scripts/kernel-vers.sh $(KERNELDIR))
@@ -122,6 +154,11 @@ endif
 OBJDIR := objects/$(RTDIR_EXT)
 DEPDIR := depends/$(RTDIR_EXT)
 RTLIBDIR := ../rtlib/$(RTDIR_EXT)
+ifeq ($(BUILD_SYS),user-dso)
+KMODDIR := ../rtlib/userland/$(KERNEL_VIRS)
+else
+KMODDIR := $(RTLIBDIR)
+endif
 
 DEP = $(1) -MM -MG -MT "$(2)" $(4) -o $(3).tmp && mv -f "$(3)".tmp "$(3)"
 
@@ -132,24 +169,6 @@ ifeq ($(KERNELRELEASE),)
 # When KERNELRELEASE is not defined, this is the userspace build.
 # The "modules" target is the gateway to the kernel module build.
 default: configs userspace modules
-ifeq ($(RUN_IN_PLACE),yes)
-ifeq ($(BUILD_DRIVERS),yes)
-	@test -f ../libexec/linuxcnc_module_helper -a \
-		`stat -c %u ../libexec/linuxcnc_module_helper` -ne 0 -a \
-		-u ../libexec/linuxcnc_module_helper \
-	    && need_setuid=1; \
-	for f in $(filter-out %-kernel,$(BUILD_THREAD_FLAVORS)); do \
-	    test -f ../libexec/rtapi_app_$$f -a \
-		    `stat -c %u ../libexec/rtapi_app_$$f` -ne 0 -a \
-		    -u ../libexec/rtapi_app_$$f \
-		&& need_setuid=1; \
-	done; \
-	test "$$need_setuid" = 1 && \
-	    $(VECHO) -n "You now need to run 'sudo make setuid' " && \
-	    $(VECHO) "in order to run in place." || true
-endif
-endif
-
 
 # list of supported hostmot2 boards
 HM2_BOARDS = 3x20 4i65 4i68 5i20 5i22 5i23 7i43
@@ -490,7 +509,7 @@ HEADERS := \
     rtapi/rtapi_errno.h \
     rtapi/rtapi_string.h \
     rtapi/rtapi_pci.h \
-    rtapi/rtapi_ring.h \
+    rtapi/ring.h \
     rtapi/rtapi_mbarrier.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
@@ -540,21 +559,23 @@ endif
 #
 # (don't build when 'BUILD_ALL_FLAVORS' or 'BUILD_THREADS_MODULES' are set;
 # these are intermediate make runs)
-ifeq ($(BUILD_SYS)$(BUILD_ALL_FLAVORS)$(BUILD_THREAD_MODULES),kbuild)
+ifeq ($(BUILD_SYS)+$(BUILD_THREAD_MODULES),kbuild+yes)
 modules:  $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp
 	mkdir -p $(RTLIBDIR)
 ifeq ($(THREADS),XENOMAI_KERNEL)
-	cd $(OBJDIR); \
-	$(MAKE) -C rtapi/xeno_math BASEPWD=$(BASEPWD) KERNELDIR=$(KERNELDIR) \
+	$(MAKE) \
+	    -C $(OBJDIR)/rtapi/xeno_math \
+	    BASEPWD=$(BASEPWD) \
+	    KERNELDIR=$(KERNELDIR) \
 	    KERNEL_MATH_CFLAGS="$(KERNEL_MATH_CFLAGS)" \
 	    V=$(BUILD_VERBOSE) modules
 	cp $(OBJDIR)/rtapi/xeno_math/xeno_math.ko $(RTLIBDIR)
 endif
-	cd $(OBJDIR); \
 	$(PYTHON) modsilent.py $(MAKE) \
-	    KBUILD_EXTRA_SYMBOLS="$(KBUILD_EXTRA_SYMBOLS)" -C $(KERNELDIR) \
-	    SUBDIRS=`pwd` CC=$(CC) KBUILD_VERBOSE=$(BUILD_VERBOSE) \
-	    modules
+	    -C $(KERNELDIR) \
+	    KBUILD_EXTRA_SYMBOLS="$(KBUILD_EXTRA_SYMBOLS)" \
+	    SUBDIRS=$(BASEPWD)/$(OBJDIR) \
+	    CC=$(CC) KBUILD_VERBOSE=$(BUILD_VERBOSE) modules
 	cp $(OBJDIR)/Module.symvers $(OBJDIR)/*$(MODULE_EXT) $(RTLIBDIR)
 endif  # BUILD_SYS == 'kbuild'
 
@@ -572,7 +593,10 @@ $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp:
 	mkdir -p $(OBJDIR)
 	cp -rlf $(MODULE_SOURCE_DIRS) $(OBJDIR)
 	cp -lf $(MODULE_SOURCES) $(OBJDIR)
-	ln -sf $(BASEPWD)/halcomp-srcs $(OBJDIR)
+ifeq ($(BUILD_SYS),kbuild)
+	# kbuild needs a full copy of this tree with
+	cp -rlf halcomp-srcs $(OBJDIR)
+endif
 	ln -sf $(BASEPWD)/../bin $(OBJDIR)/..
 	ln -sf $(BASEPWD)/../scripts $(OBJDIR)/..
 	touch $@
@@ -907,11 +931,13 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
-	$(call cc-option,-Wframe-larger-than=2560) \
 	$(KERNEL_MATH_CFLAGS)
 
 ifeq ($(TARGET_PLATFORM),beaglebone)
 EXTRA_CFLAGS += -I$(BASEPWD)/hal/support/pru
+endif
+ifeq ($(BUILD_SYS),kbuild)
+EXTRA_CFLAGS += $(call cc-option,-Wframe-larger-than=2560)
 endif
 
 
@@ -1228,7 +1254,7 @@ TORTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
 # USER_DSO module building
 # (don't build when 'BUILD_ALL_FLAVORS' or 'BUILD_THREADS_MODULES' are set;
 # these are intermediate make runs)
-ifeq ($(BUILD_SYS)$(BUILD_ALL_FLAVORS)$(BUILD_THREAD_MODULES),user-dso)
+ifeq ($(BUILD_SYS)+$(BUILD_THREAD_MODULES),user-dso+yes)
 EXTRA_CFLAGS += -fPIC
 
 RTOBJS := $(sort $(foreach mod,$(obj-m),$(call TORTOBJS,$(mod))))
@@ -1239,10 +1265,13 @@ modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m))
 $(RTLIBDIR)/%.so:
 	$(ECHO) Linking $@
 	@mkdir -p $(dir $@)
-	$(Q)ld -r -o objects/$*.tmp $^
-	@if ! $(IS_POWERPC); then objcopy -j .rtapi_export -O binary objects/$*.tmp objects/$*.exp; fi
-	@if ! $(IS_POWERPC); then objcopy -G __i686.get_pc_thunk.bx `xargs -r0n1 echo -G < objects/$*.exp | grep -ve '^-G $$' | sort -u` objects/$*.tmp; fi
-	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -o $@ objects/$*.tmp \
+	$(Q)ld -r -o $(OBJDIR)/$*.tmp $^
+	@if ! $(IS_POWERPC); then objcopy -j .rtapi_export -O binary \
+	    $(OBJDIR)/$*.tmp $(OBJDIR)/$*.exp; fi
+	@if ! $(IS_POWERPC); then objcopy -G __i686.get_pc_thunk.bx \
+	    `xargs -r0n1 echo -G < $(OBJDIR)/$*.exp | grep -ve '^-G $$' | \
+	        sort -u` $(OBJDIR)/$*.tmp; fi
+	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -o $@ $(OBJDIR)/$*.tmp \
 	    -lm $(EXTRA_LDFLAGS)
 
 $(sort $(RTDEPS)): $(DEPDIR)/%.d: %.c

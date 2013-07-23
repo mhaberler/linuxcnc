@@ -14,6 +14,7 @@
 #include "config.h"
 #include "rtapi.h"
 #include "rtapi/shmdrv/shmdrv.h"
+#include "ring.h"
 
 #define RTPRINTBUFFERLEN 1024
 
@@ -23,7 +24,6 @@
 #include <stdarg.h>		/* va_* */
 #include <linux/kernel.h>	/* kernel's vsnprintf */
 
-static int rt_msg_level = RTAPI_MSG_INFO; // RT space
 #define MSG_ORIGIN MSG_KERNEL
 
 #else  /* user land */
@@ -38,7 +38,15 @@ static int rt_msg_level = RTAPI_MSG_INFO; // RT space
 #define MSG_ORIGIN MSG_ULAPI
 #endif
 
-static int pp_msg_level = RTAPI_MSG_INFO; // per process only
+#endif
+
+// these message levels are used in RTAPI and ULAPI
+// respectively until the global segment is attached;
+// thereafter switch to using the message levels from there.
+#ifdef RTAPI
+static int rt_msg_level = RTAPI_MSG_INFO;    // RTAPI (u+k)
+#else
+static int ulapi_msg_level = RTAPI_MSG_INFO; // ULAPI
 #endif
 
 #ifdef ULAPI
@@ -52,7 +60,6 @@ static char logtag[TAGSIZE];
 // switch to exclusively using the ringbuffer from RT
 #define USE_MESSAGE_RING 1
 
-// candidate for rtapi_ring.h
 void vs_ring_write(msg_level_t level, const char *format, va_list ap)
 {
     int n;
@@ -61,7 +68,7 @@ void vs_ring_write(msg_level_t level, const char *format, va_list ap)
     if (global_data) {
 	// one-time initialisation
 	if (!rtapi_message_buffer.header) {
-	    rtapi_ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
+	    ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
 
 	}
 	if (rtapi_mutex_try(&rtapi_message_buffer.header->wmutex)) {
@@ -70,7 +77,7 @@ void vs_ring_write(msg_level_t level, const char *format, va_list ap)
 	}
 	// zero-copy write
 	// reserve space in ring:
-	if (rtapi_record_write_begin(&rtapi_message_buffer, 
+	if (record_write_begin(&rtapi_message_buffer,
 				     (void **) &msg, 
 				     sizeof(rtapi_msgheader_t) + RTPRINTBUFFERLEN)) {
 	    global_data->error_ring_full++;
@@ -93,7 +100,7 @@ void vs_ring_write(msg_level_t level, const char *format, va_list ap)
 
 	n = vsnprintf(msg->buf, RTPRINTBUFFERLEN, format, ap);
 	// commit write
-	rtapi_record_write_end(&rtapi_message_buffer, (void *) msg,
+	record_write_end(&rtapi_message_buffer, (void *) msg,
 			       sizeof(rtapi_msgheader_t) + n + 1); // trailing zero
 	rtapi_mutex_give(&rtapi_message_buffer.header->wmutex);
     }
@@ -141,13 +148,13 @@ void rtapi_set_msg_handler(rtapi_msg_handler_t handler) {
 
 static int get_msg_level(void)
 {
-#if MODULE
+#if RTAPI
     if (global_data == 0)
 	return rt_msg_level;
     else
 	return global_data->rt_msg_level;
 #else
-    return pp_msg_level;
+    return ulapi_msg_level;
 #endif
 }
 
@@ -155,7 +162,7 @@ static int set_msg_level(int new_level)
 {
     int old_level;
 
-#if MODULE
+#if RTAPI
     if (global_data) {
 	old_level = global_data->rt_msg_level;
 	global_data->rt_msg_level = new_level;
@@ -165,8 +172,8 @@ static int set_msg_level(int new_level)
     }
     return old_level;
 #else
-    old_level = pp_msg_level;
-    pp_msg_level = new_level;
+    old_level = ulapi_msg_level;
+    ulapi_msg_level = new_level;
     return old_level;
 #endif
 }
