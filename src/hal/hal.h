@@ -198,7 +198,7 @@ RTAPI_BEGIN_DECLS
  * by the process creating the component, for instance halcmd.
  * It can be repossessed to a different process by
  *
- * hal_reown(name, process id)
+ * hal_acquire(name, process id)
  *
  * the only consequence is that on 'halcmd unloadusr <remote component>
  * this process will receive a signal to shut down.
@@ -236,8 +236,8 @@ static inline int hal_init(const char *name) {
 #if defined(ULAPI)
 extern int hal_bind(const char *comp);
 extern int hal_unbind(const char *comp);
-extern int hal_reown(const char *comp, int pid);
-extern int hal_disown(const char *comp_name, int pid);
+extern int hal_acquire(const char *comp, int pid);
+extern int hal_release(const char *comp_name);
 
 // introspection support: component and pin iterators
 // These functions are read-only with respect to HAL state.
@@ -262,6 +262,7 @@ typedef struct {
 typedef struct {
     //hal_data_u **value;
     void **value;
+    int signal_inst;    // if cross-linked, instance id where the signal resides
     int type;		/* data type */
     int dir;		/* pin direction */
     char name[HAL_NAME_LEN + 1];	/* pin name */
@@ -464,6 +465,27 @@ typedef double real_t __attribute__((aligned(8)));
 typedef __u64 ireal_t __attribute__((aligned(8))); // integral type as wide as real_t / hal_float_t
 #define hal_float_t volatile real_t
 
+// type tags of HAL objects. See also protobuf/proto/types.proto/enum ObjectType
+// which must match:
+typedef enum {
+    HAL_PIN           = 1,
+    HAL_SIGNAL        = 2,
+    HAL_PARAM         = 3,
+    HAL_THREAD        = 4,
+    HAL_FUNCT         = 5,
+    HAL_ALIAS         = 6,
+    HAL_COMP_RT       = 7,
+    HAL_COMP_USER     = 8,
+    HAL_COMP_REMOTE   = 9,
+    HAL_RING          = 10,
+    HAL_GROUP         = 11,
+    HAL_MEMBER_SIGNAL = 12,
+    HAL_MEMBER_GROUP  = 13,
+    HAL_MEMBER_PIN    = 14,
+
+    RING_RECORD       = 15,
+    RING_STREAM       = 16,
+} hal_object_type;
 /***********************************************************************
 *                      "LOCKING" FUNCTIONS                             *
 ************************************************************************/
@@ -752,6 +774,8 @@ extern int hal_param_alias(const char *pin_name, const char *alias);
     it returns a negative error code.
 */
 extern int hal_param_set(const char *name, hal_type_t type, void *value_addr);
+
+extern int hal_namespace_sync(void);
 
 /***********************************************************************
 *                   EXECUTION RELATED FUNCTIONS                        *

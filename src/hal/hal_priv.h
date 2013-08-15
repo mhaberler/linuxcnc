@@ -111,13 +111,19 @@
 #include <time.h>               /* remote comp timestamps */
 #endif
 #endif
+#include "hal_ring.h"
 RTAPI_BEGIN_DECLS
 
-/* SHMPTR(offset) converts 'offset' to a void pointer. */
+/* SHMPTR(offset) converts 'offset' to a void pointer.
+ * the _IN() variants of these macros are for accessing offsets in a
+ * remote hal_data segment when using instances.
+ */
 #define SHMPTR(offset)  ( (void *)( hal_shmem_base + (offset) ) )
+#define SHMPTR_IN(hal, offset)  ( (void *)(((char *)hal) + (offset) ) )
 
 /* SHMOFF(ptr) converts 'ptr' to an offset from shared mem base.  */
 #define SHMOFF(ptr)     ( ((char *)(ptr)) - hal_shmem_base )
+#define SHMOFF_IN(hal, ptr)  (((char *)(ptr)) -   (((char *)hal)))
 
 /* SHMCHK(ptr) verifies that a pointer actually points to a
    location that is part of the HAL shared memory block. */
@@ -135,6 +141,11 @@ RTAPI_BEGIN_DECLS
 #endif
 
 
+// sizing
+#define HAL_NGROUPS              32
+
+// extending this beyond 255 might require adapting rtapi_shmkeys.h
+#define HAL_MAX_RINGS	        255
 /***********************************************************************
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
@@ -175,28 +186,71 @@ typedef struct {
 } hal_oldname_t;
 
 
-// visible in the per-namespace HAL data segment: 
-// the namespaces this HAL instance 'sees', indexed by instance
+// visible in the per-instance HAL data segment as an array
+// indexed by instance number:
 typedef struct {
-    unsigned long flags; // TBD
-    char name[HAL_NAME_LEN + 1];
+    unsigned long flags;
+    int shmem_id;
+    int refcount;  // number of objects referenced in this namespace
+    void *haldata; // address as seen from this context
  } hal_namespace_t;
-
-// private mappings
-typedef struct {
-    char *shmbase;
-    char *hal_data;
-    // any rtapi or otherwise information needed to attach/detach the segment
-} hal_namespace_map_t;
 
 // per-process/kernel mappings
 // indexed by rtapi_instance of mapped namespace
-extern hal_namespace_map_t hal_mappings[]; 
+//  extern hal_namespace_map_t hal_mappings[];
 
-static inline char *my_shm_base(void)
-{
-    return hal_mappings[rtapi_instance].shmbase;
-}
+// the hal_context_t structure describes a HAL context.
+//
+// (each) RT space is a context (like rtapi_app or the kernel)
+// as well as each userland process owning one or several HAL components.
+//
+// the context carries information about which hal namespaces it sees
+// attach/detach operations happen at the context level
+// each component belongs to exactly one context
+// The pid is the unique key to a context.
+//
+// a context is created by the first component in a given context.
+// the relation of contexts to components is 1:n.
+// any component lives in exactly one context and refers back to it by the context_ptr.
+
+enum context_type {
+    CONTEXT_INVALID = 0,
+    CONTEXT_RT = 1,
+    CONTEXT_USERLAND = 2,
+};
+typedef struct {
+    int next_ptr;       // next context in list
+    unsigned long type; // context_type
+    int pid;
+
+    // we use a bitmap because it's going to be tested frequently
+    // conceptually it belongs into namespaces[] as a bool attribute
+    RTAPI_DECLARE_BITMAP(visible_namespaces,MAX_INSTANCES);
+    // the map of attached HAL namespaces of this context
+    hal_namespace_t namespaces[MAX_INSTANCES];
+    int refcount;  // the number of active comps in this context
+    // any rtapi or otherwise information needed to attach/detach the segment
+} hal_context_t;
+
+typedef struct {
+    char name[HAL_NAME_LEN + 1];
+} hal_namespace_descriptor_t;
+
+#ifdef RTAPI
+hal_context_t *rt_context;
+#define THIS_CONTEXT() rt_context
+#else
+hal_context_t *ul_context;
+#define THIS_CONTEXT() ul_context
+#endif
+
+extern int hal_namespace_sync(void);
+typedef int (*hal_namespace_sync_t)(void);
+
+#ifdef ULAPI
+extern int hal_namespace_associate(int instance, char *prefix);
+extern int hal_namespace_disassociate(int instance);
+#endif
 
 /* Master HAL data structure
    There is a single instance of this structure in the machine.
@@ -210,22 +264,16 @@ typedef struct {
     int version;		/* version code for structs, etc */
     unsigned long mutex;	/* protection for linked lists, etc. */
 
-    // the namespaces this instance is aware of
-    hal_namespace_t namespaces[MAX_INSTANCES];
-    // to access a remote HAL namespace, it must be mapped
-    // assuming it is as "foo", the procedure to reference the namespace's
-    // hal_data is as follows:
-    // search namespaces.name for "foo"
-    // remote hal_data = hal_mappings[namespaces["foo"]].id
+    // each context is expected to attach these and make the fact
+    // visible in its contex descriptor
+    RTAPI_DECLARE_BITMAP(requested_namespaces,MAX_INSTANCES);
 
-    // introspection support: if all you have is a pointer to some hal_data
-    // instance, determine it's instance ID:
-    // this should be filled in RT space once hal_lib is first loaded
-    // ULAPI should never write to it
-    int hal_instance;  // FIXME not sure if needed
+    // the symbolic names for foreign namespaces - only once HAL
+    hal_namespace_descriptor_t nsdesc[MAX_INSTANCES];
 
     // every other HAL namespace referencing this namspace is expected to
-    // increase this on attach, and decrease this on detach:
+    // increase this on attach, and decrease this on detach - so we know
+    // it is unsafe to destroy the shm segment
     int refcount;
 
     hal_s32_t shmem_avail;	/* amount of shmem left free */
@@ -257,10 +305,24 @@ typedef struct {
 				   period request exactly */
     unsigned char lock;         /* hal locking, can be one of the HAL_LOCK_* types */
 
+    // since rings are realy just glorified named shm segments, allocate by map
+    // this gets around the unexposed rtapi_data segment in userland flavors
+    RTAPI_DECLARE_BITMAP(rings, HAL_MAX_RINGS);
 
-#define BITS_PER_BYTE 8
-#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
-#define BITS_TO_LONGS(nr)       DIV_ROUND_UP(nr, BITS_PER_BYTE * sizeof(long))
+    int group_list_ptr;	        /* list of group structs */
+    int group_free_ptr;	        /* list of free group structs */
+
+    int ring_list_ptr;          /* list of ring structs */
+    int ring_free_ptr;          /* list of free ring structs */
+
+    int ring_attachment_list_ptr;   /* list of ring attachment structs */
+    int ring_attachment_free_ptr;   /* list of free ring attachment structs */
+
+    int member_list_ptr;	/* list of member structs */
+    int member_free_ptr;	/* list of free member structs */
+
+    int context_list_ptr;       /* list of active contexts */
+    int context_free_ptr;       /* list of free context structs */
 } hal_data_t;
 
 
@@ -281,11 +343,11 @@ typedef struct {
     long int last_update;            /* timestamp of last remote update */
     long int last_bound;             /* timestamp of last bind operation */
     long int last_unbound;           /* timestamp of last unbind operation */
-    int pid;			/* PID of component (user components only) */
-    void *shmem_base;		/* base of shmem for this component */
-    char name[HAL_NAME_LEN + 1];	/* component name */
+    int pid;			     /* PID of component (user components only) */
+    char name[HAL_NAME_LEN + 1];     /* component name */
     constructor make;
     int insmod_args;		/* args passed to insmod when loaded */
+    int context_ptr;		/* reference to enclosing context */
 } hal_comp_t;
 
 /** HAL 'pin' data structure.
@@ -294,6 +356,7 @@ typedef struct {
 typedef struct {
     int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
+    int signal_inst;            /* the instance the signal resides in */
     int owner_ptr;		/* component that owns this pin */
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
@@ -382,6 +445,25 @@ typedef struct {
     int cpu_id;                 /* cpu to bind on, or -1 */
 } hal_thread_t;
 
+typedef struct {
+    int next_ptr;		/* next member in linked list */
+    int sig_member_ptr;          /* offset of hal_signal_t  */
+    int signal_inst;             // if signal in foreign instance
+    int group_member_ptr;        /* offset of hal_group_t (nested) */
+    int userarg1;                /* interpreted by using layer */
+    double epsilon;
+} hal_member_t;
+
+typedef struct {
+    int next_ptr;		/* next group in free list */
+    int refcount;               /* advisory by using code */
+    int userarg1;	        /* interpreted by using layer */
+    int userarg2;	        /* interpreted by using layer */
+    //  int serial;                 /* incremented each time a signal is added/deleted*/
+    char name[HAL_NAME_LEN + 1];	/* group name */
+    int member_ptr;             /* list of group members */
+} hal_group_t;
+
 /* IMPORTANT:  If any of the structures in this file are changed, the
    version code (HAL_VER) must be incremented, to ensure that 
    incompatible utilities, etc, aren't used to manipulate data in
@@ -469,6 +551,13 @@ extern hal_sig_t *halpr_find_sig_by_name(const char *name);
 extern hal_param_t *halpr_find_param_by_name(const char *name);
 extern hal_thread_t *halpr_find_thread_by_name(const char *name);
 extern hal_funct_t *halpr_find_funct_by_name(const char *name);
+// variants to search in a remote hal_data segment
+// halpr_find_pin_by_name() is defined as the local case of this function
+extern hal_pin_t *halpr_remote_find_pin_by_name(const hal_data_t *hal_data,
+						const char *name);
+// halpr_find_sig_by_name() is defined as the local case of this function
+extern hal_sig_t *halpr_remote_find_sig_by_name(const hal_data_t *hal_data,
+						const char *name);
 
 /** Allocates a HAL component structure */
 extern hal_comp_t *halpr_alloc_comp_struct(void);
@@ -500,25 +589,69 @@ extern hal_funct_t *halpr_find_funct_by_owner(hal_comp_t * owner,
     the next matching pin.  If no match is found, it returns NULL
 */
 extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
+extern hal_pin_t *halpr_remote_find_pin_by_sig(hal_data_t *hal_data,
+					       hal_sig_t * sig, hal_pin_t * start);
 
 
-// auto-release the HAL mutex on scope exit
+// search for crosslinks between instances
+typedef  int (* hal_pin_sig_xref_cb)(int, char *, char*, hal_pin_t *, hal_sig_t *);
+extern int halpr_pin_crossrefs(unsigned long *bitmap, hal_pin_sig_xref_cb ps_callback);
+
+typedef  int (* hal_ring_xref_cb)(int, char *, char*, hal_ring_attachment_t *);
+extern int halpr_ring_crossrefs(unsigned long *bitmap, hal_ring_xref_cb ps_callback);
+
+extern int halpr_lock_ordered(int inst1, int inst2);
+extern int halpr_unlock_ordered(int inst1, int inst2);
+
+static inline int hal_valid_instance(int instance)
+{
+    return (instance >= 0) && (instance < MAX_INSTANCES);
+}
+
+// automatically release the local hal_data->mutex on scope exit.
 // if a local variable is declared like so:
 //
 // int foo  __attribute__((cleanup(halpr_autorelease_mutex)));
 //
 // then leaving foo's scope will cause halpr_release_lock() to be called
 // see http://git.mah.priv.at/gitweb?p=emc2-dev.git;a=shortlog;h=refs/heads/hal-lock-unlock
-// make sure the mutex is actually held in the using code when leaving scope!
+// NB: make sure the mutex is actually held in the using code when leaving scope!
 void halpr_autorelease_mutex(void *variable);
 
-#ifdef ULAPI
-// set in hal_lib.c:ulapi_hal_lib_init()
-// needed in using code (halcmd) to do the right thing (eg insmod vs call rtapi_app
-// to load a module)
-extern flavor_ptr flavor;
-#endif
+// automatically release locks on the local, and any remote hal_data (if so
+// indicated by *remote_instance != rtapi_instance) on scope exit.
+//
+// To be used with a declaration like so:
+// int remote_instance
+//	__attribute__((cleanup(halpr_autorelease_ordered))) = rtapi_instance;
+//
+// if remote_instance == rtapi_instance, only the local hal_data segment
+// will be unlocked; else unlock happens in instance order (deadlock prevention).
+void halpr_autorelease_ordered(int *remote_instance);
 
 
+#define CCOMP_MAGIC  0xbeef0815
+typedef struct {
+    int magic;
+    hal_comp_t *comp;
+    int n_pins;
+    hal_pin_t  **pin;           // all members (nesting resolved)
+    unsigned long *changed;     // bitmap
+    hal_data_u    *tracking;    // tracking values of monitored pins
+} hal_compiled_comp_t;
+
+
+typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
+				     hal_pin_t *pin,
+				     int handle,
+				     void *data,
+				     void *cb_data);
+
+extern int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp);
+extern int hal_ccomp_match(hal_compiled_comp_t *ccomp);
+extern int hal_ccomp_report(hal_compiled_comp_t *ccomp,
+			    comp_report_callback_t report_cb,
+			    void *cb_data, int report_all);
+extern int hal_ccomp_free(hal_compiled_comp_t *ccomp);
 RTAPI_END_DECLS
 #endif /* HAL_PRIV_H */
