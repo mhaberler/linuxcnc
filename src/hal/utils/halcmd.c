@@ -202,30 +202,10 @@ pid_t hal_systemv_nowait(char *const argv[]) {
     int n;
 
     /* now we need to fork, and then exec .... */
-#if 0
-    /* disconnect from the HAL shmem area before forking */
-    hal_exit(comp_id);
-    comp_id = 0;
-#else
-    hal_rtapi_detach();
-#endif
-    /* now the fork() */
     pid = fork();
     if ( pid < 0 ) {
 	/* fork failed */
 	halcmd_error("fork() failed\n");
-#if 0
-	/* reconnect to the HAL shmem area */
-	comp_id = hal_init(comp_name);
-	if (comp_id < 0) {
-	    fprintf(stderr, "halcmd: hal_init() failed after fork: %d\n",
-                    comp_id );
-	    exit(-1);
-	}
-        hal_ready(comp_id);
-#else
-	hal_rtapi_attach();
-#endif
 	return -1;
     }
     if ( pid == 0 ) {
@@ -248,8 +228,6 @@ pid_t hal_systemv_nowait(char *const argv[]) {
 	exit(1);
     }
     /* parent process */
-    /* reconnect to the HAL shmem area */
-    hal_rtapi_attach();
     return pid;
 }
 
