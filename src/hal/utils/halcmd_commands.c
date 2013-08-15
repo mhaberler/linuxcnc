@@ -1112,7 +1112,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
     char mod_path[PATH_MAX];
     char inst[50];
 
-    if (!(flavor->flags & FLAVOR_KERNEL_BUILD)) {
+    if (!(current_flavor->flags & FLAVOR_KERNEL_BUILD)) {
 	if (get_rtapi_config(executable,"rtapi_app",PATH_MAX) != 0) {
 	    halcmd_error("rtapi_app executable path not found in rtapi.ini\n");
 	    return -ENOENT;
@@ -1380,7 +1380,7 @@ static int unloadrt_comp(char *mod_name)
     int m=0;
     char executable[PATH_MAX];
 
-    if (!(flavor->flags & FLAVOR_KERNEL_BUILD)) {
+    if (!(current_flavor->flags & FLAVOR_KERNEL_BUILD)) {
 	char inst[50];
 	snprintf(inst,sizeof(inst),"--instance=%d", rtapi_instance);
 	if (get_rtapi_config(executable,"rtapi_app",PATH_MAX) != 0) {
@@ -2081,7 +2081,7 @@ static void print_thread_info(char **patterns)
     int named = patterns && strlen(patterns[0]);
 
     if (scriptmode == 0) {
-	halcmd_output("Realtime Threads (flavor: %s) :\n",  flavor->name);
+	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
 	halcmd_output("     Period  FP     Name               (     Time, Max-Time )\n");
     }
     rtapi_mutex_get(&(hal_data->mutex));

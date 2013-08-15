@@ -88,6 +88,7 @@ int scriptmode = 0;	/* used to make output "script friendly" (suppress headers) 
 int prompt_mode = 0;	/* when getting input from stdin, print a prompt */
 int echo_mode = 0;
 char comp_name[HAL_NAME_LEN+1];	/* name for this instance of halcmd */
+flavor_ptr current_flavor;
 
 static void quit(int);
 
@@ -118,6 +119,8 @@ int halcmd_startup(int quiet) {
 	return -EINVAL;
     }
     hal_ready(comp_id);
+
+    current_flavor = flavor_byid(global_data->rtapi_thread_flavor);
     return 0;
 }
 

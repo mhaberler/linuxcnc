@@ -535,6 +535,7 @@ static char *loadusr_generator(const char *text, int state) {
     return NULL;
 }
 
+extern flavor_ptr current_flavor; // reference to current flavor descriptor
 
 static char *loadrt_generator(const char *text, int state) {
     static int len;
@@ -546,7 +547,7 @@ static char *loadrt_generator(const char *text, int state) {
 	return NULL;
 
     strcat(rtlibdir,"/");
-    strcat(rtlibdir, flavor->name);
+    strcat(rtlibdir, current_flavor->name);
     strcat(rtlibdir,"/");
 
     if(!state) {

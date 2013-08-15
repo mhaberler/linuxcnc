@@ -39,8 +39,11 @@
 
 #ifndef HALCMD_H
 #define HALCMD_H
+
 #include <stdio.h>
 #include "hal.h"
+#include "rtapi_compat.h"
+
 extern int halcmd_startup(int quiet);
 extern void halcmd_shutdown();
 extern int halcmd_parse_cmd(char * tokens[]);
@@ -90,5 +93,7 @@ extern FILE *halcmd_inifile;
 #define MAX_TOK 20
 #define MAX_CMD_LEN 1024
 #define MAX_EXPECTED_SIGS 999
+
+extern flavor_ptr current_flavor; // reference to current flavor descriptor
 
 #endif
