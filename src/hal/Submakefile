@@ -6,6 +6,11 @@ INCLUDES += hal
 # observed on wheezy
 HALLIBSRCS := \
 	hal/hal_lib.c
+# link in nanonpb support routines into hal_lib
+HALLIBSRCS += protobuf/support/nanopb.c
+HALLIBSRCS += protobuf/nanopb/pb_decode.c
+HALLIBSRCS += protobuf/nanopb/pb_encode.c
+
 
 # ULAPI: all thread-specific code now comes in through the ulapi library
 # (liblinuxcnculapi.so) which autoloads the proper ulapi on demand
