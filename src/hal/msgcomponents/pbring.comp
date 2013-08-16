@@ -1,0 +1,239 @@
+component pbring
+"demo component to show sending/receiving protobuf-encoded messages ovr HAL rings";
+
+pin out u32 underrun   "number of failed attempts to read a new command";
+pin out u32 received   "number of commands received";
+pin out u32 encodefail "number of message encode fails";
+pin out u32 decodefail "number of messages decode fails";
+pin out u32 memfail    "number of messages dropped due to lack of memory";
+
+function _;
+
+option singleton yes;
+option rtapi_app no;
+
+license "GPLv2 or later";
+;;
+
+#include "hal_priv.h"
+#include "hal_ring.h"
+
+// the nanopb library and compiled message definitions are brought in once by:
+// 'halcmd loadrt nanopb' (library support)
+// 'halcmd loadrt pbmsgs' (message descriptors for parsing and generating pb msgs)
+
+#include <protobuf/pb-linuxcnc.h>
+#include <protobuf/nanopb/pb_decode.h>
+#include <protobuf/nanopb/pb_encode.h>
+
+#include <protobuf/generated/types.npb.h>
+#include <protobuf/generated/object.npb.h>
+#include <protobuf/generated/message.npb.h>
+#include <protobuf/generated/rtapi_message.npb.h>
+#include <protobuf/container.h>
+
+static char *command = "command";
+RTAPI_MP_STRING(command,  "name of command ring");
+
+static int csize = 65536;
+RTAPI_MP_INT(csize, "size of command ring");
+
+static char *response = "response";
+RTAPI_MP_STRING(response,  "name of response ring");
+
+static int rsize = 65536;
+RTAPI_MP_INT(rsize, "size of response ring");
+
+static int msgsize = 0;
+RTAPI_MP_INT(msgsize, "ringbuffer allocation for outgoing messages");
+
+static ringbuffer_t command_rb;
+static ringbuffer_t response_rb;
+static char *mod = "pbring";
+
+static Container rx, tx;
+
+static int decode_msg(const void *buf, int size)
+{
+    pb_istream_t stream = pb_istream_from_buffer((void *) buf, size);
+
+    if (!pb_decode(&stream, Container_fields, &rx)) {
+	decodefail++;
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: pb_decode(Container) failed: '%s'\n",
+			mod, PB_GET_ERROR(&stream));
+	return -1;
+    }
+    if (rx.has_telegram) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "Container.telegram op=%d\n", rx.telegram.op);
+    }
+    if (rx.has_motcmd) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "Container.motcmd command=%d num=%d\n",
+			rx.motcmd.command,rx.motcmd.commandNum);
+	if (rx.motcmd.has_pos) {
+	    Emc_Pose *p = &rx.motcmd.pos;
+	    rtapi_print_msg(RTAPI_MSG_ERR, "pos.x=%f pos.y=%f pos.z=%f\n",
+			    p->tran.x, p->tran.y, p->tran.z);
+	    rtapi_print_msg(RTAPI_MSG_ERR, "pos.has_a=%d  pos.a=%f\n",
+			    p->has_a, p->a);
+	    rtapi_print_msg(RTAPI_MSG_ERR, "pos.has_b=%d  pos.b=%f\n",
+			    p->has_b, p->b);
+	}
+    }
+    return 0;
+}
+
+// encode and send off a message
+static int send_response(const void *msg, const pb_field_t *fields)
+{
+    void *buffer;
+    int retval;
+    size_t size;
+
+    if (msgsize == 0) {
+	// use sizing for ringbuffer allocation
+	// slower but no waste
+	pb_ostream_t sstream = PB_OSTREAM_SIZING;
+	if (!pb_encode(&sstream, fields,  msg)) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: sizing pb_encode(): %s written=%d\n",
+			mod, PB_GET_ERROR(&sstream), sstream.bytes_written);
+	    encodefail++;
+	    return false;
+
+	}
+	size = sstream.bytes_written;
+    } else
+	// reserve  worst-case space in ringbuffer
+	// faster but wastes memory (a bit, and it wont hurt)
+	size = msgsize;
+
+    // preallocate memory in ringbuffer
+    if ((retval = record_write_begin(&response_rb,
+				     (void **)&buffer, size)) != 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: record_write_begin(%d/%d) failed: %d\n",
+			mod, msgsize, size, retval);
+	memfail++;
+	return retval;
+    }
+
+    // zero-copy encode directly into ringbuffer
+    pb_ostream_t rstream = pb_ostream_from_buffer(buffer, size);
+    if (!pb_encode(&rstream, fields,  msg)) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: pb_encode failed: %s, msgsize=%d written=%d\n",
+			mod, PB_GET_ERROR(&rstream), msgsize, rstream.bytes_written);
+	encodefail++;
+	return -1;
+    }
+    // send it off
+    if ((retval = record_write_end(&response_rb, buffer, rstream.bytes_written))) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: record_write_end(%d) failed: %d\n",
+			mod,  msgsize, retval);
+	memfail++;
+	return retval;
+    }
+    return 0;
+}
+
+FUNCTION(_) {
+    ring_size_t cmdsize = record_next_size(&command_rb);
+    if (cmdsize < 0) {
+	// command ring empty
+	underrun++;
+	return;
+    }
+    const void *cmdbuffer = record_next(&command_rb);
+    if (!decode_msg(cmdbuffer, cmdsize)) {
+	// process command here
+	// prepare reply
+	tx.has_motstat = true;
+	tx.motstat = (MotionStatus) {
+	    .commandEcho = rx.motcmd.command,
+	    .commandNumEcho = rx.motcmd.commandNum,
+	    .commandStatus = pb_cmd_status_t_EMCMOT__COMMAND_OK,
+	    .has_carte_pos_fb = true,
+	    .carte_pos_fb = {
+		.tran = {
+		    .has_x = true, .x = 42.0,
+		    .has_y = true, .y = 13.56,
+		    .has_z = true, .z = 27.12},
+		.has_a = true, .a = 3.14
+	    }
+	};
+	send_response(&tx, Container_fields);
+    }
+    record_shift(&command_rb);
+    received++;
+}
+
+static int create_or_attach(const char *name, int size, ringbuffer_t * rb)
+{
+    int retval;
+
+    // for messaging with protobuf, use record mode
+    // default mode 0 = record mode
+    if ((retval = hal_ring_new(name, size, 0, comp_id, 0))) {
+	if (retval == -EEXIST) {
+	    rtapi_print_msg(RTAPI_MSG_INFO,
+			    "%s: using existing ring '%s'\n", mod, name);
+	} else {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "%s: failed to create new ring %s\n", mod, name);
+	    return retval;
+	}
+    }
+    if ((retval = hal_ring_attach(name, rb, comp_id))) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: hal_ring_attach(%s) failed - %d\n",
+			mod, command, retval);
+	return retval;
+    }
+    return 0;
+}
+
+int rtapi_app_main(void)
+{
+    int retval;
+
+    if ((comp_id = hal_init(mod)) < 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: ERROR: hal_init(%s) failed: %d\n",
+			mod, mod, comp_id);
+	return comp_id;
+    }
+    if ((retval = create_or_attach(command, csize, &command_rb)))
+	return retval;
+    if ((retval = create_or_attach(response, rsize, &response_rb)))
+	return retval;
+
+    command_rb.header->reader = comp_id;
+    response_rb.header->writer = comp_id;
+    if ((retval = export(mod, 0))) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: ERROR: export(%s) failed: %d\n",
+			mod, mod, retval);
+	return retval;
+    }
+    hal_ready(comp_id);
+    return 0;
+}
+
+void rtapi_app_exit(void)
+{
+    int retval;
+
+    command_rb.header->reader = 0;
+    response_rb.header->writer = 0;
+
+    if ((retval = hal_ring_detach(command, &command_rb)) < 0)
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: hal_ring_detach(%s) failed: %d\n",
+			mod, command, retval);
+    if ((retval = hal_ring_detach(response, &response_rb)) < 0)
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: hal_ring_detach(%s) failed: %d\n",
+			mod, response, retval);
+    hal_exit(comp_id);
+}

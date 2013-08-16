@@ -27,7 +27,7 @@ static char *name = "ringread";
 
 FUNCTION(_) {
     ringvec_t vec[2];
-    size_t rsize;
+    ring_size_t rsize;
     const void *data;
 
     if (rb.header->is_stream) {
@@ -59,8 +59,9 @@ FUNCTION(_) {
 	if (circular) {
 	    char buf[MAXSIZE];
 	    int result;
+	    size_t size;
 
-	    result = record_iter_read(&ri, &data, &rsize);
+	    result = record_iter_read(&ri, &data, &size);
 	    switch (result) {
 	    case EINVAL:
 		// generation changed due to consumer too slow, renew
@@ -73,15 +74,15 @@ FUNCTION(_) {
 		break;
 	    default:
 		// record available, but commit only after successful iter_shift()
-		memcpy(buf, data, rsize > sizeof(buf) ? sizeof(buf) : rsize);
+		memcpy(buf, data, size > sizeof(buf) ? sizeof(buf) : size);
 		if (record_iter_shift(&ri) == EINVAL) {
 		    tooslow++;
 		    break;
 		}
 		// good to consume buffer
 		rtapi_print_msg(RTAPI_MSG_ERR,
-				"%s(%s): reclen=%d '%.*s', writer=%d\n",
-				name, ring, rsize, rsize, buf,
+				"circular: %s(%s): reclen=%d '%.*s', writer=%d\n",
+				name, ring, size, size, buf,
 				rb.header->writer);
 		break;
 	    }
@@ -128,13 +129,12 @@ int rtapi_app_main(void)
 
     rtapi_print_msg(RTAPI_MSG_INFO,
 		    "%s: attached ring '%s' size=%d mode=%s"
-		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%d"
-		    " circular=%d\n",
+		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%d\n",
 		    name, ring, rb.header->size,
 		    rb.header->is_stream ? "stream" : "record",
 		    ring_use_rmutex(&rb), ring_use_wmutex(&rb),
 		    rb.header->reader, rb.header->writer,
-		    ring_scratchpad_size(&rb), circular);
+		    ring_scratchpad_size(&rb));
 
     rb.header->reader = comp_id;
     rb.header->reader_instance = rtapi_instance;

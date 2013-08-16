@@ -1,0 +1,53 @@
+MSGCOMP_DIR=hal/msgcomponents
+
+# NANOPB_CFLAGS is set in  protobuf/Submakefile
+# for msgcomponents when building an RT comp
+#
+
+RTFLAGS +=   $(NANOPB_CFLAGS)
+#RTFLAGS +=  -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<protobuf/pb-linuxcnc.h>' $(NANOPB_CFLAGS)
+
+
+PBGENDIR =  protobuf/generated
+
+obj-m += pbmsgs.o
+pbmsgs-objs := \
+	$(MSGCOMP_DIR)/pbmsgs.o	\
+	$(PBGENDIR)/types.npb.o \
+	$(PBGENDIR)/value.npb.o \
+	$(PBGENDIR)/object.npb.o  \
+	$(PBGENDIR)/message.npb.o \
+	$(PBGENDIR)/halupdate.npb.o \
+	$(PBGENDIR)/emcclass.npb.o \
+	$(PBGENDIR)/motcmds.npb.o \
+	$(PBGENDIR)/rtapi_message.npb.o \
+	$(PBGENDIR)/test.npb.o
+$(RTLIBDIR)/pbmsgs$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbmsgs-objs))
+
+obj-m += ringload.o
+ringload-objs := $(MSGCOMP_DIR)/ringload.o
+$(RTLIBDIR)/ringload$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(ringload-objs))
+
+
+../include/%.h: ./hal/msgcomponents/%.h
+	cp $^ $@
+
+
+ifeq ($(BUILD_EXAMPLES),yes)
+
+RB_SRCS :=  $(addprefix hal/msgcomponents/, \
+	ringbench.c)
+
+RB_CCFLAGS := -g
+RB_LDFLAGS := -g -lpthread
+
+$(call TOOBJSDEPS, $(RB_SRCS)) : EXTRAFLAGS += $(RB_CCFLAGS) -O0
+
+../bin/ringbench: $(call TOOBJS, $(RB_SRCS)) \
+	../lib/liblinuxcnchal.so
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(RB_LDFLAGS)
+
+USERSRCS += $(RB_SRCS) $(RB_SRCS)
+TARGETS += ../bin/ringbench
+endif
