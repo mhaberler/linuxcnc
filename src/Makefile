@@ -188,6 +188,7 @@ SUBDIRS := \
 	rtapi/shmdrv \
 	\
 	hal/components \
+	hal/msgcomponents \
 	hal/drivers \
 	hal/user_comps/devices \
 	hal/user_comps/mb2hal \
@@ -1012,7 +1013,9 @@ ifneq ($(KERNELRELEASE),)
 #
 # When the Submakefile is included in the kbuild Makefile, the
 # module's obj-m and foo-objs definitions may remain in the Submakefile
+include $(BASEPWD)/protobuf/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
+include $(BASEPWD)/hal/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
 include $(BASEPWD)/rtapi/xeno_math/Submakefile
@@ -1039,6 +1042,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/emc/kinematics \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
+	-I$(BASEPWD)/protobuf/nanopb \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
@@ -1317,6 +1321,9 @@ scope_rt-objs := hal/utils/scope_rt.o $(MATHSTUB)
 
 obj-m += hal_lib.o
 hal_lib-objs := hal/hal_lib.o $(MATHSTUB)
+hal_lib-objs += protobuf/support/nanopb.o
+hal_lib-objs += protobuf/nanopb/pb_decode.o
+hal_lib-objs += protobuf/nanopb/pb_encode.o
 
 obj-m += trivkins.o
 trivkins-objs := emc/kinematics/trivkins.o
