@@ -2,12 +2,10 @@ MSGCOMP_DIR=hal/msgcomponents
 
 # NANOPB_CFLAGS is set in  protobuf/Submakefile
 # for msgcomponents when building an RT comp
-#
 
-RTFLAGS +=   $(NANOPB_CFLAGS)
-#RTFLAGS +=  -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<protobuf/pb-linuxcnc.h>' $(NANOPB_CFLAGS)
+# or at least should - the reference to NANOPB_CFLAGS isnt resolved here; no idea why
 
-
+RTFLAGS +=   $(PROTO_NANOPB_CFLAGS)
 PBGENDIR =  protobuf/generated
 
 obj-m += pbmsgs.o
@@ -22,10 +20,13 @@ pbmsgs-objs := \
 	$(PBGENDIR)/motcmds.npb.o \
 	$(PBGENDIR)/rtapi_message.npb.o \
 	$(PBGENDIR)/test.npb.o
+
 $(RTLIBDIR)/pbmsgs$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbmsgs-objs))
+
 
 obj-m += ringload.o
 ringload-objs := $(MSGCOMP_DIR)/ringload.o
+
 $(RTLIBDIR)/ringload$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(ringload-objs))
 
 

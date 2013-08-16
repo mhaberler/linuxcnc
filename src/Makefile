@@ -187,6 +187,9 @@ SUBDIRS := \
 	rtapi \
 	rtapi/shmdrv \
 	\
+	protobuf \
+	protobuf/support \
+	\
 	hal/components \
 	hal/msgcomponents \
 	hal/drivers \
@@ -226,9 +229,6 @@ SUBDIRS := \
 	emc/pythonplugin \
 	\
 	module_helper \
-	\
-	protobuf \
-	protobuf/support \
 	\
 	po \
 	\

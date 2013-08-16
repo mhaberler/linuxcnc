@@ -70,9 +70,8 @@ PROTOCXX_CXX_FLAGS := -fPIC
 NANOPB_GENERATOR := $(NANOPB)/generator/nanopb_generator.py
 
 # NANOPB_CFLAGS are also passed to module build through
-# RT_CFLAGS - see protobuf/components/Submakefile
+# RTFLAGS - see protobuf/components/Submakefile
 NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<protobuf/pb-linuxcnc.h>'
-
 NANOPB_OPTIONS := $(PBDIR)/nanopb.options
 
 # any extra flags to protoc for nanopb
@@ -309,10 +308,10 @@ PB2JSONLIB := ../lib/libjson2pb.so
 PB2JSON = protobuf/json2pb
 
 PB2JSONLIB_SRCS = $(PB2JSON)/json2pb.cc
-PB2JSONLIB_CCXFLAGS =  -g -O3 -shared -Wall -fPIC
-PB2JSONLIB_LDFLAGS = $(PROTOCXXLIB) -ljansson
+PB2JSONLIB_CCXFLAGS :=  -g -O3 -shared -Wall -fPIC
+PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) -ljansson
 
-$(call TOOBJSDEPS, $(PB2JSONLIB_SRCS)) : EXTRAFLAGS += $(PB2JSONLIB_CXXFLAGS)
+$(call TOOBJSDEPS, $(PB2JSONLIB_SRCS)) : EXTRAFLAGS += $(PB2JSONLIB_CCXFLAGS)
 
 $(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))
 	$(ECHO) Linking $(notdir $@)
