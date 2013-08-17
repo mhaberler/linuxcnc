@@ -30,8 +30,9 @@ for i in range(10):
 
     # construct a protobuf-encoded message
     container = Container()
+    container.type = MT_MOTCMD
     motcmd = container.motcmd
-    motcmd.command = EMCMOT_SET_LINE
+    motcmd.command = MT_EMCMOT_SET_LINE
     motcmd.commandNum = i
     pos = motcmd.pos
     tran = pos.tran

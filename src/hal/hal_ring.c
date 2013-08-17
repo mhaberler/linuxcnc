@@ -7,11 +7,8 @@
 
 
 static hal_ring_t *alloc_ring_struct(void);
-// rings are never freed.
+// currently rings are never freed.
 static int next_ring_id(void);
-
-
-
 extern void *shmalloc_dn(long int size);
 
 /***********************************************************************
@@ -143,7 +140,6 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
     hal_ring_t *rbdesc;
     int shmid;
     ringheader_t *rhptr;
-    char localname[HAL_NAME_LEN+1];
 
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -156,7 +152,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 	int retval  __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 
-	if ((rbdesc = halpr_find_ring_by_name(localname)) == NULL) {
+	if ((rbdesc = halpr_find_ring_by_name(name)) == NULL) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d hal_ring_attach: no such ring '%s'\n",
 			    rtapi_instance, name);
@@ -184,14 +180,13 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 	// fill in ringbuffer_t
 	ringbuffer_init(rhptr, rbptr);
 
-	// unlocking happens automatically on scope exit
-	return 0;
+	// hal mutex unlock happens automatically on scope exit
     }
+    return 0;
 }
 
 int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
 {
-    ringheader_t *rhptr;
 
     if ((rbptr == NULL) || (rbptr->magic != RINGBUFFER_MAGIC)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -212,50 +207,19 @@ int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
 	return -EPERM;
     }
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d detaching ring '%s'\n",
-		    rtapi_instance, name);
-
-    // no mutex(es) held here
+    // no mutex(es) held up to here
     {
 	int retval __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 
+	ringheader_t *rhptr = rbptr->header;
 	rhptr->refcount--;
 	rbptr->magic = 0;  // invalidate FIXME
 
-   }
-    // unlocking happens automatically on scope exit
+	// unlocking happens automatically on scope exit
+    }
     return 0;
 }
-
-
-
-static hal_ring_t *alloc_ring_struct(void)
-{
-    hal_ring_t *p;
-
-    /* check the free list */
-    if (hal_data->ring_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->ring_free_ptr);
-	/* unlink it from the free list */
-	hal_data->ring_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_ring_t));
-    }
-    return p;
-}
-
-#if 0 // for now we never free rings - no need
-static void free_ring_struct(hal_ring_t * p)
-{
-    /* add it to free list */
-    p->next_ptr = hal_data->ring_free_ptr;
-    hal_data->ring_free_ptr = SHMOFF(p);
-}
-#endif
 
 hal_ring_t *halpr_find_ring_by_name(const char *name)
 {
@@ -308,6 +272,33 @@ static int next_ring_id(void)
     }
     return -EBUSY; // no more slots available
 }
+
+static hal_ring_t *alloc_ring_struct(void)
+{
+    hal_ring_t *p;
+
+    /* check the free list */
+    if (hal_data->ring_free_ptr != 0) {
+	/* found a free structure, point to it */
+	p = SHMPTR(hal_data->ring_free_ptr);
+	/* unlink it from the free list */
+	hal_data->ring_free_ptr = p->next_ptr;
+	p->next_ptr = 0;
+    } else {
+	/* nothing on free list, allocate a brand new one */
+	p = shmalloc_dn(sizeof(hal_ring_t));
+    }
+    return p;
+}
+
+#if 0 // for now we never free rings - no need
+static void free_ring_struct(hal_ring_t * p)
+{
+    /* add it to free list */
+    p->next_ptr = hal_data->ring_free_ptr;
+    hal_data->ring_free_ptr = SHMOFF(p);
+}
+#endif
 
 #ifdef RTAPI
 

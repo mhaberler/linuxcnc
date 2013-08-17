@@ -6,22 +6,16 @@
 #include "hal_group.h"		/* HAL group decls */
 
 #if defined(ULAPI)
-// if loading the ulapi shared object fails, we dont have RTAPI
-// calls available for error messages, so fallback to stderr
-// in this case.
-#include <stdio.h>
-#include <sys/types.h>		/* pid_t */
-#include <unistd.h>		/* getpid() */
+#include <stdlib.h>		/* malloc()/free() */
 #include <assert.h>
-#include <time.h>               /* remote comp bind/unbind/update timestamps */
-#include <limits.h>             /* PATH_MAX */
-#include <stdlib.h>		/* exit() */
-#include "rtapi/shmdrv/shmdrv.h"
 #endif
 
+extern void *shmalloc_dn(long int size);
+
 static hal_group_t *alloc_group_struct(void);
-static hal_member_t *alloc_member_struct(void);
 static void free_group_struct(hal_group_t * group);
+
+static hal_member_t *alloc_member_struct(void);
 static void free_member_struct(hal_member_t * member);
 
 int hal_group_new(const char *name, int arg1, int arg2)

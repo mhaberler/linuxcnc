@@ -1,6 +1,10 @@
 #ifndef _HAL_RCOMP_H
 #define _HAL_RCOMP_H
 
+#include <rtapi.h>
+
+RTAPI_BEGIN_DECLS
+
 // compiled component support
 #define CCOMP_MAGIC  0xbeef0815
 typedef struct {
@@ -25,5 +29,7 @@ extern int hal_ccomp_report(hal_compiled_comp_t *ccomp,
 			    comp_report_callback_t report_cb,
 			    void *cb_data, int report_all);
 extern int hal_ccomp_free(hal_compiled_comp_t *ccomp);
+
+RTAPI_END_DECLS
 
 #endif
