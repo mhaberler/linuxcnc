@@ -62,7 +62,7 @@
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_ring.h"		/* HAL ringbuffer decls */
-#include "hal_group.h"		/* HAL ringbuffer decls */
+#include "hal_group.h"		/* HAL group decls */
 
 #include "rtapi_string.h"
 #ifdef RTAPI
@@ -89,9 +89,6 @@ MODULE_LICENSE("GPL");
 #include <stdlib.h>		/* exit() */
 #include "rtapi/shmdrv/shmdrv.h"
 #endif
-
-// avoid pulling in math.h
-#define FABS(a) ((a) > 0.0 ? (a) : -(a))	/* floating absolute value */
 
 char *hal_shmem_base = 0;
 hal_data_t *hal_data = 0;
@@ -159,7 +156,10 @@ static int init_hal_data(void);
     cache performance.
 */
 static void *shmalloc_up(long int size);
-static void *shmalloc_dn(long int size);
+
+// must resolve intra-hallib:
+// now extern in hal_priv.h
+//static void *shmalloc_dn(long int size);
 
 /** The alloc_xxx_struct() functions allocate a structure of the
     appropriate type and return a pointer to it, or 0 if they fail.
@@ -174,8 +174,7 @@ hal_comp_t *halpr_alloc_comp_struct(void);
 static hal_pin_t *alloc_pin_struct(void);
 static hal_sig_t *alloc_sig_struct(void);
 static hal_param_t *alloc_param_struct(void);
-static hal_group_t *alloc_group_struct(void);
-static hal_member_t *alloc_member_struct(void);
+
 static hal_oldname_t *halpr_alloc_oldname_struct(void);
 #ifdef RTAPI
 static hal_funct_t *alloc_funct_struct(void);
@@ -198,18 +197,6 @@ static void free_funct_entry_struct(hal_funct_entry_t * funct_entry);
 #ifdef RTAPI
 static void free_thread_struct(hal_thread_t * thread);
 #endif /* RTAPI */
-static void free_group_struct(hal_group_t * group);
-static void free_member_struct(hal_member_t * member);
-static hal_group_t *find_group_of_member(const char *member);
-
-// rings are never freed.
-static hal_ring_t *alloc_ring_struct(void);
-static hal_ring_t *find_ring_by_name(hal_data_t *hd, const char *name);
-
-static hal_ring_attachment_t *alloc_ring_attachment_struct(void);
-static void        free_ring_attachment_struct(hal_ring_attachment_t *ra);
-static hal_ring_attachment_t *find_ring_attachment_by_name(hal_data_t *hd, const char *name);
-
 
 // FIXME replace by rtapi size_aligned?
 static ring_size_t size_aligned(ring_size_t x);
@@ -230,14 +217,14 @@ static void thread_task(void *arg);
 // ULAPI: HAL shared library load/unload
 // RTAPI: beginning or end of rtapi_app_main()
 //        or rtapi_app_exit()
-enum phase_t  {
-    SHLIB_LOADED,
-    SHLIB_UNLOADED,
-    MAIN_START,
-    MAIN_END,
-    EXIT_START,
-    EXIT_END
-};
+/* enum phase_t  { */
+/*     SHLIB_LOADED, */
+/*     SHLIB_UNLOADED, */
+/*     MAIN_START, */
+/*     MAIN_END, */
+/*     EXIT_START, */
+/*     EXIT_END */
+/* }; */
 
 static int context_pid()
 {
@@ -819,7 +806,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 	case HAL_FLOAT:
 	    halfloat = *((hal_float_t *) data_ptr);
-	    delta = FABS(halfloat - cc->tracking[i].f);
+	    delta = HAL_FABS(halfloat - cc->tracking[i].f);
 	    if (delta > pin->epsilon) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
@@ -1607,7 +1594,7 @@ int hal_signal_delete(const char *name)
     while (next != 0) {
 	sig = SHMPTR(next);
 	if (strcmp(sig->name, name) == 0) {
-	    hal_group_t *grp = find_group_of_member(name);
+	    hal_group_t *grp = halpr_find_group_of_member(name);
 	    if (grp) {
 		rtapi_mutex_give(&(hal_data->mutex));
 		rtapi_print_msg(RTAPI_MSG_ERR,
@@ -1660,18 +1647,7 @@ static int match_remote(const char*name)
     return -EINVAL;
 }
 
-// objects which can be linked to remotely
-enum remote_objects {
-    OBJ_SIGNAL,
-    OBJ_RING
-};
-
-enum name_property {
-    NAME_LOCAL=0,
-    NAME_REMOTE=1,
-    NAME_INVALID=2,
-};
-
+#ifdef HAL_XLINK
 static char *nameprop[] = {
     "local", "remote", "invalid"
 };
@@ -1747,7 +1723,7 @@ static int remote_name(int type, const char *name, int *remote, char *basename, 
 	break;
 
     case OBJ_RING:
-	if ((ring = find_ring_by_name(remote_hal_data,
+	if ((ring = halpr_find_ring_by_name(remote_hal_data,
 				      localname)) == NULL) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d ERROR: remote ring %s does not exist in namespace %s/%d\n",
@@ -1780,6 +1756,7 @@ static int remote_name(int type, const char *name, int *remote, char *basename, 
     }
     return retval;
 }
+#endif
 
 int hal_link(const char *pin_name, const char *sig_name)
 {
@@ -1826,6 +1803,7 @@ int hal_link(const char *pin_name, const char *sig_name)
 	rtapi_print_msg(RTAPI_MSG_DBG,
 			"HAL: linking pin '%s' to '%s'\n", pin_name, sig_name);
 
+#ifdef HAL_XLINK
 	// check if remote signal, and preconditions set
 	if ((status = remote_name(OBJ_SIGNAL, sig_name,
 				  &remote_instance, localname, prefix)) < 0) {
@@ -1835,6 +1813,7 @@ int hal_link(const char *pin_name, const char *sig_name)
 	}
 	rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d name=%s instance=%d\n",
 			rtapi_instance, nameprop[status], remote_instance);
+#endif
 
 	/* locate the pin */
 	pin = halpr_find_pin_by_name(pin_name);
@@ -1850,6 +1829,7 @@ int hal_link(const char *pin_name, const char *sig_name)
 	comp_remote_hal_data = comp_ctx->namespaces[remote_instance].haldata;
 	my_remote_hal_data   = my_ctx->namespaces[remote_instance].haldata;
 
+#ifdef HAL_XLINK
 	// if signal is in a different instance, upgrade locks in sequence
 	if (remote_instance != rtapi_instance) {
 	    // but to avoid a circular deadlock we need to
@@ -1857,7 +1837,6 @@ int hal_link(const char *pin_name, const char *sig_name)
 	    rtapi_mutex_give(&(hal_data->mutex));
 	    halpr_lock_ordered(rtapi_instance, remote_instance);
 	}
-
 	// at this point, good to manipulate objects in either hal_data segment
 
 	/* locate the signal */
@@ -1867,6 +1846,9 @@ int hal_link(const char *pin_name, const char *sig_name)
 	    // remote link
 	    sig = halpr_remote_find_sig_by_name(my_remote_hal_data, localname);
 	}
+#endif
+	sig = halpr_find_sig_by_name(sig_name);
+
 	if (sig == 0) {
 	    /* not found */
 	    rtapi_print_msg(RTAPI_MSG_ERR,
@@ -1983,6 +1965,7 @@ int hal_unlink(const char *pin_name)
 	// if this is a cross-link..
 	remote_instance = pin->signal_inst;
 
+#ifdef HAL_XLINK
 	// we need to lock remote hal_data segment too
 	if (remote_instance != rtapi_instance) {
 	    // but to avoid a circular deadlock we need to
@@ -1990,7 +1973,7 @@ int hal_unlink(const char *pin_name)
 	    rtapi_mutex_give(&(hal_data->mutex));
 	    halpr_lock_ordered(rtapi_instance, remote_instance);
 	}
-
+#endif
 	/* found pin, unlink it */
 	unlink_pin(pin);
 
@@ -3388,913 +3371,6 @@ hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
     return halpr_remote_find_pin_by_sig(hal_data, sig, start);
 }
 
-// ----------------- Group support code ------------
-int hal_group_new(const char *name, int arg1, int arg2)
-{
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_new called before init\n"
-			, rtapi_instance);
-	return -EINVAL;
-    }
-    if (!name) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_new() called with NULL name\n",
-			rtapi_instance);
-    }
-    if (strlen(name) > HAL_NAME_LEN) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group name '%s' is too long\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_LOAD)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_new called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating group '%s'\n",
-		    rtapi_instance, name);
-
-    {
-	hal_group_t *new, *chan;
-	hal_group_t *ptr   __attribute__((cleanup(halpr_autorelease_mutex)));
-	int *prev, next, cmp;
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	/* validate group name */
-	chan = halpr_find_group_by_name(name);
-	if (chan != 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: group '%s' already defined\n",
-			    rtapi_instance, name);
-	    return -EINVAL;
-	}
-	/* allocate a new group structure */
-	new = alloc_group_struct();
-	if (new == 0) {
-	    /* alloc failed */
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: insufficient memory for group '%s'\n",
-			    rtapi_instance, name);
-	    return -ENOMEM;
-	}
-	/* initialize the structure */
-	new->userarg1 = arg1;
-	new->userarg2 = arg2;
-	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
-	/* search list for 'name' and insert new structure */
-	prev = &(hal_data->group_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-	    cmp = strcmp(ptr->name, new->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
-	return 0;
-    }
-}
-
-int hal_group_delete(const char *name)
-{
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_delete called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    if (name == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_delete: name is NULL\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-
-    if (hal_data->lock & HAL_LOCK_CONFIG)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_delete called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d deleting group '%s'\n",
-		    rtapi_instance, name);
-
-    // this block is protected by hal_data->mutex with automatic
-    // onlock on scope exit
-    {
-	hal_group_t *group __attribute__((cleanup(halpr_autorelease_mutex)));
-	int next,*prev;
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-	/* search for the group */
-	prev = &(hal_data->group_list_ptr);
-	next = *prev;
-	while (next != 0) {
-	    group = SHMPTR(next);
-	    if (strcmp(group->name, name) == 0) {
-		/* this is the right group */
-		// verify it is unreferenced, and fail if not:
-		if (group->refcount) {
-		    rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: cannot delete group '%s' (still used: %d)\n",
-				    rtapi_instance, name, group->refcount);
-		    return -EBUSY;
-		}
-		/* unlink from list */
-		*prev = group->next_ptr;
-		/* and delete it, linking it on the free list */
-		//NB: freeing member list is done in free_group_struct
-		free_group_struct(group);
-		/* done */
-		return 0;
-	    }
-	    /* no match, try the next one */
-	    prev = &(group->next_ptr);
-	    next = *prev;
-	}
-	/* if we get here, we didn't find a match */
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: group_delete: no such group '%s'\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-}
-
-int hal_ref_group(const char *name)
-{
-    hal_group_t *group __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-
-    group = halpr_find_group_by_name(name);
-    if (group == NULL)
-	return -ENOENT;
-    group->refcount += 1;
-    return 0;
-}
-
-int hal_unref_group(const char *name)
-{
-    hal_group_t *group __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-
-    group = halpr_find_group_by_name(name);
-    if (group == NULL)
-	return -ENOENT;
-    group->refcount -= 1;
-    return 0;
-}
-
-// does NOT lock hal_data!
-int halpr_foreach_group(const char *groupname,
-			hal_group_callback_t callback, void *cb_data)
-{
-    hal_group_t *group;
-    int next;
-    int nvisited = 0;
-    int result;
-
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: halpr_foreach_group called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_CONFIG)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: halpr_foreach_group called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-#if 0
-    if (groupname == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: halpr_foreach_group(): name is NULL\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-#endif
-    /* search for the group */
-    next = hal_data->group_list_ptr;
-    while (next != 0) {
-	group = SHMPTR(next);
-	if (!groupname || (strcmp(group->name, groupname)) == 0) {
-	    nvisited++;
-	    /* this is the right group */
-	    if (callback) {
-		result = callback(group, cb_data);
-		if (result < 0) {
-		    // callback signaled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signaled 'stop iterating'.
-		    // pass back the number of visited groups.
-		    return nvisited;
-		} else {
-		    // callback signaled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count groups
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = group->next_ptr;
-    }
-    /* if we get here, we ran through all the groups, so return count */
-    return nvisited;
-}
-
-// run through member list, recursively expanding nested groups depth-first
-static int resolve_members( int *nvisited, int level, hal_group_t **groups,
-			   hal_member_callback_t callback, void *cb_data,
-			   int flags)
-{
-    hal_member_t *member;
-    hal_group_t *nestedgroup;
-    int result = 0, mptr = groups[level]->member_ptr;
-
-    while (mptr) {
-	member = SHMPTR(mptr);
-	if (member->sig_member_ptr) {
-	    (*nvisited)++;
-	    if (callback)
-		result = callback(level, groups, member, cb_data);
-	} else if (member->group_member_ptr) {
-	    if (flags & RESOLVE_NESTED_GROUPS) {
-		if (level >= MAX_NESTED_GROUPS) {
-		    // dump stack & bail
-		    rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: maximum group nesting exceeded for '%s'\n",
-				    rtapi_instance, groups[0]->name);
-		    while (level) {
-			rtapi_print_msg(RTAPI_MSG_ERR,
-					"\t%d: %s\n",
-					level, groups[level]->name);
-			level--;
-		    }
-		    return -EINVAL;
-		}
-		nestedgroup = SHMPTR(member->group_member_ptr);
-		groups[level+1] = nestedgroup;
-		result = resolve_members(nvisited, level+1, groups,
-					 callback, cb_data, flags);
-	    } else {
-		if (callback)
-		    result = callback(level, groups, member, cb_data);
-		(*nvisited)++;
-	    }
-	}
-	if (result < 0) {
-	    // callback signaled an error, pass that back up.
-	    return result;
-	} else if (result > 0) {
-	    // callback signaled 'stop iterating'.
-	    // pass back the number of visited members.
-	    return *nvisited;
-	} else {
-	    // callback signaled 'OK to continue'
-	    //fall through
-	}
-	mptr = member->next_ptr;
-    }
-    return result;
-}
-
-// does NOT lock hal_data!
-int halpr_foreach_member(const char *groupname,
-			 hal_member_callback_t callback, void *cb_data, int flags)
-{
-    int nvisited = 0;
-    int level = 0;
-    int result;
-    int next;
-    hal_group_t *groupstack[MAX_NESTED_GROUPS+1], *grp;
-
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: halpr_foreach_member called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-
-    if (hal_data->lock & HAL_LOCK_CONFIG)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: halpr_foreach_member called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-
-    if (groupname == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: halpr_foreach_member(): name is NULL\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-
-    /* search for the group */
-    next = hal_data->group_list_ptr;
-    while (next != 0) {
-	grp = SHMPTR(next);
-	groupstack[0] = grp;
-
-	if (!groupname ||
-	    (strcmp(grp->name, groupname)) == 0) {
-	    // go through members
-	    result = resolve_members(&nvisited, level, groupstack,
-				     callback,  cb_data, flags);
-	    if (result < 0) {
-		// callback signaled an error, pass that back up.
-		return result;
-	    } else if (result > 0) {
-		// callback signaled 'stop iterating'.
-		// pass back the number of visited members.
-		return nvisited;
-	    } else {
-		// callback signaled 'OK to continue'
-		// fall through
-	    }
-	} // group match
-	/* no match, try the next one */
-	next = grp->next_ptr;
-    } // forall groups
-    /* if we get here, we ran through all the groups, so return count */
-    return nvisited;
-}
-
-hal_group_t *halpr_find_group_by_name(const char *name)
-{
-    int next;
-    hal_group_t *group;
-
-    /* search group list for 'name' */
-    next = hal_data->group_list_ptr;
-    while (next != 0) {
-	group = SHMPTR(next);
-	if (strcmp(group->name, name) == 0) {
-	    /* found a match */
-	    return group;
-	}
-	/* didn't find it yet, look at next one */
-	next = group->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
-}
-
-static hal_group_t *find_group_of_member(const char *name)
-{
-    int nextg, nextm;
-    hal_group_t *group, *tgrp;
-    hal_member_t *member;
-    hal_sig_t *sig;
-
-    nextg = hal_data->group_list_ptr;
-    while (nextg != 0) {
-	group = SHMPTR(nextg);
-	nextm = group->member_ptr;
-	while (nextm != 0) {
-	    member = SHMPTR(nextm);
-	    if (member->sig_member_ptr) { // a signal member
-
-		sig = SHMPTR(member->sig_member_ptr);
-		if (strcmp(name, sig->name) == 0) {
-		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "HAL:%d  find_group_of_member(%s): found signal in group '%s'\n",
-				    rtapi_instance, name, group->name);
-		    return group;
-		}
-		nextm = member->next_ptr;
-	    }
-	    if (member->group_member_ptr) { // a nested group
-		tgrp = SHMPTR(member->group_member_ptr);
-		if (strcmp(name, tgrp->name) == 0) {
-		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "HAL:%d  find_group_of_member(%s): found group in group '%s'\n",
-				    rtapi_instance, name, group->name);
-		    return group;
-		}
-		nextm = member->next_ptr;
-	    }
-	}
-	nextg = group->next_ptr;
-    }
-    return group;
-}
-
-int hal_member_new(const char *group, const char *member,
-		     int arg1, double epsilon)
-{
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_new called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    if (!group) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_new() called with NULL group\n",
-			rtapi_instance);
-    }
-    if (!member) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_new() called with NULL member\n",
-			rtapi_instance);
-    }
-    if (strlen(member) > HAL_NAME_LEN) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member name '%s' is too long\n",
-			rtapi_instance, member);
-	return -EINVAL;
-    }
-    if (!strcmp(member, group)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_new(): cannot nest group '%s' as member '%s'\n",
-			rtapi_instance, group, member);
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_LOAD)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_new called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating member '%s'\n",
-		    rtapi_instance, member);
-
-    {
-	hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
-	hal_member_t *new, *ptr;
-	hal_group_t *mgrp = NULL;
-	hal_sig_t *sig = NULL;
-	int *prev, next;
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	/* validate group name */
-	grp = halpr_find_group_by_name(group);
-	if (!grp) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: member_new(): undefined group '%s'\n",
-			    rtapi_instance, group);
-	    return -EINVAL;
-	}
-
-	// TBD: handle remote signal case
-	if ((sig = halpr_find_sig_by_name(member)) != NULL) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,"HAL:%d adding signal '%s' to group '%s'\n",
-			    rtapi_instance, member, group);
-	    goto found;
-	}
-	if ((mgrp = halpr_find_group_by_name(member)) != NULL) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,"HAL:%d adding nested group '%s' to group '%s'\n",
-			    rtapi_instance, member, group);
-	    goto found;
-	}
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_new(): undefined member '%s'\n",
-			rtapi_instance, member);
-	return -EINVAL;
-
-    found:
-	/* allocate a new member structure */
-	new = alloc_member_struct();
-	if (new == 0) {
-	    /* alloc failed */
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: insufficient memory for member '%s'\n",
-			    rtapi_instance, member);
-	    return -ENOMEM;
-	}
-	/* initialize the structure */
-	new->userarg1 = arg1;
-	new->epsilon = epsilon;
-	if (sig) {
-	    new->sig_member_ptr =  SHMOFF(sig);
-	    new->signal_inst = rtapi_instance; // TBD: correct for remote signal
-	    new->group_member_ptr = 0;
-	} else if (mgrp) {
-	    new->group_member_ptr =  SHMOFF(mgrp);
-	    new->sig_member_ptr = 0;
-	}
-	/* insert new structure */
-	/* NB: ordering is by insertion sequence */
-	prev = &(grp->member_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-
-	    if (ptr->sig_member_ptr) {
-		sig = SHMPTR(ptr->sig_member_ptr);
-		if (strcmp(member, sig->name) == 0) {
-		    rtapi_print_msg(RTAPI_MSG_ERR,
-				    "HAL:%d ERROR: member_new(): group '%s' already has signal member '%s'\n",
-				    rtapi_instance, group, sig->name);
-		    return -EINVAL;
-		}
-	    }
-	    if (ptr->group_member_ptr) {
-		mgrp = SHMPTR(ptr->group_member_ptr);
-		if (strcmp(member, mgrp->name) == 0) {
-		    rtapi_print_msg(RTAPI_MSG_ERR,
-				    "HAL:%d ERROR: member_new(): group '%s' already has group member '%s'\n",
-				    rtapi_instance, group, mgrp->name);
-		    return -EINVAL;
-		}
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
-	return 0;
-    }
-}
-
-int hal_member_delete(const char *group, const char *member)
-{
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_delete called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    if(!group) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_delete() called with NULL group\n",
-			rtapi_instance);
-    }
-    if(!member) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_delete() called with NULL member\n",
-			rtapi_instance);
-    }
-    if (strlen(member) > HAL_NAME_LEN) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member name '%s' is too long\n",
-			rtapi_instance, member);
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_LOAD)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_delete called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-    {
-	hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
-	hal_member_t  *mptr;
-	hal_sig_t *sig;
-	int *prev, next;
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	/* validate group name */
-	grp = halpr_find_group_by_name(group);
-	if (!grp) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: member_new(): undefined group '%s'\n",
-			    rtapi_instance, group);
-	    return -EINVAL;
-	}
-
-	sig = halpr_find_sig_by_name(member);
-	if (!sig) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: member_delete(): undefined member '%s'\n",
-			    rtapi_instance, member);
-	    return -EINVAL;
-	}
-	rtapi_print_msg(RTAPI_MSG_DBG,"HAL:%d deleting signal '%s' from group '%s'\n",
-			rtapi_instance,  member, group);
-
-	/* delete member structure */
-	prev = &(grp->member_ptr);
-	/* search for the member */
-	next = *prev;
-	while (next != 0) {
-	    mptr = SHMPTR(next);
-	    if (strcmp(member, sig->name) == 0) {
-		/* this is the right member, unlink from list */
-		*prev = mptr->next_ptr;
-		/* and delete it */
-		free_member_struct(mptr);
-		/* done */
-		return 0;
-	    }
-	    /* no match, try the next one */
-	    prev = &(mptr->next_ptr);
-	    next = *prev;
-	}
-	// pin or signal did exist but was not a group member */
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: member_delete(): signal '%s' exists but not member of '%s'\n",
-			rtapi_instance, member, group);
-	return 0;
-    }
-}
-
-static int cgroup_size_cb(int level, hal_group_t **groups, hal_member_t *member,
-			  void *cb_data)
-{
-    hal_compiled_group_t *tc = cb_data;
-    tc->n_members++;
-    if ((member->userarg1 & MEMBER_MONITOR_CHANGE) ||
-	// the toplevel group flags are relevant, no the nested ones:
-	(groups[0]->userarg2 & GROUP_MONITOR_ALL_MEMBERS))
-	tc->n_monitored++;
-    return 0;
-}
-
-static int cgroup_init_members_cb(int level, hal_group_t **groups, hal_member_t *member,
-				  void *cb_data)
-{
-    hal_compiled_group_t *tc = cb_data;
-    hal_sig_t *sig;
-
-    sig = SHMPTR(member->sig_member_ptr);
-#if 0
-    if ((sig->writers + sig->bidirs) == 0)
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d WARNING: group '%s': member signal '%s' has no updater\n",
-			rtapi_instance, groups[0]->name, sig->name);
-#endif
-    tc->member[tc->mbr_index] = member;
-    tc->mbr_index++;
-    if ((member->userarg1 & MEMBER_MONITOR_CHANGE) ||
-	(groups[0]->userarg2 & GROUP_MONITOR_ALL_MEMBERS)) {
-	tc->mon_index++;
-    }
-    return 0;
-}
-
-// group generic change detection & reporting support
-
-int hal_group_compile(const char *name, hal_compiled_group_t **cgroup)
-{
-    int result;
-    hal_compiled_group_t *tc;
-    hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-
-    if ((grp = halpr_find_group_by_name(name)) == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: hal_group_compile(%s): no such group\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-
-    // a compiled group is a userland memory object
-    if ((tc = malloc(sizeof(hal_compiled_group_t))) == NULL)
-	return -ENOMEM;
-
-    memset(tc, 0, sizeof(hal_compiled_group_t));
-
-    // first pass: determine sizes
-    // this fills sets the n_members and n_monitored fields
-    result = halpr_foreach_member(name, cgroup_size_cb,
-				  tc, RESOLVE_NESTED_GROUPS);
-    /* rtapi_print_msg(RTAPI_MSG_DBG, */
-    /* 		    "HAL:%d hal_group_compile(%s): %d signals %d monitored\n", */
-    /* 		    rtapi_instance, name, tc->n_members, tc->n_monitored ); */
-    if ((tc->member =
-	 malloc(sizeof(hal_member_t  *) * tc->n_members )) == NULL)
-	return -ENOMEM;
-
-    tc->mbr_index = 0;
-    tc->mon_index = 0;
-
-    // second pass: fill in references
-    result = halpr_foreach_member(name, cgroup_init_members_cb,
-				  tc, RESOLVE_NESTED_GROUPS);
-    assert(tc->n_monitored == tc->mon_index);
-    assert(tc->n_members == tc->mbr_index);
-
-    // this attribute combination doesn make sense - such a group
-    // definition will never trigger a report:
-    if ((grp->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS)) &&
-	(tc->n_monitored  == 0)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-		 "HAL:%d hal_group_compile(%s): changed-monitored group with no members to check\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-
-    // set up value tracking if either the whole group is to be monitored for changes
-    // to cause a report, or some members should be included in a periodic
-    if ((grp->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS)) ||
-	(tc->n_monitored  > 0)) {
-	if ((tc->tracking =
-	     malloc(sizeof(hal_data_u) * tc->n_monitored )) == NULL)
-	    return -ENOMEM;
-	memset(tc->tracking, 0, sizeof(hal_data_u) * tc->n_monitored);
-	if ((tc->changed =
-	     malloc(RTAPI_BITMAP_SIZE(tc->n_members))) == NULL)
-	    return -ENOMEM;
-	RTAPI_ZERO_BITMAP(tc->changed, tc->n_members);
-    } else {
-	// nothing to track
-	tc->n_monitored = 0;
-	tc->tracking = NULL;
-	tc->changed = NULL;
-    }
-
-    tc->magic = CGROUP_MAGIC;
-    tc->group = grp;
-    grp->refcount++;
-    *cgroup = tc;
-
-    return 0;
-}
-
-int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_data_u value)
-{
-    hal_data_t *sig_hal_data;
-    hal_sig_t *sig;
-    hal_data_u *dp;
-    hal_member_t *member;
-    hal_context_t *ctx = THIS_CONTEXT();
-
-    assert(cg->magic ==  CGROUP_MAGIC);
-    // handles (value references) run from 0..cc->n_pin-1
-    if ((handle < 0) || (handle > cg->n_members-1))
-	return -ERANGE;
-
-    member = cg->member[handle];
-    sig_hal_data = ctx->namespaces[member->signal_inst].haldata;
-    sig = SHMPTR_IN(sig_hal_data, member->sig_member_ptr);
-    dp = SHMPTR_IN(sig_hal_data, sig->data_ptr);
-
-    if (sig->writers > 0)
-	rtapi_print_msg(RTAPI_MSG_WARN,
-			"HAL:%d WARNING: group '%s': member signal '%s' already has updater\n",
-			rtapi_instance, cg->group->name, sig->name);
-
-    switch (type) {
-    case HAL_TYPE_UNSPECIFIED:
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: hal_cgroup_apply(): invalid HAL type %d\n",
-			rtapi_instance, type);
-	return -EINVAL;
-    case HAL_BIT:
-	dp->b = value.b;
-	break;
-    case HAL_FLOAT:
-	dp->f = value.f;
-	break;
-    case HAL_S32:
-	dp->s = value.s;
-	break;
-    case HAL_U32:
-	dp->u = value.u;
-	break;
-    }
-    return 0;
-}
-
-
-int hal_cgroup_match(hal_compiled_group_t *cg)
-{
-    int i, monitor, nchanged = 0, m = 0;
-    hal_sig_t *sig;
-    hal_bit_t halbit;
-    hal_s32_t hals32;
-    hal_s32_t halu32;
-    hal_float_t halfloat,delta;
-
-    assert(cg->magic ==  CGROUP_MAGIC);
-
-    // scan for changes if needed
-    monitor = (cg->group->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS))
-	|| (cg->n_monitored > 0);
-
-    // walk the group if either the whole group is to be monitored for changes
-    // to cause a report, or only changed members should be included in a periodic
-    // report.
-    if (monitor) {
-	RTAPI_ZERO_BITMAP(cg->changed, cg->n_members);
-	for (i = 0; i < cg->n_members; i++) {
-	    sig = SHMPTR(cg->member[i]->sig_member_ptr);
-	    /* if (!cg->member[i]->userarg1 &  MEMBER_MONITOR_CHANGE) */
-	    /* 	continue; */
-	    switch (sig->type) {
-	    case HAL_BIT:
-		halbit = *((char *) SHMPTR(sig->data_ptr));
-		if (cg->tracking[m].b != halbit) {
-		    nchanged++;
-		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].b = halbit;
-		}
-		break;
-	    case HAL_FLOAT:
-		halfloat = *((hal_float_t *) SHMPTR(sig->data_ptr));
-		delta = FABS(halfloat - cg->tracking[m].f);
-		if (delta > cg->member[i]->epsilon) {
-		    nchanged++;
-		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].f = halfloat;
-		}
-		break;
-	    case HAL_S32:
-		hals32 =  *((hal_s32_t *) SHMPTR(sig->data_ptr));
-		if (cg->tracking[m].s != hals32) {
-		    nchanged++;
-		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].s = hals32;
-		}
-		break;
-	    case HAL_U32:
-		halu32 =  *((hal_u32_t *) SHMPTR(sig->data_ptr));
-		if (cg->tracking[m].u != halu32) {
-		    nchanged++;
-		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].u = halu32;
-		}
-		break;
-	    default:
-		rtapi_print_msg(RTAPI_MSG_ERR,
-				"HAL:%d BUG: detect_changes(%s): invalid type for signal %s: %d\n",
-				rtapi_instance, cg->group->name, sig->name, sig->type);
-		return -EINVAL;
-	    }
-	    m++;
-	}
-	return nchanged;
-    } else
-	return 1;
-}
-
-
-int hal_cgroup_report(hal_compiled_group_t *cg, group_report_callback_t report_cb,
-		      void *cb_data, int force_all)
-{
-    int retval, i, reportall;
-
-    if (!report_cb)
-	return 0;
-    if ((retval = report_cb(REPORT_BEGIN, cg,-1, NULL,  cb_data)) < 0)
-	return retval;
-
-    // report all members if forced, there are no members with change detect in the group,
-    // or the group doesnt have the 'report changed members only' bit set
-    reportall = force_all || (cg->n_monitored == 0) ||
-	!(cg->group->userarg2 & GROUP_REPORT_CHANGED_MEMBERS);
-
-    for (i = 0; i < cg->n_members; i++) {
-	if (reportall || RTAPI_BIT_TEST(cg->changed, i))
-	    if ((retval = report_cb(REPORT_SIGNAL, cg,i,
-				    SHMPTR(cg->member[i]->sig_member_ptr), cb_data)) < 0)
-		return retval;
-    }
-    return report_cb(REPORT_END, cg, -1, NULL,  cb_data);
-}
-
-int hal_cgroup_free(hal_compiled_group_t *cgroup)
-{
-    if (cgroup == NULL)
-	return -ENOENT;
-    if (cgroup->tracking)
-	free(cgroup->tracking);
-    if (cgroup->changed)
-	free(cgroup->changed);
-    if (cgroup->member)
-	free(cgroup->member);
-    free(cgroup);
-    return 0;
-}
-//--- end group support code ---
 
 /***********************************************************************
 *         Scope exit unlock helpers                                    *
@@ -4329,421 +3405,7 @@ void halpr_autorelease_ordered(int *remote_instance)
     halpr_unlock_ordered(rtapi_instance, *remote_instance);
 }
 
-/***********************************************************************
-*                    Internal HAL ring support functions               *
-************************************************************************/
-static hal_ring_t *find_ring_by_name(hal_data_t *hd, const char *name)
-{
-    int next;
-    hal_ring_t *ring;
 
-    /* search ring list for 'name' */
-    next = hd->ring_list_ptr;
-    while (next != 0) {
-	ring = SHMPTR_IN(hd, next);
-	if (strcmp(ring->name, name) == 0) {
-	    /* found a match */
-	    return ring;
-	}
-	/* didn't find it yet, look at next one */
-	next = ring->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
-}
-
-
-static hal_ring_attachment_t *find_ring_attachment_by_name(hal_data_t *hd, const char *name)
-{
-    int next;
-    hal_ring_attachment_t *ring;
-
-    /* search ring attachment list for 'name' */
-    next = hd->ring_attachment_list_ptr;
-    while (next != 0) {
-	ring = SHMPTR_IN(hd, next);
-	if (strcmp(ring->name, name) == 0) {
-	    /* found a match */
-	    return ring;
-	}
-	/* didn't find it yet, look at next one */
-	next = ring->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
-}
-
-// we manage ring shm segments through a bitmap visible in hal_data
-// instead of going through separate (and rather useless) RTAPI methods
-// this removes both reliance on a visible RTAPI data segment, which the
-// userland flavors dont have, and simplifies RTAPI.
-// the shared memory key of a given ring id and instance is defined as
-// OS_KEY(RTAPI_RING_SHM_KEY+id, instance).
-static int next_ring_id(void)
-{
-    int i, ring_shmkey;
-    for (i = 0; i < HAL_MAX_RINGS; i++) {
-	if (!RTAPI_BIT_TEST(hal_data->rings,i)) {  // unused
-#if 1  // paranoia
-	    ring_shmkey = OS_KEY(HAL_KEY, rtapi_instance);
-	    // test if foreign instance exists
-	    if (!rtapi_shmem_exists(ring_shmkey)) {
-		rtapi_print_msg(RTAPI_MSG_ERR,
-				"HAL_LIB:%d BUG: next_ring_id(%d) - shm segment exists (%x)\n",
-				rtapi_instance, i, ring_shmkey);
-		return -EEXIST;
-	    }
-#endif
-	    RTAPI_BIT_SET(hal_data->rings,i);      // allocate
-	    return i;
-	}
-    }
-    return -EBUSY; // no more slots available
-}
-
-#if 0 // for now we never free rings and hence ring id's - no need so far
-static int free_ring_id(int id)
-{
-    if ((id < 0) || (id > HAL_MAX_RINGS-1))
-	return -EINVAL;
-
-    if  (!_BIT_TEST(hal_data->rings,id)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: free_ring_id(%d): not allocated\n",
-			rtapi_instance, id);
-	return -EINVAL;
-    }
-    _BIT_CLEAR(hal_data->rings,id);
-    return 0;
-}
-#endif
-
-/***********************************************************************
-*                     Public HAL ring functions                        *
-************************************************************************/
-int hal_ring_new(const char *name, int size, int sp_size, int module_id, int flags)
-{
-    hal_ring_t *rbdesc;
-    int *prev, next, cmp, retval;
-    int ring_id;
-    ringheader_t *rhptr;
-
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: hal_ring_new called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    {
-	hal_ring_t *ptr __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	if (!name) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: hal_ring_new() called with NULL name\n",
-			    rtapi_instance);
-	}
-	if (strlen(name) > HAL_NAME_LEN) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: ring name '%s' is too long\n",
-			    rtapi_instance, name);
-	    return -EINVAL;
-	}
-	if (hal_data->lock & HAL_LOCK_LOAD)  {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: hal_ring_new called while HAL locked\n",
-			    rtapi_instance);
-	    return -EPERM;
-	}
-
-	// make sure no such ring name already exists
-	if ((ptr = find_ring_by_name(hal_data, name)) != 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: ring '%s' already exists\n",
-			    rtapi_instance, name);
-	    return -EEXIST;
-	}
-	// allocate a new ring id - needed since we dont track ring shm
-	// segments in RTAPI
-	if ((ring_id = next_ring_id()) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d cant allocate new ring id for '%s'\n",
-			    rtapi_instance, name);
-	    return -ENOMEM;
-	}
-
-	// allocate a new ring descriptor
-	if ((rbdesc = alloc_ring_struct()) == 0) {
-	    // alloc failed
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: insufficient memory for ring '%s'\n", name);
-	    return -ENOMEM;
-	}
-
-	rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating ring '%s'\n",
-			rtapi_instance, name);
-
-	// make total allocation fit ringheader, ringbuffer and scratchpad
-	rbdesc->total_size = ring_memsize( flags, size, sp_size);
-
-	// allocate shared memory segment for ring and init
-	rbdesc->ring_shmkey = OS_KEY((RTAPI_RING_SHM_KEY + ring_id), rtapi_instance);
-
-	// allocate an RTAPI shm segment owned by the allocating module
-	if ((rbdesc->ring_shmid = rtapi_shmem_new(rbdesc->ring_shmkey, module_id,
-						  rbdesc->total_size)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_new: rtapi_shmem_new(0x%8.8x,%d,%zu) failed: %d\n",
-			    rtapi_instance,
-			    rbdesc->ring_shmkey, module_id,
-			    rbdesc->total_size, rbdesc->ring_shmid);
-	    return  -ENOMEM;
-	}
-
-	// map the segment now so we can fill in the ringheader details
-	if ((retval = rtapi_shmem_getptr(rbdesc->ring_shmid,
-					 (void **)&rhptr)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_new: rtapi_shmem_getptr for %d failed %d\n",
-			    rtapi_instance, rbdesc->ring_shmid, retval);
-	    return -ENOMEM;
-	}
-
-	ringheader_init(rhptr, flags, size, sp_size);
-	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
-	rtapi_snprintf(rbdesc->name, sizeof(rbdesc->name), "%s", name);
-	rbdesc->next_ptr = 0;
-	rbdesc->owner = module_id;
-
-	// search list for 'name' and insert new structure
-	prev = &(hal_data->ring_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		rbdesc->next_ptr = next;
-		*prev = SHMOFF(rbdesc);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-	    cmp = strcmp(ptr->name, rbdesc->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		rbdesc->next_ptr = next;
-		*prev = SHMOFF(rbdesc);
-		return 0;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
-    }
-    // automatic unlock by scope exit
-}
-
-int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
-{
-    hal_ring_t *rbdesc;
-    hal_ring_attachment_t *radesc;
-    int retval, status, shmid, other_instance;
-    hal_data_t *hd;
-    hal_context_t *ctx = THIS_CONTEXT();
-    ringheader_t *rhptr;
-    char localname[HAL_NAME_LEN+1];
-    char prefix[HAL_NAME_LEN+1];
-
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: hal_ring_attach called before init\n");
-	return -EINVAL;
-    }
-    // remote_name() does its own locking
-    if ((status = remote_name(OBJ_RING, name, &other_instance,
-			      localname, prefix)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d remote namespace for '%s' not associated\n",
-			rtapi_instance, name);
-	return status;
-    }
-    if (status == NAME_INVALID) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d hal_ring_attach: invalid name '%s'\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-    // no mutex(es) held at this point
-    {
-	int remote_instance
-	    __attribute__((cleanup(halpr_autorelease_ordered))) = other_instance;
-
-	// lock our, or both hal_data segment(s) in instance order
-	if ((retval = halpr_lock_ordered(rtapi_instance, remote_instance)) != 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: failed to lock %d/%d\n",
-			    rtapi_instance, rtapi_instance, remote_instance);
-	    return retval;
-	}
-
-	// at this point, good to manipulate objects in either hal_data segment
-	// as both mutexes are held
-	hd = ctx->namespaces[remote_instance].haldata;
-
-	if ((rbdesc = find_ring_by_name(hd, localname)) == NULL) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_attach: no such ring '%s'\n",
-			    rtapi_instance, name);
-	    return -EINVAL;
-	}
-
-	// check for self-reference here (instX:foo where instX==us)
-	if ((status == NAME_REMOTE) &&
-	    !strcmp(prefix, hal_data->nsdesc[rtapi_instance].name)) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,
-			    "HAL:%d hal_ring_attach: ignoring self-reference in '%s'\n",
-			    rtapi_instance, name);
-	    status = NAME_LOCAL; // local afterall
-	}
-
-	// map in the shm segment
-	if ((shmid = rtapi_shmem_new_inst(rbdesc->ring_shmkey,
-					  remote_instance, module_id, 0)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_attach(%s): rtapi_shmem_new_inst() failed %d\n",
-			    rtapi_instance,name, shmid);
-	    return -EINVAL;
-	}
-	// make it accessible
-	if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_attach: rtapi_shmem_getptr %d failed %d\n",
-			    rtapi_instance, rbdesc->ring_shmid, retval);
-	    return -ENOMEM;
-	}
-	// allocate a new ring attachment descriptor
-	if ((radesc = alloc_ring_attachment_struct()) == 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: insufficient memory for attching ring '%s'\n",
-			    rtapi_instance, name);
-	    return -ENOMEM;
-	}
-
-	// record usage in ringheader
-	rhptr->refcount++;
-	// fill in ringbuffer_t
-	ringbuffer_init(rhptr, rbptr);
-
-	// record attachment details
-	strncpy(radesc->name, name, HAL_NAME_LEN);
-	radesc->ring_shmid = shmid;
-	radesc->ring_inst = remote_instance;
-	radesc->owner = module_id;
-
-	// record attachment descriptor
-	radesc->next_ptr = hal_data->ring_attachment_list_ptr;
-	hal_data->ring_attachment_list_ptr = SHMOFF(radesc);
-
-	// unlocking happens automatically on scope exit
-	return 0;
-    }
-}
-
-int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
-{
-    hal_ring_attachment_t *radesc, *raptr;
-    ringheader_t *rhptr;
-    int next,*prev, status, other_instance;
-    int retval;
-    char localname[HAL_NAME_LEN+1];
-    char prefix[HAL_NAME_LEN+1];
-
-    if ((rbptr == NULL) || (rbptr->magic != RINGBUFFER_MAGIC)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: hal_ring_detach: invalid ringbuffer\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    if (hal_data == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: hal_ring_detach called before init\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_CONFIG)  {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: hal_ring_detach called while HAL locked\n",
-			rtapi_instance);
-	return -EPERM;
-    }
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d removing ring attachment '%s'\n",
-		    rtapi_instance, name);
-
-    // remote_name() does its own locking
-    if ((status = remote_name(OBJ_RING, name, &other_instance,
-			      localname, prefix)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d remote namespace for '%s' not associated\n",
-			rtapi_instance, name);
-	return status;
-    }
-    if (status == NAME_INVALID) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d hal_ring_detach: invalid name '%s'\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-    // no mutex(es) held here
-    {
-	int remote_instance
-	    __attribute__((cleanup(halpr_autorelease_ordered))) = other_instance;
-
-	if ((retval = halpr_lock_ordered(rtapi_instance, remote_instance))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: failed to lock %d/%d\n",
-			    rtapi_instance, rtapi_instance, remote_instance);
-	    return retval;
-	}
-	if ((radesc = find_ring_attachment_by_name(hal_data, name)) == NULL) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_detach: no such ring attachment '%s'\n",
-			    rtapi_instance, name);
-	    return -EINVAL;
-	}
-
-	// check for self-reference (instX:foo where instX==us)
-	if ((status == NAME_REMOTE) &&
-	    !strcmp(prefix, hal_data->nsdesc[rtapi_instance].name)) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,
-			    "HAL:%d hal_ring_detach: ignoring self-reference in '%s'\n",
-			    rtapi_instance, name);
-	    status = NAME_LOCAL;
-	}
-
-	// retrieve ringheader address to decrease refcount
-	if ((retval = rtapi_shmem_getptr(radesc->ring_shmid, (void **)&rhptr)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_detach: rtapi_shmem_getptr %d failed %d\n",
-			    rtapi_instance, radesc->ring_shmid, retval);
-	    return -ENOMEM;
-	}
-	rhptr->refcount--;
-	rbptr->magic = 0;  // invalidate
-
-	// delete the attachment record
-	prev = &(hal_data->ring_attachment_list_ptr);
-	next = *prev;
-	while (next != 0) {
-	    raptr = SHMPTR(next);
-	    if (radesc == raptr) {
-		*prev = radesc->next_ptr;
-		free_ring_attachment_struct(radesc);
-		break;
-	    }
-	    prev = &(raptr->next_ptr);
-	    next = *prev;
-	}
-    }
-    // unlocking happens automatically on scope exit
-    return 0;
-}
 /***********************************************************************
 *                     LOCAL FUNCTION CODE                              *
 ************************************************************************/
@@ -5110,7 +3772,7 @@ static void *shmalloc_up(long int size)
     return retval;
 }
 
-static void *shmalloc_dn(long int size)
+void *shmalloc_dn(long int size)
 {
     long int tmp_top;
     void *retval;
@@ -5275,61 +3937,6 @@ static hal_oldname_t *halpr_alloc_oldname_struct(void)
 	/* make sure it's empty */
 	p->next_ptr = 0;
 	p->name[0] = '\0';
-    }
-    return p;
-}
-
-static hal_group_t *alloc_group_struct(void)
-{
-    hal_group_t *p;
-
-    /* check the free list */
-    if (hal_data->group_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->group_free_ptr);
-	/* unlink it from the free list */
-	hal_data->group_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_group_t));
-    }
-    if (p) {
-	/* make sure it's empty */
-	p->next_ptr = 0;
-	p->refcount = 0;
-	p->userarg1 = 0;
-	p->userarg2 = 0;
-	p->member_ptr = 0;
-	p->name[0] = '\0';
-    }
-    return p;
-}
-
-
-static hal_member_t *alloc_member_struct(void)
-{
-    hal_member_t *p;
-
-    /* check the free list */
-    if (hal_data->member_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->member_free_ptr);
-	/* unlink it from the free list */
-	hal_data->member_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_member_t));
-    }
-    if (p) {
-	/* make sure it's empty */
-	p->next_ptr = 0;
-	p->sig_member_ptr = 0;
-	p->signal_inst = rtapi_instance; // default to local
-	p->group_member_ptr = 0;
-	p->userarg1 = 0;
-	p->epsilon = CHANGE_DETECT_EPSILON;
     }
     return p;
 }
@@ -5601,95 +4208,7 @@ static void free_oldname_struct(hal_oldname_t * oldname)
     hal_data->oldname_free_ptr = SHMOFF(oldname);
 }
 
-static void free_member_struct(hal_member_t * member)
-{
-    /* clear contents of struct */
-    member->group_member_ptr = 0;
-    member->sig_member_ptr = 0;
-    member->userarg1 = 0;
 
-    /* add it to free list */
-    member->next_ptr = hal_data->member_free_ptr;
-    hal_data->member_free_ptr = SHMOFF(member);
-}
-
-static void free_group_struct(hal_group_t * group)
-{
-    int nextm;
-    hal_member_t * member;
-
-    /* clear contents of struct */
-    group->next_ptr = 0;
-    group->refcount = 0;
-    group->userarg1 = 0;
-    group->userarg2 = 0;
-    group->name[0] = '\0';
-    nextm = group->member_ptr;
-    // free all linked member structs
-    while (nextm != 0) {
-	member = SHMPTR(nextm);
-	nextm = member->next_ptr;
-	free_member_struct(member);
-    }
-    group->member_ptr = 0;
-
-    /* add it to free list */
-    group->next_ptr = hal_data->group_free_ptr;
-    hal_data->group_free_ptr = SHMOFF(group);
-}
-
-static hal_ring_t *alloc_ring_struct(void)
-{
-    hal_ring_t *p;
-
-    /* check the free list */
-    if (hal_data->ring_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->ring_free_ptr);
-	/* unlink it from the free list */
-	hal_data->ring_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_ring_t));
-    }
-    return p;
-}
-
-#if 0 // for now we never free rings - no need
-static void free_ring_struct(hal_ring_t * p)
-{
-    /* add it to free list */
-    p->next_ptr = hal_data->ring_free_ptr;
-    hal_data->ring_free_ptr = SHMOFF(p);
-}
-#endif
-
-// attach
-static hal_ring_attachment_t *alloc_ring_attachment_struct(void)
-{
-    hal_ring_attachment_t *p;
-
-    /* check the free list */
-    if (hal_data->ring_attachment_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->ring_attachment_free_ptr);
-	/* unlink it from the free list */
-	hal_data->ring_attachment_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_ring_attachment_t));
-    }
-    return p;
-}
-
-static void free_ring_attachment_struct(hal_ring_attachment_t * p)
-{
-    /* add it to free list */
-    p->next_ptr = hal_data->ring_attachment_free_ptr;
-    hal_data->ring_attachment_free_ptr = SHMOFF(p);
-}
 
 
 static void free_context_struct(hal_context_t * p)
@@ -6072,7 +4591,7 @@ int hal_namespace_add(int instance, const char *name)
     return 0;
 }
 
-
+#ifdef HAL_XLINK
 int halpr_pin_crossrefs(unsigned long *bitmap, hal_pin_sig_xref_cb pin_xlink_callback)
 {
     hal_context_t *ctx = THIS_CONTEXT();
@@ -6169,6 +4688,7 @@ int halpr_ring_crossrefs(unsigned long *bitmap, hal_ring_xref_cb ring_xlink_call
     }
     return sum;
 }
+
 
 // trivial callback to count pin crosslinks
 static int count_pin_xref(int pin_inst, char *pin_prefix, char *sig_prefix,
@@ -6308,7 +4828,7 @@ int hal_namespace_associate(int instance, char *prefix)
 	strcpy(prefix, remote_name);
     return 0;
 }
-
+#endif
 
 #if 0
 // to prevent dangling pins into detached namespaces,
