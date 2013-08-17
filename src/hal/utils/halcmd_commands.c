@@ -489,7 +489,7 @@ int do_net_cmd(char *signal, char *pins[]) {
 	    return -ENOENT;
 	}
     }
-    if(!sig && !strchr(signal, ':')) { // dont create signal if its remote (?)
+    if(!sig) {
         /* Create the signal with the type of the first pin */
         hal_pin_t *pin = halpr_find_pin_by_name(pins[0]);
         rtapi_mutex_give(&(hal_data->mutex));
@@ -1185,9 +1185,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 
     if ( retval != 0 ) {
 	halcmd_error("insmod failed, returned %d\n"
-		     //#if !defined(BUILD_SYS_USER_DSO)
             "See the log and output of 'dmesg' for more information.\n"
-		     //#endif
         , retval );
 	return -1;
     }
@@ -1542,7 +1540,6 @@ int do_loadusr_cmd(char *args[])
 	    comp_id );
 	exit(-1);
     }
-    //hal_ready(comp_id);
     if ( wait_comp_flag ) {
         int ready = 0, count=0, exited=0;
         hal_comp_t *comp = NULL;
