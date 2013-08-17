@@ -133,7 +133,6 @@ RTAPI_BEGIN_DECLS
 #include <rtapi_errno.h>
 
 #define HAL_NAME_LEN     41	/* length for pin, signal, etc, names */
-#define MAX_NAMESPACES   16
 
 /** These locking codes define the state of HAL locking, are used by most functions */
 /** The functions locked will return a -EPERM error message **/
@@ -170,7 +169,6 @@ RTAPI_BEGIN_DECLS
     Call only from within user space or init/cleanup code, not from
     realtime code.
 */
-//extern int hal_init(const char *name);
 
 /* traditional components have the following lifecycle:
  * their type is set to TYPE_RT or TYPE_USER

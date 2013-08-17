@@ -113,8 +113,10 @@
 
 RTAPI_BEGIN_DECLS
 
-/* SHMPTR(offset) converts 'offset' to a void pointer.
- */
+// extending this beyond 255 might require adapting rtapi_shmkeys.h
+#define HAL_MAX_RINGS	        255
+
+/* SHMPTR(offset) converts 'offset' to a void pointer. */
 #define SHMPTR(offset)  ( (void *)( hal_shmem_base + (offset) ) )
 
 /* SHMOFF(ptr) converts 'ptr' to an offset from shared mem base.  */
@@ -138,12 +140,6 @@ RTAPI_BEGIN_DECLS
 // avoid pulling in math.h
 #define HAL_FABS(a) ((a) > 0.0 ? (a) : -(a))	/* floating absolute value */
 
-
-// sizing
-#define HAL_NGROUPS              32
-
-// extending this beyond 255 might require adapting rtapi_shmkeys.h
-#define HAL_MAX_RINGS	        255
 /***********************************************************************
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
@@ -182,27 +178,6 @@ typedef struct {
     int next_ptr;		/* next struct (used for free list only) */
     char name[HAL_NAME_LEN + 1];	/* the original name */
 } hal_oldname_t;
-
-
-// the hal_context_t structure describes a HAL context.
-//
-// (each) RT space is a context (like rtapi_app or the kernel)
-// as well as each userland process owning one or several HAL components.
-//
-// the context carries information about which hal namespaces it sees
-// attach/detach operations happen at the context level
-// each component belongs to exactly one context
-// The pid is the unique key to a context.
-//
-// a context is created by the first component in a given context.
-// the relation of contexts to components is 1:n.
-// any component lives in exactly one context and refers back to it by the context_ptr.
-
-enum context_type {
-    CONTEXT_INVALID = 0,
-    CONTEXT_RT = 1,
-    CONTEXT_USERLAND = 2,
-};
 
 
 /* Master HAL data structure
@@ -506,9 +481,6 @@ extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
 // see http://git.mah.priv.at/gitweb?p=emc2-dev.git;a=shortlog;h=refs/heads/hal-lock-unlock
 // NB: make sure the mutex is actually held in the using code when leaving scope!
 void halpr_autorelease_mutex(void *variable);
-
-
-
 
 #if 0 // not sure this belongs here..
 #ifdef ULAPI

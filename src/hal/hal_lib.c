@@ -2554,7 +2554,7 @@ hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
 
 
 /***********************************************************************
-*         Scope exit unlock helpers                                    *
+*         Scope exit unlock helper                                     *
 *         see hal_priv.h for usage hints                               *
 ************************************************************************/
 void halpr_autorelease_mutex(void *variable)
@@ -3327,26 +3327,6 @@ static void free_oldname_struct(hal_oldname_t * oldname)
     hal_data->oldname_free_ptr = SHMOFF(oldname);
 }
 
-#if 0
-// lookup a context
-static hal_context_t *find_context(int pid)
-{
-    int next;
-    hal_context_t *context;
-
-    /* search context list for 'name' */
-    next = hal_data->context_list_ptr;
-    while (next != 0) {
-	context = SHMPTR(next);
-	if (pid == context->pid) {
-	    return context;
-	}
-	next = context->next_ptr;
-    }
-    return 0;
-}
-#endif
-
 
 #ifdef RTAPI
 static void free_funct_struct(hal_funct_t * funct)
@@ -3659,12 +3639,6 @@ EXPORT_SYMBOL(halpr_find_param_by_owner);
 EXPORT_SYMBOL(halpr_find_funct_by_owner);
 
 EXPORT_SYMBOL(halpr_find_pin_by_sig);
-EXPORT_SYMBOL(hal_ring_new);
-EXPORT_SYMBOL(hal_ring_detach);
-EXPORT_SYMBOL(hal_ring_attach);
-
-EXPORT_SYMBOL(halpr_lock_ordered);
-EXPORT_SYMBOL(halpr_unlock_ordered);
 
 #endif /* rtapi */
 

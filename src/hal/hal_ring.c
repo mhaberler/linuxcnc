@@ -309,21 +309,10 @@ static int next_ring_id(void)
     return -EBUSY; // no more slots available
 }
 
-#if 0 // for now we never free rings and hence ring id's - no need so far
-static int free_ring_id(int id)
-{
-    if ((id < 0) || (id > HAL_MAX_RINGS-1))
-	return -EINVAL;
+#ifdef RTAPI
 
-    if  (!_BIT_TEST(hal_data->rings,id)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: free_ring_id(%d): not allocated\n",
-			rtapi_instance, id);
-	return -EINVAL;
-    }
-    _BIT_CLEAR(hal_data->rings,id);
-    return 0;
-}
+EXPORT_SYMBOL(hal_ring_new);
+EXPORT_SYMBOL(hal_ring_detach);
+EXPORT_SYMBOL(hal_ring_attach);
+
 #endif
-
-
