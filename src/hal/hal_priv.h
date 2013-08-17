@@ -99,7 +99,7 @@
 #include <rtapi_compat.h>
 #endif
 
-#include "rtapi_mbarrier.h"	/* memory barrier primitves */
+//#include "rtapi_mbarrier.h"	/* memory barrier primitves */
 
 #if defined(BUILD_SYS_USER_DSO)
 #include <stdbool.h>
@@ -111,7 +111,7 @@
 #include <time.h>               /* remote comp timestamps */
 #endif
 #endif
-#include "hal_ring.h"
+//#include "hal_ring.h"
 RTAPI_BEGIN_DECLS
 
 /* SHMPTR(offset) converts 'offset' to a void pointer.
@@ -139,6 +139,9 @@ RTAPI_BEGIN_DECLS
 #ifndef MAX
 #define MAX(x, y) (((x) > (y))?(x):(y))
 #endif
+
+// avoid pulling in math.h
+#define HAL_FABS(a) ((a) > 0.0 ? (a) : -(a))	/* floating absolute value */
 
 
 // sizing
@@ -246,6 +249,26 @@ hal_context_t *ul_context;
 
 extern int hal_namespace_sync(void);
 typedef int (*hal_namespace_sync_t)(void);
+
+
+
+// objects which can be linked to remotely
+enum remote_objects {
+    OBJ_SIGNAL,
+    OBJ_RING
+};
+
+extern void *shmalloc_dn(long int size);
+
+enum name_property {
+    NAME_LOCAL=0,
+    NAME_REMOTE=1,
+    NAME_INVALID=2,
+};
+
+
+
+
 
 #ifdef ULAPI
 extern int hal_namespace_associate(int instance, char *prefix);
@@ -593,6 +616,7 @@ extern hal_pin_t *halpr_remote_find_pin_by_sig(hal_data_t *hal_data,
 					       hal_sig_t * sig, hal_pin_t * start);
 
 
+#ifdef HAL_XLINK
 // search for crosslinks between instances
 typedef  int (* hal_pin_sig_xref_cb)(int, char *, char*, hal_pin_t *, hal_sig_t *);
 extern int halpr_pin_crossrefs(unsigned long *bitmap, hal_pin_sig_xref_cb ps_callback);
@@ -602,6 +626,7 @@ extern int halpr_ring_crossrefs(unsigned long *bitmap, hal_ring_xref_cb ps_callb
 
 extern int halpr_lock_ordered(int inst1, int inst2);
 extern int halpr_unlock_ordered(int inst1, int inst2);
+#endif
 
 static inline int hal_valid_instance(int instance)
 {
