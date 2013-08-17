@@ -7,6 +7,7 @@
 // Ringbuffer code by Pavel Shramov 2/2013
 
 #include <boost/python.hpp>
+#include <boost/make_shared.hpp>
 #include <boost/python/raw_function.hpp>
 #include <exception>
 #include <map>
@@ -745,9 +746,10 @@ ring_ptr HalComponent::ring_create(char *name,
     }
 
     if (stream) {
-	return streamring_ptr(new StreamRing::StreamRing(name, ringbuf));
+	return boost::make_shared<StreamRing>(StreamRing(name, ringbuf));
     } else {
-	return recordring_ptr(new RecordRing::RecordRing(name, ringbuf));
+	return boost::make_shared<RecordRing>(RecordRing(name, ringbuf));
+
     }
 }
 
@@ -762,9 +764,9 @@ ring_ptr HalComponent::ring_attach(char *name)
 	throw boost::python::error_already_set();
     }
     if (rbuf.header->is_stream)
-	return streamring_ptr(new StreamRing::StreamRing(name, rbuf));
+	return boost::make_shared<StreamRing>(StreamRing(name, rbuf));
     else
-	return recordring_ptr(new RecordRing::RecordRing(name, rbuf));
+	return boost::make_shared<RecordRing>(RecordRing(name, rbuf));
 }
 
 void HalComponent::ring_detach(Ring &r)
