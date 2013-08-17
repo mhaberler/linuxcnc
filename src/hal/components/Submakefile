@@ -4,7 +4,7 @@ HALCOMP_SUBMAKEFILE= hal/components/Submakefile
 #HALCOMP_SUBMAKEFILE=
 
 ifneq ($(KERNELRELEASE),)
-COMPS := $(patsubst $(BASEPWD)/%,%,$(wildcard $(BASEPWD)/hal/components/*.comp $(BASEPWD)/hal/drivers/*.comp) $(BASEPWD)/hal/msgcomponents/*.comp))
+COMPS := $(patsubst $(BASEPWD)/%,%,$(wildcard $(BASEPWD)/hal/components/*.comp $(BASEPWD)/hal/drivers/*.comp $(BASEPWD)/hal/msgcomponents/*.comp))
 include $(patsubst %.comp, $(BASEPWD)/halcomp-srcs/%.mak, $(COMPS))
 else
 CONVERTERS :=  \

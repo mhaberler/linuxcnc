@@ -644,7 +644,7 @@ endif  # BUILD_SYS == 'kbuild'
 #
 # Then in the above 'modules:' target, cd to the link tree and call
 # kbuild.
-MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround
+MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround protobuf
 MODULE_SOURCES = Makefile* config* modsilent.py
 $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp:
 	mkdir -p $(OBJDIR)
