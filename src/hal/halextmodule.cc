@@ -17,6 +17,7 @@
 #include "hal_priv.h"
 #include "hal_group.h"
 #include "hal_ring.h"
+#include "hal_rcomp.h"
 
 #define DEFAULT_RING_SIZE 4096
 

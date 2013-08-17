@@ -1020,3 +1020,7 @@ static void free_group_struct(hal_group_t * group)
     group->next_ptr = hal_data->group_free_ptr;
     hal_data->group_free_ptr = SHMOFF(group);
 }
+
+#ifdef RTAPI
+EXPORT_SYMBOL(halpr_find_group_of_member);
+#endif

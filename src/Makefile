@@ -1321,6 +1321,9 @@ scope_rt-objs := hal/utils/scope_rt.o $(MATHSTUB)
 
 obj-m += hal_lib.o
 hal_lib-objs := hal/hal_lib.o $(MATHSTUB)
+hal_lib-objs += hal/hal_group.o
+hal_lib-objs += hal/hal_ring.o
+hal_lib-objs += hal/hal_rcomp.o
 hal_lib-objs += protobuf/support/nanopb.o
 hal_lib-objs += protobuf/nanopb/pb_decode.o
 hal_lib-objs += protobuf/nanopb/pb_encode.o
