@@ -52,6 +52,8 @@ int hal_ring_detach(const char *name, ringbuffer_t *rb);
  */
 int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id);
 
+//hal_ring_t * halpr_find_ring_by_name(hal_data_t *hd, const char *name);
+hal_ring_t *halpr_find_ring_by_name(hal_data_t *hd, const char *name);
 
 RTAPI_END_DECLS
 
