@@ -262,7 +262,6 @@ typedef struct {
 typedef struct {
     //hal_data_u **value;
     void **value;
-    int signal_inst;    // if cross-linked, instance id where the signal resides
     int type;		/* data type */
     int dir;		/* pin direction */
     char name[HAL_NAME_LEN + 1];	/* pin name */
@@ -774,8 +773,6 @@ extern int hal_param_alias(const char *pin_name, const char *alias);
     it returns a negative error code.
 */
 extern int hal_param_set(const char *name, hal_type_t type, void *value_addr);
-
-extern int hal_namespace_sync(void);
 
 /***********************************************************************
 *                   EXECUTION RELATED FUNCTIONS                        *

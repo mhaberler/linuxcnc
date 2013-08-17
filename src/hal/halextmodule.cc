@@ -260,15 +260,12 @@ public:
 
     bp::object get_value() {
 	hal_data_u *dp;
-	hal_context_t *ctx = THIS_CONTEXT();
 
 	if (pin->signal != 0) {
 	    hal_sig_t *sig;
-	    hal_data_t *sig_hal_data;
 
-	    sig_hal_data = (hal_data_t *) ctx->namespaces[pin->signal_inst].haldata;
-	    sig = (hal_sig_t *) SHMPTR_IN((const char *)sig_hal_data, pin->signal);
-	    dp = (hal_data_u *) SHMPTR_IN(sig_hal_data, sig->data_ptr);
+	    sig = (hal_sig_t *) SHMPTR(pin->signal);
+	    dp = (hal_data_u *) SHMPTR(sig->data_ptr);
 	} else {
 	    dp = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
 	}
@@ -277,14 +274,11 @@ public:
 
     void set_value(bp::object value) {
 	hal_data_u *dp;
-	hal_context_t *ctx = THIS_CONTEXT();
 	if (pin->signal != 0) {
 	    hal_sig_t *sig;
-	    hal_data_t *sig_hal_data;
 
-	    sig_hal_data = (hal_data_t *)ctx->namespaces[pin->signal_inst].haldata;
-	    sig = (hal_sig_t *)SHMPTR_IN(sig_hal_data, pin->signal);
-	    dp = (hal_data_u *)SHMPTR_IN(sig_hal_data, sig->data_ptr);
+	    sig = (hal_sig_t *)SHMPTR(pin->signal);
+	    dp = (hal_data_u *)SHMPTR(sig->data_ptr);
 	} else {
 	    dp = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
 	}
@@ -674,13 +668,11 @@ bp::object HalComponent::getitem( bp::object index) {
 			    (PyObject*)&PyString_Type)) {
 	halitem *hi = find_item(bp::extract<std::string>(index));
 	hal_data_u *dp;
-	hal_context_t *ctx = THIS_CONTEXT();
 
 	if (hi->is_pin) {
 	    if (hi->pp.pin->signal != 0) {
-		hal_data_t *sig_hal_data = (hal_data_t *) ctx->namespaces[hi->pp.pin->signal_inst].haldata;
-		hal_sig_t *sig = (hal_sig_t *) SHMPTR_IN((const char *)sig_hal_data, hi->pp.pin->signal);
-		dp = (hal_data_u *) SHMPTR_IN(sig_hal_data, sig->data_ptr);
+		hal_sig_t *sig = (hal_sig_t *) SHMPTR(hi->pp.pin->signal);
+		dp = (hal_data_u *) SHMPTR(sig->data_ptr);
 	    } else {
 		dp = (hal_data_u *)(hal_shmem_base + SHMOFF(&(hi->pp.pin->dummysig)));
 	    }
@@ -697,13 +689,11 @@ bp::object HalComponent::setitem( bp::object index, bp::object value) {
 			    (PyObject*)&PyString_Type)) {
 	halitem *hi = find_item(bp::extract<std::string>(index));
 	hal_data_u *dp;
-	hal_context_t *ctx = THIS_CONTEXT();
 
 	if (hi->is_pin) {
 	    if (hi->pp.pin->signal != 0) {
-		hal_data_t *sig_hal_data = (hal_data_t *) ctx->namespaces[hi->pp.pin->signal_inst].haldata;
-		hal_sig_t *sig = (hal_sig_t *) SHMPTR_IN((const char *)sig_hal_data, hi->pp.pin->signal);
-		dp = (hal_data_u *) SHMPTR_IN((char *)sig_hal_data, sig->data_ptr);
+		hal_sig_t *sig = (hal_sig_t *) SHMPTR(hi->pp.pin->signal);
+		dp = (hal_data_u *) SHMPTR(sig->data_ptr);
 	    } else {
 		dp = (hal_data_u *)(hal_shmem_base + SHMOFF(&(hi->pp.pin->dummysig)));
 	    }

@@ -198,13 +198,6 @@ static void free_funct_entry_struct(hal_funct_entry_t * funct_entry);
 static void free_thread_struct(hal_thread_t * thread);
 #endif /* RTAPI */
 
-// FIXME replace by rtapi size_aligned?
-static ring_size_t size_aligned(ring_size_t x);
-
-static void free_context_struct(hal_context_t * p);
-static hal_context_t *alloc_context_struct(int pid);
-static int context_pid();
-
 #ifdef RTAPI
 /** 'thread_task()' is a function that is invoked as a realtime task.
     It implements a thread, by running down the thread's function list
@@ -212,32 +205,6 @@ static int context_pid();
 */
 static void thread_task(void *arg);
 #endif /* RTAPI */
-
-// the phases where startup-related events happen:
-// ULAPI: HAL shared library load/unload
-// RTAPI: beginning or end of rtapi_app_main()
-//        or rtapi_app_exit()
-/* enum phase_t  { */
-/*     SHLIB_LOADED, */
-/*     SHLIB_UNLOADED, */
-/*     MAIN_START, */
-/*     MAIN_END, */
-/*     EXIT_START, */
-/*     EXIT_END */
-/* }; */
-
-static int context_pid()
-{
-#if defined(BUILD_SYS_USER_DSO)
-    return getpid();
-#else
-#if defined(RTAPI)
-    return 0; // meaning 'in kernel'
-#else
-    return getpid();
-#endif
-#endif
-}
 
 /***********************************************************************
 *                  PUBLIC (API) FUNCTION CODE                          *
@@ -248,9 +215,6 @@ int hal_init_mode(const char *name, int type)
     char rtapi_name[RTAPI_NAME_LEN + 1];
     char hal_name[HAL_NAME_LEN + 1];
     hal_comp_t *comp;
-
-    hal_context_t *context;
-    int pid = context_pid();
 
     // tag message origin field
     rtapi_set_logtag("hal_lib");
@@ -293,14 +257,6 @@ int hal_init_mode(const char *name, int type)
 	rtapi_exit(comp_id);
 	return -EINVAL;
     }
-    // refer to context
-    if ((context = THIS_CONTEXT()) == NULL) {
-	rtapi_mutex_give(&(hal_data->mutex));
-	rtapi_print_msg(RTAPI_MSG_ERR,
-	    "HAL: BUG: HAL context NULL: %s\n", name);
-	rtapi_exit(comp_id);
-	return -EINVAL;
-    }
     /* allocate a new component structure */
     comp = halpr_alloc_comp_struct();
     if (comp == 0) {
@@ -312,35 +268,26 @@ int hal_init_mode(const char *name, int type)
 	return -ENOMEM;
     }
 
-    // update context
-    context->refcount++;  // comps in this context
-
     /* initialize the comp structure */
-
-    // back reference to enclosing context
-    comp->context_ptr = SHMOFF(context);
 
     comp->comp_id = comp_id;
     comp->type = type;
 #ifdef RTAPI
-    comp->pid = pid;
+    comp->pid = 0;   //FIXME revisit this
 #else /* ULAPI */
     // a remote component starts out disowned
-    comp->pid = comp->type == TYPE_REMOTE ? 0 : pid;
+    comp->pid = comp->type == TYPE_REMOTE ? 0 : getpid(); //FIXME revisit this
 #endif
     comp->state = COMP_INITIALIZING;
     comp->last_update = 0;
     comp->last_bound = 0;
     comp->last_unbound = 0;
-    //comp->shmem_base = hal_shmem_base;
+    comp->shmem_base = hal_shmem_base;
     comp->insmod_args = 0;
     rtapi_snprintf(comp->name, sizeof(comp->name), "%s", hal_name);
     /* insert new structure at head of list */
     comp->next_ptr = hal_data->comp_list_ptr;
     hal_data->comp_list_ptr = SHMOFF(comp);
-
-    // synch local namespaces with what was told us by hal_data
-    hal_namespace_sync();
 
     /* done with list, release mutex */
     rtapi_mutex_give(&(hal_data->mutex));
@@ -599,7 +546,6 @@ int hal_retrieve_pinstate(const char *comp_name,
 		/* this is the right comp */
 		if (callback) {
 		    // fill in the details:
-		    pinstate.signal_inst = pin->signal_inst;
 		    // NB: cover remote link case!
 		    pinstate.value = SHMPTR(pin->data_ptr_addr);
 		    pinstate.type = pin->type;
@@ -724,11 +670,9 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 
 int hal_ccomp_apply(hal_compiled_comp_t *cc, int handle, hal_type_t type, hal_data_u value)
 {
-    hal_data_t *sig_hal_data;
     hal_pin_t *pin;
     hal_sig_t *sig;
     hal_data_u *dp;
-    hal_context_t *ctx = THIS_CONTEXT();
 
     assert(cc->magic ==  CCOMP_MAGIC);
 
@@ -739,10 +683,9 @@ int hal_ccomp_apply(hal_compiled_comp_t *cc, int handle, hal_type_t type, hal_da
     if (pin->type != type)
 	return -EINVAL;
     if (pin->signal != 0) {
-	// linked to a signal; cover crosslink too
-	sig_hal_data = ctx->namespaces[pin->signal_inst].haldata;
-	sig = SHMPTR_IN(sig_hal_data, pin->signal);
-	dp = SHMPTR_IN(sig_hal_data, sig->data_ptr);
+	// linked to a signal
+	sig = SHMPTR(pin->signal);
+	dp = SHMPTR(sig->data_ptr);
     } else {
 	dp = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
     }
@@ -770,13 +713,11 @@ int hal_ccomp_apply(hal_compiled_comp_t *cc, int handle, hal_type_t type, hal_da
 
 int hal_ccomp_match(hal_compiled_comp_t *cc)
 {
-    hal_context_t *ctx = THIS_CONTEXT();
     int i, nchanged = 0;
     hal_bit_t halbit;
     hal_s32_t hals32;
     hal_s32_t halu32;
     hal_float_t halfloat,delta;
-    hal_data_t *sig_hal_data;
     hal_pin_t *pin;
     hal_sig_t *sig;
     void *data_ptr;
@@ -787,10 +728,8 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
     for (i = 0; i < cc->n_pins; i++) {
 	pin = cc->pin[i];
 	if (pin->signal != 0) {
-	    // linked to a signal; cover crosslink too
-	    sig_hal_data = ctx->namespaces[pin->signal_inst].haldata;
-	    sig = SHMPTR_IN(sig_hal_data, pin->signal);
-	    data_ptr = SHMPTR_IN(sig_hal_data, sig->data_ptr);
+	    sig = SHMPTR(pin->signal);
+	    data_ptr = SHMPTR(sig->data_ptr);
 	} else {
 	    data_ptr = hal_shmem_base + SHMOFF(&(pin->dummysig));
 	}
@@ -844,9 +783,7 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 		     void *cb_data, int report_all)
 {
     int retval, i;
-    hal_context_t *ctx = THIS_CONTEXT();
     void *data_ptr;
-    hal_data_t *sig_hal_data;
     hal_pin_t *pin;
     hal_sig_t *sig;
 
@@ -859,10 +796,8 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 	if (report_all || RTAPI_BIT_TEST(cc->changed, i)) {
 	    pin = cc->pin[i];
 	    if (pin->signal != 0) {
-		// take care of crosslinked pins
-		sig_hal_data = ctx->namespaces[pin->signal_inst].haldata;
-		sig = SHMPTR_IN(sig_hal_data, pin->signal);
-		data_ptr = SHMPTR_IN(sig_hal_data, sig->data_ptr);
+		sig = SHMPTR(pin->signal);
+		data_ptr = SHMPTR(sig->data_ptr);
 	    } else {
 		data_ptr = hal_shmem_base + SHMOFF(&(pin->dummysig));
 	    }
@@ -894,7 +829,6 @@ int hal_exit(int comp_id)
     int *prev, next;
     hal_comp_t *comp;
     char name[HAL_NAME_LEN + 1];
-    hal_context_t *context;
 
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -928,15 +862,6 @@ int hal_exit(int comp_id)
 	}
 	comp = SHMPTR(next);
     }
-    // lookup enclosing context
-    if ((context = THIS_CONTEXT()) == NULL) {
-	rtapi_mutex_give(&(hal_data->mutex));
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: BUG: hal_exit(%d,%s): no enclosing context!\n",
-			comp_id, comp->name);
-	return -EINVAL;
-    }
-    context->refcount--;
     /* found our component, unlink it from the list */
     *prev = comp->next_ptr;
     /* save component name for later */
@@ -1286,7 +1211,6 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
     }
     /* initialize the structure */
     new->data_ptr_addr = SHMOFF(data_ptr_addr);
-    new->signal_inst = rtapi_instance;
     new->owner_ptr = SHMOFF(comp);
     new->type = type;
     new->dir = dir;
@@ -1294,7 +1218,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
     memset(&new->dummysig, 0, sizeof(hal_data_u));
     rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
     /* make 'data_ptr' point to dummy signal */
-    *data_ptr_addr = hal_shmem_base + SHMOFF(&(new->dummysig));
+    *data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
     /* search list for 'name' and insert new structure */
     prev = &(hal_data->pin_list_ptr);
     next = *prev;
@@ -1621,142 +1545,7 @@ int hal_signal_delete(const char *name)
     return -EINVAL;
 }
 
-// given a remote NS prefix, determine if the remote NS exists,
-// is reqested and attached, and return its instance id or -EINVAL
-// NB: hal_mutex is expected to be held
-static int match_remote(const char*name)
-{
-    int i;
-    hal_context_t *ctx = THIS_CONTEXT();
 
-    for (i = 0; i < MAX_INSTANCES; i++) {
-	if (RTAPI_BIT_TEST(hal_data->requested_namespaces,i) &&
-	    !strcmp(name, hal_data->nsdesc[i].name)) {
-	    // namespace is requested; check if mapped in
-	    // this context
-	    if (RTAPI_BIT_TEST(ctx->visible_namespaces,i))
-		return i;
-	    else {
-		rtapi_print_msg(RTAPI_MSG_DBG,
-				"HAL:%d remote namespace %s not visible in this context\n",
-				rtapi_instance, name);
-		return -EINVAL;
-	    }
-	}
-    }
-    return -EINVAL;
-}
-
-#ifdef HAL_XLINK
-static char *nameprop[] = {
-    "local", "remote", "invalid"
-};
-
-// investigate a name, expecting a particular type (pin or ring)
-// ok if all prerequisites ticked
-// hal_data must be locked when calling remote_name
-static int remote_name(int type, const char *name, int *remote, char *basename, char *prefix)
-{
-    hal_sig_t *sig;
-    int instance, retval, retval2;
-    char tmpname[HAL_NAME_LEN+1];
-    char *s,  *localname;
-    hal_data_t *remote_hal_data;
-    hal_context_t *ctx = THIS_CONTEXT();
-    hal_ring_t *ring;
-
-    if (name == NULL) {
-	return NAME_INVALID;
-    }
-    strcpy(tmpname, name);
-    s = strchr(tmpname,':');
-    if (s) {
-	// a remote name
-	*s = '\0';
-	localname = s+1;
-    } else {
-	// a local name
-	*remote = rtapi_instance;
-	if (basename)
-	    strcpy(basename, name);
-	return NAME_LOCAL;
-    }
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    instance = match_remote(tmpname);
-    if (instance < 0) {
-	rtapi_mutex_give(&(hal_data->mutex));
-	return instance;
-    }
-    // valid instance, requested and mapped in this context:
-    remote_hal_data = ctx->namespaces[instance].haldata;
-
-    rtapi_mutex_give(&(hal_data->mutex));
-
-    // lock both hal_data segments in instance order
-    if ((retval = halpr_lock_ordered(rtapi_instance, instance)) != 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: failed to lock %d/%d\n",
-			rtapi_instance, rtapi_instance, instance);
-	return retval;
-    }
-    // at this point, both HAL segment's mutexes are held by us
-    // investigate the remote HAL segment for the requested object type
-    switch (type) {
-
-    case OBJ_SIGNAL:
-	if ((sig = halpr_remote_find_sig_by_name(remote_hal_data,
-						 localname)) == NULL) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: remote signal %s does not exist in namespace %s/%d\n",
-			    rtapi_instance,localname, tmpname, instance);
-	    retval =  NAME_INVALID;
-	    goto unlock;
-	}
-	retval =  NAME_REMOTE;
-	if (remote)
-	    *remote = instance;
-	if (basename)
-	    strcpy(basename, localname);
-	if (prefix)
-	    strcpy(prefix, tmpname);
-	break;
-
-    case OBJ_RING:
-	if ((ring = halpr_find_ring_by_name(remote_hal_data,
-				      localname)) == NULL) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: remote ring %s does not exist in namespace %s/%d\n",
-			    rtapi_instance, localname, tmpname, instance);
-	    retval =  NAME_INVALID;
-	    goto unlock;
-	}
-	retval = NAME_REMOTE;
-	if (remote)
-	    *remote = instance;
-	if (basename)
-	    strcpy(basename, localname);
-	if (prefix)
-	    strcpy(prefix, tmpname);
-	break;
-
-    default:
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: invalid remote object type %d for %s\n",
-			rtapi_instance, type, name);
-	retval =  NAME_INVALID;
-    }
- unlock:
-    retval2 = halpr_unlock_ordered(rtapi_instance, instance);
-    if (retval2) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d ERROR: failed to unlock %d/%d\n",
-			rtapi_instance, rtapi_instance, instance);
-	return retval2;
-    }
-    return retval;
-}
-#endif
 
 int hal_link(const char *pin_name, const char *sig_name)
 {
@@ -1764,157 +1553,109 @@ int hal_link(const char *pin_name, const char *sig_name)
     hal_sig_t *sig;
     hal_comp_t *comp;
     void **data_ptr_addr, *data_addr;
-    int status;
-    hal_data_t *my_remote_hal_data, *comp_remote_hal_data;
-    hal_context_t *comp_ctx;
-    hal_context_t *my_ctx = THIS_CONTEXT();
-    char localname[HAL_NAME_LEN+1];
-    char prefix[HAL_NAME_LEN+1];
 
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: link called before init\n");
+	    "HAL: ERROR: link called before init\n");
 	return -EINVAL;
     }
-    {   // purpose of this block:
-	// cleanup mutex(es) on scope exit regardless if one,
-	// or both hal_data segments were locked
-	int remote_instance
-	    __attribute__((cleanup(halpr_autorelease_ordered))) = rtapi_instance;
 
-	// get local mutex before accessing data structures
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	if (hal_data->lock & HAL_LOCK_CONFIG)  {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: link called while HAL locked\n");
-	    return -EPERM;
-	}
-	/* make sure we were given a pin name */
-	if (pin_name == 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: pin name not given\n");
-	    return -EINVAL;
-	}
-	/* make sure we were given a signal name */
-	if (sig_name == 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: signal name not given\n");
-	    return -EINVAL;
-	}
-	rtapi_print_msg(RTAPI_MSG_DBG,
-			"HAL: linking pin '%s' to '%s'\n", pin_name, sig_name);
-
-#ifdef HAL_XLINK
-	// check if remote signal, and preconditions set
-	if ((status = remote_name(OBJ_SIGNAL, sig_name,
-				  &remote_instance, localname, prefix)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d remote namespace for '%s' not associated\n",
-			    rtapi_instance, sig_name);
-	    return status;
-	}
-	rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d name=%s instance=%d\n",
-			rtapi_instance, nameprop[status], remote_instance);
-#endif
-
-	/* locate the pin */
-	pin = halpr_find_pin_by_name(pin_name);
-	if (pin == 0) {
-	    /* not found */
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: pin '%s' not found\n", pin_name);
-	    return -EINVAL;
-	}
-	// need to lookup context as seen by owning component
-	comp = SHMPTR(pin->owner_ptr);
-	comp_ctx = SHMPTR(comp->context_ptr);
-	comp_remote_hal_data = comp_ctx->namespaces[remote_instance].haldata;
-	my_remote_hal_data   = my_ctx->namespaces[remote_instance].haldata;
-
-#ifdef HAL_XLINK
-	// if signal is in a different instance, upgrade locks in sequence
-	if (remote_instance != rtapi_instance) {
-	    // but to avoid a circular deadlock we need to
-	    // re-lock in instance order
-	    rtapi_mutex_give(&(hal_data->mutex));
-	    halpr_lock_ordered(rtapi_instance, remote_instance);
-	}
-	// at this point, good to manipulate objects in either hal_data segment
-
-	/* locate the signal */
-	if (status == NAME_LOCAL) { // local link
-	    sig = halpr_find_sig_by_name(sig_name);
-	} else {
-	    // remote link
-	    sig = halpr_remote_find_sig_by_name(my_remote_hal_data, localname);
-	}
-#endif
-	sig = halpr_find_sig_by_name(sig_name);
-
-	if (sig == 0) {
-	    /* not found */
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: signal '%s' not found\n", sig_name);
-	    return -EINVAL;
-	}
-
-	/* found both pin and signal, are they already connected? */
-	if (SHMPTR_IN(my_remote_hal_data, pin->signal) == sig) {
-	    rtapi_print_msg(RTAPI_MSG_WARN,
-			    "HAL: Warning: pin '%s' already linked to '%s'\n", pin_name, sig_name);
-	    return 0;
-	}
-	/* is the pin connected to something else? */
-	if(pin->signal) {
-	    sig = SHMPTR_IN(my_remote_hal_data, pin->signal);
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: pin '%s' is linked to '%s', cannot link to '%s'\n",
-			    pin_name, sig->name, sig_name);
-	    return -EINVAL;
-	}
-	/* check types */
-	if (pin->type != sig->type) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: type mismatch '%s' <- '%s'\n", pin_name, sig_name);
-	    return -EINVAL;
-	}
-	/* linking output pin to sig that already has output or I/O pins? */
-	if ((pin->dir == HAL_OUT) && ((sig->writers > 0) || (sig->bidirs > 0 ))) {
-	    /* yes, can't do that */
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: signal '%s' already has output or I/O pin(s)\n", sig_name);
-	    return -EINVAL;
-	}
-	/* linking bidir pin to sig that already has output pin? */
-	if ((pin->dir == HAL_IO) && (sig->writers > 0)) {
-	    /* yes, can't do that */
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: signal '%s' already has output pin\n", sig_name);
-	    return -EINVAL;
-	}
-	/* everything is OK, make the new link */
-	data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-
-	// bend into remote segment as needed
-	data_addr = SHMPTR_IN(comp_remote_hal_data, sig->data_ptr);
-	*data_ptr_addr = data_addr;
-
-	/* update the signal's reader/writer/bidir counts */
-	if ((pin->dir & HAL_IN) != 0) {
-	    sig->readers++;
-	}
-	if (pin->dir == HAL_OUT) {
-	    sig->writers++;
-	}
-	if (pin->dir == HAL_IO) {
-	    sig->bidirs++;
-	}
-	/* and update the pin */
-	pin->signal = SHMOFF_IN(my_remote_hal_data, sig);
-	pin->signal_inst = remote_instance;
-
-	// the cleanup attribute on remote_instance will unlock
-	// the local, or both hal_data segments in order as needed
+    if (hal_data->lock & HAL_LOCK_CONFIG)  {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: link called while HAL locked\n");
+	return -EPERM;
+    }
+    /* make sure we were given a pin name */
+    if (pin_name == 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: pin name not given\n");
+	return -EINVAL;
+    }
+    /* make sure we were given a signal name */
+    if (sig_name == 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: signal name not given\n");
+	return -EINVAL;
+    }
+    rtapi_print_msg(RTAPI_MSG_DBG,
+	"HAL: linking pin '%s' to '%s'\n", pin_name, sig_name);
+    /* get mutex before accessing data structures */
+    rtapi_mutex_get(&(hal_data->mutex));
+    /* locate the pin */
+    pin = halpr_find_pin_by_name(pin_name);
+    if (pin == 0) {
+	/* not found */
+	rtapi_mutex_give(&(hal_data->mutex));
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: pin '%s' not found\n", pin_name);
+	return -EINVAL;
+    }
+    /* locate the signal */
+    sig = halpr_find_sig_by_name(sig_name);
+    if (sig == 0) {
+	/* not found */
+	rtapi_mutex_give(&(hal_data->mutex));
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: signal '%s' not found\n", sig_name);
+	return -EINVAL;
+    }
+    /* found both pin and signal, are they already connected? */
+    if (SHMPTR(pin->signal) == sig) {
+	rtapi_mutex_give(&(hal_data->mutex));
+	rtapi_print_msg(RTAPI_MSG_WARN,
+	    "HAL: Warning: pin '%s' already linked to '%s'\n", pin_name, sig_name);
 	return 0;
     }
+    /* is the pin connected to something else? */
+    if(pin->signal) {
+	rtapi_mutex_give(&(hal_data->mutex));
+	sig = SHMPTR(pin->signal);
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: pin '%s' is linked to '%s', cannot link to '%s'\n",
+	    pin_name, sig->name, sig_name);
+	return -EINVAL;
+    }
+    /* check types */
+    if (pin->type != sig->type) {
+	rtapi_mutex_give(&(hal_data->mutex));
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: type mismatch '%s' <- '%s'\n", pin_name, sig_name);
+	return -EINVAL;
+    }
+    /* linking output pin to sig that already has output or I/O pins? */
+    if ((pin->dir == HAL_OUT) && ((sig->writers > 0) || (sig->bidirs > 0 ))) {
+	/* yes, can't do that */
+	rtapi_mutex_give(&(hal_data->mutex));
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: signal '%s' already has output or I/O pin(s)\n", sig_name);
+	return -EINVAL;
+    }
+    /* linking bidir pin to sig that already has output pin? */
+    if ((pin->dir == HAL_IO) && (sig->writers > 0)) {
+	/* yes, can't do that */
+	rtapi_mutex_give(&(hal_data->mutex));
+	rtapi_print_msg(RTAPI_MSG_ERR,
+	    "HAL: ERROR: signal '%s' already has output pin\n", sig_name);
+	return -EINVAL;
+    }
+    /* everything is OK, make the new link */
+    data_ptr_addr = SHMPTR(pin->data_ptr_addr);
+    comp = SHMPTR(pin->owner_ptr);
+    data_addr = comp->shmem_base + sig->data_ptr;
+    *data_ptr_addr = data_addr;
+    /* update the signal's reader/writer/bidir counts */
+    if ((pin->dir & HAL_IN) != 0) {
+	sig->readers++;
+    }
+    if (pin->dir == HAL_OUT) {
+	sig->writers++;
+    }
+    if (pin->dir == HAL_IO) {
+	sig->bidirs++;
+    }
+    /* and update the pin */
+    pin->signal = SHMOFF(sig);
+    /* done, release the mutex and return */
+    rtapi_mutex_give(&(hal_data->mutex));
+    return 0;
 }
 
 int hal_unlink(const char *pin_name)
@@ -1941,14 +1682,7 @@ int hal_unlink(const char *pin_name)
     rtapi_print_msg(RTAPI_MSG_DBG,
 		    "HAL: unlinking pin '%s'\n", pin_name);
 
-    {	// cleanup mutex(es) regardless if one,
-	// or both hal_data segments were locked
-	// doing this in a separate block avoids a spurious error message by
-	// halpr_autorelease_ordered if one of the tests above happens
-	// to fail
-	int remote_instance
-	    __attribute__((cleanup(halpr_autorelease_ordered))) = rtapi_instance;
-
+    {
 	/* get mutex before accessing data structures */
 	rtapi_mutex_get(&(hal_data->mutex));
 
@@ -1962,18 +1696,6 @@ int hal_unlink(const char *pin_name)
 	    return -EINVAL;
 	}
 
-	// if this is a cross-link..
-	remote_instance = pin->signal_inst;
-
-#ifdef HAL_XLINK
-	// we need to lock remote hal_data segment too
-	if (remote_instance != rtapi_instance) {
-	    // but to avoid a circular deadlock we need to
-	    // re-lock in instance order
-	    rtapi_mutex_give(&(hal_data->mutex));
-	    halpr_lock_ordered(rtapi_instance, remote_instance);
-	}
-#endif
 	/* found pin, unlink it */
 	unlink_pin(pin);
 
@@ -3106,7 +2828,7 @@ hal_comp_t *halpr_find_comp_by_name(const char *name)
     return 0;
 }
 
-hal_pin_t *halpr_remote_find_pin_by_name(const hal_data_t *hal_data, const char *name)
+hal_pin_t *halpr_find_pin_by_name(const char *name)
 {
     int next;
     hal_pin_t *pin;
@@ -3134,12 +2856,7 @@ hal_pin_t *halpr_remote_find_pin_by_name(const hal_data_t *hal_data, const char 
     return 0;
 }
 
-hal_pin_t *halpr_find_pin_by_name(const char *name)
-{
-    return halpr_remote_find_pin_by_name(hal_data,name);
-}
-
-hal_sig_t *halpr_remote_find_sig_by_name(const hal_data_t *hal_data, const char *name)
+hal_sig_t *halpr_find_sig_by_name(const char *name)
 {
     int next;
     hal_sig_t *sig;
@@ -3147,7 +2864,7 @@ hal_sig_t *halpr_remote_find_sig_by_name(const hal_data_t *hal_data, const char 
     /* search signal list for 'name' */
     next = hal_data->sig_list_ptr;
     while (next != 0) {
-	sig = SHMPTR_IN(hal_data, next);
+	sig = SHMPTR(next);
 	if (strcmp(sig->name, name) == 0) {
 	    /* found a match */
 	    return sig;
@@ -3157,11 +2874,6 @@ hal_sig_t *halpr_remote_find_sig_by_name(const hal_data_t *hal_data, const char 
     }
     /* if loop terminates, we reached end of list with no match */
     return 0;
-}
-
-hal_sig_t *halpr_find_sig_by_name(const char *name)
-{
-    return halpr_remote_find_sig_by_name(hal_data, name);
 }
 
 hal_param_t *halpr_find_param_by_name(const char *name)
@@ -3338,8 +3050,7 @@ hal_funct_t *halpr_find_funct_by_owner(hal_comp_t * owner,
     return 0;
 }
 
-hal_pin_t *halpr_remote_find_pin_by_sig(hal_data_t *hal_data,
-					hal_sig_t * sig, hal_pin_t * start)
+hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
 {
     int sig_ptr, next;
     hal_pin_t *pin;
@@ -3355,7 +3066,7 @@ hal_pin_t *halpr_remote_find_pin_by_sig(hal_data_t *hal_data,
 	next = start->next_ptr;
     }
     while (next != 0) {
-	pin = SHMPTR_IN(hal_data, next);
+	pin = SHMPTR(next);
 	if (pin->signal == sig_ptr) {
 	    /* found a match */
 	    return pin;
@@ -3365,10 +3076,6 @@ hal_pin_t *halpr_remote_find_pin_by_sig(hal_data_t *hal_data,
     }
     /* if loop terminates, we reached end of list without finding a match */
     return 0;
-}
-hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
-{
-    return halpr_remote_find_pin_by_sig(hal_data, sig, start);
 }
 
 
@@ -3385,24 +3092,6 @@ void halpr_autorelease_mutex(void *variable)
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"HAL:%d BUG: halpr_autorelease_mutex called before hal_data inited\n",
 			rtapi_instance);
-}
-
-void halpr_autorelease_ordered(int *remote_instance)
-{
-    if (hal_data == NULL) { 	// programming error
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: halpr_autorelease_ordered called before hal_data inited\n",
-			rtapi_instance);
-    }
-
-    if ((remote_instance == NULL) ||
-	!hal_valid_instance(*remote_instance)) { // programming error
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: halpr_autorelease_ordered called with invalid instance %p\n",
-			rtapi_instance, remote_instance);
-	return;
-    }
-    halpr_unlock_ordered(rtapi_instance, *remote_instance);
 }
 
 
@@ -3462,13 +3151,11 @@ static int hal_proc_clean(void) { return 0; }
 static int hal_proc_init(void) { return 0; }
 #endif
 
-hal_context_t *rt_context;
 
 int rtapi_app_main(void)
 {
     int retval;
     void *mem;
-    hal_namespace_t *np;
 
     rtapi_switch = rtapi_get_handle();
     rtapi_print_msg(RTAPI_MSG_DBG,
@@ -3524,29 +3211,6 @@ int rtapi_app_main(void)
 	rtapi_exit(lib_module_id);
 	return -EINVAL;
     }
-    if (rt_context != NULL) {
-	rtapi_mutex_give(&(hal_data->mutex));
-	rtapi_print_msg(RTAPI_MSG_ERR,
-	    "HAL: BUG: rt_context != NULL - rtapi_app_main() called twice?\n");
-	rtapi_exit(lib_module_id);
-	return -EINVAL;
-    }
-
-    // allocate the RT context
-    if ((rt_context = alloc_context_struct(context_pid())) == NULL) {
-	rtapi_mutex_give(&(hal_data->mutex));
-	rtapi_print_msg(RTAPI_MSG_ERR,
-	    "HAL: ERROR: cannot allocate RT HAL context\n");
-	rtapi_exit(lib_module_id);
-	return -EINVAL;
-    }
-    // export what we're 'seeing'
-    // we can fill this in permanently for RT
-    // for ULAPI it's more involved due to the RTAI bug workaround
-    // requiring halcmd to detach and reattach when running module_helper
-    np = &rt_context->namespaces[rtapi_instance];
-    RTAPI_BIT_SET(rt_context->visible_namespaces, rtapi_instance);
-    np->haldata = hal_data;
 
     retval = hal_proc_init();
 
@@ -3585,20 +3249,17 @@ void rtapi_app_exit(void)
 	/* and delete it */
 	free_thread_struct(thread);
     }
-    // release HAL context
-    if (rt_context->refcount != 0) {
-	rtapi_print_msg(RTAPI_MSG_INFO,
-			"HAL: rtapi_app_exit: %d comps didnt hal_exit()\n",
-			rt_context->refcount);
-    }
-    free_context_struct(rt_context);
-    rt_context = NULL;
+
     /* release mutex */
     rtapi_mutex_give(&(hal_data->mutex));
 
     /* release RTAPI resources */
-    rtapi_shmem_delete(lib_mem_id, lib_module_id);
-    rtapi_exit(lib_module_id);
+    retval = rtapi_shmem_delete(lib_mem_id, lib_module_id);
+    if (retval) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL_LIB:%d rtapi_shmem_delete(%d,%d) failed: %d\n",
+			rtapi_instance, lib_mem_id, lib_module_id, retval);
+    }
 
     retval = rtapi_exit(lib_module_id);
     if (retval) {
@@ -3689,10 +3350,6 @@ static int init_hal_data(void)
     /* set version code so nobody else init's the block */
     hal_data->version = HAL_VER;
 
-    // namespace support:
-    // how many _remote_ namespaces reference this HAL segment?
-    hal_data->refcount = 0;
-
     /* initialize everything */
     hal_data->comp_list_ptr = 0;
     hal_data->pin_list_ptr = 0;
@@ -3717,23 +3374,16 @@ static int init_hal_data(void)
     hal_data->group_list_ptr = 0;
     hal_data->member_list_ptr = 0;
     hal_data->ring_list_ptr = 0;
-    hal_data->context_list_ptr = 0;
-    hal_data->ring_attachment_list_ptr = 0;
 
     hal_data->group_free_ptr = 0;
     hal_data->member_free_ptr = 0;
     hal_data->ring_free_ptr = 0;
-    hal_data->context_free_ptr = 0;
-    hal_data->ring_attachment_free_ptr = 0;
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
-    // silly 1-based shm segment id allocation
+    // silly 1-based shm segment id allocation FIXED
     // yeah, 'user friendly', how could one possibly think zero might be a valid id
     RTAPI_BIT_SET(hal_data->rings,0);
 
-    RTAPI_BIT_SET(hal_data->requested_namespaces,rtapi_instance);
-    strncpy(hal_data->nsdesc[rtapi_instance].name,
-	    global_data->instance_name, HAL_NAME_LEN);
     /* set up for shmalloc_xx() */
     hal_data->shmem_bot = sizeof(hal_data_t);
     hal_data->shmem_top = global_data->hal_size;
@@ -3824,7 +3474,7 @@ hal_comp_t *halpr_alloc_comp_struct(void)
 	p->mem_id = 0;
 	p->type = TYPE_INVALID;
 	p->state = COMP_INVALID;
-	// p->shmem_base = 0;
+	p->shmem_base = 0;
 	p->name[0] = '\0';
     }
     return p;
@@ -3849,7 +3499,6 @@ static hal_pin_t *alloc_pin_struct(void)
 	/* make sure it's empty */
 	p->next_ptr = 0;
 	p->data_ptr_addr = 0;
-	p->signal_inst = -1; // not referring to a valid instance
 	p->owner_ptr = 0;
 	p->type = 0;
 	p->dir = 0;
@@ -4099,7 +3748,7 @@ static void free_comp_struct(hal_comp_t * comp)
     comp->last_bound = 0;
     comp->last_unbound = 0;
     comp->last_update = 0;
-    // comp->shmem_base = 0;
+    comp->shmem_base = 0;
     comp->name[0] = '\0';
     /* add it to free list */
     comp->next_ptr = hal_data->comp_free_ptr;
@@ -4111,18 +3760,15 @@ static void unlink_pin(hal_pin_t * pin)
     hal_sig_t *sig;
     hal_comp_t *comp;
     void *dummy_addr, **data_ptr_addr;
-    int inst = pin->signal_inst;
-    hal_context_t *ctx = THIS_CONTEXT();
-    hal_data_t *remote_hal_data = ctx->namespaces[inst].haldata;
 
     /* is this pin linked to a signal? */
     if (pin->signal != 0) {
 	/* yes, need to unlink it */
-	sig = SHMPTR_IN(remote_hal_data, pin->signal);
+	sig = SHMPTR(pin->signal);
 	/* make pin's 'data_ptr' point to its dummy signal */
 	data_ptr_addr = SHMPTR(pin->data_ptr_addr);
 	comp = SHMPTR(pin->owner_ptr);
-	dummy_addr = hal_shmem_base + SHMOFF(&(pin->dummysig));
+	dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
 	*data_ptr_addr = dummy_addr;
 	/* update the signal's reader/writer counts */
 	if ((pin->dir & HAL_IN) != 0) {
@@ -4136,7 +3782,6 @@ static void unlink_pin(hal_pin_t * pin)
 	}
 	/* mark pin as unlinked */
 	pin->signal = 0;
-	pin->signal_inst = rtapi_instance;
     }
 }
 
@@ -4208,34 +3853,6 @@ static void free_oldname_struct(hal_oldname_t * oldname)
     hal_data->oldname_free_ptr = SHMOFF(oldname);
 }
 
-
-
-
-static void free_context_struct(hal_context_t * p)
-{
-    hal_context_t *context;
-    int next, *prev;
-
-    // search in list of active contexts
-    prev = &(hal_data->context_list_ptr);
-    next = *prev;
-    while (next != 0) {
-	context = SHMPTR(next);
-	if (context->pid  == p->pid) {
-	    // unlink from active list
-	    *prev = context->next_ptr;
-	    // add it to free list
-	    p->type =  CONTEXT_INVALID;
-	    p->next_ptr = hal_data->context_free_ptr;
-	    hal_data->context_free_ptr = SHMOFF(p);
-	    return;
-	} else {
-	    prev = &(context->next_ptr);
-	}
-	next = *prev;
-    }
-}
-
 #if 0
 // lookup a context
 static hal_context_t *find_context(int pid)
@@ -4256,37 +3873,6 @@ static hal_context_t *find_context(int pid)
 }
 #endif
 
-// create a new context for a given pid
-static hal_context_t *alloc_context_struct(int pid)
-{
-    hal_context_t *p;
-
-    /* check the free list */
-    if (hal_data->context_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->context_free_ptr);
-	/* unlink it from the free list */
-	hal_data->context_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_context_t));
-    }
-    if (p == NULL)
-	return p;
-
-    memset(p, 0, sizeof(hal_context_t));
-    p->pid = pid;
-#ifdef RTAPI
-    p->type = CONTEXT_RT;
-#else // ULAPI
-    p->type = CONTEXT_USERLAND;
-#endif
-    // link it into the list of active contexts
-    p->next_ptr = hal_data->context_list_ptr;
-    hal_data->context_list_ptr = SHMOFF(p);
-    return p;
-}
 
 #ifdef RTAPI
 static void free_funct_struct(hal_funct_t * funct)
@@ -4430,560 +4016,8 @@ static void free_thread_struct(hal_thread_t * thread)
 }
 #endif /* RTAPI */
 
-/***********************************************************************
-*                     HAL namespace support                            *
-************************************************************************/
-// outline
-// - all foreign HAL data segments must be preattached or cannot be linked into
-//
-// - all 'HAL environments' (RT env + each userland HAL comp process) exports
-// the mappings it 'sees' at the component level, in the HAL data segment
-// this is a table of:
-// {pid, flag, [instance, local address of haldata[instance]]}
-//
-// the linking flow is now for 'net foo:signame comp.pin'
-// determine if foreign namespace attached, fail if not
-// determine if foreign signal exists, record type and offset
-// determine owning comp of pin
-// check if comp has foreign namespace attached, fail if not
-// obtain base address of haldata[instance] as seen by comp
-// adjust pin address to haldata[instance] + offset(foo:signame)
 
 
-// is there an aliasing problem (different comps see pin at different addresses?
-// ---> API change for halpr_find_pin
-//   take into account pin might point into remote HAL namespace
-//   rename funcs, map on demand
-
-// main loop function for userland HAL comps: track mappings
-// -- in haldata keep bitmap of mapped NS's
-// -- compare with local map of NS's
-// -- attach missing
-// -- update own set of mapped NS'es
-//    (how to make them visible? bitmap in comp structure)
-// -- in hal_link(), update bitmap in hal_data
-//    wait for bitmap in comp to mirror this bitmap
-//    fail with programming hint to update mainloop with function
-
-
-// flow for halcmd linking a userland pin into a remote NS:
-// -- execute RT command: attach 23 foo
-// -- wait for haldata->mapped_NSes bitmap to include 23
-// -- resolve owing component
-// -- wait for owning comp to have 23 mapped in comp structure
-// -- fail with programming note if not present
-// -- execute hal_link() such that comp's pin points to remote HAL ns
-
-
-// shutdown
-// for all RT comps:
-//    unlink pins pointing to remote NS'es
-//    update bitmap in hal_data
-// for all Userland components:
-// if hal_remote_pins(comp):
-//     unlink this pin
-//
-// superclean:
-// all unlinked: update mapping to own NS only
-// wait for all comps to have updated maps
-// shutdown
-
-// mapping of rings:
-// extend _rtapi_ring_attach() by instance param
-// record instance in ringbuffer descriptor
-// attaching comp needs to check whether targe instance attached
-
-
-#ifdef ULAPI
-#if 0
-
-enum context_type {
-    CONTEXT_INVALID = 0,
-    CONTEXT_RT = 1,
-    CONTEXT_USERLAND = 2,
-};
-
-// visible in the per-namespace HAL data segment:
-typedef struct {
-    unsigned long flags;
-    int refcount;  // number of objects referenced in this namespace
-    void *haldata; // RT space attach address of that instance
- } hal_namespace_t;
-
-typedef struct {
-    int next_ptr;       // next contex in list
-    unsigned long type; // context_type
-    int pid;
-    // we use a bitmap because it's going to be tested frequently
-    // conceptually it belongs into namespaces[] as a bool attribute
-    _DECLARE_BITMAP(visible_namespaces,MAX_INSTANCES);
-    // the map of attached HAL namespaces of this context
-    hal_namespace_t namespaces[MAX_INSTANCES];
-    int refcount;  // the number of active comps in this context
-    // any rtapi or otherwise information needed to attach/detach the segment
-} hal_context_t;
-
-typedef struct {
-    char name[HAL_NAME_LEN + 1];
-} hal_namespace_descriptor_t;
-
-hal_data:
-// each component is expected to mirror this
-_DECLARE_BITMAP(required_namespaces,MAX_INSTANCES);
-
-// the symbolic names for foreign namespaces - only once HAL
-hal_namespace_descriptor_t nsdesc[MAX_INSTANCES];
-int refcount;
-
-#endif
-
-
-// this ULAPI function adds a foreign ns to the requested namespaces map
-// in hal_data, and gives it a name, which is a strictly local operation
-//
-// it does not actually attach a foreign HAL data segment, which is a
-// an operation local to a context and differs according to context type
-//
-// used: by halcmd
-int hal_namespace_add(int instance, const char *name)
-{
-    int halkey __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    if (name == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d no name parameter for instance id %d\n",
-			rtapi_instance, instance);
-	return -EINVAL;
-    }
-    if (instance == rtapi_instance) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d cannot attach self (instance %d)\n",
-			rtapi_instance, instance);
-	return -EINVAL;
-    }
-    if (!hal_valid_instance(instance)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d invalid instance id %d\n", rtapi_instance, instance);
-	return -EINVAL;
-    }
-    // test if in required map already, return if yes
-    if (RTAPI_BIT_TEST(hal_data->requested_namespaces,instance)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d instance %d alredy requested as %s\n",
-			rtapi_instance,instance,
-			hal_data->nsdesc[instance].name);
-	return -EEXIST;
-
-    }
-    halkey = OS_KEY(HAL_KEY, instance);
-
-    // test if foreign instance exists
-    if (!rtapi_shmem_exists(halkey)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d instance %d/%s does not exist (HAL key 0x%8.8x)\n",
-			rtapi_instance, instance, name, halkey);
-	return -ENOENT;
-    }
-    // mark as requested
-    RTAPI_BIT_SET(hal_data->requested_namespaces,instance);
-    strncpy(hal_data->nsdesc[instance].name, name, HAL_NAME_LEN);
-    return 0;
-}
-
-#ifdef HAL_XLINK
-int halpr_pin_crossrefs(unsigned long *bitmap, hal_pin_sig_xref_cb pin_xlink_callback)
-{
-    hal_context_t *ctx = THIS_CONTEXT();
-    hal_pin_t *pin;
-    hal_sig_t *sig;
-    int i, next, retval;
-    hal_data_t *pin_hal_data, *sig_hal_data;
-    extern hal_context_t *ul_context;
-    char *pin_prefix, *sig_prefix;
-    int sum = 0;
-
-    for (i = 0; i < MAX_INSTANCES; i++) {
-	if (RTAPI_BIT_TEST(bitmap,i) &&
-	    RTAPI_BIT_TEST(ctx->visible_namespaces,i)) {
-	    pin_hal_data = ctx->namespaces[i].haldata;
-	    pin_prefix = hal_data->nsdesc[i].name;
-	    rtapi_mutex_get(&(pin_hal_data->mutex));
-
-	    next = pin_hal_data->pin_list_ptr;
-	    while (next != 0) {
-		pin = SHMPTR_IN(pin_hal_data, next);
-		if (pin->signal && // linked
-		    (pin->signal_inst != i)) { // pointing outside
-		    sig_hal_data = ctx->namespaces[pin->signal_inst].haldata;
-		    rtapi_mutex_get(&(sig_hal_data->mutex));
-
-		    sig_prefix = sig_hal_data->nsdesc[pin->signal_inst].name;
-		    sig = SHMPTR_IN(sig_hal_data, pin->signal);
-
-		    retval = pin_xlink_callback(i, pin_prefix, sig_prefix,
-						pin, sig);
-		    if (retval >= 0)
-			sum += retval;
-		    else
-			i = MAX_INSTANCES; // break while unlocking properly
-		    rtapi_mutex_give(&(sig_hal_data->mutex));
-		}
-		next = pin->next_ptr;
-	    }
-	    rtapi_mutex_give(&(pin_hal_data->mutex));
-	}
-    }
-    return sum;
-}
-
-// trivial callback to count ring crosslinks
-static int count_ring_xref(int ra_inst, char *ra_prefix, char *ring_prefix,
-			  hal_ring_attachment_t *ra)
-{
-    return 1;
-}
-// detect inter-instance ring buffers
-// those exist if:
-// a local ring attachment refers to a remote instance (ring_inst != rtapi_instance)
-// a remote ring attachment refers to the local instance
-int halpr_ring_crossrefs(unsigned long *bitmap, hal_ring_xref_cb ring_xlink_callback)
-{
-    hal_data_t *ra_hal_data, *ring_hal_data;
-    hal_context_t *ctx = THIS_CONTEXT();
-    char *ra_prefix, *ring_prefix;
-    int i, next, retval;
-    hal_ring_attachment_t *hra;
-    int sum = 0;
-
-    for (i = 0; i < MAX_INSTANCES; i++) {
-	if (RTAPI_BIT_TEST(bitmap,i) &&
-	    RTAPI_BIT_TEST(ctx->visible_namespaces,i)) {
-
-	    ra_hal_data = ctx->namespaces[i].haldata;
-	    rtapi_mutex_get(&(ra_hal_data->mutex));
-
-	    ra_prefix = ra_hal_data->nsdesc[i].name;
-	    next = ra_hal_data->ring_attachment_list_ptr;
-	    while (next != 0) {
-		hra = SHMPTR_IN(ra_hal_data, next);
-		if (hra->ring_inst != i) {
-		    // a cross-linked ring attachment
-		    ring_hal_data = ctx->namespaces[hra->ring_inst].haldata;
-		    rtapi_mutex_get(&(ring_hal_data->mutex));
-		    ring_prefix = ring_hal_data->nsdesc[hra->ring_inst].name;
-
-		    retval = ring_xlink_callback(i, ra_prefix, ring_prefix, hra);
-		    rtapi_mutex_give(&(ring_hal_data->mutex));
-
-		    if (retval >= 0)
-			sum += retval;
-		    else
-			i = MAX_INSTANCES; // break while unlocking properly
-		}
-		next = hra->next_ptr;
-	    }
-	    rtapi_mutex_give(&(ra_hal_data->mutex));
-	}
-    }
-    return sum;
-}
-
-
-// trivial callback to count pin crosslinks
-static int count_pin_xref(int pin_inst, char *pin_prefix, char *sig_prefix,
-		      hal_pin_t *pin, hal_sig_t *sig)
-{
-    return 1;
-}
-
-// break the association between instance and us (rtapi_instance)
-// before we can do so check for crossrefs, which are:
-// - pins in the other ns linking to sigs in our ns
-// - pins in our ns linking to sigs in the other ns
-// - any rings cross-referenced from remote to us
-// - any rings cross-referenced from us into remote
-int hal_namespace_disassociate(int remote_instance)
-{
-    int pin_xrefs, ring_xrefs;
-    hal_context_t  *ctx = THIS_CONTEXT();
-    hal_data_t *remote_hal_data;
-    RTAPI_DECLARE_BITMAP(testmap,MAX_INSTANCES);
-
-    if (!hal_valid_instance(remote_instance)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d hal_namespace_disassociate(): invalid instance %d\n",
-			rtapi_instance, remote_instance);
-	return -EINVAL;
-    }
-
-    // check for crossrefs between us and the remote instance
-    RTAPI_ZERO_BITMAP(testmap,MAX_INSTANCES);
-    RTAPI_BIT_SET(testmap, rtapi_instance);
-    RTAPI_BIT_SET(testmap, remote_instance);
-
-    pin_xrefs = halpr_pin_crossrefs(testmap,count_pin_xref);
-    ring_xrefs = halpr_ring_crossrefs(testmap,count_ring_xref);
-
-    if (pin_xrefs) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d cannot disassociate instance %d - %d pin%s crosslinked\n",
-			rtapi_instance, remote_instance,
-			pin_xrefs, pin_xrefs == 1 ? "" : "s");
-    }
-    if (ring_xrefs) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d cannot disassociate instance %d - %d ring%s cross-attached\n",
-			rtapi_instance, remote_instance,
-			ring_xrefs, ring_xrefs == 1 ? "" : "s");
-    }
-    if (pin_xrefs || ring_xrefs)
-	return -EBUSY;
-
-    // break mutual association of namespaces:
-    remote_hal_data = ctx->namespaces[remote_instance].haldata;
-
-    rtapi_mutex_get(&(remote_hal_data->mutex));
-    // unmark our instance in the remote ns
-    RTAPI_BIT_CLEAR(remote_hal_data->requested_namespaces,rtapi_instance);
-    // clear our instance name in remote ns map
-    remote_hal_data->nsdesc[rtapi_instance].name[0] = '\0';
-    rtapi_mutex_give(&(remote_hal_data->mutex));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    // unmark remote instance in our ns
-    RTAPI_BIT_CLEAR(hal_data->requested_namespaces,remote_instance);
-    hal_data->nsdesc[remote_instance].name[0] = '\0';
-    rtapi_mutex_give(&(hal_data->mutex));
-
-    // now sync, this should unmap the ns
-    hal_namespace_sync();
-
-    return 0;
-}
-
-// this ULAPI function associates a foreign ns
-// it attaches its HAL segment as needed, and sets the requested ns bits
-// in the local and remote ns'es
-// it will sync the namespaces in the local context, and set the prefix name
-// in the local ns from the remote
-// it pass the remote prefix if non-NULL; space must be allocated
-// used: by halcmd
-int hal_namespace_associate(int instance, char *prefix)
-{
-    int halkey __attribute__((cleanup(halpr_autorelease_mutex)));
-    hal_context_t  *ctx = THIS_CONTEXT();
-    hal_data_t *remote_hal_data;
-    const char *remote_name;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    if (instance == rtapi_instance) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d cannot associate self (instance %d)\n",
-			rtapi_instance, instance);
-	return -EINVAL;
-    }
-    if (!hal_valid_instance(instance)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d invalid instance id %d\n", rtapi_instance, instance);
-	return -EINVAL;
-    }
-    // test if in required map already, return if yes
-    if (RTAPI_BIT_TEST(hal_data->requested_namespaces,instance)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d instance %d alredy requested as %s\n",
-			rtapi_instance,instance,
-			hal_data->nsdesc[instance].name);
-	return -EEXIST;
-
-    }
-    // test if foreign instance exists
-    halkey = OS_KEY(HAL_KEY, instance);
-    if (!rtapi_shmem_exists(halkey)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d instance %d does not exist (HAL key 0x%8.8x)\n",
-			rtapi_instance, instance, halkey);
-	return -ENOENT;
-    }
-    // mark as requested
-    RTAPI_BIT_SET(hal_data->requested_namespaces,instance);
-    // now sync, this should map in the ns locally
-    hal_namespace_sync();
-    remote_hal_data = ctx->namespaces[instance].haldata;
-
-    // mark our instance as requested in the remote ns
-    RTAPI_BIT_SET(remote_hal_data->requested_namespaces,rtapi_instance);
-
-    // fetch the foreign instance name
-    remote_name = remote_hal_data->nsdesc[instance].name;
-
-    // record foreign name locally
-    strncpy(hal_data->nsdesc[instance].name, remote_name, HAL_NAME_LEN);
-
-    // record our name in remote ns
-    strncpy(remote_hal_data->nsdesc[rtapi_instance].name,
-	    hal_data->nsdesc[rtapi_instance].name, HAL_NAME_LEN);
-
-    if (prefix)
-	strcpy(prefix, remote_name);
-    return 0;
-}
-#endif
-
-#if 0
-// to prevent dangling pins into detached namespaces,
-static int check_unreferenced(int instance)
-{
-    return 0;
-}
-#endif
-int hal_namespace_delete(const char *name)
-{
-    int halkey __attribute__((cleanup(halpr_autorelease_mutex)));
-    int i;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    for (i = 0; i < MAX_INSTANCES; i++) {
-	if (RTAPI_BIT_TEST(hal_data->requested_namespaces,i) &&
-	    !strcmp(name, hal_data->nsdesc[i].name)) {
-
-	    // test for not deleting self - not good.
-	    if (i == rtapi_instance)
-		 rtapi_print_msg(RTAPI_MSG_ERR,
-				 "HAL_LIB:%d cannot delete own namespace %s\n",
-				 rtapi_instance, name);
-	    else
-		RTAPI_BIT_CLEAR(hal_data->requested_namespaces,i);
-	    return 0;
-	}
-    }
-    rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d hal_namespace_delete: no such namespace %s\n",
-			rtapi_instance, name);
-    return -ENOENT;
-}
-
-
-// bump refcount 'over there' under remote lock
-// usage iterator - retrieve remote references in pins, signals
-// list of parts needed:
-
-#endif // ULAPI
-
-int hal_namespace_sync(void)
-{
-    hal_context_t *ctx = THIS_CONTEXT();
-    hal_namespace_t *ns;
-    int i;
-
-    // compare bitmaps - NB: assume < 32 instances!
-    if (hal_data->requested_namespaces != ctx->visible_namespaces) {
-	for (i = 0; i < MAX_INSTANCES; i++) {
-	    if (RTAPI_BIT_TEST(hal_data->requested_namespaces,i) ^
-		RTAPI_BIT_TEST(ctx->visible_namespaces,i)) {
-		ns = &ctx->namespaces[i];
-
-		if (RTAPI_BIT_TEST(hal_data->requested_namespaces,i) && //requested
-		    ns->shmem_id >= 0) {  // not marked as dead
-		    // use the HAL library module ID as owner reference for the foreign HAL segment
-		    if ((ns->shmem_id = rtapi_shmem_new_inst(HAL_KEY,i, lib_module_id, 0)) < 0) {
-			rtapi_print_msg(RTAPI_MSG_ERR,
-					"HAL:%d hal_namespace_sync: failed to attach HAL segment of instance %d\n",
-					rtapi_instance, i+1);
-			// ns->shmem_id < 0 means 'marked as dead'
-			// FIXME: set ns-->shmem_id to 0 in namespace_detach/attach so retry is possible
-		    } else {
-			// mark as visible in this context
-			if (rtapi_shmem_getptr_inst(ns->shmem_id, i, &ns->haldata)) {
-			    rtapi_print_msg(RTAPI_MSG_ERR,
-					"HAL:%d hal_namespace_sync: failed to getptr HAL segment of instance %d\n",
-					rtapi_instance, i+1);
-			} else
-			    RTAPI_BIT_SET(ctx->visible_namespaces,i);
-		    }
-		} else {
-		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "sync:%d need to detach %d/%s\n",getpid(),
-				    i+1, hal_data->nsdesc[i].name);
-		    if (rtapi_shmem_delete_inst(ns->shmem_id, i, lib_module_id)) {
-			rtapi_print_msg(RTAPI_MSG_ERR,
-					"HAL:%d hal_namespace_sync: failed to detach HAL segment of instance %d\n",
-					rtapi_instance, i+1);
-
-		    }
-		    // FIXME mark ns-->shmem_id as 'bad'
-		    // mark as invisible in this context anyway
-		    ns->haldata = 0;
-		    RTAPI_BIT_CLEAR(ctx->visible_namespaces,i);
-		}
-	    }
-	}
-    }
-    return 0;
-}
-#ifdef RTAPI
-EXPORT_SYMBOL(hal_namespace_sync);
-#endif
-
-// this needs eyeballs: circular deadlock prevention
-// always lock hal_data segments in instance order
-int halpr_lock_ordered(int inst1, int inst2)
-{
-    hal_data_t *hd1,*hd2;
-    hal_context_t *ctx = THIS_CONTEXT();
-
-    if (!hal_valid_instance(inst1) ||
-	!hal_valid_instance(inst2) ||
-	!RTAPI_BIT_TEST(hal_data->requested_namespaces,inst1) ||
-	!RTAPI_BIT_TEST(hal_data->requested_namespaces,inst2))
-	return -EINVAL;
-    hd1 = ctx->namespaces[inst1].haldata;
-    hd2 = ctx->namespaces[inst2].haldata;
-    if (hd1 == hd2) {
-	// special case: self reference (inst1 == inst2)
-	// so lock once only
-	rtapi_mutex_get(&(hd1->mutex));
-    } else {
-	if (inst2 > inst2) {
-	    rtapi_mutex_get(&(hd2->mutex));
-	    rtapi_mutex_get(&(hd1->mutex));
-	} else {
-	    rtapi_mutex_get(&(hd1->mutex));
-	    rtapi_mutex_get(&(hd2->mutex));
-	}
-    }
-    return 0;
-}
-
-// and unlock in instance order, while properly
-// dealing with the case inst1 == inst2
-int halpr_unlock_ordered(int inst1, int inst2)
-{
-    hal_data_t *hd1,*hd2;
-    hal_context_t *ctx = THIS_CONTEXT();
-
-    if (!hal_valid_instance(inst1) ||
-	!hal_valid_instance(inst2) ||
-	!RTAPI_BIT_TEST(hal_data->requested_namespaces,inst1) ||
-	!RTAPI_BIT_TEST(hal_data->requested_namespaces,inst2))
-	return -EINVAL;
-    hd1 = ctx->namespaces[inst1].haldata;
-    hd2 = ctx->namespaces[inst2].haldata;
-    if (hd1 == hd2) {
-	// special case: self reference (inst1 == inst2)
-	// so unlock once only
-	rtapi_mutex_give(&(hd1->mutex));
-    } else {
-	if (inst2 > inst2) {
-	    rtapi_mutex_give(&(hd2->mutex));
-	    rtapi_mutex_give(&(hd1->mutex));
-	} else {
-	    rtapi_mutex_give(&(hd1->mutex));
-	    rtapi_mutex_give(&(hd2->mutex));
-	}
-    }
-    return 0;
-}
 
 /***********************************************************************
 *                     HAL data segment attach & detach                 *
@@ -4999,7 +4033,6 @@ int hal_rtapi_attach()
     int retval;
     void *mem;
     char rtapi_name[RTAPI_NAME_LEN + 1];
-    hal_namespace_t *np;
 
     if (lib_mem_id < 0) {
 	rtapi_print_msg(RTAPI_MSG_DBG, "HAL: initializing hal_lib\n");
@@ -5045,30 +4078,6 @@ int hal_rtapi_attach()
 	    return -EINVAL;
 	}
 
-	rtapi_mutex_get(&(hal_data->mutex));
-	// allocate the userland context
-	if (ul_context == NULL) { // not yet inited in this process context
-	    if ((ul_context = alloc_context_struct(context_pid())) == NULL) {
-		rtapi_mutex_give(&(hal_data->mutex));
-		rtapi_print_msg(RTAPI_MSG_ERR,
-				"HAL: ERROR: cannot allocate userland HAL context for pid %d\n",
-				context_pid());
-		rtapi_exit(lib_module_id);
-		return -EINVAL;
-	    }
-	}
-	if (ul_context->refcount != 0) { // strange..
-	    rtapi_print_msg(RTAPI_MSG_INFO,
-			    "HAL: ulapi_hal_lib_init: %d comps already active\n",
-			    ul_context->refcount);
-	}
-	// NB: initialisation of ul_context really happens in hal_rtapi_attach()
-	// export what we're 'seeing', and where
-	RTAPI_BIT_SET(ul_context->visible_namespaces, rtapi_instance);
-	np = &ul_context->namespaces[rtapi_instance];
-	np->haldata = hal_data;
-	rtapi_mutex_give(&(hal_data->mutex));
-
 	rtapi_print_msg(RTAPI_MSG_DBG,
 		"HAL: hal_rtapi_attach(): HAL shm segment attached\n");
     }
@@ -5087,10 +4096,6 @@ int hal_rtapi_detach()
 	lib_module_id = -1;
 	hal_shmem_base = NULL;
 	hal_data = NULL;
-
-	// disable local mappings
-	//hal_mappings[rtapi_instance].shmbase = NULL;
-	//hal_mappings[rtapi_instance].hal_data = NULL;
 
 	rtapi_print_msg(RTAPI_MSG_DBG,
 			"HAL: hal_rtapi_detach(): HAL shm segment detached\n");

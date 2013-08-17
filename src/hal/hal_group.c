@@ -531,7 +531,6 @@ int hal_member_new(const char *group, const char *member,
 	new->epsilon = epsilon;
 	if (sig) {
 	    new->sig_member_ptr =  SHMOFF(sig);
-	    new->signal_inst = rtapi_instance; // TBD: correct for remote signal
 	    new->group_member_ptr = 0;
 	} else if (mgrp) {
 	    new->group_member_ptr =  SHMOFF(mgrp);
@@ -778,11 +777,9 @@ int hal_group_compile(const char *name, hal_compiled_group_t **cgroup)
 
 int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_data_u value)
 {
-    hal_data_t *sig_hal_data;
     hal_sig_t *sig;
     hal_data_u *dp;
     hal_member_t *member;
-    hal_context_t *ctx = THIS_CONTEXT();
 
     assert(cg->magic ==  CGROUP_MAGIC);
     // handles (value references) run from 0..cc->n_pin-1
@@ -790,9 +787,8 @@ int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_
 	return -ERANGE;
 
     member = cg->member[handle];
-    sig_hal_data = ctx->namespaces[member->signal_inst].haldata;
-    sig = SHMPTR_IN(sig_hal_data, member->sig_member_ptr);
-    dp = SHMPTR_IN(sig_hal_data, sig->data_ptr);
+    sig = SHMPTR(member->sig_member_ptr);
+    dp = SHMPTR(sig->data_ptr);
 
     if (sig->writers > 0)
 	rtapi_print_msg(RTAPI_MSG_WARN,
@@ -982,7 +978,6 @@ static hal_member_t *alloc_member_struct(void)
 	/* make sure it's empty */
 	p->next_ptr = 0;
 	p->sig_member_ptr = 0;
-	p->signal_inst = rtapi_instance; // default to local
 	p->group_member_ptr = 0;
 	p->userarg1 = 0;
 	p->epsilon = CHANGE_DETECT_EPSILON;

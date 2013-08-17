@@ -19,15 +19,6 @@ typedef struct {
     int owner;                   // creating HAL module
 } hal_ring_t;
 
-// a ring buffer attachment may refer to a ring buffer in any instance
-typedef struct {
-    char name[HAL_NAME_LEN + 1]; // attached ring HAL name
-    int ring_inst;               // instance it's attached in
-    int ring_shmid;              // RTAPI shm handle within this instance
-    int next_ptr;		 // next ring attachment in used/free lists
-    int owner;                   // attaching HAL module
-} hal_ring_attachment_t;
-
 // some components use a fifo and a scratchpad shared memory area,
 // like sampler.c and streamer.c. ringbuffer_t supports this through
 // the optional scratchpad, which is created if spsize is > 0
@@ -53,7 +44,7 @@ int hal_ring_detach(const char *name, ringbuffer_t *rb);
 int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id);
 
 //hal_ring_t * halpr_find_ring_by_name(hal_data_t *hd, const char *name);
-hal_ring_t *halpr_find_ring_by_name(hal_data_t *hd, const char *name);
+hal_ring_t *halpr_find_ring_by_name(const char *name);
 
 RTAPI_END_DECLS
 

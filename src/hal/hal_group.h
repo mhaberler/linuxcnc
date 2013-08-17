@@ -12,7 +12,6 @@ extern int hal_group_delete(const char *group);
 
 extern int hal_member_new(const char *group, const char *member, int arg1, double epsilon);
 extern int hal_member_delete(const char *group, const char *member);
-extern hal_group_t *halpr_find_group_of_member(const char *member);
 
 // using code is supposed to hal_ref_group() when starting to use it
 // this prevents group change or deletion during use
@@ -20,6 +19,112 @@ extern int hal_ref_group(const char *group);
 // when done, a group should be unreferenced:
 extern int hal_unref_group(const char *group);
 
+typedef struct {
+    int next_ptr;		/* next member in linked list */
+    int sig_member_ptr;          /* offset of hal_signal_t  */
+    int group_member_ptr;        /* offset of hal_group_t (nested) */
+    int userarg1;                /* interpreted by using layer */
+    double epsilon;
+} hal_member_t;
+
+typedef struct {
+    int next_ptr;		/* next group in free list */
+    int refcount;               /* advisory by using code */
+    int userarg1;	        /* interpreted by using layer */
+    int userarg2;	        /* interpreted by using layer */
+    //  int serial;                 /* incremented each time a signal is added/deleted*/
+    char name[HAL_NAME_LEN + 1];	/* group name */
+    int member_ptr;             /* list of group members */
+} hal_group_t;
+
+// group level operations:
+// typedef struct {} .. compiled_group_t;
+// typedef struct {} .. group_status_t;
+//
+// compiled_group_t *cgroup;
+//
+// int hal_group_compile("name", &cgroup)
+// hal_group_execute(cgroup)  // not sure if needed
+// hal_group_report(cgroup, group_cb, member_cb, flags)
+// flags: 0.. changed; 1..all-unconditional
+//
+// hal_group_free(cgroup);
+//
+// outlines:
+// hal_group_compile("name", &cgroup)
+// - expanding nested groups:
+// - determine cardinality - group size, # of change detects
+// - allocate compiled_group_t including shadow signals and
+//   pointers to group members
+// - fill in bitmaps as needed
+// - set changed bit for all monitored signals to cause initial report
+// - fill in header for fast check if change-detect or report
+// - lock by reference_group
+// exec a compiled group and see if report needed and if so, how:
+// hal_group_match(cgroup)
+
+#define CGROUP_MAGIC  0xbeef7411
+typedef struct {
+    int magic;
+    hal_group_t *group;
+    int n_members;
+    int mbr_index;               // iterator state
+    int mon_index;               // iterator state
+    hal_member_t  **member;      // all members (nesting resolved)
+    unsigned long *changed;      // bitmap
+    int n_monitored;             // count of pins to monitor for change
+    hal_data_u    *tracking;    // tracking values of monitored pins
+} hal_compiled_group_t;
+
+static inline int hal_cgroup_timer(hal_compiled_group_t *cgroup)
+{
+    if (!cgroup || !cgroup->group)
+	return -EINVAL;
+    return cgroup->group->userarg1;
+}
+
+extern int hal_group_compile(const char *name, hal_compiled_group_t **cgroup);
+extern int hal_cgroup_match(hal_compiled_group_t *cgroup);
+
+// given a cgroup which returned a non-zero value from hal_cgroup_match(),
+// generate a report.
+// the report callback is called for the following phases:
+//
+enum report_phase {
+    REPORT_BEGIN,
+    REPORT_SIGNAL, // for cgroups only
+    REPORT_PIN,    // for ccomp's only
+    REPORT_END
+};
+
+typedef int(*group_report_callback_t)(int,  hal_compiled_group_t *, int handle,
+				      hal_sig_t *sig, void *cb_data);
+
+#if 0
+// a sample report callback would have the following structure:
+int demo_report(int phase, hal_compiled_group_t *cgroup, hal_sig_t *sig,
+		int handle, void *cb_data)
+{
+    switch (phase) {
+    case REPORT_BEGIN:
+	// any report initialisation
+	break;
+    case REPORT_SIGNAL:
+	// per-reported-signal action
+	break;
+    case REPORT_END:
+	// finalise & send it off
+	break;
+    }
+    return 0;
+}
+#endif
+extern int hal_cgroup_report(hal_compiled_group_t *cgroup,
+			     group_report_callback_t report_cb,
+			     void *cb_data, int force_all);
+extern int hal_cgroup_free(hal_compiled_group_t *cgroup);
+
+extern hal_group_t *halpr_find_group_of_member(const char *member);
 // group iterator
 // for each defined group, call the callback function iff:
 // - a NULL group argument is give: this will cause all groups to be visited.
@@ -130,93 +235,6 @@ extern int halpr_foreach_member(const char *group,
 //----------------
 
 extern hal_group_t *halpr_find_group_by_name(const char *name);
-
-// group level operations:
-// typedef struct {} .. compiled_group_t;
-// typedef struct {} .. group_status_t;
-//
-// compiled_group_t *cgroup;
-//
-// int hal_group_compile("name", &cgroup)
-// hal_group_execute(cgroup)  // not sure if needed
-// hal_group_report(cgroup, group_cb, member_cb, flags)
-// flags: 0.. changed; 1..all-unconditional
-//
-// hal_group_free(cgroup);
-//
-// outlines:
-// hal_group_compile("name", &cgroup)
-// - expanding nested groups:
-// - determine cardinality - group size, # of change detects
-// - allocate compiled_group_t including shadow signals and
-//   pointers to group members
-// - fill in bitmaps as needed
-// - set changed bit for all monitored signals to cause initial report
-// - fill in header for fast check if change-detect or report
-// - lock by reference_group
-// exec a compiled group and see if report needed and if so, how:
-// hal_group_match(cgroup)
-
-#define CGROUP_MAGIC  0xbeef7411
-typedef struct {
-    int magic;
-    hal_group_t *group;
-    int n_members;
-    int mbr_index;               // iterator state
-    int mon_index;               // iterator state
-    hal_member_t  **member;      // all members (nesting resolved)
-    unsigned long *changed;      // bitmap
-    int n_monitored;             // count of pins to monitor for change
-    hal_data_u    *tracking;    // tracking values of monitored pins
-} hal_compiled_group_t;
-
-static inline int hal_cgroup_timer(hal_compiled_group_t *cgroup)
-{
-    if (!cgroup || !cgroup->group)
-	return -EINVAL;
-    return cgroup->group->userarg1;
-}
-
-extern int hal_group_compile(const char *name, hal_compiled_group_t **cgroup);
-extern int hal_cgroup_match(hal_compiled_group_t *cgroup);
-
-// given a cgroup which returned a non-zero value from hal_cgroup_match(),
-// generate a report.
-// the report callback is called for the following phases:
-//
-enum report_phase {
-    REPORT_BEGIN,
-    REPORT_SIGNAL, // for cgroups only
-    REPORT_PIN,    // for ccomp's only
-    REPORT_END
-};
-
-typedef int(*group_report_callback_t)(int,  hal_compiled_group_t *, int handle,
-				      hal_sig_t *sig, void *cb_data);
-
-#if 0
-// a sample report callback would have the following structure:
-int demo_report(int phase, hal_compiled_group_t *cgroup, hal_sig_t *sig,
-		int handle, void *cb_data)
-{
-    switch (phase) {
-    case REPORT_BEGIN:
-	// any report initialisation
-	break;
-    case REPORT_SIGNAL:
-	// per-reported-signal action
-	break;
-    case REPORT_END:
-	// finalise & send it off
-	break;
-    }
-    return 0;
-}
-#endif
-extern int hal_cgroup_report(hal_compiled_group_t *cgroup,
-			     group_report_callback_t report_cb,
-			     void *cb_data, int force_all);
-extern int hal_cgroup_free(hal_compiled_group_t *cgroup);
 
 RTAPI_END_DECLS
 #endif // HAL_GROUP_H

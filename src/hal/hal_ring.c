@@ -12,11 +12,6 @@ static int next_ring_id(void);
 
 
 
-static hal_ring_attachment_t *alloc_ring_attachment_struct(void);
-static void        free_ring_attachment_struct(hal_ring_attachment_t *ra);
-static hal_ring_attachment_t *find_ring_attachment_by_name(hal_data_t *hd, const char *name);
-
-
 extern void *shmalloc_dn(long int size);
 
 /***********************************************************************
@@ -59,7 +54,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 	}
 
 	// make sure no such ring name already exists
-	if ((ptr = halpr_find_ring_by_name(hal_data, name)) != 0) {
+	if ((ptr = halpr_find_ring_by_name(name)) != 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d ERROR: ring '%s' already exists\n",
 			    rtapi_instance, name);
@@ -146,70 +141,31 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 {
     hal_ring_t *rbdesc;
-    hal_ring_attachment_t *radesc;
-    int retval, status, shmid, other_instance;
-    hal_data_t *hd;
-    hal_context_t *ctx = THIS_CONTEXT();
+    int shmid;
     ringheader_t *rhptr;
     char localname[HAL_NAME_LEN+1];
-    char prefix[HAL_NAME_LEN+1];
 
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"HAL: ERROR: hal_ring_attach called before init\n");
 	return -EINVAL;
     }
-#ifdef HAL_XLINK
-    // remote_name() does its own locking
-    if ((status = remote_name(OBJ_RING, name, &other_instance,
-			      localname, prefix)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d remote namespace for '%s' not associated\n",
-			rtapi_instance, name);
-	return status;
-    }
-#endif
-    if (status == NAME_INVALID) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d hal_ring_attach: invalid name '%s'\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-    // no mutex(es) held at this point
+
+    // no mutex(es) held up to here
     {
-	int remote_instance
-	    __attribute__((cleanup(halpr_autorelease_ordered))) = other_instance;
+	int retval  __attribute__((cleanup(halpr_autorelease_mutex)));
+	rtapi_mutex_get(&(hal_data->mutex));
 
-	// lock our, or both hal_data segment(s) in instance order
-	if ((retval = halpr_lock_ordered(rtapi_instance, remote_instance)) != 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: failed to lock %d/%d\n",
-			    rtapi_instance, rtapi_instance, remote_instance);
-	    return retval;
-	}
-
-	// at this point, good to manipulate objects in either hal_data segment
-	// as both mutexes are held
-	hd = ctx->namespaces[remote_instance].haldata;
-
-	if ((rbdesc = halpr_find_ring_by_name(hd, localname)) == NULL) {
+	if ((rbdesc = halpr_find_ring_by_name(localname)) == NULL) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d hal_ring_attach: no such ring '%s'\n",
 			    rtapi_instance, name);
 	    return -EINVAL;
 	}
 
-	// check for self-reference here (instX:foo where instX==us)
-	if ((status == NAME_REMOTE) &&
-	    !strcmp(prefix, hal_data->nsdesc[rtapi_instance].name)) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,
-			    "HAL:%d hal_ring_attach: ignoring self-reference in '%s'\n",
-			    rtapi_instance, name);
-	    status = NAME_LOCAL; // local afterall
-	}
-
 	// map in the shm segment
 	if ((shmid = rtapi_shmem_new_inst(rbdesc->ring_shmkey,
-					  remote_instance, module_id, 0)) < 0) {
+					  rtapi_instance, module_id, 0)) < 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d hal_ring_attach(%s): rtapi_shmem_new_inst() failed %d\n",
 			    rtapi_instance,name, shmid);
@@ -222,28 +178,11 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 			    rtapi_instance, rbdesc->ring_shmid, retval);
 	    return -ENOMEM;
 	}
-	// allocate a new ring attachment descriptor
-	if ((radesc = alloc_ring_attachment_struct()) == 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: insufficient memory for attching ring '%s'\n",
-			    rtapi_instance, name);
-	    return -ENOMEM;
-	}
 
 	// record usage in ringheader
 	rhptr->refcount++;
 	// fill in ringbuffer_t
 	ringbuffer_init(rhptr, rbptr);
-
-	// record attachment details
-	strncpy(radesc->name, name, HAL_NAME_LEN);
-	radesc->ring_shmid = shmid;
-	radesc->ring_inst = remote_instance;
-	radesc->owner = module_id;
-
-	// record attachment descriptor
-	radesc->next_ptr = hal_data->ring_attachment_list_ptr;
-	hal_data->ring_attachment_list_ptr = SHMOFF(radesc);
 
 	// unlocking happens automatically on scope exit
 	return 0;
@@ -252,14 +191,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 
 int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
 {
-    hal_ring_attachment_t *radesc, *raptr;
     ringheader_t *rhptr;
-    int next,*prev, status, other_instance;
-    int retval;
-#ifdef HAL_XLINK
-    char localname[HAL_NAME_LEN+1];
-#endif
-    char prefix[HAL_NAME_LEN+1];
 
     if ((rbptr == NULL) || (rbptr->magic != RINGBUFFER_MAGIC)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -280,74 +212,18 @@ int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
 	return -EPERM;
     }
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d removing ring attachment '%s'\n",
+    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d detaching ring '%s'\n",
 		    rtapi_instance, name);
 
-#ifdef HAL_XLINK
-    // remote_name() does its own locking
-    if ((status = remote_name(OBJ_RING, name, &other_instance,
-			      localname, prefix)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d remote namespace for '%s' not associated\n",
-			rtapi_instance, name);
-	return status;
-    }
-    if (status == NAME_INVALID) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d hal_ring_detach: invalid name '%s'\n",
-			rtapi_instance, name);
-	return -EINVAL;
-    }
-#endif
     // no mutex(es) held here
     {
-	int remote_instance
-	    __attribute__((cleanup(halpr_autorelease_ordered))) = other_instance;
+	int retval __attribute__((cleanup(halpr_autorelease_mutex)));
+	rtapi_mutex_get(&(hal_data->mutex));
 
-	if ((retval = halpr_lock_ordered(rtapi_instance, remote_instance))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: failed to lock %d/%d\n",
-			    rtapi_instance, rtapi_instance, remote_instance);
-	    return retval;
-	}
-	if ((radesc = find_ring_attachment_by_name(hal_data, name)) == NULL) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_detach: no such ring attachment '%s'\n",
-			    rtapi_instance, name);
-	    return -EINVAL;
-	}
-
-	// check for self-reference (instX:foo where instX==us)
-	if ((status == NAME_REMOTE) &&
-	    !strcmp(prefix, hal_data->nsdesc[rtapi_instance].name)) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,
-			    "HAL:%d hal_ring_detach: ignoring self-reference in '%s'\n",
-			    rtapi_instance, name);
-	    status = NAME_LOCAL;
-	}
-
-	// retrieve ringheader address to decrease refcount
-	if ((retval = rtapi_shmem_getptr(radesc->ring_shmid, (void **)&rhptr)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_detach: rtapi_shmem_getptr %d failed %d\n",
-			    rtapi_instance, radesc->ring_shmid, retval);
-	    return -ENOMEM;
-	}
 	rhptr->refcount--;
-	rbptr->magic = 0;  // invalidate
+	rbptr->magic = 0;  // invalidate FIXME
 
-	// delete the attachment record
-	prev = &(hal_data->ring_attachment_list_ptr);
-	next = *prev;
-	while (next != 0) {
-	    raptr = SHMPTR(next);
-	    if (radesc == raptr) {
-		*prev = radesc->next_ptr;
-		free_ring_attachment_struct(radesc);
-		break;
-	    }
-	    prev = &(raptr->next_ptr);
-	    next = *prev;
-	}
-    }
+   }
     // unlocking happens automatically on scope exit
     return 0;
 }
@@ -381,15 +257,15 @@ static void free_ring_struct(hal_ring_t * p)
 }
 #endif
 
-hal_ring_t *halpr_find_ring_by_name(hal_data_t *hd, const char *name)
+hal_ring_t *halpr_find_ring_by_name(const char *name)
 {
     int next;
     hal_ring_t *ring;
 
     /* search ring list for 'name' */
-    next = hd->ring_list_ptr;
+    next = hal_data->ring_list_ptr;
     while (next != 0) {
-	ring = SHMPTR_IN(hd, next);
+	ring = SHMPTR(next);
 	if (strcmp(ring->name, name) == 0) {
 	    /* found a match */
 	    return ring;
@@ -404,25 +280,6 @@ hal_ring_t *halpr_find_ring_by_name(hal_data_t *hd, const char *name)
 /***********************************************************************
 *                    Internal HAL ring support functions               *
 ************************************************************************/
-static hal_ring_attachment_t *find_ring_attachment_by_name(hal_data_t *hd, const char *name)
-{
-    int next;
-    hal_ring_attachment_t *ring;
-
-    /* search ring attachment list for 'name' */
-    next = hd->ring_attachment_list_ptr;
-    while (next != 0) {
-	ring = SHMPTR_IN(hd, next);
-	if (strcmp(ring->name, name) == 0) {
-	    /* found a match */
-	    return ring;
-	}
-	/* didn't find it yet, look at next one */
-	next = ring->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
-}
 
 // we manage ring shm segments through a bitmap visible in hal_data
 // instead of going through separate (and rather useless) RTAPI methods
@@ -470,29 +327,3 @@ static int free_ring_id(int id)
 #endif
 
 
-
-// attach
-static hal_ring_attachment_t *alloc_ring_attachment_struct(void)
-{
-    hal_ring_attachment_t *p;
-
-    /* check the free list */
-    if (hal_data->ring_attachment_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->ring_attachment_free_ptr);
-	/* unlink it from the free list */
-	hal_data->ring_attachment_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_ring_attachment_t));
-    }
-    return p;
-}
-
-static void free_ring_attachment_struct(hal_ring_attachment_t * p)
-{
-    /* add it to free list */
-    p->next_ptr = hal_data->ring_attachment_free_ptr;
-    hal_data->ring_attachment_free_ptr = SHMOFF(p);
-}
