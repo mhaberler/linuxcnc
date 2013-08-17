@@ -431,7 +431,7 @@ hal_group_t *halpr_find_group_of_member(const char *name)
 	}
 	nextg = group->next_ptr;
     }
-    return group;
+    return NULL;
 }
 
 int hal_member_new(const char *group, const char *member,
