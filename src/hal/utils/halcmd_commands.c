@@ -3226,6 +3226,8 @@ static int print_ring_xref(int ra_inst, char *ra_prefix, char *ring_prefix,
 // cross-linked pins and attachments
 int do_crossref_cmd(char *instance)
 {
+    halcmd_error("-- disabled\n");
+#ifdef HAL_XLINK
     RTAPI_DECLARE_BITMAP(testmap, MAX_INSTANCES);
     int inst = -1;
     int retval ;
@@ -3262,11 +3264,15 @@ int do_crossref_cmd(char *instance)
 	    halcmd_output("%d cross-linked ring%s\n",
 			  retval, retval != 1 ? "s" : "");
     }
+#endif
     return 0;
 }
 
 int do_associate_cmd(char *instance)
 {
+    halcmd_error("-- disabled\n");
+    return 0;
+#ifdef HAL_XLINK
     char prefix[HAL_NAME_LEN+1];
     int inst = atoi(instance);
     int retval, retval2;
@@ -3284,10 +3290,14 @@ int do_associate_cmd(char *instance)
 	return retval || retval2;
     }
     return retval;
+#endif
 }
 
 int do_disassociate_cmd(char *instance)
 {
+    halcmd_error("-- disabled\n");
+    return 0;
+#ifdef HAL_XLINK
     int retval, retval2;
     char *argv[MAX_TOK];
     int inst = atoi(instance);
@@ -3304,6 +3314,7 @@ int do_disassociate_cmd(char *instance)
 	return retval || retval2;
     }
     return retval;
+#endif
 }
 
 void print_namespace_info(char **patterns)
