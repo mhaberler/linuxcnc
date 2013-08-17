@@ -12,6 +12,7 @@ extern int hal_group_delete(const char *group);
 
 extern int hal_member_new(const char *group, const char *member, int arg1, double epsilon);
 extern int hal_member_delete(const char *group, const char *member);
+extern hal_group_t *halpr_find_group_of_member(const char *member);
 
 // using code is supposed to hal_ref_group() when starting to use it
 // this prevents group change or deletion during use
