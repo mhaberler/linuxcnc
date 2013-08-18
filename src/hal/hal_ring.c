@@ -232,7 +232,6 @@ int hal_ring_delete(const char *name, int module_id)
 int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 {
     hal_ring_t *rbdesc;
-    int shmid;
     ringheader_t *rhptr;
 
     if (hal_data == 0) {
@@ -253,16 +252,23 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 	    return -EINVAL;
 	}
 
-	// map in the shm segment
-	if ((shmid = rtapi_shmem_new_inst(rbdesc->ring_shmkey,
-					  rtapi_instance, module_id, 0)) < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
+	// map in the shm segment - size 0 means 'must exist'
+	if ((retval = rtapi_shmem_new_inst(rbdesc->ring_shmkey,
+					   rtapi_instance, module_id,
+					   0 )) < 0) {
+	    if (retval != -EEXIST)  {
+		rtapi_print_msg(RTAPI_MSG_WARN,
 			    "HAL:%d hal_ring_attach(%s): rtapi_shmem_new_inst() failed %d\n",
-			    rtapi_instance,name, shmid);
-	    return -EINVAL;
+			    rtapi_instance, name, retval);
+		return retval;
+
+	    }
+	    // tried to map shm again. May happen in halcmd_commands:print_ring_info().
+	    // harmless.
 	}
+
 	// make it accessible
-	if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr))) {
+	if ((retval = rtapi_shmem_getptr(rbdesc->ring_shmid, (void **)&rhptr))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d hal_ring_attach: rtapi_shmem_getptr %d failed %d\n",
 			    rtapi_instance, rbdesc->ring_shmid, retval);
