@@ -229,7 +229,7 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 
     /* key must be non-zero, and also cannot match the key that RTAPI uses */
     if ((key == 0) || (key == OS_KEY(RTAPI_KEY, instance))) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "RTAPI: ERROR: bad shmem key: %d\n",
+	rtapi_print_msg(RTAPI_MSG_ERR, "RTAPI: ERROR: bad shmem key: 0x%x\n",
 			key);
 	return -EINVAL;
     }
@@ -260,14 +260,16 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 	    if (shmem->size < size) {
 		rtapi_mutex_give(&(rtapi_data->mutex));
 		rtapi_print_msg(RTAPI_MSG_ERR,
-				"RTAPI: ERROR: shmem size mismatch\n");
+				"RTAPI: ERROR: shmem size mismatch: request: %ld actual: %ld\n",
+				size, shmem->size);
 		return -EINVAL;
 	    }
 	    /* is this module already using it? */
 	    if (rtapi_test_bit(module_id, shmem->bitmap)) {
 		rtapi_mutex_give(&(rtapi_data->mutex));
 		rtapi_print_msg(RTAPI_MSG_WARN,
-				"RTAPI: Warning: shmem already mapped\n");
+				"RTAPI: Warning: shmem %d key 0x%x already mapped\n",
+				n, key);
 		return -EEXIST;
 	    }
 	    /* yes, has it been mapped into kernel space? */
@@ -290,7 +292,7 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 		}
 		if (shmem_addr_array[shmem_id] == NULL) {
 		    rtapi_print_msg(RTAPI_MSG_ERR,
-				    "RTAPI: ERROR: failed to map shmem\n");
+				    "RTAPI: ERROR: failed to map shmem %d\n", shmem_id);
 		    rtapi_mutex_give(&(rtapi_data->mutex));
 #ifdef ULAPI
 		    check_memlock_limit("failed to map shmem");
@@ -309,8 +311,8 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 #endif  /* RTAPI */
 	    /* announce another user for this shmem */
 	    rtapi_print_msg(RTAPI_MSG_DBG,
-		"RTAPI: shmem %02d opened by module %02d\n",
-		shmem_id, module_id);
+		"RTAPI: shmem %02d 0x%x opened by module %02d\n",
+			    shmem_id, key, module_id);
 	    /* done */
 	    rtapi_mutex_give(&(rtapi_data->mutex));
 	    return shmem_id;
@@ -319,7 +321,7 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
     /* find empty spot in shmem array */
     n = 1;
     while ((n <= RTAPI_MAX_SHMEMS) && (shmem_array[n].key != 0)) {
-	rtapi_print_msg(RTAPI_MSG_DBG, OUR_API ": shmem %d occupuied \n",n);
+	rtapi_print_msg(RTAPI_MSG_DBG, OUR_API ": shmem %d occupied \n",n);
 	n++;
     }
     if (n > RTAPI_MAX_SHMEMS) {
@@ -330,7 +332,8 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 	return -EMFILE;
     }
     /* we have space for the block data */
-    rtapi_print_msg(RTAPI_MSG_DBG, OUR_API ": using new shmem %d  \n",n);
+    rtapi_print_msg(RTAPI_MSG_DBG, OUR_API ": using new shmem %d key 0x%x\n",
+		    n,key);
     shmem_id = n;
     shmem = &(shmem_array[n]);
 
@@ -356,7 +359,8 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
     if (shmem_addr_array[shmem_id] == NULL) {
 	rtapi_mutex_give(&(rtapi_data->mutex));
 	rtapi_print_msg(RTAPI_MSG_ERR,
-	    "RTAPI: ERROR: could not create shmem %d\n", n);
+			"RTAPI: ERROR: could not create shmem %d key 0x%x\n",
+			n, key);
 	return -ENOMEM;
     }
     /* the block has been created, update data */
@@ -378,7 +382,7 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
     *((long int *) (shmem_addr_array[shmem_id])) = 0;
     /* announce the birth of a brand new baby shmem */
     rtapi_print_msg(RTAPI_MSG_DBG,
-	"RTAPI: shmem %02d created by module %02d, key: %d, size: %lu\n",
+	"RTAPI: shmem %02d created by module %02d key: 0x%x size: %lu\n",
 	shmem_id, module_id, key, size);
 
     /* and return the ID to the proud parent */
@@ -466,7 +470,8 @@ int _rtapi_shmem_delete_inst(int shmem_id, int instance, int module_id) {
     if ((shmem->ulusers > 0) || (shmem->rtusers > 0)) {
 	/* yes, we're done for now */
 	rtapi_print_msg(RTAPI_MSG_DBG,
-	    "RTAPI: shmem %02d closed by module %02d\n", shmem_id, module_id);
+			"RTAPI: shmem %02d key 0x%x closed by module %02d\n",
+			shmem_id, shmem->key, module_id);
 	if (manage_lock) rtapi_mutex_give(&(rtapi_data->mutex));
 	return 0;
     }
@@ -479,8 +484,8 @@ int _rtapi_shmem_delete_inst(int shmem_id, int instance, int module_id) {
     if (shmem->ulusers > 0) {
 	/* yes, we're done for now */
 	rtapi_print_msg(RTAPI_MSG_DBG,
-	    "RTAPI: shmem %02d unmapped by module %02d\n", shmem_id,
-	    module_id);
+			"RTAPI: shmem %02d key 0x%x unmapped by module %02d\n",
+			shmem_id,shmem->key, module_id);
 	if (manage_lock) rtapi_mutex_give(&(rtapi_data->mutex));
 	return 0;
     }
@@ -498,13 +503,13 @@ int _rtapi_shmem_delete_inst(int shmem_id, int instance, int module_id) {
 
 
     /* update the data array and usage count */
-    shmem->key = 0;
     shmem->size = 0;
     rtapi_data->shmem_count--;
     /* release the lock if needed, print a debug message and return */
     if (manage_lock) rtapi_mutex_give(&(rtapi_data->mutex));
-    rtapi_print_msg(RTAPI_MSG_DBG, "RTAPI: shmem %02d freed by module %02d\n",
-	shmem_id, module_id);
+    rtapi_print_msg(RTAPI_MSG_DBG, "RTAPI: shmem %02d key 0x%x freed by module %02d\n",
+		    shmem_id, shmem->key, module_id);
+    shmem->key = 0;
     return 0;
 }
 
