@@ -87,7 +87,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 	if ((rbdesc->ring_shmid = rtapi_shmem_new(rbdesc->ring_shmkey, module_id,
 						  rbdesc->total_size)) < 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d hal_ring_new: rtapi_shmem_new(0x%8.8x,%d,%zu) failed: %d\n",
+			    "HAL:%d hal_ring_new: rtapi_shmem_new(0x%8.8x,%d,%d) failed: %d\n",
 			    rtapi_instance,
 			    rbdesc->ring_shmkey, module_id,
 			    rbdesc->total_size, rbdesc->ring_shmid);
