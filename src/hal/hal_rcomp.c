@@ -20,136 +20,165 @@
 
 int hal_bind(const char *comp_name)
 {
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+    if (hal_data == 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL: ERROR: hal_bind called before hal_init\n");
+	return -EINVAL;
+    }
+    {
+	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
 
-    rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(comp_name);
+	rtapi_mutex_get(&(hal_data->mutex));
+	comp = halpr_find_comp_by_name(comp_name);
 
-    if (comp == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_bind(): no such component '%s'\n", comp_name);
-	return -EINVAL;
+	if (comp == NULL) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_bind(): no such component '%s'\n", comp_name);
+	    return -EINVAL;
+	}
+	if (comp->type != TYPE_REMOTE) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_bind(%s): not a remote componet (%d)\n",
+			    comp_name, comp->type);
+	    return -EINVAL;
+	}
+	if (comp->state != COMP_UNBOUND) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_bind(%s): state not unbound (%d)\n",
+			    comp_name, comp->state);
+	    return -EINVAL;
+	}
+	comp->state = COMP_BOUND;
+	comp->last_bound = (long int) time(NULL);; // XXX ugly
     }
-    if (comp->type != TYPE_REMOTE) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_bind(%s): not a remote componet (%d)\n",
-			comp_name, comp->type);
-	return -EINVAL;
-    }
-    if (comp->state != COMP_UNBOUND) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_bind(%s): state not unbound (%d)\n",
-			comp_name, comp->state);
-	return -EINVAL;
-    }
-    comp->state = COMP_BOUND;
-    comp->last_bound = (long int) time(NULL);; // XXX ugly
     return 0;
 }
 
 int hal_unbind(const char *comp_name)
 {
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
 
-    rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(comp_name);
+    if (hal_data == 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL: ERROR: hal_bind called before hal_init\n");
+	return -EINVAL;
+    }
+    {
+	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
 
-    if (comp == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_unbind(): no such component '%s'\n",
-			comp_name);
-	return -EINVAL;
+	rtapi_mutex_get(&(hal_data->mutex));
+
+	comp = halpr_find_comp_by_name(comp_name);
+	if (comp == NULL) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_unbind(): no such component '%s'\n",
+			    comp_name);
+	    return -EINVAL;
+	}
+	if (comp->type != TYPE_REMOTE) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_unbind(%s): not a remote componet (%d)\n",
+			    comp_name, comp->type);
+	    return -EINVAL;
+	}
+	if (comp->state != COMP_BOUND) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_unbind(%s): state not bound (%d)\n",
+			    comp_name, comp->state);
+	    return -EINVAL;
+	}
+	comp->state = COMP_UNBOUND;
+	comp->last_unbound = (long int) time(NULL);; // XXX ugly
     }
-    if (comp->type != TYPE_REMOTE) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_unbind(%s): not a remote componet (%d)\n",
-			comp_name, comp->type);
-	return -EINVAL;
-    }
-    if (comp->state != COMP_BOUND) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_unbind(%s): state not bound (%d)\n",
-			comp_name, comp->state);
-	return -EINVAL;
-    }
-    comp->state = COMP_UNBOUND;
-    comp->last_unbound = (long int) time(NULL);; // XXX ugly
     return 0;
 }
 
 int hal_acquire(const char *comp_name, int pid)
 {
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+    if (hal_data == 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL: ERROR: hal_acquire called before hal_init\n");
+	return -EINVAL;
+    }
+    {
+	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
 
-    rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(comp_name);
+	rtapi_mutex_get(&(hal_data->mutex));
+	comp = halpr_find_comp_by_name(comp_name);
 
-    if (comp == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_acquire(): no such component '%s'\n",
-			comp_name);
-	return -EINVAL;
-    }
-    if (comp->type != TYPE_REMOTE) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_acquire(%s): not a remote componet (%d)\n",
-			comp_name, comp->type);
-	return -EINVAL;
-    }
-    if (comp->state == COMP_BOUND) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_acquire(%s): cant reown a bound component (%d)\n",
-			comp_name, comp->state);
-	return -EINVAL;
-    }
-    // let a comp be 'adopted away' from the RT environment
-    // this is a tad hacky, should separate owner pid from RT/user distinction
-    if ((comp->pid !=0) &&
-	(comp->pid != global_data->rtapi_app_pid))
+	if (comp == NULL) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_acquire(): no such component '%s'\n",
+			    comp_name);
+	    return -EINVAL;
+	}
+	if (comp->type != TYPE_REMOTE) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_acquire(%s): not a remote componet (%d)\n",
+			    comp_name, comp->type);
+	    return -EINVAL;
+	}
+	if (comp->state == COMP_BOUND) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_acquire(%s): cant reown a bound component (%d)\n",
+			    comp_name, comp->state);
+	    return -EINVAL;
+	}
+	// let a comp be 'adopted away' from the RT environment
+	// this is a tad hacky, should separate owner pid from RT/user distinction
+	if ((comp->pid !=0) &&
+	    (comp->pid != global_data->rtapi_app_pid))
 
-	{
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_acquire(%s): component already owned by pid %d\n",
-			comp_name, comp->pid);
-	return -EINVAL;
+	    {
+		rtapi_print_msg(RTAPI_MSG_ERR,
+				"HAL: hal_acquire(%s): component already owned by pid %d\n",
+				comp_name, comp->pid);
+		return -EINVAL;
+	    }
+	comp->pid = pid;
+	return comp->comp_id;
     }
-    comp->pid = pid;
-    return comp->comp_id;
 }
 
 int hal_release(const char *comp_name)
 {
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(comp_name);
-
-    if (comp == NULL) {
+    if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_release(): no such component '%s'\n",
-			comp_name);
+			"HAL: ERROR: hal_release called before hal_init\n");
 	return -EINVAL;
     }
-    if (comp->type != TYPE_REMOTE) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_release(%s): not a remote componet (%d)\n",
-			comp_name, comp->type);
-	return -EINVAL;
-    }
-    if (comp->pid == 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: hal_release(%s): component already disowned\n",
-			comp_name);
-	return -EINVAL;
-    }
+    {
+	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
 
-    if (comp->pid != getpid()) {
-	rtapi_print_msg(RTAPI_MSG_WARN,
-			"HAL: hal_release(%s): component owned by pid %d\n",
-			comp_name, comp->pid);
-	// return -EINVAL;
+	rtapi_mutex_get(&(hal_data->mutex));
+	comp = halpr_find_comp_by_name(comp_name);
+
+	if (comp == NULL) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_release(): no such component '%s'\n",
+			    comp_name);
+	    return -EINVAL;
+	}
+	if (comp->type != TYPE_REMOTE) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_release(%s): not a remote componet (%d)\n",
+			    comp_name, comp->type);
+	    return -EINVAL;
+	}
+	if (comp->pid == 0) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: hal_release(%s): component already disowned\n",
+			    comp_name);
+	    return -EINVAL;
+	}
+
+	if (comp->pid != getpid()) {
+	    rtapi_print_msg(RTAPI_MSG_WARN,
+			    "HAL: hal_release(%s): component owned by pid %d\n",
+			    comp_name, comp->pid);
+	    // return -EINVAL;
+	}
+	comp->pid = 0;
     }
-    comp->pid = 0;
     return 0;
 }
 
