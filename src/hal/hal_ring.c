@@ -7,7 +7,7 @@
 
 
 static hal_ring_t *alloc_ring_struct(void);
-// currently rings are never freed.
+static void free_ring_struct(hal_ring_t * p);
 static int next_ring_id(void);
 extern void *shmalloc_dn(long int size);
 
@@ -27,22 +27,22 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 			rtapi_instance);
 	return -EINVAL;
     }
+    if (!name) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL:%d ERROR: hal_ring_new() called with NULL name\n",
+			rtapi_instance);
+    }
+    if (strlen(name) > HAL_NAME_LEN) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL:%d ERROR: ring name '%s' is too long\n",
+			rtapi_instance, name);
+	return -EINVAL;
+    }
     {
 	hal_ring_t *ptr __attribute__((cleanup(halpr_autorelease_mutex)));
 
 	rtapi_mutex_get(&(hal_data->mutex));
 
-	if (!name) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: hal_ring_new() called with NULL name\n",
-			    rtapi_instance);
-	}
-	if (strlen(name) > HAL_NAME_LEN) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL:%d ERROR: ring name '%s' is too long\n",
-			    rtapi_instance, name);
-	    return -EINVAL;
-	}
 	if (hal_data->lock & HAL_LOCK_LOAD)  {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL:%d ERROR: hal_ring_new called while HAL locked\n",
@@ -131,8 +131,102 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 	    prev = &(ptr->next_ptr);
 	    next = *prev;
 	}
+	// automatic unlock by scope exit
     }
-    // automatic unlock by scope exit
+}
+
+int hal_ring_delete(const char *name, int module_id)
+{
+    int retval;
+
+    if (hal_data == 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL:%d ERROR: hal_ring_delete called before init\n",
+			rtapi_instance);
+	return -EINVAL;
+    }
+    if (!name) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL:%d ERROR: hal_ring_delete() called with NULL name\n",
+			rtapi_instance);
+    }
+    if (strlen(name) > HAL_NAME_LEN) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL:%d ERROR: ring name '%s' is too long\n",
+			rtapi_instance, name);
+	return -EINVAL;
+    }
+    {
+	hal_ring_t *hrptr __attribute__((cleanup(halpr_autorelease_mutex)));
+
+	rtapi_mutex_get(&(hal_data->mutex));
+
+	if (hal_data->lock & HAL_LOCK_LOAD)  {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL:%d ERROR: hal_ring_delete called while HAL locked\n",
+			    rtapi_instance);
+	    return -EPERM;
+	}
+
+	// ring must exist
+	if ((hrptr = halpr_find_ring_by_name(name)) == 0) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL:%d ERROR: ring '%s' not found\n",
+			    rtapi_instance, name);
+	    return -ENOENT;
+	}
+
+	ringheader_t *rhptr;
+
+	// ring exists. Retrieve shared memory address.
+	if ((retval = rtapi_shmem_getptr(hrptr->ring_shmid, (void **)&rhptr))) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL:%d hal_ring_delete: rtapi_shmem_getptr %d failed %d\n",
+			    rtapi_instance, hrptr->ring_shmid, retval);
+	    return -ENOMEM;
+	}
+
+	// assure attach/detach balance is zero:
+	if (rhptr->refcount) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL:%d hal_ring_delete: '%s' still attached - refcount=%d\n",
+			    rtapi_instance, name, rhptr->refcount);
+	    return -EBUSY;
+	}
+
+	rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d deleting ring '%s'\n",
+			rtapi_instance, name);
+
+	if ((retval = rtapi_shmem_delete(hrptr->ring_shmid, module_id)) < 0)  {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL:%d hal_ring_delete(%s): rtapi_shmem_delete(%d,%d) failed: %d\n",
+			    rtapi_instance, name, hrptr->ring_shmid, module_id, retval);
+	    return retval;
+	}
+
+	// search for the ring (again..)
+	int *prev = &(hal_data->ring_list_ptr);
+	int next = *prev;
+	while (next != 0) {
+	    hrptr = SHMPTR(next);
+	    if (strcmp(hrptr->name, name) == 0) {
+		// this is the right ring
+		// unlink from list
+		*prev = hrptr->next_ptr;
+		// and delete it, linking it on the free list
+		free_ring_struct(hrptr);
+		return 0;
+	    }
+	    // no match, try the next one
+	    prev = &(hrptr->next_ptr);
+	    next = *prev;
+	}
+
+	rtapi_print_msg(RTAPI_MSG_ERR, "HAL:%d BUG: deleting ring '%s'; not found in ring_list?\n",
+			rtapi_instance, name);
+	return -ENOENT;
+    }
+
 }
 
 int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
@@ -291,18 +385,18 @@ static hal_ring_t *alloc_ring_struct(void)
     return p;
 }
 
-#if 0 // for now we never free rings - no need
 static void free_ring_struct(hal_ring_t * p)
 {
     /* add it to free list */
     p->next_ptr = hal_data->ring_free_ptr;
     hal_data->ring_free_ptr = SHMOFF(p);
 }
-#endif
+
 
 #ifdef RTAPI
 
 EXPORT_SYMBOL(hal_ring_new);
+EXPORT_SYMBOL(hal_ring_delete);
 EXPORT_SYMBOL(hal_ring_detach);
 EXPORT_SYMBOL(hal_ring_attach);
 

@@ -9,7 +9,8 @@ RTAPI_BEGIN_DECLS
 
 // a ring buffer exists always relative to a local instance
 // it is 'owned' by the creating module (primarily because rtapi_shm_new()
-// wants a module_id param); however any module may attach to.
+// wants a module_id param); however any module may attach to it.
+
 typedef struct {
     char name[HAL_NAME_LEN + 1]; // ring HAL name
     int next_ptr;		 // next ring in used/free lists
@@ -27,23 +28,25 @@ typedef struct {
 
 // generic ring methods for all modes:
 
-/* create a named ringbuffer, owned by comp module_id
- * mode is one of: MODE_RECORD, MODE_STREAM
- * optionally or'd with USE_RMUTEX, USE_WMUTEX
- * spsize > 0 will allocate a shm scratchpad buffer
- * accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
- */
+// create a named ringbuffer, owned by comp module_id
+// mode is one of: MODE_RECORD, MODE_STREAM
+// optionally or'd with USE_RMUTEX, USE_WMUTEX
+// spsize > 0 will allocate a shm scratchpad buffer
+// accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
 int hal_ring_new(const char *name, int size, int spsize, int module_id, int mode);
 
-/* detach a ringbuffer */
-int hal_ring_detach(const char *name, ringbuffer_t *rb);
+// delete a ring buffer.
+// will fail if the refcount is > 0 (meaning the ring is still attached somewhere).
+int hal_ring_delete(const char *name, int module_id);
 
-/* make an existing ringbuffer accessible to a component
- * rb must point to storage of type ringbuffer_t
- */
+// make an existing ringbuffer accessible to a component
+// rb must point to storage of type ringbuffer_t.
+// Increases the reference count.
 int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id);
 
-//hal_ring_t * halpr_find_ring_by_name(hal_data_t *hd, const char *name);
+// detach a ringbuffer. Decreases the reference count.
+int hal_ring_detach(const char *name, ringbuffer_t *rb);
+
 hal_ring_t *halpr_find_ring_by_name(const char *name);
 
 RTAPI_END_DECLS
