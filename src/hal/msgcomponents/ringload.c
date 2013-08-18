@@ -26,8 +26,6 @@ int rtapi_app_main(void)
     int n, retval;
     char ringname[HAL_NAME_LEN + 1];
 
-    // rtapi_set_msg_level(RTAPI_MSG_ALL);
-
     comp_id = hal_init("ringload");
     if (comp_id < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -53,5 +51,16 @@ int rtapi_app_main(void)
 
 void rtapi_app_exit(void)
 {
+    int retval, n;
+    char ringname[HAL_NAME_LEN + 1];
+
+    for (n = 0; n < num_rings; n++) {
+	snprintf(ringname, HAL_NAME_LEN, "ring_%d",n);
+	if ((retval = hal_ring_delete(ringname, comp_id))) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "ringload: failed to delete ring %s: %d\n",
+			    ringname, retval);
+	}
+    }
     hal_exit(comp_id);
 }
