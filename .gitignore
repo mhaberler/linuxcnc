@@ -56,3 +56,5 @@ position.txt
 *.9
 **/DOTGIT
 src/protobuf/generated/*
+lib/python/*_pb2.py
+lib/python/pb2json.py
