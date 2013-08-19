@@ -1,3 +1,4 @@
+
 # see http://www.cmcrossroads.com/ask-mr-make/6535-tracing-rule-execution-in-gnu-make
 # to trace make execution of make in more detail:
 #     make VV=1
@@ -1560,9 +1561,9 @@ tags:
 		-I MODULE_AUTHOR+,MODULE_DESCRIPTION+,MODULE_LICENSE+ \
 		-R . ../tcl ../scripts ../share/axis/tcl
 	rm -f TAGS
-	find . -type f -name '*.[ch]' -printf '%P\0' |xargs -0 etags -l c --append
-	find . -type f -name '*.cc' -printf '%P\0' |xargs -0 etags -l c++ --append
-	find . -type f -name '*.hh' -printf '%P\0' |xargs -0 etags -l c++ --append
+	find . -type f -name '*.[ch]' | grep -v './objects/*' | xargs  etags -l c --append
+	find . -type f -name '*.cc'   | grep -v './objects/*' | xargs  etags -l c++ --append
+	find . -type f -name '*.hh'   | grep -v './objects/*' | xargs  etags -l c++ --append
 
 etags:
 	etags	--extra=+fq \
@@ -1572,9 +1573,9 @@ etags:
 		-I RTAPI_MP_ARRAY_INT+,RTAPI_MP_ARRAY_LONG+,RTAPI_MP_ARRAY_STRING+ \
 		-I MODULE_AUTHOR+,MODULE_DESCRIPTION+,MODULE_LICENSE+ \
 		-R . ../tcl ../scripts ../share/axis/tcl
-	find . -type f -name '*.[ch]' |xargs etags --language-force=C --append
-	find . -type f -name '*.cc' |xargs etags --language-force=C++ --append
-	find . -type f -name '*.hh' |xargs etags --language-force=C++ --append
+	find . -type f -name '*.[ch]' | grep -v './objects/*'|xargs etags --language-force=C --append
+	find . -type f -name '*.cc' | grep -v './objects/*'|xargs etags --language-force=C++ --append
+	find . -type f -name '*.hh' | grep -v './objects/*'|xargs etags --language-force=C++ --append
 
 .PHONY: swish
 swish:
