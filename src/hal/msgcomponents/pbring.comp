@@ -149,6 +149,8 @@ FUNCTION(_) {
 	// process command here
 	// prepare reply
 	tx.has_motstat = true;
+	tx.type =  ContainerType_MT_MOTSTATUS;
+
 	tx.motstat = (MotionStatus) {
 	    .commandEcho = rx.motcmd.command,
 	    .commandNumEcho = rx.motcmd.commandNum,

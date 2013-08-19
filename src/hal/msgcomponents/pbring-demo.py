@@ -9,6 +9,12 @@ from   types_pb2 import *
 from   motcmds_pb2 import *
 from   message_pb2 import Container
 
+import google.protobuf.text_format
+
+import pb2json
+import json  # pretty printer
+
+
 class Timeout(Exception):
     pass
 
@@ -32,7 +38,7 @@ for i in range(10):
     container = Container()
     container.type = MT_MOTCMD
     motcmd = container.motcmd
-    motcmd.command = MT_EMCMOT_SET_LINE
+    motcmd.command = EMCMOT__SET_LINE
     motcmd.commandNum = i
     pos = motcmd.pos
     tran = pos.tran
@@ -53,7 +59,14 @@ for i in range(10):
             b = r.next_buffer()
             reply = Container()
             reply.ParseFromString(b)
+
+            # protobuf text format
             print "reply:", str(reply)
+
+            # automatic JSON conversion
+            jsonout = reply.SerializeToJSON()
+            print json.dumps(json.loads(jsonout), indent=4)
+
             del reply
             r.shift()
             break

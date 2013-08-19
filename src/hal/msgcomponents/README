@@ -100,13 +100,7 @@ void hal_ring_flush(ringbuffer_t *h);
 
 Todo:
 -----
-   add memory barriers for ARM SMP
 
 Nice to have:
    a variant/option which overwrites the oldest entry when full
       halstreamer uses this scheme
-
-   include an optional separate shared memory buffer of size given at creation time
-      message exchange and status reporting often go together
-
-   optionally add r/w mutexes to support multiple readers/multiple writers
