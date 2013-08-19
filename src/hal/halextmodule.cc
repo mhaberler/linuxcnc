@@ -351,7 +351,7 @@ int RecordRing::write(char *buf, size_t size) {
     if ((retval = record_write(&rb, buf, size)) == ERANGE) {
 
 	PyErr_Format(PyExc_IOError,
-		     "write: record size %d greater than buffer size %d",
+		     "write: record size %zu greater than buffer size %zu",
 		     size, rb.header->size);
 	throw boost::python::error_already_set();
     }
@@ -383,7 +383,7 @@ void StreamRing::consume(int nbytes) {
     avail = stream_read_space(rb.header);
     if (nbytes > (int) avail) {
 	PyErr_Format(PyExc_IOError,
-		     "shift(%d): argument larger than bytes available (%d)",
+		     "shift(%d): argument larger than bytes available (%zu)",
 		     nbytes, avail);
 	throw boost::python::error_already_set();
     }
