@@ -95,7 +95,7 @@ static int send_response(const void *msg, const pb_field_t *fields)
 	pb_ostream_t sstream = PB_OSTREAM_SIZING;
 	if (!pb_encode(&sstream, fields,  msg)) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: sizing pb_encode(): %s written=%d\n",
+			"%s: sizing pb_encode(): %s written=%zu\n",
 			mod, PB_GET_ERROR(&sstream), sstream.bytes_written);
 	    encodefail++;
 	    return false;
@@ -111,7 +111,7 @@ static int send_response(const void *msg, const pb_field_t *fields)
     if ((retval = record_write_begin(&response_rb,
 				     (void **)&buffer, size)) != 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: record_write_begin(%d/%d) failed: %d\n",
+			"%s: record_write_begin(%d/%zu) failed: %d\n",
 			mod, msgsize, size, retval);
 	memfail++;
 	return retval;
@@ -121,7 +121,7 @@ static int send_response(const void *msg, const pb_field_t *fields)
     pb_ostream_t rstream = pb_ostream_from_buffer(buffer, size);
     if (!pb_encode(&rstream, fields,  msg)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: pb_encode failed: %s, msgsize=%d written=%d\n",
+			"%s: pb_encode failed: %s, msgsize=%d written=%zu\n",
 			mod, PB_GET_ERROR(&rstream), msgsize, rstream.bytes_written);
 	encodefail++;
 	return -1;
