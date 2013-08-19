@@ -85,7 +85,7 @@ NANOPB_GENERATOR_FLAGS := \
 	--options-file=$(NANOPB_OPTIONS)  # -v # show option expansion
 
 # any extra flags to C compile nanopb bindings
-PROTO_NANOPB_CFLAGS := $(NANOPB_CFLAGS) -fPIC
+PROTO_NANOPB_CFLAGS := $(NANOPB_CFLAGS) #-fPIC
 
 # nanopb library .h/.c files
 NANOPB_INCS := $(wildcard $(NANOPB)/*.h)
