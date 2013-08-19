@@ -671,10 +671,11 @@ static int cgroup_init_members_cb(int level, hal_group_t **groups, hal_member_t 
 				  void *cb_data)
 {
     hal_compiled_group_t *tc = cb_data;
+
+#if 0
     hal_sig_t *sig;
 
     sig = SHMPTR(member->sig_member_ptr);
-#if 0
     if ((sig->writers + sig->bidirs) == 0)
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"HAL:%d WARNING: group '%s': member signal '%s' has no updater\n",
