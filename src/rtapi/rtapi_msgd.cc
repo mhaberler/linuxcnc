@@ -7,7 +7,7 @@
 
  * eventually this will become a zeroMQ PUBLISH server making messages available
  * to any interested subscribers
- * the PUBLISH/SUBSCRIBE pattern will also fix the current situation where an error 
+ * the PUBLISH/SUBSCRIBE pattern will also fix the current situation where an error
  * message consumed by an entity is not seen by any other entities
  *
  *
@@ -51,7 +51,18 @@
 
 #include <rtapi.h>
 #include "rtapi/shmdrv/shmdrv.h"
-#include "ring.h"          // environment autodetection
+#include "ring.h"
+#include "czmq.h"
+
+#include <protobuf/generated/types.pb.h>
+#include <protobuf/generated/log.pb.h>
+#include <protobuf/generated/message.pb.h>
+//#include <protobuf/json2pb/json2pb.h>
+#include <string>
+
+using namespace std;
+using namespace google::protobuf;
+
 
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
@@ -87,10 +98,22 @@ static const char *progname;
 static char proctitle[20];
 static int exit_code  = 0;
 
+static void *logpub;  // zeromq log publisher socket
+static zctx_t *zmq_ctx;
+static const char *logpub_uri = "tcp://127.0.0.1:5556";
+
+static const char *rtapi_levelname[] = {
+    "none",
+    "err"
+    "warn",
+    "info",
+    "dbg",
+    "all"
+};
 static const char *origins[] = { "kernel","rt","user" };
 //static const char *encodings[] = { "ascii","stashf","protobuf" };
 
-static void usage(int argc, char **argv) 
+static void usage(int argc, char **argv)
 {
     printf("Usage:  %s [options]\n", argv[0]);
 }
@@ -254,7 +277,7 @@ static int create_global_segment()
 }
 
 void init_global_data(global_data_t * data, int flavor,
-		      int instance_id, int hal_size, 
+		      int instance_id, int hal_size,
 		      int rt_level, int user_level,
 		      const char *name, int stack_size)
 {
@@ -267,7 +290,7 @@ void init_global_data(global_data_t * data, int flavor,
     if (flavor != RTAPI_POSIX_ID) {
 	if (mlock(data, sizeof(global_data_t))) {
 	    syslog_async(LOG_ERR, "MSGD:%d mlock(global) failed: %d '%s'\n",
-		   instance_id, errno,strerror(errno)); 
+		   instance_id, errno,strerror(errno));
 	}
     }
     // report progress
@@ -278,7 +301,7 @@ void init_global_data(global_data_t * data, int flavor,
     data->instance_id = instance_id;
 
     if ((name == NULL) || (strlen(name) == 0)) {
-	snprintf(data->instance_name, sizeof(data->instance_name), 
+	snprintf(data->instance_name, sizeof(data->instance_name),
 		 "inst%d",rtapi_instance);
     } else {
 	strncpy(data->instance_name,name, sizeof(data->instance_name));
@@ -289,7 +312,7 @@ void init_global_data(global_data_t * data, int flavor,
     data->user_msg_level = user_level;
 
     // next value returned by rtapi_init (userland threads)
-    // those dont use fixed sized arrays 
+    // those dont use fixed sized arrays
     // start at 1 because the meaning of zero is special
     data->next_module_id = 1;
 
@@ -354,7 +377,7 @@ static int flavor_and_kernel_compatible(flavor_ptr f)
 
     if (kernel_is_rtpreempt() &&
 	(f->id != RTAPI_RT_PREEMPT_ID)) {
-	fprintf(stderr, "MSGD:%d ERROR: trying to start %s RTAPI on an RT PREEMPT kernel\n", 
+	fprintf(stderr, "MSGD:%d ERROR: trying to start %s RTAPI on an RT PREEMPT kernel\n",
 		rtapi_instance, f->name);
 	return 0;
     }
@@ -434,15 +457,24 @@ cleanup_actions(void)
     }
 }
 
+static void zfree_cb(void *data, void *args)
+{
+    free(data);
+}
+
 static int message_thread()
 {
     rtapi_msgheader_t *msg;
-    size_t msg_size;
+    size_t msg_size, pb_size;
     size_t payload_length;
     int retval;
     char *cp;
     int sigfd;
     sigset_t sigset;
+    Container container;
+    LogMessage *logmsg;
+    zframe_t *z_pbframe;
+    void *pb_buffer;
 
     // sigset of all the signals that we're interested in
     retval = sigemptyset(&sigset);        assert(retval == 0);
@@ -485,6 +517,49 @@ static int message_thread()
 		syslog_async(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
 		       msg->tag, msg->pid, origins[msg->origin],
 		       (int) payload_length, msg->buf);
+
+		if (logpub) {
+		    // publish protobuf-encoded log message
+		    // channel as per loglevel
+		    container.set_type(MT_LOG_MESSAGE);
+
+		    logmsg = container.mutable_log_message();
+		    logmsg->set_origin((MsgOrigin)msg->origin);
+		    logmsg->set_pid(msg->pid);
+		    logmsg->set_level((MsgLevel) msg->level);
+		    logmsg->set_tag(msg->tag);
+		    logmsg->set_text(msg->buf, strlen(msg->buf));
+
+		    pb_size = container.ByteSize();
+		    pb_buffer = malloc(pb_size);
+		    assert(pb_buffer != NULL);
+		    z_pbframe = zframe_new_zero_copy(pb_buffer, pb_size, zfree_cb, NULL);
+		    assert(z_pbframe != NULL);
+
+		    if (container.SerializeToArray(zframe_data(z_pbframe),
+						   pb_size)) {
+
+			const char *cname = rtapi_levelname[msg->level];
+			if (zstr_sendm(logpub, cname))
+			    syslog(LOG_ERR,"zstr_sendm(%s,%s): %s",
+				   logpub_uri, cname, strerror(errno));
+
+			// zframe_send() deallocates the frame after sending,
+			// and frees pb_buffer through zfree_cb()
+			if (zframe_send(&z_pbframe, logpub, 0))
+			    syslog(LOG_ERR,"zframe_send(%s): %s",
+				   logpub_uri, strerror(errno));
+
+			// std::string json = pb2json(container);
+			// syslog(LOG_ERR, "json: %s\n", json.c_str());
+
+		    } else {
+			syslog(LOG_ERR, "serialize failed");
+		    }
+		}
+		syslog(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
+		       msg->tag, msg->pid, origins[msg->origin],
+		       (int) payload_length, msg->buf);
 		break;
 	    case MSG_STASHF:
 		break;
@@ -508,7 +583,7 @@ static int message_thread()
 	    assert(bytes == sizeof(info));
 	    signal_handler(info.ssi_signo);
 	}
-	
+
 	msg_poll += msg_poll_inc;
 	if (msg_poll > msg_poll_max)
 	    msg_poll = msg_poll_max;
@@ -530,7 +605,7 @@ static struct option long_options[] = {
     {"halsize",  required_argument, 0, 'H'},
     {"halstacksize",  required_argument, 0, 'R'},
     {"shmdrv",  no_argument,        0, 'S'},
-
+    { "uri", required_argument,	 NULL, 'U' },
     {0, 0, 0, 0}
 };
 
@@ -541,13 +616,17 @@ int main(int argc, char **argv)
     pid_t pid, sid;
     size_t argv0_len, procname_len, max_procname_len;
 
+    // Verify that the version of the library that we linked against is
+    // compatible with the version of the headers we compiled against.
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+
     progname = argv[0];
     shm_common_init();
 
     while (1) {
 	int option_index = 0;
 	int curind = optind;
-	c = getopt_long (argc, argv, "hI:sFf:i:S",
+	c = getopt_long (argc, argv, "hI:sFf:i:SU:",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
@@ -578,7 +657,7 @@ int main(int argc, char **argv)
 	case 'u':
 	    usr_msglevel = atoi(optarg);
 	    break;
-     	case 'r':
+	case 'r':
 	    rt_msglevel = atoi(optarg);
 	    break;
 	case 'H':
@@ -590,6 +669,9 @@ int main(int argc, char **argv)
 	case 's':
 	    log_stderr++;
 	    option |= LOG_PERROR;
+	    break;
+	case 'U':
+	    logpub_uri = optarg;
 	    break;
 	case '?':
 	    if (optopt)  fprintf(stderr, "bad short opt '%c'\n", optopt);
@@ -703,7 +785,7 @@ int main(int argc, char **argv)
     // this is the single place in all of linuxCNC where the global segment
     // gets initialized - no reinitialization from elsewhere
     init_global_data(global_data, flavor->id, rtapi_instance,
-    		     halsize, rt_msglevel, usr_msglevel,
+		     halsize, rt_msglevel, usr_msglevel,
 		     instance_name,hal_thread_stack_size);
 
     syslog_async(LOG_INFO,
@@ -723,6 +805,19 @@ int main(int argc, char **argv)
     if (strcmp(GIT_CONFIG_SHA,GIT_BUILD_SHA))
 	syslog_async(LOG_WARNING, "WARNING: git SHA's for configure and build do not match!");
 
+   if (logpub_uri) {
+	// start the zeromq log publisher socket
+	zmq_ctx  = zctx_new();
+	logpub = zsocket_new(zmq_ctx, ZMQ_PUB);
+	if (zsocket_bind(logpub, logpub_uri) > 0) {
+	    syslog(LOG_INFO,"publishing log messages at %s\n",
+		   logpub_uri);
+	} else {
+	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
+		   logpub_uri, strerror(errno));
+	    logpub = NULL;
+	}
+    }
 
     if ((global_data->rtapi_msgd_pid != 0) &&
 	kill(global_data->rtapi_msgd_pid, 0) == 0) {
@@ -737,6 +832,7 @@ int main(int argc, char **argv)
     close(STDOUT_FILENO);
     if (!log_stderr)
 	close(STDERR_FILENO);
+
 
     message_thread();
 
