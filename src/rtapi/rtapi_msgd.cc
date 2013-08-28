@@ -58,6 +58,7 @@
 #include <protobuf/generated/log.pb.h>
 #include <protobuf/generated/message.pb.h>
 //#include <protobuf/json2pb/json2pb.h>
+
 #include <string>
 
 using namespace std;
@@ -97,6 +98,7 @@ static ringbuffer_t rtapi_msg_buffer;   // ring access strcuture for messages
 static const char *progname;
 static char proctitle[20];
 static int exit_code  = 0;
+
 
 static void *logpub;  // zeromq log publisher socket
 static zctx_t *zmq_ctx;
@@ -457,12 +459,11 @@ cleanup_actions(void)
     }
 }
 
-static void zfree_cb(void *data, void *args)
-{
-    free(data);
-}
+static void zfree_cb(void *data, void *args) { free(data); }
 
-static int message_thread()
+static void message_poll_cb(struct ev_loop *loop,
+	     struct ev_timer *timer,
+	     int revents)
 {
     rtapi_msgheader_t *msg;
     size_t msg_size, pb_size;
@@ -565,12 +566,65 @@ static int message_thread()
 		break;
 	    case MSG_PROTOBUF:
 		break;
-	    default: ;
-		// whine
+	    case MSG_RTUSER:
+	    case MSG_KERNEL:
+		break;
 	    }
-	    record_shift(&rtapi_msg_buffer);
-	    msg_poll = msg_poll_min;
+	    if (logpub) {
+		// publish protobuf-encoded log message
+		// channel as per loglevel
+		container.set_type(MT_LOG_MESSAGE);
+
+		logmsg = container.mutable_log_message();
+		logmsg->set_origin((MsgOrigin)msg->origin);
+		logmsg->set_pid(msg->pid);
+		logmsg->set_level((MsgLevel) msg->level);
+		logmsg->set_tag(msg->tag);
+		logmsg->set_text(msg->buf, strlen(msg->buf));
+
+		pb_size = container.ByteSize();
+		pb_buffer = malloc(pb_size);
+		assert(pb_buffer != NULL);
+		z_pbframe = zframe_new_zero_copy(pb_buffer, pb_size, zfree_cb, NULL);
+		assert(z_pbframe != NULL);
+
+		if (container.SerializeToArray(zframe_data(z_pbframe),
+					       pb_size)) {
+
+		    const char *cname = rtapi_levelname[msg->level];
+		    if (zstr_sendm(logpub, cname))
+			syslog(LOG_ERR,"zstr_sendm(%s,%s): %s",
+			       logpub_uri, cname, strerror(errno));
+
+		    // zframe_send() deallocates the frame after sending,
+		    // and frees pb_buffer through zfree_cb()
+		    if (zframe_send(&z_pbframe, logpub, 0))
+			syslog(LOG_ERR,"zframe_send(%s): %s",
+			       logpub_uri, strerror(errno));
+
+		    // std::string json = pb2json(container);
+		    // syslog(LOG_ERR, "json: %s\n", json.c_str());
+
+		} else {
+		    syslog(LOG_ERR, "serialize failed");
+		}
+	    }
+	    syslog(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
+		   msg->tag, msg->pid, origins[msg->origin],
+		   (int) payload_length, msg->buf);
+	    break;
+	case MSG_STASHF:
+	    break;
+	case MSG_PROTOBUF:
+	    break;
+	default: ;
+	    // whine
 	}
+
+	record_shift(&rtapi_msg_buffer);
+	msg_poll = msg_poll_min;
+    }
+
 
 	ret = poll(pfd, 1, msg_poll);
 	if (ret < 0) {
@@ -592,6 +646,7 @@ static int message_thread()
 
     return 0;
 }
+
 
 static struct option long_options[] = {
     {"help",  no_argument,          0, 'h'},
@@ -615,6 +670,7 @@ int main(int argc, char **argv)
     int option = LOG_NDELAY;
     pid_t pid, sid;
     size_t argv0_len, procname_len, max_procname_len;
+
 
     // Verify that the version of the library that we linked against is
     // compatible with the version of the headers we compiled against.
@@ -833,10 +889,10 @@ int main(int argc, char **argv)
     if (!log_stderr)
 	close(STDERR_FILENO);
 
-
     message_thread();
 
     // signal received - check if rtapi_app running, and shut it down
+
     cleanup_actions();
     closelog_async();
     exit(exit_code);

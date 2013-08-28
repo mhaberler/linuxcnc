@@ -248,8 +248,12 @@ RTAPI_MSGD_SRCS = \
 	rtapi/syslog-async/syslog_async.c
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
 
-RTAPI_MSGD_CFLAGS := $(shell pkg-config libwebsockets libczmq libzmq  protobuf --cflags)
-RTAPI_MSGD_LDFLAGS := $(shell pkg-config libwebsockets libczmq libzmq  protobuf --libs)
+RTAPI_MSGD_CFLAGS := $(shell pkg-config  libczmq libzmq  protobuf --cflags)
+RTAPI_MSGD_LDFLAGS := $(shell pkg-config  libczmq libzmq  protobuf --libs)
+
+# libev support
+RTAPI_MSGD_CFLAGS += $(LIBEV_CFLAGS)
+RTAPI_MSGD_LDFLAGS += $(LIBEV_LIBS)
 
 $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	EXTRAFLAGS +=  $(RTAPI_MSGD_CFLAGS)
