@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>Log subscriber test</title>
+<script src="/ws.js"></script>
+<script language="javascript" type="text/javascript">
+  var output;
+  var input;
+
+  function init() {
+    output = document.getElementById("output");
+    testWebSocket();
+  }
+
+  function testWebSocket() {
+    websocket = new Connection("", "localhost:7681","log");
+    websocket.onopen = function(evt)    { onOpen(evt) };
+    websocket.onclose = function(evt)   { onClose(evt) };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+    websocket.onerror = function(evt)   { onError(evt) };
+  }
+
+  function onOpen(evt) {
+    writeToScreen("CONNECTED");
+  }
+
+  function onClose(evt) {
+    writeToScreen("DISCONNECTED");
+  }
+
+  function onMessage(evt) {
+      // format of the log message:
+      // {"type": 10,
+      //  "log_message": {"origin": 2, "tag": "hal_lib", "pid": 1491,
+      //                  "text": "some log text ", "level": 4}}
+      var container = JSON.parse(evt.data)
+      var text = container.log_message.text
+      var level = container.log_message.level
+
+      writeToScreen('<span style="color: red;">' + level +'</span> <span style="color: blue;">text: ' + text +'</span>')
+  }
+
+  function onError(evt) {
+    writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+  }
+
+  function writeToScreen(message) {
+    var pre = document.createElement("p");
+    pre.style.wordWrap = "break-word";
+    pre.innerHTML = message;
+    output.appendChild(pre);
+  }
+
+  window.addEventListener("load", init, false);
+
+</script>
+<h2>Log subscriber test</h2>
+<div id="output"></div>
+</html>

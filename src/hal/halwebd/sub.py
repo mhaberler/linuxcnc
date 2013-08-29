@@ -1,7 +1,7 @@
 
 import zmq
 from message_pb2 import Container
-import binascii
+#import binascii
 
 print "ZMQ=%s pyzmq=%s" % (zmq.zmq_version(), zmq.pyzmq_version())
 
@@ -14,5 +14,5 @@ while True:
     c = Container()
     (channel, msg) = socket.recv_multipart()
     c.ParseFromString(msg)
-    print "channel=%s\n%s\n" % (channel, str(c))
-    print "encoded:", binascii.hexlify(c.SerializeToString())
+    print "channel=%s message:\n%s\n" % (channel, str(c))
+    #print "encoded:", binascii.hexlify(c.SerializeToString())

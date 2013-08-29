@@ -48,6 +48,8 @@
 #include <poll.h>
 #include <sys/signalfd.h>
 #include <assert.h>
+#include <string>
+using namespace std;
 
 #include <rtapi.h>
 #include "rtapi/shmdrv/shmdrv.h"
@@ -57,12 +59,68 @@
 #include <protobuf/generated/types.pb.h>
 #include <protobuf/generated/log.pb.h>
 #include <protobuf/generated/message.pb.h>
-//#include <protobuf/json2pb/json2pb.h>
-
-#include <string>
-
-using namespace std;
 using namespace google::protobuf;
+
+#include <protobuf/json2pb/json2pb.h>
+#include <jansson.h> // just for library version tag
+
+/* Enable libev io loop */
+#define LWS_USE_LIBEV
+/* Turn off external polling support */
+#define LWS_NO_EXTERNAL_POLL
+
+#include <libwebsockets.h>
+
+typedef struct {
+    void *socket;
+    struct ev_io watcher;
+} wslog_sess_t;
+
+typedef struct {
+    const char *www_dir;
+    int debug_level;
+    zctx_t *z_context;
+    const char *uri;
+    struct ev_loop* loop;
+    int num_log_connections;
+} wsconfig_t;
+
+// message_poll_cb() needs to inspect num_log_connections
+static wsconfig_t ws_config;
+
+static int callback_wslog(struct libwebsocket_context *context,
+			  struct libwebsocket *wsi,
+			  enum libwebsocket_callback_reasons reason,
+			  void *user, void *in, size_t len);
+
+static int callback_http(struct libwebsocket_context *context,
+			 struct libwebsocket *wsi,
+			 enum libwebsocket_callback_reasons reason, void *user,
+			 void *in, size_t len);
+
+enum wslog_protocols {
+    PROTOCOL_HTTP  = 0,
+    PROTOCOL_WSLOG = 1,
+};
+
+static struct libwebsocket_protocols protocols[] = {
+    {
+	"http-only",		/* name */
+	callback_http,		/* callback */
+	0,
+	0,			/* max frame size / rx buffer */
+    },
+    {
+	"log",
+	callback_wslog,
+	sizeof(wslog_sess_t),
+	0,
+    },
+    { NULL, NULL, 0, 0 } /* terminator */
+};
+static struct libwebsocket_context *ws_context;
+
+static const char *mime_types = "/etc/mime.types";
 
 
 #ifndef SYSLOG_FACILITY
@@ -98,7 +156,6 @@ static ringbuffer_t rtapi_msg_buffer;   // ring access strcuture for messages
 static const char *progname;
 static char proctitle[20];
 static int exit_code  = 0;
-
 
 static void *logpub;  // zeromq log publisher socket
 static zctx_t *zmq_ctx;
@@ -474,8 +531,9 @@ static void message_poll_cb(struct ev_loop *loop,
     sigset_t sigset;
     Container container;
     LogMessage *logmsg;
-    zframe_t *z_pbframe;
+    zframe_t *z_pbframe, *z_jsonframe;
     void *pb_buffer;
+    std::string json;
 
     // sigset of all the signals that we're interested in
     retval = sigemptyset(&sigset);        assert(retval == 0);
@@ -590,23 +648,38 @@ static void message_poll_cb(struct ev_loop *loop,
 
 		if (container.SerializeToArray(zframe_data(z_pbframe),
 					       pb_size)) {
+		    // channel name:
+		    if (zstr_sendm(logpub, "pb2"))
+			syslog(LOG_ERR,"zstr_sendm(%s,pb2): %s",
+			       logpub_uri, strerror(errno));
 
-		    const char *cname = rtapi_levelname[msg->level];
-		    if (zstr_sendm(logpub, cname))
-			syslog(LOG_ERR,"zstr_sendm(%s,%s): %s",
-			       logpub_uri, cname, strerror(errno));
-
+		    // and the actual pb2-encoded message
 		    // zframe_send() deallocates the frame after sending,
 		    // and frees pb_buffer through zfree_cb()
 		    if (zframe_send(&z_pbframe, logpub, 0))
 			syslog(LOG_ERR,"zframe_send(%s): %s",
 			       logpub_uri, strerror(errno));
 
-		    // std::string json = pb2json(container);
-		    // syslog(LOG_ERR, "json: %s\n", json.c_str());
+		    // convert to JSON only if we have actual connections
+		    // to the log websocket:
+		    if (ws_config.num_log_connections > 0) {
+			json = pb2json(container);
+			z_jsonframe = zframe_new( json.c_str(), json.size());
 
+			if (zstr_sendm(logpub, "json"))
+			    syslog(LOG_ERR,"zstr_sendm(%s,json): %s",
+				   logpub_uri, strerror(errno));
+			if (zframe_send(&z_jsonframe, logpub, 0))
+			    syslog(LOG_ERR,"zframe_send(%s): %s",
+				   logpub_uri, strerror(errno));
+
+			// cause a writable callback on all log sockets:
+			const struct libwebsocket_protocols *log =
+			    &protocols[PROTOCOL_WSLOG];
+			libwebsocket_callback_on_writable_all_protocol(log);
+		    }
 		} else {
-		    syslog(LOG_ERR, "serialize failed");
+		    syslog(LOG_ERR, "container serialization failed");
 		}
 	    }
 	    syslog(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
@@ -661,6 +734,9 @@ static struct option long_options[] = {
     {"halstacksize",  required_argument, 0, 'R'},
     {"shmdrv",  no_argument,        0, 'S'},
     { "uri", required_argument,	 NULL, 'U' },
+    { "wwwdir", required_argument,      NULL, 'w' },
+    { "port",	required_argument,	NULL, 'p' },
+    { "wsdebug",required_argument,	NULL, 'W' },
     {0, 0, 0, 0}
 };
 
@@ -670,6 +746,11 @@ int main(int argc, char **argv)
     int option = LOG_NDELAY;
     pid_t pid, sid;
     size_t argv0_len, procname_len, max_procname_len;
+
+    struct lws_context_creation_info ws_info;
+
+    memset(&ws_info, 0, sizeof ws_info);
+    ws_info.port = 7681;
 
 
     // Verify that the version of the library that we linked against is
@@ -682,7 +763,7 @@ int main(int argc, char **argv)
     while (1) {
 	int option_index = 0;
 	int curind = optind;
-	c = getopt_long (argc, argv, "hI:sFf:i:SU:",
+	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
@@ -727,7 +808,16 @@ int main(int argc, char **argv)
 	    option |= LOG_PERROR;
 	    break;
 	case 'U':
-	    logpub_uri = optarg;
+	    logpub_uri = strdup(optarg);
+	    break;
+	case 'w':
+	    ws_config.www_dir = strdup(optarg);
+	    break;
+	case 'p':
+	    ws_info.port = atoi(optarg);
+	    break;
+	case 'W':
+	    ws_config.debug_level = atoi(optarg);
 	    break;
 	case '?':
 	    if (optopt)  fprintf(stderr, "bad short opt '%c'\n", optopt);
@@ -868,6 +958,22 @@ int main(int argc, char **argv)
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
 	    syslog(LOG_INFO,"publishing log messages at %s\n",
 		   logpub_uri);
+
+	    lws_set_log_level(ws_config.debug_level, lwsl_emit_syslog);
+	    ws_config.z_context = zctx_new();
+	    ws_config.uri = logpub_uri;
+	    ws_config.loop = loop;
+	    ws_info.user = (void *) &ws_config;
+	    ws_info.protocols = protocols;
+	    ws_info.gid = -1;
+	    ws_info.uid = -1;
+	    ws_info.options = 0;
+	    ws_context = libwebsocket_create_context(&ws_info);
+	    if (ws_context == NULL) {
+		syslog(LOG_ERR, "libwebsocket init failed");
+	    } else
+		libwebsocket_initloop(ws_context, loop);
+
 	} else {
 	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
@@ -884,7 +990,10 @@ int main(int argc, char **argv)
 	global_data->rtapi_msgd_pid = getpid();
     }
 
+    // workaround bug: https://github.com/warmcat/libwebsockets/issues/10
+#if 0
     close(STDIN_FILENO);
+#endif
     close(STDOUT_FILENO);
     if (!log_stderr)
 	close(STDERR_FILENO);
@@ -896,4 +1005,192 @@ int main(int argc, char **argv)
     cleanup_actions();
     closelog_async();
     exit(exit_code);
+}
+
+const char *mimetype(const char *mimetypes, const char *ext);
+
+
+// minimal HTTP server, intended to serve some files just to be able
+// to display a websockets-based JavaScript UI
+// serves file under www_dir - no serving of files with '..' in path
+static int callback_http(struct libwebsocket_context *context,
+			 struct libwebsocket *wsi,
+			 enum libwebsocket_callback_reasons reason, void *user,
+			 void *in, size_t len)
+{
+    char client_name[128];
+    char client_ip[128];
+    char buf[PATH_MAX];
+    wsconfig_t *cfg = (wsconfig_t *) libwebsocket_context_user (context);
+    const char *ext, *mt, *s = NULL;
+    struct stat sb;
+
+    switch (reason) {
+    case LWS_CALLBACK_HTTP:
+	if (cfg->www_dir == NULL) {
+	    syslog(LOG_ERR, "closing HTTP connection - wwwdir not configured");
+	    return -1;
+	}
+	if (strstr((const char *)in, "..")) {
+	    syslog(LOG_ERR,
+		   "closing HTTP connection: not serving files with '..': '%s'",
+		   (char *) in);
+	    return -1;
+	}
+	ext = strchr((const char *)in, '.');
+	if (ext)
+	    s = mimetype(mime_types, ++ext);
+	mt = (s == NULL) ? "text/hmtl" : s;
+
+	sprintf(buf, "%s/%s", cfg->www_dir, (char *)in);
+	if (!((stat(buf, &sb) == 0)  && S_ISREG(sb.st_mode))) {
+	    syslog(LOG_ERR, "HTTP: file not found : %s", buf);
+	    return -1;
+	}
+	syslog(LOG_DEBUG, "HTTP serving '%s' mime type='%s'", buf, mt);
+
+	if (libwebsockets_serve_http_file(context, wsi, buf, mt)) {
+	    if (s) free((void *) s);
+	    return -1; /* through completion or error, close the socket */
+	}
+	if (s) free((void *) s);
+	break;
+
+    case LWS_CALLBACK_FILTER_NETWORK_CONNECTION:
+	libwebsockets_get_peer_addresses(context, wsi, (int)in, client_name,
+					 sizeof(client_name), client_ip, sizeof(client_ip));
+	syslog(LOG_DEBUG,"HTTP connect from %s (%s)\n",  client_name, client_ip);
+	break;
+
+    default:
+	break;
+    }
+    return 0;
+}
+
+static int
+callback_wslog(struct libwebsocket_context *context,
+	       struct libwebsocket *wsi,
+	       enum libwebsocket_callback_reasons reason,
+	       void *user, void *in, size_t len)
+{
+    const struct libwebsocket_protocols *proto;
+    char client_name[128];
+    char client_ip[128];
+    unsigned char buf[LWS_SEND_BUFFER_PRE_PADDING + 512 +
+		      LWS_SEND_BUFFER_POST_PADDING];
+    unsigned char *p = &buf[LWS_SEND_BUFFER_PRE_PADDING];
+    int n, m, rc;
+    wslog_sess_t *wss = (wslog_sess_t *)user;
+    wsconfig_t *cfg = (wsconfig_t *) libwebsocket_context_user (context);
+    zmsg_t *msg;
+    zframe_t *channel,*logframe;
+    std::string json;
+
+    switch (reason) {
+
+    case LWS_CALLBACK_ESTABLISHED:
+	proto = libwebsockets_get_protocol(wsi);
+	libwebsockets_get_peer_addresses(context, wsi,
+					 libwebsocket_get_socket_fd(wsi),
+					 client_name,
+					 sizeof(client_name),
+					 client_ip,
+					 sizeof(client_ip));
+
+	// make the ws instance an internal subscriber
+	wss->socket = zsocket_new (cfg->z_context, ZMQ_SUB);
+	assert(wss->socket);
+	zsocket_set_linger (wss->socket, 0);
+
+	// we're interested in the json updates only:
+	zsocket_set_subscribe(wss->socket, (char *) "json");
+	rc = zsocket_connect (wss->socket, (char *) cfg->uri);
+	assert(rc == 0);
+
+	cfg->num_log_connections++;
+
+	syslog(LOG_DEBUG,"Websocket/%s upgrade from %s (%s), %d subscriber(s)",
+	       proto->name, client_name, client_ip, cfg->num_log_connections);
+
+	break;
+
+    case LWS_CALLBACK_SERVER_WRITEABLE:
+	while (1) {
+	    // handle all pending messages
+	    zmq_pollitem_t items[] = { {wss->socket, 0, ZMQ_POLLIN, 0} };
+
+	    int rc = zmq_poll(items, 1, 10 * ZMQ_POLL_MSEC );
+	    if (rc == -1)
+		break;
+	    if (items [0].revents & ZMQ_POLLIN) {
+		msg = zmsg_recv(wss->socket);
+		channel = zmsg_pop(msg);
+		logframe = zmsg_pop(msg);
+
+		n = zframe_size(logframe);
+		memcpy(p, zframe_data(logframe), n);
+		zframe_destroy (&logframe);
+		zframe_destroy (&channel);
+
+		m = libwebsocket_write(wsi, p, n, LWS_WRITE_TEXT);
+		if (m < n)
+		    syslog(LOG_ERR, "ERROR %d writing to log websocket", n);
+	    } else
+		break;
+	}
+	break;
+
+    case LWS_CALLBACK_CLOSED:
+	proto = libwebsockets_get_protocol(wsi);
+	libwebsockets_get_peer_addresses(context, wsi,
+					 libwebsocket_get_socket_fd(wsi),
+					 client_name,
+					 sizeof(client_name),
+					 client_ip,
+					 sizeof(client_ip));
+
+	zsocket_destroy(cfg->z_context, wss->socket);
+	cfg->num_log_connections--;
+	syslog(LOG_ERR,"Websocket/%s disconnect: %s (%s), %d subscriber(s)",
+	       proto->name, client_name, client_ip, cfg->num_log_connections);
+	break;
+
+    case LWS_CALLBACK_RECEIVE:
+	syslog(LOG_DEBUG, "writing to a log socket has no effect: '%.*s'",
+	       len, (char *)in);
+	break;
+
+    default:
+	break;
+    }
+    return 0;
+}
+
+const char *
+mimetype(const char *mimetypes, const char *ext)
+{
+    FILE *fp;
+    char *exts;
+    char buf[PATH_MAX];
+    char *mt;
+
+    if ((fp = fopen(mimetypes, "r")) == NULL)
+	return FALSE;
+
+    while ((fgets(buf, sizeof(buf), fp)) != NULL) {
+	if (buf[0] == '#' || buf[0] == '\n')
+	    continue;
+
+	if ((mt = strtok(buf, " \t\n")) != NULL) {
+	    while ((exts = strtok(NULL, " \t\n")) != NULL) {
+		if (strcasecmp(ext, exts) == 0) {
+		    fclose(fp);
+		    return strdup(mt); // result must be free()'d
+		}
+	    }
+	}
+    }
+    fclose(fp);
+    return NULL;
 }
