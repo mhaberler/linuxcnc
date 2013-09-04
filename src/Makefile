@@ -283,18 +283,12 @@ CXXUSERSRCS := $(filter %.cc,$(USERSRCS))
 CUSEROBJS := $(call TOOBJS,$(CUSERSRCS))
 CXXUSEROBJS += $(call TOOBJS,$(CXXUSERSRCS))
 
-# depend on $(GENERATED)
-objects/protodeps.d:
-	-mkdir -p objects
-	./mkprotodep -p protobuf/proto \
-            -e pb.h -e npb.h -e pb-c.h -e pb.cc -e npb.c -e pb-c.c \
-            -d objects -g protobuf/generated >objects/protodeps.d
-
 ifeq ($(TRIVIAL_BUILD),no)
 
 ifeq ($(USE_PROTOBUF),yes)
-Makefile:	objects/protodeps.d $(GENERATED)
--include objects/protodeps.d
+# force create of %.proto-dependent files and their deps
+Makefile: $(GENERATED) $(PROTO_DEPS)
+-include $(PROTO_DEPS)
 endif
 
 ifeq ($(TARGET_PLATFORM),beaglebone)

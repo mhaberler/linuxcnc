@@ -1,0 +1,39 @@
+#!/usr/bin/python
+# Save this file as protoc-gen-depends, put it in your path (executable) and add "--depends-out=/whatever/path" to your protoc invocation
+
+from google.protobuf.compiler.plugin_pb2 import CodeGeneratorRequest,CodeGeneratorResponse
+from sys import stdin,stdout
+
+req = CodeGeneratorRequest()
+req.MergeFromString(''.join(stdin.readlines()))
+
+# need to tunnel in multiple options in a bit arcane form
+o = {}
+for opt in req.parameter.split(','):
+    (key,value) = opt.split('=')
+    o[key] = value
+
+res = CodeGeneratorResponse()
+
+def add_depends(fd):
+    prefix = fd.name[0:-6]
+    depend_file = CodeGeneratorResponse.File()
+    depend_file.name = prefix + '.d'
+    deplist = o.get('protodir','.') + "/" + fd.name + " "
+    for f in fd.dependency:
+        if not (f.startswith('google/protobuf') or f.startswith('nanopb')):
+            deplist += o.get('protodir','.') + "/" + f + " "
+
+    cgen = o.get('cgen','.')
+    pygen = o.get('pygen','.')
+
+    depend_file.content =  '{0}/{1}.pb.cc  {0}/{1}.pb.h:   {2}\n'.format(cgen,prefix,deplist)
+    depend_file.content += '{0}/{1}.pb-c.c {0}/{1}.pb-c.h: {2}\n'.format(cgen,prefix,deplist)
+    depend_file.content += '{0}/{1}.npb.c  {0}/{1}.npb.h:  {2}\n'.format(cgen,prefix,deplist)
+    depend_file.content += '{0}/{1}_pb2.py: {2}\n'.format(pygen,prefix,deplist)
+
+    return depend_file
+
+res.file.extend([add_depends(fileDescriptor) for fileDescriptor in req.proto_file if not fileDescriptor.name.startswith('google/protobuf')])
+
+stdout.write(res.SerializeToString())
