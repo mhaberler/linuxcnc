@@ -52,8 +52,8 @@ void print_value(Value *v, char *tag)
     if (v->has_v_double)
 	printf("%s.value.double = %f\n",tag, v->v_double);
 
-    if (v->has_pose) {
-      Emc_Pose *e = &v->pose;
+    if (v->has_ng_pose) {
+      Emc_Pose_Ng *e = &v->ng_pose;
       printf("%s.pose: ", tag);
       if (e->tran.has_x)
 	  printf("x=%f ", e->tran.x);
@@ -207,8 +207,8 @@ int main(int argc, char **argv)
 
     c.type = ContainerType_MT_HALUPDATE;
 #ifdef ARGS_CALLBACK
-    c.telegram.args.funcs.decode = &print_object;
-    c.telegram.args.arg = "arg";
+    c.args.funcs.decode = &print_object;
+    c.args.arg = "arg";
 #endif
 
     if (!pb_decode(&stream, Container_fields, &c)) {
@@ -217,25 +217,22 @@ int main(int argc, char **argv)
 	exit(1);
     }
 
-    if (c.has_telegram) {
-	printf("c.has_telegram = %d\n", c.has_telegram);
-	if (c.telegram.has_origin) {
-	    Originator *or = &c.telegram.origin;
-	    printf("r.origin.origin_type = %d\n", or->origin);
+    if (c.has_origin) {
+	Originator *or = &c.origin;
+	printf("r.origin.origin_type = %d\n", or->origin);
 #ifndef ARGS_CALLBACK
-	    if (or->has_name)
-		printf("r.origin.name = '%s'\n", or->name);
+	if (or->has_name)
+	    printf("r.origin.name = '%s'\n", or->name);
 #endif
-	    if (or->has_id)
-		printf("r.origin.id = %d\n", or->id);
-	}
+	if (or->has_id)
+	    printf("r.origin.id = %d\n", or->id);
     }
 
 #ifndef ARGS_CALLBACK
-    printf("c.telegram.args_count = %d\n", c.telegram.args_count);
+    printf("c.args.args_count = %d\n", c.args.args_count);
     int i;
-    for (i = 0; i < c.telegram.args_count; i++) {
-	Object *ob = &c.telegram.args[i];
+    for (i = 0; i < c.args.args_count; i++) {
+	Object *ob = &c.args.args[i];
 	print_object(ob);
     }
 #endif

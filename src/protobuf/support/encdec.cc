@@ -27,7 +27,6 @@ int main(int argc, char* argv[])
 
     string buffer;
     Container container, got;
-    Telegram *telegram;
     Originator *origin;
     Object *object;
     Pin *pin;
@@ -35,6 +34,8 @@ int main(int argc, char* argv[])
 
     // type-tag the container:
     container.set_type(MT_HALUPDATE);
+    container.set_serial(56789);
+    container.set_rsvp(NONE);
 
     // prepare a submessage for reuse
     origin = new Originator();
@@ -42,21 +43,14 @@ int main(int argc, char* argv[])
     origin->set_name("gladevcp");
     origin->set_id(234);
 
-    // generate a subtelegram on the fly:
-    telegram = container.mutable_telegram();
-
-
-    telegram->set_op(UPDATE);
-    telegram->set_serial(56789);
-    telegram->set_rsvp(NONE);
 #if 0
     // this doesnt work with the jessie protobuf package yet
     // but not terribly important
     // plug in the prepared origin submessage
-    telegram->set_allocated_origin(origin);
+    object->set_allocated_origin(origin);
 #endif
     // add optional submessage(s)
-    object = telegram->add_args();
+    object = container.add_args();
     object->set_type(HAL__PIN);
 
     pin = object->mutable_pin();
@@ -64,7 +58,7 @@ int main(int argc, char* argv[])
     pin->set_name("foo.1.bar");
     pin->set_hals32(4711);
 
-    object = telegram->add_args();
+    object = container.add_args();
     object->set_type(NAMED_VALUE);
     object->set_name("pi");
 

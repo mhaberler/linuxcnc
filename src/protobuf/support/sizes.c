@@ -23,8 +23,6 @@ int main()
     printf("npb Test1 = %d\n", sizeof(Test1));
     printf("npb Value = %d\n", sizeof(Value));
     printf("npb Object = %d\n", sizeof(Object));
-    printf("npb Telegram = %d\n", sizeof(Telegram));
-
 
     printf("npb MotionCommand = %d\n", sizeof(MotionCommand));
 
