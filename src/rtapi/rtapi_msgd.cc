@@ -161,14 +161,14 @@ static void *logpub;  // zeromq log publisher socket
 static zctx_t *zmq_ctx;
 static const char *logpub_uri = "tcp://127.0.0.1:5556";
 
-static const char *rtapi_levelname[] = {
-    "none",
-    "err"
-    "warn",
-    "info",
-    "dbg",
-    "all"
-};
+// static const char *rtapi_levelname[] = {
+//     "none",
+//     "err"
+//     "warn",
+//     "info",
+//     "dbg",
+//     "all"
+// };
 static const char *origins[] = { "kernel","rt","user" };
 //static const char *encodings[] = { "ascii","stashf","protobuf" };
 
@@ -581,12 +581,12 @@ static void message_poll_cb(struct ev_loop *loop,
 	    if (logpub) {
 		// publish protobuf-encoded log message
 		// channel as per loglevel
-		container.set_type(MT_LOG_MESSAGE);
+		container.set_type(pb::MT_LOG_MESSAGE);
 
 		logmsg = container.mutable_log_message();
-		logmsg->set_origin((MsgOrigin)msg->origin);
+		logmsg->set_origin((pb::MsgOrigin)msg->origin);
 		logmsg->set_pid(msg->pid);
-		logmsg->set_level((MsgLevel) msg->level);
+		logmsg->set_level((pb::MsgLevel) msg->level);
 		logmsg->set_tag(msg->tag);
 		logmsg->set_text(msg->buf, strlen(msg->buf));
 
@@ -632,9 +632,6 @@ static void message_poll_cb(struct ev_loop *loop,
 		    syslog(LOG_ERR, "container serialization failed");
 		}
 	    }
-	    syslog(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
-		   msg->tag, msg->pid, origins[msg->origin],
-		   (int) payload_length, msg->buf);
 	    break;
 	case MSG_STASHF:
 	    break;
