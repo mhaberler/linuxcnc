@@ -119,5 +119,26 @@ TARGETS += \
 
 PYTARGETS += ../lib/python/pb2json.py
 
+
+# jepler demo
+
+LINMOVE_SRCS :=  $(addprefix $(PBEX)/, \
+	linmove.cc)
+LINMOVE_CXX_CFLAGS = -g `pkg-config --cflags protobuf`  -DPB_FIELD_32BIT
+LINMOVE_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf` \
+	../lib/libjson2pb.so -ljansson \
+	 ../lib/liblinuxcnc-pb2++.so
+
+$(call TOOBJSDEPS, $(LINMOVE_SRCS)) : EXTRAFLAGS += $(LINMOVE_CXX_CFLAGS)
+
+../bin/linmove: $(call TOOBJS, $(LINMOVE_SRCS))
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  \
+	 $(LINMOVE_CXX_LDFLAGS) $(PBJSONLIB)
+
+USERSRCS += $(LINMOVE_SRCS)
+
+TARGETS += ../bin/linmove
+
 endif
 endif
