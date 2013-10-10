@@ -519,8 +519,8 @@ cleanup_actions(void)
 static void zfree_cb(void *data, void *args) { free(data); }
 
 static void message_poll_cb(struct ev_loop *loop,
-	     struct ev_timer *timer,
-	     int revents)
+			    struct ev_timer *timer,
+			    int revents)
 {
     rtapi_msgheader_t *msg;
     size_t msg_size, pb_size;
@@ -577,57 +577,7 @@ static void message_poll_cb(struct ev_loop *loop,
 		       msg->tag, msg->pid, origins[msg->origin],
 		       (int) payload_length, msg->buf);
 
-		if (logpub) {
-		    // publish protobuf-encoded log message
-		    // channel as per loglevel
-		    container.set_type(MT_LOG_MESSAGE);
 
-		    logmsg = container.mutable_log_message();
-		    logmsg->set_origin((MsgOrigin)msg->origin);
-		    logmsg->set_pid(msg->pid);
-		    logmsg->set_level((MsgLevel) msg->level);
-		    logmsg->set_tag(msg->tag);
-		    logmsg->set_text(msg->buf, strlen(msg->buf));
-
-		    pb_size = container.ByteSize();
-		    pb_buffer = malloc(pb_size);
-		    assert(pb_buffer != NULL);
-		    z_pbframe = zframe_new_zero_copy(pb_buffer, pb_size, zfree_cb, NULL);
-		    assert(z_pbframe != NULL);
-
-		    if (container.SerializeToArray(zframe_data(z_pbframe),
-						   pb_size)) {
-
-			const char *cname = rtapi_levelname[msg->level];
-			if (zstr_sendm(logpub, cname))
-			    syslog(LOG_ERR,"zstr_sendm(%s,%s): %s",
-				   logpub_uri, cname, strerror(errno));
-
-			// zframe_send() deallocates the frame after sending,
-			// and frees pb_buffer through zfree_cb()
-			if (zframe_send(&z_pbframe, logpub, 0))
-			    syslog(LOG_ERR,"zframe_send(%s): %s",
-				   logpub_uri, strerror(errno));
-
-			// std::string json = pb2json(container);
-			// syslog(LOG_ERR, "json: %s\n", json.c_str());
-
-		    } else {
-			syslog(LOG_ERR, "serialize failed");
-		    }
-		}
-		syslog(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
-		       msg->tag, msg->pid, origins[msg->origin],
-		       (int) payload_length, msg->buf);
-		break;
-	    case MSG_STASHF:
-		break;
-	    case MSG_PROTOBUF:
-		break;
-	    case MSG_RTUSER:
-	    case MSG_KERNEL:
-		break;
-	    }
 	    if (logpub) {
 		// publish protobuf-encoded log message
 		// channel as per loglevel
@@ -697,8 +647,6 @@ static void message_poll_cb(struct ev_loop *loop,
 	record_shift(&rtapi_msg_buffer);
 	msg_poll = msg_poll_min;
     }
-
-
 	ret = poll(pfd, 1, msg_poll);
 	if (ret < 0) {
 	    syslog_async(LOG_ERR, "msgd:%d: poll(): %s - shutting down\n",
