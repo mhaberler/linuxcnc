@@ -10,16 +10,15 @@ ENCDEC_SRCS :=  $(addprefix $(PBEX)/, \
 ENCDEC_CXX_CFLAGS = -g `pkg-config --cflags protobuf`  -DPB_FIELD_32BIT
 #ENCDEC_CXX_CFLAGS = -g `pkg-config --cflags protobuf` -I../../ -DPB_FIELD_32BIT
 ENCDEC_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf` \
-	../lib/libjson2pb.so -ljansson
+	 -ljansson
 
-PBJSONLIB = #protobuf/pb2json/libpb2json.so
-
+PBJSONLIB = ../lib/libjson2pb.so
 PB2CXX_PROTOLIB = ../lib/liblinuxcnc-pb2++.so
 
 $(call TOOBJSDEPS, $(ENCDEC_SRCS)) : EXTRAFLAGS += $(ENCDEC_CXX_CFLAGS)
 
 ../bin/encdec: $(call TOOBJS, $(ENCDEC_SRCS)) \
-	$(PB2CXX_PROTOLIB)
+	$(PB2CXX_PROTOLIB) $(PBJSONLIB)
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
 	 $(ENCDEC_CXX_LDFLAGS) $(PBJSONLIB)
