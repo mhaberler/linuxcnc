@@ -313,7 +313,7 @@ PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) -ljansson
 
 $(call TOOBJSDEPS, $(PB2JSONLIB_SRCS)) : EXTRAFLAGS += $(PB2JSONLIB_CCXFLAGS)
 
-$(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))
+$(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))  $(PROTOCXXLIB)
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
