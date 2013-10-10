@@ -31,4 +31,7 @@ message Value {
     // compound types
     optional Pm_Cartesian       cartesian   = 200;
     optional Emc_Pose           pose = 220;
+
+    optional Pm_Cartesian_Ng    ng_cartesian   = 240;
+    optional Emc_Pose_Ng        ng_pose = 260;
 }

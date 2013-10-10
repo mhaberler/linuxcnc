@@ -14,15 +14,20 @@ message Instance {
 // describes an entity which may cause a message:
 // a process, a component, a thread, a group,
 // a remote component
-
-// used as an error detail
-
+// also used as a optional error detail
 message Originator {
     optional OriginType    origin   = 10;
     optional OriginDetail  detail   = 20;
     optional string        name     = 30; //   [(nanopb).max_size = 41];
     optional sint32        id       = 40;
     optional Instance      instance = 50;
+}
+
+message AnError {
+    required sint32     error_code  = 10;
+    optional Severity   severity    = 20;
+    optional string     error_text  = 30;
+    optional Originator    origin   = 40;
 }
 
 message Pin {
@@ -122,7 +127,6 @@ message Ring {
     optional sint32      scratchpad    = 120;
 }
 
-
 message Member {
     optional ObjectType  type          = 10;
     optional string      name          = 20; //  [(nanopb).max_size = 41];
@@ -175,4 +179,5 @@ message Object {
     optional Group       group     = 160;
     optional Member      member    = 170;
     optional Function    function  = 180;
+    optional AnError       error     = 190;
 }
