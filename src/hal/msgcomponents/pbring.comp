@@ -63,20 +63,15 @@ static int decode_msg(const void *buf, int size)
 			mod, PB_GET_ERROR(&stream));
 	return -1;
     }
-    if (rx.has_telegram) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "Container.telegram op=%d\n", rx.telegram.op);
-    }
+
     if (rx.has_motcmd) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "Container.motcmd command=%d num=%d\n",
 			rx.motcmd.command,rx.motcmd.commandNum);
 	if (rx.motcmd.has_pos) {
 	    Emc_Pose *p = &rx.motcmd.pos;
-	    rtapi_print_msg(RTAPI_MSG_ERR, "pos.x=%f pos.y=%f pos.z=%f\n",
-			    p->tran.x, p->tran.y, p->tran.z);
-	    rtapi_print_msg(RTAPI_MSG_ERR, "pos.has_a=%d  pos.a=%f\n",
-			    p->has_a, p->a);
-	    rtapi_print_msg(RTAPI_MSG_ERR, "pos.has_b=%d  pos.b=%f\n",
-			    p->has_b, p->b);
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "pos.x=%f pos.y=%f pos.z=%f pos.a=%f pos.b=%f\n",
+			    p->tran.x, p->tran.y, p->tran.z, p->a, p->b);
 	}
     }
     return 0;
@@ -158,10 +153,10 @@ FUNCTION(_) {
 	    .has_carte_pos_fb = true,
 	    .carte_pos_fb = {
 		.tran = {
-		    .has_x = true, .x = 42.0,
-		    .has_y = true, .y = 13.56,
-		    .has_z = true, .z = 27.12},
-		.has_a = true, .a = 3.14
+		    .x = 42.0,
+		    .y = 13.56,
+		    .z = 27.12},
+		.a = 3.14
 	    }
 	};
 	send_response(&tx, Container_fields);
