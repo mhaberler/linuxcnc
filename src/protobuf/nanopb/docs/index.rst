@@ -41,7 +41,7 @@ Features and limitations
 #) Allows specifying maximum size for strings and arrays, so that they can be allocated statically.
 #) No malloc needed: everything can be allocated statically or on the stack.
 #) You can use either encoder or decoder alone to cut the code size in half.
-#) Support for most protobuf features, including: all data types, nested submessages, default values, repeated and optional fields, packed arrays.
+#) Support for most protobuf features, including: all data types, nested submessages, default values, repeated and optional fields, packed arrays, extension fields.
 #) Callback mechanism for handling messages larger than can fit in available RAM.
 #) Extensive set of tests.
 
@@ -90,19 +90,37 @@ After that, buffer will contain the encoded message.
 The number of bytes in the message is stored in *stream.bytes_written*.
 You can feed the message to *protoc --decode=Example message.proto* to verify its validity.
 
-For complete examples of the simple cases, see *tests/test_decode1.c* and *tests/test_encode1.c*. For an example with network interface, see the *example* subdirectory.
+For a complete example of the simple case, see *example/simple.c*.
+For a more complex example with network interface, see the *example/network_server* subdirectory.
 
 Compiler requirements
 =====================
-Nanopb should compile with most ansi-C compatible compilers. It however requires a few header files to be available:
+Nanopb should compile with most ansi-C compatible compilers. It however
+requires a few header files to be available:
 
 #) *string.h*, with these functions: *strlen*, *memcpy*, *memset*
 #) *stdint.h*, for definitions of *int32_t* etc.
 #) *stddef.h*, for definition of *size_t*
 #) *stdbool.h*, for definition of *bool*
 
-If these header files do not come with your compiler, you should be able to find suitable replacements online. Mostly the requirements are very simple, just a few basic functions and typedefs.
+If these header files do not come with your compiler, you can use the
+file *compat/pb_syshdr.h* instead. It contains an example of how to provide
+the dependencies. You may have to edit it a bit to suit your custom platform.
 
-Debugging and testing
-=====================
-Extensive unittests are included under the *tests* folder. Just type *make* there to run the tests.
+To use the pb_syshdr.h, define *PB_SYSTEM_HEADER* to be the name of your custom
+header file. It should provide all the dependencies listed above.
+
+Running the test cases
+======================
+Extensive unittests and test cases are included under the *tests* folder.
+
+To build the tests, you will need the `scons`__ build system. The tests should
+be runnable on most platforms. Windows and Linux builds are regularly tested.
+
+__ http://www.scons.org/
+
+In addition to the build system, you will also need a working Google Protocol
+Buffers *protoc* compiler, and the Python bindings for Protocol Buffers. On
+Debian-based systems, install the following packages: *protobuf-compiler*,
+*python-protobuf* and *libprotobuf-dev*.
+

@@ -1,5 +1,7 @@
+#!/usr/bin/python
+
 '''Generate header file for nanopb from a ProtoBuf FileDescriptorSet.'''
-nanopb_version = "nanopb-0.2.2-dev"
+nanopb_version = "nanopb-0.2.4-dev"
 
 try:
     import google.protobuf.descriptor_pb2 as descriptor
@@ -36,22 +38,22 @@ except:
 import time
 import os.path
 
-# Values are tuple (c type, pb type)
+# Values are tuple (c type, pb type, encoded size)
 FieldD = descriptor.FieldDescriptorProto
 datatypes = {
-    FieldD.TYPE_BOOL:       ('bool',     'BOOL'),
-    FieldD.TYPE_DOUBLE:     ('double',   'DOUBLE'),
-    FieldD.TYPE_FIXED32:    ('uint32_t', 'FIXED32'),
-    FieldD.TYPE_FIXED64:    ('uint64_t', 'FIXED64'),
-    FieldD.TYPE_FLOAT:      ('float',    'FLOAT'),
-    FieldD.TYPE_INT32:      ('int32_t',  'INT32'),
-    FieldD.TYPE_INT64:      ('int64_t',  'INT64'),
-    FieldD.TYPE_SFIXED32:   ('int32_t',  'SFIXED32'),
-    FieldD.TYPE_SFIXED64:   ('int64_t',  'SFIXED64'),
-    FieldD.TYPE_SINT32:     ('int32_t',  'SINT32'),
-    FieldD.TYPE_SINT64:     ('int64_t',  'SINT64'),
-    FieldD.TYPE_UINT32:     ('uint32_t', 'UINT32'),
-    FieldD.TYPE_UINT64:     ('uint64_t', 'UINT64')
+    FieldD.TYPE_BOOL:       ('bool',     'BOOL',        1),
+    FieldD.TYPE_DOUBLE:     ('double',   'DOUBLE',      8),
+    FieldD.TYPE_FIXED32:    ('uint32_t', 'FIXED32',     4),
+    FieldD.TYPE_FIXED64:    ('uint64_t', 'FIXED64',     8),
+    FieldD.TYPE_FLOAT:      ('float',    'FLOAT',       4),
+    FieldD.TYPE_INT32:      ('int32_t',  'INT32',       5),
+    FieldD.TYPE_INT64:      ('int64_t',  'INT64',      10),
+    FieldD.TYPE_SFIXED32:   ('int32_t',  'SFIXED32',    4),
+    FieldD.TYPE_SFIXED64:   ('int64_t',  'SFIXED64',    8),
+    FieldD.TYPE_SINT32:     ('int32_t',  'SINT32',      5),
+    FieldD.TYPE_SINT64:     ('int64_t',  'SINT64',     10),
+    FieldD.TYPE_UINT32:     ('uint32_t', 'UINT32',      5),
+    FieldD.TYPE_UINT64:     ('uint64_t', 'UINT64',     10)
 }
 
 class Names:
@@ -80,6 +82,17 @@ def names_from_type_name(type_name):
     if type_name[0] != '.':
         raise NotImplementedError("Lookup of non-absolute type names is not supported")
     return Names(type_name[1:].split('.'))
+
+def varint_max_size(max_value):
+    '''Returns the maximum number of bytes a varint can take when encoded.'''
+    for i in range(1, 11):
+        if (max_value >> (i * 7)) == 0:
+            return i
+    raise ValueError("Value too large for varint: " + str(max_value))
+
+assert varint_max_size(0) == 1
+assert varint_max_size(127) == 1
+assert varint_max_size(128) == 2
 
 class Enum:
     def __init__(self, names, desc, enum_options):
@@ -111,6 +124,7 @@ class Field:
         self.max_size = None
         self.max_count = None
         self.array_decl = ""
+        self.enc_size = None
 
         # Parse field options
         if field_options.HasField("max_size"):
@@ -139,12 +153,13 @@ class Field:
 
         # Decide the C data type to use in the struct.
         if datatypes.has_key(desc.type):
-            self.ctype, self.pbtype = datatypes[desc.type]
+            self.ctype, self.pbtype, self.enc_size = datatypes[desc.type]
         elif desc.type == FieldD.TYPE_ENUM:
             self.pbtype = 'ENUM'
             self.ctype = names_from_type_name(desc.type_name)
             if self.default is not None:
                 self.default = self.ctype + self.default
+            self.enc_size = 5 # protoc rejects enum values > 32 bits
         elif desc.type == FieldD.TYPE_STRING:
             self.pbtype = 'STRING'
             if self.max_size is None:
@@ -152,15 +167,18 @@ class Field:
             else:
                 self.ctype = 'char'
                 self.array_decl += '[%d]' % self.max_size
+                self.enc_size = varint_max_size(self.max_size) + self.max_size
         elif desc.type == FieldD.TYPE_BYTES:
             self.pbtype = 'BYTES'
             if self.max_size is None:
                 can_be_static = False
             else:
                 self.ctype = self.struct_name + self.name + 't'
+                self.enc_size = varint_max_size(self.max_size) + self.max_size
         elif desc.type == FieldD.TYPE_MESSAGE:
             self.pbtype = 'MESSAGE'
             self.ctype = self.submsgname = names_from_type_name(desc.type_name)
+            self.enc_size = None # Needs to be filled in after the message type is available
         else:
             raise NotImplementedError(desc.type)
 
@@ -244,10 +262,11 @@ class Field:
         '''Return the pb_field_t initializer to use in the constant array.
         prev_field_name is the name of the previous field or None.
         '''
-        result  = '    PB_FIELD(%3d, ' % self.tag
+        result  = '    PB_FIELD2(%3d, ' % self.tag
         result += '%-8s, ' % self.pbtype
         result += '%s, ' % self.rules
         result += '%s, ' % self.allocation
+        result += '%s, ' % ("FIRST" if not prev_field_name else "OTHER")
         result += '%s, ' % self.struct_name
         result += '%s, ' % self.name
         result += '%s, ' % (prev_field_name or self.name)
@@ -273,6 +292,42 @@ class Field:
                 return 'pb_membersize(%s, %s)' % (self.struct_name, self.name)
 
         return max(self.tag, self.max_size, self.max_count)
+
+    def encoded_size(self, allmsgs):
+        '''Return the maximum size that this field can take when encoded,
+        including the field tag. If the size cannot be determined, returns
+        None.'''
+
+        if self.allocation != 'STATIC':
+            return None
+
+        encsize = self.enc_size
+        if self.pbtype == 'MESSAGE':
+            for msg in allmsgs:
+                if msg.name == self.submsgname:
+                    encsize = msg.encoded_size(allmsgs)
+                    if encsize is None:
+                        return None # Submessage size is indeterminate
+                    encsize += varint_max_size(encsize) # submsg length is encoded also
+                    break
+            else:
+                # Submessage cannot be found, this currently occurs when
+                # the submessage type is defined in a different file.
+                return None
+
+        if encsize is None:
+            raise RuntimeError("Could not determine encoded size for %s.%s"
+                               % (self.struct_name, self.name))
+
+        encsize += varint_max_size(self.tag << 3) # Tag + wire type
+
+        if self.rules == 'REPEATED':
+            # Decoders must be always able to handle unpacked arrays.
+            # Therefore we have to reserve space for it, even though
+            # we emit packed arrays ourselves.
+            encsize *= self.max_count
+
+        return encsize
 
 
 class ExtensionRange(Field):
@@ -303,6 +358,12 @@ class ExtensionRange(Field):
     def tags(self):
         return ''
 
+    def encoded_size(self, allmsgs):
+        # We exclude extensions from the count, because they cannot be known
+        # until runtime. Other option would be to return None here, but this
+        # way the value remains useful if extensions are not used.
+        return 0
+
 class ExtensionField(Field):
     def __init__(self, struct_name, desc, field_options):
         self.fullname = struct_name + desc.name
@@ -310,17 +371,25 @@ class ExtensionField(Field):
         Field.__init__(self, self.fullname + 'struct', desc, field_options)
 
         if self.rules != 'OPTIONAL':
-            raise NotImplementedError("Only 'optional' is supported for extension fields. "
-               + "(%s.rules == %s)" % (self.fullname, self.rules))
-
-        self.rules = 'OPTEXT'
+            self.skip = True
+        else:
+            self.skip = False
+            self.rules = 'OPTEXT'
 
     def extension_decl(self):
         '''Declaration of the extension type in the .pb.h file'''
+        if self.skip:
+            msg = '/* Extension field %s was skipped because only "optional"\n' % self.fullname
+            msg +='   type of extension fields is currently supported. */\n'
+            return msg
+
         return 'extern const pb_extension_type_t %s;\n' % self.fullname
 
     def extension_def(self):
         '''Definition of the extension type in the .pb.c file'''
+
+        if self.skip:
+            return ''
 
         result  = 'typedef struct {\n'
         result += str(self)
@@ -418,6 +487,18 @@ class Message:
         result += '    PB_LAST_FIELD\n};'
         return result
 
+    def encoded_size(self, allmsgs):
+        '''Return the maximum size that this message can take when encoded.
+        If the size cannot be determined, returns None.
+        '''
+        size = 0
+        for field in self.fields:
+            fsize = field.encoded_size(allmsgs)
+            if fsize is None:
+                return None
+            size += fsize
+
+        return size
 
 
 # ---------------------------------------------------------------------------
@@ -475,7 +556,8 @@ def parse_file(fdesc, file_options):
 
     for names, extension in iterate_extensions(fdesc, base_name):
         field_options = get_nanopb_suboptions(extension, file_options, names)
-        extensions.append(ExtensionField(names, extension, field_options))
+        if field_options.type != nanopb_pb2.FT_IGNORE:
+            extensions.append(ExtensionField(names, extension, field_options))
 
     # Fix field default values where enum short names are used.
     for enum in enums:
@@ -585,15 +667,24 @@ def generate_header(dependencies, headername, enums, messages, extensions, optio
     yield '/* Struct field encoding specification for nanopb */\n'
     for msg in messages:
         yield msg.fields_declaration() + '\n'
+    yield '\n'
 
-    yield '\n#ifdef __cplusplus\n'
+    yield '/* Maximum encoded size of messages (where known) */\n'
+    for msg in messages:
+        msize = msg.encoded_size(messages)
+        if msize is not None:
+            identifier = '%s_size' % msg.name
+            yield '#define %-40s %d\n' % (identifier, msize)
+    yield '\n'
+
+    yield '#ifdef __cplusplus\n'
     yield '} /* extern "C" */\n'
     yield '#endif\n'
 
     # End of header
     yield '\n#endif\n'
 
-def generate_source(headername, enums, messages, extensions):
+def generate_source(headername, enums, messages, extensions, options):
     '''Generate content for a source file.'''
 
     yield '/* Automatically generated nanopb constant definitions */\n'
@@ -771,72 +862,126 @@ optparser.add_option("-v", "--verbose", dest="verbose", action="store_true", def
 optparser.add_option("-s", dest="settings", metavar="OPTION:VALUE", action="append", default=[],
     help="Set generator option (max_size, max_count etc.).")
 
-def process(filenames, options):
-    '''Process the files given on the command line.'''
+def process_file(filename, fdesc, options):
+    '''Process a single file.
+    filename: The full path to the .proto or .pb source file, as string.
+    fdesc: The loaded FileDescriptorSet, or None to read from the input file.
+    options: Command line options as they come from OptionsParser.
+
+    Returns a dict:
+        {'headername': Name of header file,
+         'headerdata': Data for the .h header file,
+         'sourcename': Name of the source code file,
+         'sourcedata': Data for the .c source code file
+        }
+    '''
+    toplevel_options = nanopb_pb2.NanoPBOptions()
+    for s in options.settings:
+        text_format.Merge(s, toplevel_options)
+
+    if not fdesc:
+        data = open(filename, 'rb').read()
+        fdesc = descriptor.FileDescriptorSet.FromString(data).file[0]
+
+    # Check if there is a separate .options file
+    try:
+        optfilename = options.options_file % os.path.splitext(filename)[0]
+    except TypeError:
+        # No %s specified, use the filename as-is
+        optfilename = options.options_file
+
+    if options.verbose:
+        print 'Reading options from ' + optfilename
+
+    if os.path.isfile(optfilename):
+        Globals.separate_options = read_options_file(open(optfilename, "rU"))
+    else:
+        Globals.separate_options = []
+
+    # Parse the file
+    file_options = get_nanopb_suboptions(fdesc, toplevel_options, Names([filename]))
+    enums, messages, extensions = parse_file(fdesc, file_options)
+
+    # Decide the file names
+    noext = os.path.splitext(filename)[0]
+    headername = noext + '.' + options.extension + '.h'
+    sourcename = noext + '.' + options.extension + '.c'
+    headerbasename = os.path.basename(headername)
+
+    # List of .proto files that should not be included in the C header file
+    # even if they are mentioned in the source .proto.
+    excludes = ['nanopb.proto', 'google/protobuf/descriptor.proto'] + options.exclude
+    dependencies = [d for d in fdesc.dependency if d not in excludes]
+
+    headerdata = ''.join(generate_header(dependencies, headerbasename, enums,
+                                         messages, extensions, options))
+
+    sourcedata = ''.join(generate_source(headerbasename, enums,
+                                         messages, extensions, options))
+
+    return {'headername': headername, 'headerdata': headerdata,
+            'sourcename': sourcename, 'sourcedata': sourcedata}
+
+def main_cli():
+    '''Main function when invoked directly from the command line.'''
+
+    options, filenames = optparser.parse_args()
 
     if not filenames:
         optparser.print_help()
-        return False
+        sys.exit(1)
 
     if options.quiet:
         options.verbose = False
 
     Globals.verbose_options = options.verbose
 
-    toplevel_options = nanopb_pb2.NanoPBOptions()
-    for s in options.settings:
-        text_format.Merge(s, toplevel_options)
-
     for filename in filenames:
-        data = open(filename, 'rb').read()
-        fdesc = descriptor.FileDescriptorSet.FromString(data)
-
-        # Check if any separate options are specified
-        try:
-            optfilename = options.options_file % os.path.splitext(filename)[0]
-        except TypeError:
-            # No %s specified, use the filename as-is
-            optfilename = options.options_file
-
-        if options.verbose:
-            print 'Reading options from ' + optfilename
-
-        if os.path.isfile(optfilename):
-            Globals.separate_options = read_options_file(open(optfilename, "rU"))
-        else:
-            Globals.separate_options = []
-
-        # Parse the file
-        file_options = get_nanopb_suboptions(fdesc.file[0], toplevel_options, Names([filename]))
-        enums, messages, extensions = parse_file(fdesc.file[0], file_options)
-
-        noext = os.path.splitext(filename)[0]
-        headername = noext + '.' + options.extension + '.h'
-        sourcename = noext + '.' + options.extension + '.c'
-        headerbasename = os.path.basename(headername)
+        results = process_file(filename, None, options)
 
         if not options.quiet:
-            print "Writing to " + headername + " and " + sourcename
+            print "Writing to " + results['headername'] + " and " + results['sourcename']
 
-        # List of .proto files that should not be included in the C header file
-        # even if they are mentioned in the source .proto.
-        excludes = ['nanopb.proto', 'google/protobuf/descriptor.proto'] + options.exclude
-        dependencies = [d for d in fdesc.file[0].dependency if d not in excludes]
+        open(results['headername'], 'w').write(results['headerdata'])
+        open(results['sourcename'], 'w').write(results['sourcedata'])
 
-        header = open(headername, 'w')
-        for part in generate_header(dependencies, headerbasename, enums,
-                                    messages, extensions, options):
-            header.write(part)
+def main_plugin():
+    '''Main function when invoked as a protoc plugin.'''
 
-        source = open(sourcename, 'w')
-        for part in generate_source(headerbasename, enums, messages, extensions):
-            source.write(part)
+    import plugin_pb2
+    data = sys.stdin.read()
+    request = plugin_pb2.CodeGeneratorRequest.FromString(data)
 
-    return True
+    import shlex
+    args = shlex.split(request.parameter)
+    options, dummy = optparser.parse_args(args)
+
+    # We can't go printing stuff to stdout
+    Globals.verbose_options = False
+    options.verbose = False
+    options.quiet = True
+
+    response = plugin_pb2.CodeGeneratorResponse()
+
+    for filename in request.file_to_generate:
+        for fdesc in request.proto_file:
+            if fdesc.name == filename:
+                results = process_file(filename, fdesc, options)
+
+                f = response.file.add()
+                f.name = results['headername']
+                f.content = results['headerdata']
+
+                f = response.file.add()
+                f.name = results['sourcename']
+                f.content = results['sourcedata']
+
+    sys.stdout.write(response.SerializeToString())
 
 if __name__ == '__main__':
-    options, filenames = optparser.parse_args()
-    status = process(filenames, options)
+    # Check if we are running as a plugin under protoc
+    if 'protoc-gen-' in sys.argv[0]:
+        main_plugin()
+    else:
+        main_cli()
 
-    if not status:
-        sys.exit(1)
