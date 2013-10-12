@@ -11,15 +11,18 @@ PBGENDIR =  protobuf/generated
 obj-m += pbmsgs.o
 pbmsgs-objs := \
 	$(MSGCOMP_DIR)/pbmsgs.o	\
-	$(PBGENDIR)/types.npb.o \
-	$(PBGENDIR)/value.npb.o \
-	$(PBGENDIR)/object.npb.o  \
-	$(PBGENDIR)/message.npb.o \
-	$(PBGENDIR)/halupdate.npb.o \
+	$(PBGENDIR)/canon.npb.o \
 	$(PBGENDIR)/emcclass.npb.o \
+	$(PBGENDIR)/halupdate.npb.o \
+	$(PBGENDIR)/log.npb.o \
+	$(PBGENDIR)/message.npb.o \
 	$(PBGENDIR)/motcmds.npb.o \
+	$(PBGENDIR)/object.npb.o  \
 	$(PBGENDIR)/rtapi_message.npb.o \
-	$(PBGENDIR)/test.npb.o
+	$(PBGENDIR)/task.npb.o \
+	$(PBGENDIR)/test.npb.o \
+	$(PBGENDIR)/types.npb.o \
+	$(PBGENDIR)/value.npb.o
 
 $(RTLIBDIR)/pbmsgs$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbmsgs-objs))
 

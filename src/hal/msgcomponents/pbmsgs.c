@@ -35,7 +35,7 @@ void rtapi_app_exit(void)
     hal_exit(comp_id);
 }
 
-#define PB_MESSAGE(symbol) EXPORT_SYMBOL(symbol ## _fields)
+#define PB_MESSAGE(symbol) EXPORT_SYMBOL(pb_ ## symbol ## _fields)
 
 // FIXME many lacking - autogenerate
 
@@ -49,6 +49,7 @@ PB_MESSAGE(Emc_Pose);
 PB_MESSAGE(HalUpdate);
 //PB_MESSAGE(LegacyEmcPose);
 PB_MESSAGE(RTAPI_Message);
+PB_MESSAGE(LogMessage);
 PB_MESSAGE(Test1);
 PB_MESSAGE(Test2);
 PB_MESSAGE(Test3);
