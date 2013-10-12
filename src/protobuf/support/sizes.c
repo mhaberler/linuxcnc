@@ -19,12 +19,12 @@ int main()
     printf("emcmot_config_t = %d\n", sizeof(emcmot_config_t));
     printf("emcmot_debug_t = %d\n", sizeof(emcmot_debug_t));
 
-    printf("npb Container = %d\n", sizeof(Container));
-    printf("npb Test1 = %d\n", sizeof(Test1));
-    printf("npb Value = %d\n", sizeof(Value));
-    printf("npb Object = %d\n", sizeof(Object));
+    printf("npb Container = %d\n", sizeof(pb_Container));
+    printf("npb Test1 = %d\n", sizeof(pb_Test1));
+    printf("npb Value = %d\n", sizeof(pb_Value));
+    printf("npb Object = %d\n", sizeof(pb_Object));
 
-    printf("npb MotionCommand = %d\n", sizeof(MotionCommand));
+    printf("npb MotionCommand = %d\n", sizeof(pb_MotionCommand));
 
 
     return 0;

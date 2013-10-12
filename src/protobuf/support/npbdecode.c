@@ -36,6 +36,7 @@
 #include <protobuf/generated/types.npb.h>
 #include <protobuf/generated/object.npb.h>
 #include <protobuf/generated/message.npb.h>
+#include <protobuf/generated/emcclass.npb.h>
 #include <protobuf/generated/rtapi_message.npb.h>
 
 #undef USE_STRING_STREAM
@@ -45,7 +46,7 @@ bool callback(pb_istream_t *stream, uint8_t *buf, size_t count);
 int bufsize = 10240;
 const char *progname;
 
-void print_value(Value *v, char *tag)
+void print_value(pb_Value *v, char *tag)
 {
     printf("%s.value.type = %d\n", tag, v->type);
 
@@ -53,7 +54,7 @@ void print_value(Value *v, char *tag)
 	printf("%s.value.double = %f\n",tag, v->v_double);
 
     if (v->has_ng_pose) {
-      Emc_Pose_Ng *e = &v->ng_pose;
+	pb_EmcPose_Ng *e = &v->ng_pose;
       printf("%s.pose: ", tag);
       if (e->tran.has_x)
 	  printf("x=%f ", e->tran.x);
@@ -77,7 +78,7 @@ void print_value(Value *v, char *tag)
     }
 }
 
-void print_object_detail(Object *o, char *tag)
+void print_object_detail(pb_Object *o, char *tag)
 {
     printf("%s.object.type = %d\n", tag, o->type);
 #ifndef ARGS_CALLBACK
@@ -85,7 +86,7 @@ void print_object_detail(Object *o, char *tag)
 	printf("%s.object.name = '%s'\n", tag, o->name);
 #endif
     if (o->has_pin) {
-	Pin *p = &o->pin;
+	pb_Pin *p = &o->pin;
 	printf("%s.pin.type = %d\n", tag, p->type);
 #ifndef ARGS_CALLBACK
 	if (p->has_name)
@@ -132,8 +133,8 @@ bool print_member(pb_istream_t *stream, const pb_field_t *field, void *cbdata)
 
 bool print_object(pb_istream_t *stream, const pb_field_t *field, char *tag)
 {
-    Object obj = {0};
-    obj = (Object) {
+    pb_Object obj = {0};
+    obj = (pb_Object) {
 	.name.funcs.decode = print_string,
 	.name.arg = "object.name = '%s'\n",
 	.pin.name.funcs.decode = print_string,
@@ -170,7 +171,7 @@ bool print_object(pb_istream_t *stream, const pb_field_t *field, char *tag)
 	.thread.name.arg = "origin.name = '%s'\n",
     };
 
-    if (!pb_decode(stream, Object_fields, &obj)) {
+    if (!pb_decode(stream, pb_Object_fields, &obj)) {
         return false;
     }
     print_object_detail(&obj, tag);
@@ -184,7 +185,7 @@ int main(int argc, char **argv)
     pb_istream_t stdin_stream = {&callback, stdin, SIZE_MAX};
 
     pb_istream_t stream;
-    Container c;
+    pb_Container c;
 
     progname = argv[0];
     memset(&c, 0, sizeof(c));
@@ -205,20 +206,20 @@ int main(int argc, char **argv)
     } else
 	stream = stdin_stream;
 
-    c.type = ContainerType_MT_HALUPDATE;
+    c.type = pb_ContainerType_MT_HALUPDATE;
 #ifdef ARGS_CALLBACK
     c.args.funcs.decode = &print_object;
     c.args.arg = "arg";
 #endif
 
-    if (!pb_decode(&stream, Container_fields, &c)) {
+    if (!pb_decode(&stream, pb_Container_fields, &c)) {
 	fprintf(stderr, "%s: pb_decode(container) failed: '%s'\n",
 			progname, PB_GET_ERROR(&stream));
 	exit(1);
     }
 
     if (c.has_origin) {
-	Originator *or = &c.origin;
+	pb_Originator *or = &c.origin;
 	printf("r.origin.origin_type = %d\n", or->origin);
 #ifndef ARGS_CALLBACK
 	if (or->has_name)

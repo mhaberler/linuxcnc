@@ -15,6 +15,7 @@
 
 #include <protobuf/json2pb/json2pb.h>
 
+using namespace pb;
 using namespace std;
 using namespace google::protobuf;
 
@@ -51,10 +52,10 @@ int main(int argc, char* argv[])
 #endif
     // add optional submessage(s)
     object = container.add_args();
-    object->set_type(HAL__PIN);
+    object->set_type(HAL_PIN);
 
     pin = object->mutable_pin();
-    pin->set_type(HAL__S32);
+    pin->set_type(HAL_S32);
     pin->set_name("foo.1.bar");
     pin->set_hals32(4711);
 

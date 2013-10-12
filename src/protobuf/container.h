@@ -16,17 +16,17 @@ extern "C"
 #if defined(GOOGLE_PROTOBUF_VERSION)
 #include <protobuf/generated/types.pb.h>
 
-#define MSGTYPE          ContainerType
-#define EMCMOT_LOWER     MT_EMCMOT_LOWER
-#define EMCMOT_UPPER     MT_EMCMOT_UPPER
-#define EMC_NML_LOWER    MT_EMC_NML_LOWER
-#define EMC_NML_UPPER    MT_EMC_NML_UPPER
-#define CONTAINER        Container
+#define MSGTYPE          pb::ContainerType
+#define EMCMOT_LOWER     pb::MT_EMCMOT_LOWER
+#define EMCMOT_UPPER     pb::MT_EMCMOT_UPPER
+#define EMC_NML_LOWER    pb::MT_EMC_NML_LOWER
+#define EMC_NML_UPPER    pb::MT_EMC_NML_UPPER
+#define CONTAINER        pb::Container
 
 #elif defined(PROTOBUF_C_MAJOR)
 #include <protobuf/generated/types.pb-c.h>
 
-#define MSGTYPE          _ContainerType
+#define MSGTYPE          _Pb__ContainerType
 #define EMCMOT_LOWER     MSG_TYPE__MT_EMCMOT_LOWER
 #define EMCMOT_UPPER     MSG_TYPE__MT_EMCMOT_UPPER
 #define EMC_NML_LOWER    MSG_TYPE__MT_EMC_NML_LOWER
@@ -36,12 +36,12 @@ extern "C"
 #elif defined(NANOPB_VERSION)
 #include <protobuf/generated/types.npb.h>
 #include <protobuf/generated/message.npb.h>
-#define MSGTYPE          enum _ContainerType
-#define EMCMOT_LOWER     ContainerType_MT_EMCMOT_LOWER
-#define EMCMOT_UPPER     ContainerType_MT_EMCMOT_UPPER
-#define EMC_NML_LOWER    ContainerType_MT_EMC_NML_LOWER
-#define EMC_NML_UPPER    ContainerType_MT_EMC_NML_UPPER
-#define CONTAINER        struct _Container
+#define MSGTYPE          pb_ContainerType
+#define EMCMOT_LOWER     pb_ContainerType_MT_EMCMOT_LOWER
+#define EMCMOT_UPPER     pb_ContainerType_MT_EMCMOT_UPPER
+#define EMC_NML_LOWER    pb_ContainerType_MT_EMC_NML_LOWER
+#define EMC_NML_UPPER    pb_ContainerType_MT_EMC_NML_UPPER
+#define CONTAINER        struct pb_Container
 #else
 #error "include container.h after protobuf-specific headers"
 #endif
