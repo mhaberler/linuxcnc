@@ -95,8 +95,6 @@ using namespace google::protobuf;
 
 #include "czmq.h"
 
-#include <pthread.h>
-
 /* time after which the user interface is declared dead
  * because it would'nt read any more messages
  */
@@ -2150,6 +2148,16 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         emcSpindleAbort();
 	mdi_execute_abort();
 	emcAbortCleanup(EMC_ABORT_TASK_ABORT);
+
+	// the interp_list has been cleared
+	// and a EMC_TASK_PLAN_SYNCH queued, so size = 1
+
+	// conceptually the ticket issuing the abort is done here
+	// since the synch() is immediately executed, need to update
+	// the current ticket status here since the completion
+	// logic doesnt work in this case:
+	publish_ticket_update(RCS_DONE, emcStatus->ticket,
+			      origin, current_cmd);
 	retval = 0;
 	break;
 
@@ -3559,10 +3567,10 @@ int main(int argc, char *argv[])
 	    // 	emcOperatorError(0, "wait for orient complete timed out");
 	    // }
 
-        // abort everything
-        emcTaskAbort();
-        emcIoAbort(EMC_ABORT_MOTION_OR_IO_RCS_ERROR);
-        emcSpindleAbort();
+	    // abort everything
+	    emcTaskAbort();
+	    emcIoAbort(EMC_ABORT_MOTION_OR_IO_RCS_ERROR);
+	    emcSpindleAbort();
 	    mdi_execute_abort();
 	    // without emcTaskPlanClose(), a new run command resumes at
 	    // aborted line-- feature that may be considered later
