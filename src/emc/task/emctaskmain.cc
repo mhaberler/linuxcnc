@@ -66,6 +66,16 @@
 fpu_control_t __fpu_control = _FPU_IEEE & ~(_FPU_MASK_IM | _FPU_MASK_ZM | _FPU_MASK_OM);
 #endif
 
+
+#include <google/protobuf/text_format.h>
+#include <google/protobuf/message_lite.h>
+
+#include <protobuf/generated/types.pb.h>
+#include <protobuf/generated/task.pb.h>
+#include <protobuf/generated/message.pb.h>
+
+using namespace google::protobuf;
+
 #include "rcs.hh"		// NML classes, nmlErrorFormat()
 #include "emc.hh"		// EMC NML
 #include "emc_nml.hh"
@@ -84,14 +94,6 @@ fpu_control_t __fpu_control = _FPU_IEEE & ~(_FPU_MASK_IM | _FPU_MASK_ZM | _FPU_M
 #include "inihal.hh"
 
 #include "czmq.h"
-#include <google/protobuf/text_format.h>
-#include <google/protobuf/message_lite.h>
-
-#include <protobuf/generated/types.pb.h>
-//#include <protobuf/generated/value.pb.h>
-#include <protobuf/generated/message.pb.h>
-//#include <protobuf/generated/object.pb.h>
-using namespace google::protobuf;
 
 #include <pthread.h>
 
@@ -214,12 +216,12 @@ static int shutdown_zmq(void)
 
 static int publish_ticket_update(int state, int ticket, string origin, string text = "")
 {
-    Container update;
-    update.set_type(MT_TICKET_UPDATE);
+    pb::Container update;
+    update.set_type(pb::MT_TICKET_UPDATE);
 
-    TicketUpdate *tu = update.mutable_ticket_update();
+    pb::TicketUpdate *tu = update.mutable_ticket_update();
     tu->set_cticket(ticket);
-    tu->set_status((RCS__STATUS)state);
+    tu->set_status((pb::RCS_STATUS)state);
     if (text.size()) {
 	tu->set_text(text);
     }
@@ -3381,7 +3383,7 @@ int main(int argc, char *argv[])
     minTime = DBL_MAX;		// set to value that can never be exceeded
     maxTime = 0.0;		// set to value that can never be underset
 
-    Container request;
+    pb::Container request;
     string wrapped_nml;
 
     while (!done) {
@@ -3405,7 +3407,7 @@ int main(int argc, char *argv[])
 
 	    if (request.ParseFromArray(zframe_data(pb_req),zframe_size(pb_req))) {
 		switch (request.type()) {
-		case MT_LEGACY_NML:
+		case pb::MT_LEGACY_NML:
 		    // tunneled case, a wrapped NML message
 		    assert (request.has_legacy_nml());
 		    wrapped_nml = request.legacy_nml();
@@ -3413,7 +3415,7 @@ int main(int argc, char *argv[])
 		    current_cmd = emcSymbolLookup(emcCommand->type);
 		    break;
 
-		case MT_EMC_TASK_ABORT_TYPE:
+		case pb:: MT_EMC_TASK_ABORT:
 		    // non-tunneled case, a native protobuf replacement for NML
 		    fprintf(stderr, "--- NML-free zone not reached yet\n");
 		    continue;
@@ -3431,10 +3433,10 @@ int main(int argc, char *argv[])
 		// mark as executing a new command to assure a transition
 		prev_status = RCS_RECEIVED;
 
-		Container answer;
-		TaskReply *task_reply;
+		pb::Container answer;
+		pb::TaskReply *task_reply;
 
-		answer.set_type(MT_TASK_REPLY);
+		answer.set_type(pb::MT_TASK_REPLY);
 		task_reply = answer.mutable_task_reply();
 		task_reply->set_ticket(ticket);
 
