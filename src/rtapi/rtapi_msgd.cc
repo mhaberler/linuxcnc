@@ -159,7 +159,7 @@ static int exit_code  = 0;
 
 static void *logpub;  // zeromq log publisher socket
 static zctx_t *zmq_ctx;
-static const char *logpub_uri = "tcp://127.0.0.1:5556";
+static const char *logpub_uri = "tcp://127.0.0.1:5550";
 
 // static const char *rtapi_levelname[] = {
 //     "none",
