@@ -1,5 +1,5 @@
 component pbring
-"demo component to show sending/receiving protobuf-encoded messages ovr HAL rings";
+"demo component to show sending/receiving protobuf-encoded messages over HAL rings";
 
 pin out u32 underrun   "number of failed attempts to read a new command";
 pin out u32 received   "number of commands received";
@@ -18,9 +18,9 @@ license "GPLv2 or later";
 #include "hal_priv.h"
 #include "hal_ring.h"
 
-// the nanopb library and compiled message definitions are brought in once by:
-// 'halcmd loadrt nanopb' (library support)
+// the nanopb library and compiled message definitions are brought in once by
 // 'halcmd loadrt pbmsgs' (message descriptors for parsing and generating pb msgs)
+// the nanopb library functions per se are now linked into hal_lib.so
 
 #include <protobuf/pb-linuxcnc.h>
 #include <protobuf/nanopb/pb_decode.h>
@@ -53,6 +53,24 @@ static char *mod = "pbring";
 
 static pb_Container rx, tx;
 
+static void rtapi_format_pose(char *buf, unsigned long int size,  pb_EmcPose *p)
+{
+    unsigned sz = size;
+    char *b = buf; // FIXME guard against buffer overflow
+    int n;
+
+    pb_PmCartesian *c = &p->tran;
+    if (c->has_x) { n = rtapi_snprintf(b, sz, "x=%f ", c->x); b += n; }
+    if (c->has_y) { n = rtapi_snprintf(b, sz, "y=%f ", c->y); b += n; }
+    if (c->has_z) { n = rtapi_snprintf(b, sz, "z=%f ", c->z); b += n; }
+    if (p->has_a) { n = rtapi_snprintf(b, sz, "a=%f ", p->a); b += n; }
+    if (p->has_b) { n = rtapi_snprintf(b, sz, "b=%f ", p->b); b += n; }
+    if (p->has_c) { n = rtapi_snprintf(b, sz, "c=%f ", p->c); b += n; }
+    if (p->has_u) { n = rtapi_snprintf(b, sz, "u=%f ", p->u); b += n; }
+    if (p->has_v) { n = rtapi_snprintf(b, sz, "v=%f ", p->v); b += n; }
+    if (p->has_w) { n = rtapi_snprintf(b, sz, "w=%f ", p->w); b += n; }
+}
+
 static int decode_msg(const void *buf, int size)
 {
     pb_istream_t stream = pb_istream_from_buffer((void *) buf, size);
@@ -68,10 +86,9 @@ static int decode_msg(const void *buf, int size)
 	rtapi_print_msg(RTAPI_MSG_ERR, "Container.motcmd command=%d num=%d\n",
 			rx.motcmd.command,rx.motcmd.commandNum);
 	if (rx.motcmd.has_pos) {
-	    pb_EmcPose *p = &rx.motcmd.pos;
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "pos.x=%f pos.y=%f pos.z=%f pos.a=%f pos.b=%f\n",
-			    p->tran.x, p->tran.y, p->tran.z, p->a, p->b);
+	    char buf[200];
+	    rtapi_format_pose(buf, sizeof(buf), &rx.motcmd.pos);
+	    rtapi_print_msg(RTAPI_MSG_ERR, "motcmd: %s\n", buf);
 	}
     }
     return 0;
@@ -153,9 +170,13 @@ FUNCTION(_) {
 	    .has_carte_pos_fb = true,
 	    .carte_pos_fb = {
 		.tran = {
+		    .has_x = true,
 		    .x = 42.0,
+		    .has_y = true,
 		    .y = 13.56,
+		    .has_z = true,
 		    .z = 27.12},
+		.has_a = true,
 		.a = 3.14
 	    }
 	};

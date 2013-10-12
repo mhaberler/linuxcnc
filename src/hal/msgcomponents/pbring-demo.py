@@ -38,13 +38,13 @@ for i in range(10):
     container = Container()
     container.type = MT_MOTCMD
     motcmd = container.motcmd
-    motcmd.command = EMCMOT__SET_LINE
+    motcmd.command = EMCMOT_SET_LINE
     motcmd.commandNum = i
     pos = motcmd.pos
-    tran = pos.tran
-    tran.x = 1.0
-    tran.y = 2.0
-    tran.z = 3.0
+    t = pos.tran
+    t.x = 1.0
+    t.y = 2.0
+    t.z = 3.0
     pos.b =  3.14
     msg = container.SerializeToString()
 
