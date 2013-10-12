@@ -33,6 +33,8 @@ message Container {
     optional bytes         wou            = 7;  // Arais Wishbone-over-USB
     optional HalUpdate     hal_update     = 8;  // halupdate protocol
     optional RTAPI_Message rtapi_message  = 9;
+    optional TaskReply     task_reply     = 10;
+    optional TicketUpdate  ticket_update  = 11;
     optional LogMessage    log_message    = 12;
 
     // tags in the range 16 through 2047 take two bytes.

@@ -61,3 +61,16 @@ message TaskPlanReply {
     required ContainerType cmd = 10;
     optional string   errormsg = 20;
 };
+
+
+// Ticket msgs
+message TaskReply {
+    required int32  ticket   = 10;
+};
+
+// signal completion of a particular ticket
+message TicketUpdate {
+    required int32  cticket  = 10;
+    required RCS_STATUS  status   = 20;
+    optional string text     = 30;
+};
