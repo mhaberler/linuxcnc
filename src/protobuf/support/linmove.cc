@@ -28,28 +28,28 @@ enum axis_mask {
 
 
 void STRAIGHT_FEED(unsigned mask,
-		   Container &msg,
+		   pb::Container &msg,
 		   int lineno,
 		   double x, double y, double z,
 		   double a, double b, double c,
 		   double u, double v, double w)
 {
     // Container type tag
-    msg.set_type(MT_EMC_TRAJ_LINEAR_MOVE);
+    msg.set_type(pb::MT_EMC_TRAJ_LINEAR_MOVE);
 
     // Container has a optional line_number field.
     // use it - unused ones carry no cost in space and time
     msg.set_line_number(lineno);
 
     // this instantiates an optional submessage of Container
-    Emc_Traj_Linear_Move *m = msg.mutable_traj_linear_move();
+    pb::Emc_Traj_Linear_Move *m = msg.mutable_traj_linear_move();
 
     // the move type
-    m->set_type(EMC__MOTION_TYPE_FEED);
+    m->set_type(pb::EMC_MOTION_TYPE_FEED);
 
     // fill in the optional axes as commanded by mask
-    Emc_Pose_Ng *p = m->mutable_end();
-    Pm_Cartesian_Ng *t = p->mutable_tran();
+    pb::EmcPose *p = m->mutable_end();
+    pb::PmCartesian *t = p->mutable_tran();
 
     if (mask & X_AXIS) t->set_x(x);
     if (mask & Y_AXIS) t->set_y(y);
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
 
-    Container c; // all messages are wrapped in a Container
+    pb::Container c; // all messages are wrapped in a Container
 
     STRAIGHT_FEED(axes, c,
 		  42,
@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 
     // convert from text representation to instance:
     // easy to create a message with an editor
-    Container got;
+    pb::Container got;
     if (!TextFormat::ParseFromString(text, &got)) {
 	cerr << "Failed to parse '" << text << "'" << endl;
 	return -1;
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
     // and parsed back from json into a message instance with full
     // type checking:
 
-    Container fromjson;
+    pb::Container fromjson;
 
     try{
 	json2pb(fromjson, json.c_str(), strlen(json.c_str()));
