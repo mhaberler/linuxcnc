@@ -21,6 +21,12 @@
 #include <pthread.h>
 #include <structmember.h>
 #include "config.h"
+
+#include <google/protobuf/message_lite.h>
+#include <protobuf/generated/types.pb.h>
+#include <protobuf/generated/message.pb.h>
+using namespace google::protobuf;
+
 #include "rcs.hh"
 #include "emc.hh"
 #include "emc_nml.hh"
@@ -30,18 +36,10 @@
 #include "timer.hh"
 #include "nml_oi.hh"
 #include "rcs_print.hh"
-
 #include <cmath>
-
-#include <google/protobuf/message_lite.h>
-
-#include <protobuf/generated/types.pb.h>
-#include <protobuf/generated/message.pb.h>
-
 #include "czmq.h"
 
 using namespace std;
-using namespace google::protobuf;
 
 #ifndef T_BOOL
 // The C++ standard probably doesn't specify the amount of storage for a 'bool',
@@ -151,7 +149,7 @@ listener (void *identity)
 
     do {
 	zmsg_t *m_update = zmsg_recv (l_update);
-	Container update;
+	pb::Container update;
         char *dest = zmsg_popstr (m_update);
 	free(dest);
 	zframe_t *pb_update  = zmsg_pop (m_update);
@@ -160,7 +158,7 @@ listener (void *identity)
 				     zframe_size(pb_update)));
 	zmsg_destroy(&m_update);
 
-	assert(update.type() == MT_TICKET_UPDATE);
+	assert(update.type() == pb::MT_TICKET_UPDATE);
 	assert(update.has_ticket_update());
 
 	pthread_mutex_lock (&status_mutex);
@@ -214,15 +212,15 @@ static void z_shutdown(void)
 {
     void *status;
 
-    assert(pthread_cancel(listener_thread) == 0);
-    assert(pthread_join(listener_thread, &status) == 0);
+    pthread_cancel(listener_thread);
+    pthread_join(listener_thread, &status);
 }
 
 static int z_submit(void *rcs_cmd, size_t rcs_cmdsize)
 {
-    Container request;
+    pb::Container request;
 
-    request.set_type(MT_LEGACY_NML);
+    request.set_type(pb::MT_LEGACY_NML);
     request.set_legacy_nml(rcs_cmd, rcs_cmdsize);
 
     size_t pb_request_size = request.ByteSize();
@@ -239,7 +237,7 @@ static int z_submit(void *rcs_cmd, size_t rcs_cmdsize)
     }
     zframe_t *pb_response  = zmsg_pop (reply);
 
-    Container response;
+    pb::Container response;
     if (!response.ParseFromArray(zframe_data(pb_response),zframe_size(pb_response))) {
 	fprintf(stderr, "%s: response not a valid protobuf frame: %s\n",
 		z_ident, zframe_strhex (pb_response));
