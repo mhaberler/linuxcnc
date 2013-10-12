@@ -6,13 +6,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include <czmq.h>
-
-#include "config.h"
-#include "rcs.hh"
-#include "emc.hh"
-#include "emc_nml.hh"
-
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/message_lite.h>
 
@@ -21,6 +14,13 @@
 
 using namespace std;
 using namespace google::protobuf;
+
+#include "config.h"
+#include "rcs.hh"
+#include "emc.hh"
+#include "emc_nml.hh"
+
+#include <czmq.h>
 
 double timeout = 2.0;
 
@@ -77,7 +77,7 @@ static int waitTicketCompleted(int ticket, double timeout)
     do {
 	zmsg_t *m_update = zmsg_recv (z_update);
 
-	Container update;
+	pb::Container update;
 	int status, cticket;
 
 	if (m_update == NULL) {
@@ -92,7 +92,7 @@ static int waitTicketCompleted(int ticket, double timeout)
 	assert(update.ParseFromArray(zframe_data(pb_update),zframe_size(pb_update)));
 	zmsg_destroy(&m_update);
 
-	assert(update.type() == MT_TICKET_UPDATE);
+	assert(update.type() == pb::MT_TICKET_UPDATE);
 	assert(update.has_ticket_update());
 
 	status = update.ticket_update().status();
@@ -127,7 +127,7 @@ static int waitTicketCompleted(int ticket, double timeout)
 int main (int argc, const char **argv)
 {
     int rc, ticket;
-    Container request, response;
+    pb::Container request, response;
 
     // Verify that the version of the library that we linked against is
     // compatible with the version of the headers we compiled against.
@@ -143,7 +143,7 @@ int main (int argc, const char **argv)
 
     // construct protobuf message
     // container type
-    request.set_type(MT_LEGACY_NML);
+    request.set_type(pb::MT_LEGACY_NML);
     // submessage: opaque byte blob
     request.set_legacy_nml(&m, sizeof(m));
 
