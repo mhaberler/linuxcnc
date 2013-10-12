@@ -1,44 +1,42 @@
 package pb;
 
+// this encoding method of encoding supports NULL values
+// using code needs to inspect the has_<name> property
+// to discern whether a value was explicitly set or defaulted
+
 message PmCartesian {
-    required double x = 10 [default = 0.0];
-    required double y = 20 [default = 0.0];
-    required double z = 30 [default = 0.0];
+    optional double x = 10;
+    optional double y = 20;
+    optional double z = 30;
 };
 
 message EmcPose {
     required PmCartesian  tran = 10;
 
-    required double a = 20 [default = 0.0];
-    required double b = 30 [default = 0.0];
-    required double c = 40 [default = 0.0];
-    required double u = 50 [default = 0.0];
-    required double v = 60 [default = 0.0];
-    required double w = 70 [default = 0.0];
+    optional double a = 20;
+    optional double b = 30;
+    optional double c = 40;
+    optional double u = 50;
+    optional double v = 60;
+    optional double w = 70;
 };
 
+// this encoding method requires all fields to be set
+// or serialisation fails; NULL values not supported:
 
-// 1. use _ to disambiguate from C/C++ types in LinuxCNC
-// 2. by using optional fields with default using code
-// may determine if a field was actually set, while still
-// receiving a default value if it wasnt
-// iow: this method of encoding supports NULL values
-// using code needs to inspect the has_<name> property
-// to discern whether a value was explicitly set or defaulted
+// message PmCartesian {
+//     required double x = 10;
+//     required double y = 20;
+//     required double z = 30;
+// };
 
-message PmCartesian_Ng {
-    optional double x = 10 [default = 0.0];
-    optional double y = 20 [default = 0.0];
-    optional double z = 30 [default = 0.0];
-};
+// message EmcPose {
+//     required PmCartesian  tran = 10;
 
-message EmcPose_Ng {
-    required PmCartesian_Ng  tran = 10;
-
-    optional double a = 20 [default = 0.0];
-    optional double b = 30 [default = 0.0];
-    optional double c = 40 [default = 0.0];
-    optional double u = 50 [default = 0.0];
-    optional double v = 60 [default = 0.0];
-    optional double w = 70 [default = 0.0];
-};
+//     required double a = 20;
+//     required double b = 30;
+//     required double c = 40;
+//     required double u = 50;
+//     required double v = 60;
+//     required double w = 70;
+// };
