@@ -53,8 +53,8 @@ void print_value(pb_Value *v, char *tag)
     if (v->has_v_double)
 	printf("%s.value.double = %f\n",tag, v->v_double);
 
-    if (v->has_ng_pose) {
-	pb_EmcPose_Ng *e = &v->ng_pose;
+    if (v->has_pose) {
+	pb_EmcPose *e = &v->pose;
       printf("%s.pose: ", tag);
       if (e->tran.has_x)
 	  printf("x=%f ", e->tran.x);
