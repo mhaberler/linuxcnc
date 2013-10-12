@@ -8,7 +8,7 @@
 #
 # run this program after executing:
 #
-#     halcmd -f zmqdemo.hal
+#     halrun -I zmqdemo.hal
 #
 # in a separate window, start the subscriber demo:
 #
