@@ -131,7 +131,8 @@ LINMOVE_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf` \
 
 $(call TOOBJSDEPS, $(LINMOVE_SRCS)) : EXTRAFLAGS += $(LINMOVE_CXX_CFLAGS)
 
-../bin/linmove: $(call TOOBJS, $(LINMOVE_SRCS))
+../bin/linmove: $(call TOOBJS, $(LINMOVE_SRCS)) \
+	../lib/libjson2pb.so ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
 	 $(LINMOVE_CXX_LDFLAGS) $(PBJSONLIB)
