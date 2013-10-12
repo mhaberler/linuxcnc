@@ -3,6 +3,8 @@
 import "types.proto";
 import "emcclass.proto";
 
+package pb;
+
 enum TestOpType {
     LINE            = 10;
     CIRCLE          = 20;
@@ -12,9 +14,9 @@ enum TestOpType {
 message Test1 {
     // minimum params to encode line or circle
     required TestOpType            op = 10;
-    required Emc_Pose             end = 20;
-    optional Pm_Cartesian      center = 30;
-    optional Pm_Cartesian      normal = 40;
+    required EmcPose             end = 20;
+    optional PmCartesian      center = 30;
+    optional PmCartesian      normal = 40;
     optional int32               turn = 50;
 }
 

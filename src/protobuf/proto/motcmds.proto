@@ -1,110 +1,112 @@
+
 import "emcclass.proto";
 
+package pb;
 
 // an uncleaned first transliteration
 
 enum MotionType {
-    EMC__MOTION_TYPE_TRAVERSE = 1;
-    EMC__MOTION_TYPE_FEED = 2;
-    EMC__MOTION_TYPE_ARC = 3;
-    EMC__MOTION_TYPE_TOOLCHANGE = 4;
-    EMC__MOTION_TYPE_PROBING = 5;
-    EMC__MOTION_TYPE_INDEXROTARY = 6;
+    EMC_MOTION_TYPE_TRAVERSE = 1;
+    EMC_MOTION_TYPE_FEED = 2;
+    EMC_MOTION_TYPE_ARC = 3;
+    EMC_MOTION_TYPE_TOOLCHANGE = 4;
+    EMC_MOTION_TYPE_PROBING = 5;
+    EMC_MOTION_TYPE_INDEXROTARY = 6;
 };
 
-enum  pb_cmd_code_t  {
+enum  cmd_code_t  {
     // motion commands. enum cmd_code_t from src/emc/motion.h
 
-    EMCMOT__ABORT = 4000;	/* abort all motion */
-    EMCMOT__AXIS_ABORT = 4001;	/* abort one axis */ //FIXME-AJ: replace command name to EMCMOT__JOINT_ABORT
-    EMCMOT__ENABLE = 4002;		/* enable servos for active joints */
-    EMCMOT__DISABLE = 4003;		/* disable servos for active joints */
-    EMCMOT__ENABLE_AMPLIFIER = 4004;	/* enable amp outputs */
-    EMCMOT__DISABLE_AMPLIFIER = 4005;	/* disable amp outputs */
-    EMCMOT__ENABLE_WATCHDOG = 4006;	/* enable watchdog sound = 4000; parport */
-    EMCMOT__DISABLE_WATCHDOG = 4007;	/* enable watchdog sound = 4000; parport */
-    EMCMOT__ACTIVATE_JOINT = 4008;	/* make joint active */
-    EMCMOT__DEACTIVATE_JOINT = 4009;	/* make joint inactive */
+    EMCMOT_ABORT = 4000;	/* abort all motion */
+    EMCMOT_AXIS_ABORT = 4001;	/* abort one axis */ //FIXME-AJ: replace command name to EMCMOT_JOINT_ABORT
+    EMCMOT_ENABLE = 4002;		/* enable servos for active joints */
+    EMCMOT_DISABLE = 4003;		/* disable servos for active joints */
+    EMCMOT_ENABLE_AMPLIFIER = 4004;	/* enable amp outputs */
+    EMCMOT_DISABLE_AMPLIFIER = 4005;	/* disable amp outputs */
+    EMCMOT_ENABLE_WATCHDOG = 4006;	/* enable watchdog sound = 4000; parport */
+    EMCMOT_DISABLE_WATCHDOG = 4007;	/* enable watchdog sound = 4000; parport */
+    EMCMOT_ACTIVATE_JOINT = 4008;	/* make joint active */
+    EMCMOT_DEACTIVATE_JOINT = 4009;	/* make joint inactive */
 
-    EMCMOT__PAUSE = 4010;		/* pause motion */
-    EMCMOT__RESUME = 4011;		/* resume motion */
-    EMCMOT__STEP = 4012;		/* resume motion until id encountered */
-    EMCMOT__FREE = 4013;		/* set mode to free (joint) motion */
-    EMCMOT__COORD = 4014;		/* set mode to coordinated motion */
-    EMCMOT__TELEOP = 4015;		/* set mode to teleop */
+    EMCMOT_PAUSE = 4010;		/* pause motion */
+    EMCMOT_RESUME = 4011;		/* resume motion */
+    EMCMOT_STEP = 4012;		/* resume motion until id encountered */
+    EMCMOT_FREE = 4013;		/* set mode to free (joint) motion */
+    EMCMOT_COORD = 4014;		/* set mode to coordinated motion */
+    EMCMOT_TELEOP = 4015;		/* set mode to teleop */
 
-    EMCMOT__SPINDLE_SCALE = 4016;	/* set scale factor for spindle speed */
-    EMCMOT__SS_ENABLE = 4017;	/* enable/disable scaling the spindle speed */
-    EMCMOT__FEED_SCALE = 4018;	/* set scale factor for feedrate */
-    EMCMOT__FS_ENABLE = 4019;	/* enable/disable scaling feedrate */
-    EMCMOT__FH_ENABLE = 4020;	/* enable/disable feed_hold */
-    EMCMOT__AF_ENABLE = 4021;	/* enable/disable adaptive feedrate */
-    EMCMOT__OVERRIDE_LIMITS = 4022;	/* temporarily ignore limits until jog done */
+    EMCMOT_SPINDLE_SCALE = 4016;	/* set scale factor for spindle speed */
+    EMCMOT_SS_ENABLE = 4017;	/* enable/disable scaling the spindle speed */
+    EMCMOT_FEED_SCALE = 4018;	/* set scale factor for feedrate */
+    EMCMOT_FS_ENABLE = 4019;	/* enable/disable scaling feedrate */
+    EMCMOT_FH_ENABLE = 4020;	/* enable/disable feed_hold */
+    EMCMOT_AF_ENABLE = 4021;	/* enable/disable adaptive feedrate */
+    EMCMOT_OVERRIDE_LIMITS = 4022;	/* temporarily ignore limits until jog done */
 
-    EMCMOT__HOME = 4023;		/* home a joint or all joints */
-    EMCMOT__UNHOME = 4024;		/* unhome a joint or all joints*/
-    EMCMOT__JOG_CONT = 4025;	/* continuous jog */
-    EMCMOT__JOG_INCR = 4026;	/* incremental jog */
-    EMCMOT__JOG_ABS = 4027;		/* absolute jog */
-    EMCMOT__SET_LINE = 4028;	/* queue up a linear move */
-    EMCMOT__SET_CIRCLE = 4029;	/* queue up a circular move */
-    EMCMOT__SET_TELEOP_VECTOR = 4030;	/* Move at a given velocity but in
+    EMCMOT_HOME = 4023;		/* home a joint or all joints */
+    EMCMOT_UNHOME = 4024;		/* unhome a joint or all joints*/
+    EMCMOT_JOG_CONT = 4025;	/* continuous jog */
+    EMCMOT_JOG_INCR = 4026;	/* incremental jog */
+    EMCMOT_JOG_ABS = 4027;		/* absolute jog */
+    EMCMOT_SET_LINE = 4028;	/* queue up a linear move */
+    EMCMOT_SET_CIRCLE = 4029;	/* queue up a circular move */
+    EMCMOT_SET_TELEOP_VECTOR = 4030;	/* Move at a given velocity but in
 					   world cartesian coordinates = 4000; not
-					   in joint space like EMCMOT__JOG_* */
+					   in joint space like EMCMOT_JOG_* */
 
-    EMCMOT__CLEAR_PROBE_FLAGS = 4031;	/* clears probeTripped flag */
-    EMCMOT__PROBE = 4032;		/* go to pos = 4000; stop if probe trips = 4000; record
+    EMCMOT_CLEAR_PROBE_FLAGS = 4031;	/* clears probeTripped flag */
+    EMCMOT_PROBE = 4032;		/* go to pos = 4000; stop if probe trips = 4000; record
 					   trip pos */
-    EMCMOT__RIGID_TAP = 4033;	/* go to pos = 4000; with sync to spindle speed = 4000;
+    EMCMOT_RIGID_TAP = 4033;	/* go to pos = 4000; with sync to spindle speed = 4000;
 				   then return to initial pos */
 
-    EMCMOT__SET_POSITION_LIMITS = 4034;	/* set the joint position +/- limits */
-    EMCMOT__SET_BACKLASH = 4035;	/* set the joint backlash */
-    EMCMOT__SET_MIN_FERROR = 4036;	/* minimum following error = 4000; input units */
-    EMCMOT__SET_MAX_FERROR = 4037;	/* maximum following error = 4000; input units */
-    EMCMOT__SET_VEL = 4038;		/* set the velocity for subsequent moves */
-    EMCMOT__SET_VEL_LIMIT = 4039;	/* set the max vel for all moves (tooltip) */
-    EMCMOT__SET_JOINT_VEL_LIMIT = 4040;	/* set the max joint vel */
-    EMCMOT__SET_JOINT_ACC_LIMIT = 4041;	/* set the max joint accel */
-    EMCMOT__SET_ACC = 4042;		/* set the max accel for moves (tooltip) */
-    EMCMOT__SET_TERM_COND = 4043;	/* set termination condition (stop = 4000; blend) */
-    EMCMOT__SET_NUM_AXES = 4044;	/* set the number of joints */ //FIXME-AJ: function needs to get renamed
-    EMCMOT__SET_WORLD_HOME = 4045;	/* set pose for world home */
-    EMCMOT__SET_HOMING_PARAMS = 4046;	/* sets joint homing parameters */
-    EMCMOT__SET_DEBUG = 4047;       /* sets the debug level */
-    EMCMOT__SET_DOUT = 4048;        /* sets or unsets a DIO = 4000; this can be imediate or synched with motion */
-    EMCMOT__SET_AOUT = 4049;	/* sets or unsets a AIO = 4000; this can be imediate or synched with motion */
-    EMCMOT__SET_SPINDLESYNC = 4050;      /* syncronize motion to spindle encoder */
+    EMCMOT_SET_POSITION_LIMITS = 4034;	/* set the joint position +/- limits */
+    EMCMOT_SET_BACKLASH = 4035;	/* set the joint backlash */
+    EMCMOT_SET_MIN_FERROR = 4036;	/* minimum following error = 4000; input units */
+    EMCMOT_SET_MAX_FERROR = 4037;	/* maximum following error = 4000; input units */
+    EMCMOT_SET_VEL = 4038;		/* set the velocity for subsequent moves */
+    EMCMOT_SET_VEL_LIMIT = 4039;	/* set the max vel for all moves (tooltip) */
+    EMCMOT_SET_JOINT_VEL_LIMIT = 4040;	/* set the max joint vel */
+    EMCMOT_SET_JOINT_ACC_LIMIT = 4041;	/* set the max joint accel */
+    EMCMOT_SET_ACC = 4042;		/* set the max accel for moves (tooltip) */
+    EMCMOT_SET_TERM_COND = 4043;	/* set termination condition (stop = 4000; blend) */
+    EMCMOT_SET_NUM_AXES = 4044;	/* set the number of joints */ //FIXME-AJ: function needs to get renamed
+    EMCMOT_SET_WORLD_HOME = 4045;	/* set pose for world home */
+    EMCMOT_SET_HOMING_PARAMS = 4046;	/* sets joint homing parameters */
+    EMCMOT_SET_DEBUG = 4047;       /* sets the debug level */
+    EMCMOT_SET_DOUT = 4048;        /* sets or unsets a DIO = 4000; this can be imediate or synched with motion */
+    EMCMOT_SET_AOUT = 4049;	/* sets or unsets a AIO = 4000; this can be imediate or synched with motion */
+    EMCMOT_SET_SPINDLESYNC = 4050;      /* syncronize motion to spindle encoder */
 
-    EMCMOT__SPINDLE_ON = 4051;	        /* start the spindle */
-    EMCMOT__SPINDLE_OFF = 4052;	        /* stop the spindle */
-    EMCMOT__SPINDLE_INCREASE = 4053;	/* spindle faster */
-    EMCMOT__SPINDLE_DECREASE = 4054;	/* spindle slower */
-    EMCMOT__SPINDLE_BRAKE_ENGAGE = 4055;	/* engage the spindle brake */
-    EMCMOT__SPINDLE_BRAKE_RELEASE = 4056;/* release the spindle brake */
-    EMCMOT__SET_MOTOR_OFFSET = 4057;	/* set the offset between joint and motor */
-    EMCMOT__SET_JOINT_COMP = 4058;	/* set a compensation triplet for a joint (nominal, forw., rev.) */
-    EMCMOT__SET_OFFSET = 4059;           /* set tool offsets */
+    EMCMOT_SPINDLE_ON = 4051;	        /* start the spindle */
+    EMCMOT_SPINDLE_OFF = 4052;	        /* stop the spindle */
+    EMCMOT_SPINDLE_INCREASE = 4053;	/* spindle faster */
+    EMCMOT_SPINDLE_DECREASE = 4054;	/* spindle slower */
+    EMCMOT_SPINDLE_BRAKE_ENGAGE = 4055;	/* engage the spindle brake */
+    EMCMOT_SPINDLE_BRAKE_RELEASE = 4056;/* release the spindle brake */
+    EMCMOT_SET_MOTOR_OFFSET = 4057;	/* set the offset between joint and motor */
+    EMCMOT_SET_JOINT_COMP = 4058;	/* set a compensation triplet for a joint (nominal, forw., rev.) */
+    EMCMOT_SET_OFFSET = 4059;           /* set tool offsets */
 };
 
-enum pb_cmd_status_t {
-    EMCMOT__COMMAND_OK = 0;	        /* cmd honored */
-    EMCMOT__COMMAND_UNKNOWN_COMMAND = 1;	/* cmd not understood */
-    EMCMOT__COMMAND_INVALID_COMMAND = 2;	/* cmd can't be handled now */
-    EMCMOT__COMMAND_INVALID_PARAMS = 3;	/* bad cmd params */
-    EMCMOT__COMMAND_BAD_EXEC	= 4;    /* error trying to initiate */
+enum cmd_status_t {
+    EMCMOT_COMMAND_OK = 0;	        /* cmd honored */
+    EMCMOT_COMMAND_UNKNOWN_COMMAND = 1;	/* cmd not understood */
+    EMCMOT_COMMAND_INVALID_COMMAND = 2;	/* cmd can't be handled now */
+    EMCMOT_COMMAND_INVALID_PARAMS = 3;	/* bad cmd params */
+    EMCMOT_COMMAND_BAD_EXEC	= 4;    /* error trying to initiate */
 };
 
 
 message MotionCommand {
-    required pb_cmd_code_t command  = 10;
+    required cmd_code_t command  = 10;
     required fixed32 commandNum = 20;	/* increment this for new command */
     optional double motor_offset = 30;  /* offset from joint to motor position */
     optional double maxLimit = 40;	/* pos value for position limit, output */
     optional double minLimit = 50;	/* neg value for position limit, output */
-    optional Emc_Pose pos = 60;		/* line/circle endpt, or teleop vector */
-    optional Pm_Cartesian center = 70;	/* center for circle */
-    optional Pm_Cartesian normal = 80;	/* normal vec for circle */
+    optional EmcPose pos = 60;		/* line/circle endpt, or teleop vector */
+    optional PmCartesian center = 70;	/* center for circle */
+    optional PmCartesian normal = 80;	/* normal vec for circle */
     optional fixed32 turn = 90;		/* turns for circle or which rotary to unlock for a line */
     optional double vel = 100;		/* max velocity */
     optional double ini_maxvel = 110;   // max velocity allowed by machine
@@ -145,13 +147,13 @@ message MotionCommand {
 					 |1 = suppress error, report in # instead
 					 ~2 = move until probe trips (ngc default)
 					 |2 = move until probe clears */
-    optional Emc_Pose tool_offset = 420;        /* TLO */
+    optional EmcPose tool_offset = 420;        /* TLO */
 };
 
 
 message MotionStatus {
-    required pb_cmd_code_t     commandEcho = 10;	/* echo of input command */
+    required cmd_code_t     commandEcho = 10;	/* echo of input command */
     required fixed32        commandNumEcho = 20;	/* increment this for new command */
-    required pb_cmd_status_t commandStatus = 30;	/* result of most recent command */
-    optional Emc_Pose         carte_pos_fb = 40;	/* actual Cartesian position */
+    required cmd_status_t commandStatus = 30;	/* result of most recent command */
+    optional EmcPose         carte_pos_fb = 40;	/* actual Cartesian position */
 };

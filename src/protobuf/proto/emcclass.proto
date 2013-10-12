@@ -1,12 +1,13 @@
+package pb;
 
-message Pm_Cartesian {
+message PmCartesian {
     required double x = 10 [default = 0.0];
     required double y = 20 [default = 0.0];
     required double z = 30 [default = 0.0];
 };
 
-message Emc_Pose {
-    required Pm_Cartesian  tran = 10;
+message EmcPose {
+    required PmCartesian  tran = 10;
 
     required double a = 20 [default = 0.0];
     required double b = 30 [default = 0.0];
@@ -25,14 +26,14 @@ message Emc_Pose {
 // using code needs to inspect the has_<name> property
 // to discern whether a value was explicitly set or defaulted
 
-message Pm_Cartesian_Ng {
+message PmCartesian_Ng {
     optional double x = 10 [default = 0.0];
     optional double y = 20 [default = 0.0];
     optional double z = 30 [default = 0.0];
 };
 
-message Emc_Pose_Ng {
-    required Pm_Cartesian_Ng  tran = 10;
+message EmcPose_Ng {
+    required PmCartesian_Ng  tran = 10;
 
     optional double a = 20 [default = 0.0];
     optional double b = 30 [default = 0.0];

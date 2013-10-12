@@ -2,6 +2,8 @@ import "nanopb.proto";
 import "types.proto";
 import "value.proto";
 
+package pb;
+
 message RTAPI_Message {
 
     required int32 msglevel = 10; // [default = RTAPI_MSG_DBG];

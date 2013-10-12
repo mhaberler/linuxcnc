@@ -1,5 +1,6 @@
 // interpreter protocol messages
 
+
 // for the following commands the message type in Container is sufficient
 // so no submessage needed:
 
@@ -33,7 +34,10 @@
 
 // interpreter reply to a command:
 // MT_EMC_TASK_PLAN_REPLY	= 10530;
+
 import "types.proto";
+
+package pb;
 
 
 message TaskPlanExecute {

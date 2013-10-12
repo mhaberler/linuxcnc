@@ -3,6 +3,9 @@ import "nanopb.proto";
 import "emcclass.proto";
 import "types.proto";
 
+package pb;
+
+
 // a value for 'passing around'.
 
 message Value {
@@ -29,9 +32,9 @@ message Value {
     optional bool    v_bool   = 190;
 
     // compound types
-    optional Pm_Cartesian       cartesian   = 200;
-    optional Emc_Pose           pose = 220;
+    optional PmCartesian       carte   = 200;
+    optional EmcPose           pose    = 220;
 
-    optional Pm_Cartesian_Ng    ng_cartesian   = 240;
-    optional Emc_Pose_Ng        ng_pose = 260;
+    optional PmCartesian_Ng    ng_carte   = 240;
+    optional EmcPose_Ng        ng_pose = 260;
 }

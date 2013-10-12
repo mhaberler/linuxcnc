@@ -1,11 +1,13 @@
 // fundamental types
 
+package pb;
+
 enum ValueType {
     //  the following tags correspond to hal.h: hal_type_t;
-    HAL__BIT   = 1;
-    HAL__FLOAT = 2;
-    HAL__S32   = 3;
-    HAL__U32   = 4;
+    HAL_BIT   = 1;
+    HAL_FLOAT = 2;
+    HAL_S32   = 3;
+    HAL_U32   = 4;
 
     BYTES     = 10;
     INT32     = 20;
@@ -24,37 +26,37 @@ enum ValueType {
 
 enum HalPinDirection {
     //  the following tags correspond to hal.h: hal_pin_dir_t
-    HAL__IN = 16;
-    HAL__OUT = 32;
-    HAL__IO = 48; // (HAL_IN | HAL_OUT),
+    HAL_IN = 16;
+    HAL_OUT = 32;
+    HAL_IO = 48; // (HAL_IN | HAL_OUT),
 }
 
 enum HalParamDirection {
     //  the following tags correspond to hal.h: hal_param_dir_t
-    HAL__RO = 64;
-    HAL__RW = 192;
+    HAL_RO = 64;
+    HAL_RW = 192;
 }
 
 enum ObjectType {
     // option allow_alias = true; // for src/hal.h enum
     // doesnt work with ptotoc-c
     // NB: leading underscore to disambiguate
-    HAL__PIN           = 1;
-    HAL__SIGNAL        = 2;
-    HAL__PARAM         = 3;
-    HAL__THREAD        = 4;
-    HAL__FUNCT         = 5;
-    HAL__ALIAS         = 6;
-    HAL__COMP_RT       = 7;
-    HAL__COMP_USER     = 8;
-    HAL__COMP_REMOTE   = 9;
-    HAL__RING          = 10;
-    HAL__GROUP         = 11;
-    HAL__MEMBER_SIGNAL = 12;
-    HAL__MEMBER_GROUP  = 13;
-    HAL__MEMBER_PIN    = 14;
-    RING__RECORD       = 15;
-    RING__STREAM       = 16;
+    HAL_PIN           = 1;
+    HAL_SIGNAL        = 2;
+    HAL_PARAM         = 3;
+    HAL_THREAD        = 4;
+    HAL_FUNCT         = 5;
+    HAL_ALIAS         = 6;
+    HAL_COMP_RT       = 7;
+    HAL_COMP_USER     = 8;
+    HAL_COMP_REMOTE   = 9;
+    HAL_RING          = 10;
+    HAL_GROUP         = 11;
+    HAL_MEMBER_SIGNAL = 12;
+    HAL_MEMBER_GROUP  = 13;
+    HAL_MEMBER_PIN    = 14;
+    RING_RECORD       = 15;
+    RING_STREAM       = 16;
 
     VALUE             = 20;
     INSTANCE          = 21;
@@ -64,30 +66,30 @@ enum ObjectType {
     ERROR             = 30;
 }
 
-enum RCS__STATUS {
-    UNINITIALIZED__STATUS = -1;
-    RCS__DONE = 1;
-    RCS__EXEC = 2;
-    RCS__ERROR = 3;
-    RCS__RECEIVED = 4;
+enum RCS_STATUS {
+    UNINITIALIZED_STATUS = -1;
+    RCS_DONE = 1;
+    RCS_EXEC = 2;
+    RCS_ERROR = 3;
+    RCS_RECEIVED = 4;
 };
 
 // see rtapi.h
 enum  MsgOrigin {
-    MSG__KERNEL = 0;
-    MSG__RTUSER = 1;
-    MSG__ULAPI = 2;
+    MSG_KERNEL = 0;
+    MSG_RTUSER = 1;
+    MSG_ULAPI = 2;
 };
 
 
 enum MsgLevel {
      // see enum msg_level_t in rtapi.h
-    RTAPI__MSG_NONE = 0;
-    RTAPI__MSG_ERR = 1;
-    RTAPI__MSG_WARN = 2;
-    RTAPI__MSG_INFO = 3;
-    RTAPI__MSG_DBG = 4;
-    RTAPI__MSG_ALL = 5;
+    RTAPI_MSG_NONE = 0;
+    RTAPI_MSG_ERR = 1;
+    RTAPI_MSG_WARN = 2;
+    RTAPI_MSG_INFO = 3;
+    RTAPI_MSG_DBG = 4;
+    RTAPI_MSG_ALL = 5;
 }
 
 enum OriginDetail {
@@ -495,19 +497,19 @@ enum OriginIndex {
 }
 
 enum TermConditionType {
-    EMC__TRAJ_TERM_COND_STOP = 1;
-    EMC__TRAJ_TERM_COND_BLEND = 2;
+    EMC_TRAJ_TERM_COND_STOP = 1;
+    EMC_TRAJ_TERM_COND_BLEND = 2;
 }
 
 enum CanonDirection {
-    CANON__STOPPED = 1;
-    CANON__CLOCKWISE = 2;
-    CANON__COUNTERCLOCKWISE = 3;
+    CANON_STOPPED = 1;
+    CANON_CLOCKWISE = 2;
+    CANON_COUNTERCLOCKWISE = 3;
 }
 
 enum InputType {
-    ANALOG__INPUT = 0;
-    DIGITAL__INPUT = 1;
+    ANALOG_INPUT = 0;
+    DIGITAL_INPUT = 1;
 }
 
 enum WaitType {

@@ -5,6 +5,8 @@ import "nanopb.proto";
 import "types.proto";
 import "value.proto";
 
+package pb;
+
 // describes a RTAPI/HAL/LinuxCNC instance
 message Instance {
     optional string        name     = 30; //  [(nanopb).max_size = 41];

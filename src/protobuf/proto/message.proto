@@ -1,7 +1,7 @@
 // use a self-describing format as suggested in protobuf docs
 // and on the mailing list
 
-//package hal.bind;
+package pb;
 
 
 import "nanopb.proto";
@@ -46,7 +46,7 @@ message Container {
     optional int32                   rsvp = 30;  // if/how to answer
     optional ContainerType    in_reply_to = 33;
 
-    optional RCS__STATUS      rcs_status =  35;
+    optional RCS_STATUS       rcs_status =  35;
     optional StatusType            status = 40;
 
     optional int32                 serial = 45;  // legacy command serials
