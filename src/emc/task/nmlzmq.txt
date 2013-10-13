@@ -125,6 +125,151 @@ and total ordering of ticket number, enables the client to skip
 completion updates which are for previous commands.
 
 
+=== EMC_STAT members access in task
+readhead.cc:
+	    emcStatus->task.execState
+	    emcStatus->task.interpState
+	    emcStatus->task.readLine
+	    emcStatus->motion.traj.queue // test for MDI finished
+	    emcStatus->io.status // test for MDI finished
+
+emccanon.cc:
+   setup?
+	emcStatus->motion.traj.axis_mask (axisvalid)
+	emcStatus->task.programUnits
+	emcStatus->motion.traj.linearUnits;
+	emcStatus->motion.traj.angularUnits;
+	emcStatus->motion.traj.axis_mask;
+
+   dynamic:
+	emcStatus->io.tool.toolTable
+	emcStatus->io.tool.toolInSpindle;
+	emcStatus->io.tool.pocketPrepped;
+	emcStatus->io.fault;
+	emcStatus->io.reason;
+
+	EmcPose emcStatus->motion.traj.position; //GET_EXTERNAL_POSITION()
+	emcStatus->motion.traj.probedPosition;
+	emcStatus->motion.traj.probe_tripped;
+	emcStatus->motion.traj.maxVelocity
+	emcStatus->io.coolant.mist;
+	emcStatus->io.coolant.flood;
+	emcStatus->motion.spindle.speed
+	emcStatus->motion.traj.queue
+	emcStatus->motion.traj.feed_override_enabled;
+	emcStatus->motion.traj.spindle_override_enabled;
+	emcStatus->motion.traj.adaptive_feed_enabled;
+	emcStatus->motion.traj.feed_hold_enabled
+	emcStatus->task.input_timeout
+	emcStatus->motion.synch_di[index]
+	emcStatus->motion.analog_input
+
+emctask.cc:
+	emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
+	 emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	 emcStatus->task.task_paused = 0;
+	 emcStatus->task.motionLine = 0;
+	 emcStatus->task.readLine = 0;
+	 emcStatus->task.command[0] = 0;
+	 emcStatus->task.interpreter_errcode
+	 emcStatus->task.file[0]
+
+	 emcStatus->motion.traj.axes;
+	 emcStatus->motion.traj.mode == EMC_TRAJ_MODE_FREE
+	 emcStatus->io.aux.estop
+	 emcStatus->motion.traj.enabled
+	 emcStatus->motion.traj.inpos;
+	 emcStatus->motion.traj.id
+
+issue.cc:
+	emcStatus->motion.traj.axis_mask
+	emcStatus->task.task_paused
+
+nmlsetup.cc: init, initial read only
+
+
+readahead.cc:
+	emcStatus->task.execState
+	emcStatus->task.interpState
+	emcStatus->task.readLine
+
+	emcStatus->motion.traj.queue
+	emcStatus->io.status
+
+taskintf,cc:  check for NULL only
+
+taskmodule.cc: the full monty  (Python exposure)
+
+=== Task total needs from motion  & io status:
+
+emcStatus->io.aux.estop
+emcStatus->io.coolant.flood;
+emcStatus->io.coolant.mist;
+emcStatus->io.fault;
+emcStatus->io.reason;
+emcStatus->io.status
+emcStatus->io.tool.pocketPrepped;
+emcStatus->io.tool.toolInSpindle;
+
+emcStatus->io.tool.toolTable       *
+
+----------- emcMotionUpdate() ----------
+emcStatus->motion.analog_input
+emcStatus->motion.spindle.speed
+emcStatus->motion.synch_di[index]   *
+emcStatus->motion.synch_ai[index]   *
+emcStatus->motion.traj.adaptive_feed_enabled;
+emcStatus->motion.traj.angularUnits;
+emcStatus->motion.traj.axes;
+emcStatus->motion.traj.axis_mask;
+emcStatus->motion.traj.enabled
+emcStatus->motion.traj.feed_hold_enabled
+emcStatus->motion.traj.feed_override_enabled;
+emcStatus->motion.traj.id
+emcStatus->motion.traj.inpos;
+emcStatus->motion.traj.linearUnits;
+emcStatus->motion.traj.maxVelocity
+emcStatus->motion.traj.mode
+emcStatus->motion.traj.position    *Pose
+emcStatus->motion.traj.probe_tripped;
+emcStatus->motion.traj.probedPosition;  *Pose
+emcStatus->motion.traj.queue
+emcStatus->motion.traj.spindle_override_enabled;
+emcStatus->motion.analog_input[aio];
+emcStatus->motion.analog_output[aio];
+
+==== Axis data ====
+
+per Axis: 12 doubles, 11 flags
+
+    unsigned char axisType;	// EMC_AXIS_LINEAR, EMC_AXIS_ANGULAR
+
+    double units;		// units per mm, deg for linear, angular
+    double backlash;
+    double minPositionLimit;
+    double maxPositionLimit;
+    double maxFerror;
+    double minFerror;
+
+    // dynamic status
+    double ferrorCurrent;	// current following error
+    double ferrorHighMark;	// magnitude of max following error
+    /*! \todo FIXME - is this really position, or the DAC output? */
+    double output;		// commanded output position
+    double input;		// current input position
+    double velocity;		// current velocity
+
+
+    unsigned char inpos;	// non-zero means in position
+    unsigned char homing;	// non-zero means homing
+    unsigned char homed;	// non-zero means has been homed
+    unsigned char fault;	// non-zero means axis amp fault
+    unsigned char enabled;	// non-zero means enabled
+    unsigned char minSoftLimit;	// non-zero means min soft limit exceeded
+    unsigned char maxSoftLimit;	// non-zero means max soft limit exceeded
+    unsigned char minHardLimit;	// non-zero means min hard limit exceeded
+    unsigned char maxHardLimit;	// non-zero means max hard limit exceeded
+    unsigned char overrideLimits; // non-zero means limits are overridden
 
 === Correlating commands and status
 
