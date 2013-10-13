@@ -28,8 +28,11 @@ MILLTASKSRCS := \
 	emc/task/execute.cc \
 	emc/task/issue.cc \
 	emc/task/systemcmd.cc \
+	emc/task/errorlog.cc \
 	emc/task/iniload.cc \
 	emc/task/nmlsetup.cc \
+	emc/task/interpdrv.cc \
+	emc/task/zmqsupport.cc \
 	$(ULAPISRCS)
 USERSRCS += $(MILLTASKSRCS)
 

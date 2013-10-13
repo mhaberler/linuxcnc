@@ -1,0 +1,96 @@
+mah@wheezy:~/linuxcnc/src/emc/task$ zmqcmd
+Connecting to task via zmq, socket identity=cmd16206
+zmqcmd16206: got ticket = 28
+wait_for_ticket: 28
+update.ticket_update.cticket = 28 status=2
+no ticket update after 2 secs - task running?
+no update for ticket 28 after 2 secs - task running?
+
+
+start program:
+--------------------------------------
+[011] emcmod16156
+[021] 08139A0110FB010000100000000000000000000000
+task: received EMC_TASK_PLAN_RUN ticket 27
+13-10-12 22:06:03 task: reply message:
+--------------------------------------
+[011] emcmod16156
+[007] 0890035202501B
+task: update ticket=27 status=2 to origin=emcmod16156
+emcmod16156: got ticket = 27
+listener emcmod16156: cticket = 27 status=2
+13-10-12 22:06:11 task: received message:
+
+
+this ticket issued to zmqcmd:
+
+--------------------------------------
+[011] zmqcmd16206
+[017] 08139A010CF70100000C00000067120000
+task: received EMC_TASK_ABORT ticket 28
+13-10-12 22:06:11 task: reply message:
+--------------------------------------
+[011] zmqcmd16206
+[007] 0890035202501C
+task: update ticket=28 status=2 to origin=zmqcmd16206
+
+
+cmd by UI:
+13-10-12 22:06:11 task: received message:
+-------------------------------------
+[011] emcmod16156
+[021] 08139A0110F8010000100000000000000001000000
+task: received EMC_TASK_SET_MODE ticket 29
+13-10-12 22:06:11 task: reply message:
+--------------------------------------
+[011] emcmod16156
+[007] 0890035202501D
+
+
+emcmod16156: got ticket = 29
+task: update ticket=29 status=2 to origin=emcmod16156
+listener emcmod16156: cticket = 29 status=2
+task: update ticket=29 status=1 to origin=emcmod16156  <---- UI cmd complete
+listener emcmod16156: cticket = 29 status=1
+13-10-12 22:06:11 task: received message:
+
+
+--------------------------------------
+[011] emcmod16156
+[021] 08139A0110E6000000100000000000000000000000
+task: received EMC_TRAJ_SET_TELEOP_ENABLE ticket 30
+13-10-12 22:06:11 task: reply message:
+--------------------------------------
+[011] emcmod16156
+[007] 0890035202501E
+task: update ticket=30 status=1 to origin=emcmod16156
+emcmod16156: got ticket = 30
+listener emcmod16156: cticket = 30 status=1
+
+
+/// status post abort: condition to get at RCS_DONE:
+if (!taskPlanError && !taskExecuteError &&
+		   emcStatus->task.execState == EMC_TASK_EXEC_DONE &&
+		   emcStatus->motion.status == RCS_DONE &&
+		   emcStatus->io.status == RCS_DONE &&
+		   interp_list.len() == 0 &&
+		   emcTaskCommand == 0 &&
+		   emcStatus->task.interpState == EMC_TASK_INTERP_IDLE) {
+	    emcStatus->status = RCS_DONE;
+	    emcStatus->task.status = RCS_DONE;
+
+// should be  EMC_TASK_EXEC_DONE !!
+emcStatus->task.execState = $8 = EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO
+	emcTaskAbort(); actuall sets this.
+
+
+// should be NULL!!
+emcTaskCommand = $12 = (NMLmsg *) 0x8c6d0b8
+
+// OK
+emcStatus->task.interpState = $13 = EMC_TASK_INTERP_IDLE
+taskPlanError = $14 = 0
+taskExecuteError = $15 = 0
+emcStatus->motion.status = $9 = 1
+emcStatus->io.status = $10 = 1
+interp_list.len() = $11 = 0

@@ -28,6 +28,7 @@
 #include "taskclass.hh"
 #include "motion.h"             // EMCMOT_ORIENT_*
 #include "nmlsetup.hh"             // EMCMOT_ORIENT_*
+#include "taskparams.hh"
 
 // NML channels
 RCS_CMD_CHANNEL *emcCommandBuffer = 0;
@@ -301,5 +302,37 @@ int emctask_shutdown(void)
     }
 
     shutdown_zmq();
+    return 0;
+}
+
+/* make sure at least space bytes are available on
+ * error channel; wait a bit to drain if needed
+ */
+int emcErrorBufferOKtoWrite(int space, const char *caller)
+{
+    // check channel for validity
+    if (emcErrorBuffer == NULL)
+	return -1;
+    if (!emcErrorBuffer->valid())
+	return -1;
+
+    double send_errorchan_timout = etime() + DEFAULT_EMC_UI_TIMEOUT;
+
+    while (etime() < send_errorchan_timout) {
+	if (emcErrorBuffer->get_space_available() < space) {
+	    esleep(0.01);
+	    continue;
+	} else {
+	    break;
+	}
+    }
+    if (etime() >= send_errorchan_timout) {
+	if (emc_debug & EMC_DEBUG_TASK_ISSUE) {
+	    rcs_print("timeout waiting for error channel to drain, caller=`%s' request=%d\n", caller,space);
+	}
+	return -1;
+    } else {
+	// printf("--- %d bytes available after %f seconds\n", space, etime() - send_errorchan_timout + DEFAULT_EMC_UI_TIMEOUT);
+    }
     return 0;
 }

@@ -3,3 +3,4 @@ extern int emctask_shutdown(void);
 extern RCS_CMD_CHANNEL *emcCommandBuffer;
 extern RCS_STAT_CHANNEL *emcStatusBuffer;
 extern NML *emcErrorBuffer;
+int emcErrorBufferOKtoWrite(int space, const char *caller);
