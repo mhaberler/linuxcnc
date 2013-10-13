@@ -1,0 +1,16 @@
+msc {
+ hscale="1.5", arcgradient="5";
+
+ a [label="client"], b [label="listener"],c [label="agent"];
+
+ a=>b [label="submit command",ID=1];
+ b=>b [label="get next ticket"];
+ b=>a [label="report submission status, ticket",ID=1];
+ b=>c [label="start execution of command"];
+ c=>c [label="execute"];
+ c>>b [label="intermediate status + ticket"];
+ b>>a [label="intermediate status + ticket",ID=2];
+ c=>c [label="execute(done)" ];
+ c=>b [label="final execution status, ticket"];
+ b=>a [label="completion status, ticket",ID=2];
+}
