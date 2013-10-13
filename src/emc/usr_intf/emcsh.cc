@@ -34,7 +34,7 @@
 #include "timer.hh"
 
 #include "shcom.hh"
-
+extern EMC_STAT *emcStatus;
 #define setresult(t,s) Tcl_SetObjResult((t), Tcl_NewStringObj((s),-1))
 
 /*

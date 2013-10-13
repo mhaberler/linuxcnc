@@ -44,6 +44,8 @@
 #include "timer.hh"             // etime()
 #include "shcom.hh"             // NML Messaging functions
 
+extern EMC_STAT *emcStatus;
+
 /*
   Using emcrsh:
 

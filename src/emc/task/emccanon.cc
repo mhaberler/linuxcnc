@@ -52,6 +52,8 @@
 #define canon_debug(...)
 #endif
 
+
+
 static int debug_velacc = 0;
 static double css_maximum, css_numerator; // both always positive
 static int spindle_dir = 0;

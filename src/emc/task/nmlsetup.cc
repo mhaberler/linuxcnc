@@ -30,6 +30,8 @@
 #include "nmlsetup.hh"             // EMCMOT_ORIENT_*
 #include "taskparams.hh"
 
+extern EMC_STAT *emcStatus;
+
 // NML channels
 RCS_CMD_CHANNEL *emcCommandBuffer = 0;
 RCS_STAT_CHANNEL *emcStatusBuffer = 0;

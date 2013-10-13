@@ -44,6 +44,9 @@
 #define WIDTH  (8 * sizeof(crc))
 #define TOPBIT (1 << (WIDTH - 1))
 
+
+extern EMC_STAT *emcStatus;
+
 typedef uint32_t crc;
 crc crcTable[256];
 crc crcResult;

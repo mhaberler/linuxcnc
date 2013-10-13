@@ -36,6 +36,7 @@
 #include "readahead.hh"		// emcTaskQueueCommand
 #include "interpqueue.hh"		// emcTaskQueueCommand
 
+extern EMC_STAT *emcStatus;
 
 #define USER_DEFINED_FUNCTION_MAX_DIRS 5
 #define MAX_M_DIRS (USER_DEFINED_FUNCTION_MAX_DIRS+1)

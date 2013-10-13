@@ -553,13 +553,13 @@ int emcSetupArcBlends(int arcBlendEnable,
 
 extern int emcUpdate(EMC_STAT * stat);
 // full EMC status
-extern EMC_STAT *emcStatus;
+//extern EMC_STAT *emcStatus;
 
 // EMC IO status
-extern EMC_IO_STAT *emcIoStatus;
+//extern EMC_IO_STAT *emcIoStatus;
 
 // EMC MOTION status
-extern EMC_MOTION_STAT *emcMotionStatus;
+//extern EMC_MOTION_STAT *emcMotionStatus;
 
 // values for EMC_AXIS_SET_AXIS, axisType
 enum EmcAxisType {

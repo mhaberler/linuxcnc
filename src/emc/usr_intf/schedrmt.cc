@@ -43,7 +43,7 @@
 #include "timer.hh"             // etime()
 #include "shcom.hh"             // NML Messaging functions
 #include "emcsched.hh"
-
+extern EMC_STAT *emcStatus;
 /*
   Using schedrmt:
 

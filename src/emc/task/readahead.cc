@@ -8,6 +8,8 @@
 #include "taskparams.hh"
 #include "interpqueue.hh"		// emcTaskCommand etc
 
+extern EMC_STAT *emcStatus;
+
 // MDI input queue
 static NML_INTERP_LIST mdi_input_queue;
 int max_mdi_queued_commands = MAX_MDI_QUEUE;

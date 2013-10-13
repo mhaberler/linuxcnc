@@ -33,6 +33,8 @@
 
 value_inihal_data old_inihal_data;
 
+extern EMC_STAT *emcStatus;
+
 /* define this to catch isnan errors, for rtlinux FPU register 
    problem testing */
 #define ISNAN_TRAP
