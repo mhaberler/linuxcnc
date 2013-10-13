@@ -30,10 +30,11 @@
 #include "interp_return.hh"	// INTERP_FILE_NOT_OPEN
 #include "inifile.hh"
 #include "rcs_print.hh"
-#include "task.hh"		// emcTaskCommand etc
+#include "main.hh"		// emcTaskCommand etc
 #include "python_plugin.hh"
 #include "taskclass.hh"
-#include "interpdrv.hh"		// emcTaskQueueCommand
+#include "readahead.hh"		// emcTaskQueueCommand
+#include "interpqueue.hh"		// emcTaskQueueCommand
 
 
 #define USER_DEFINED_FUNCTION_MAX_DIRS 5

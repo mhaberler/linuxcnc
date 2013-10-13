@@ -2,9 +2,13 @@
 #define TASKCLASS_HH
 
 #include "emc.hh"
+#include "emc_nml.hh"
 #include "initool.hh"
 #include "tool_parse.h"
 #include "inifile.hh"
+
+extern int emcTaskOnce(const char *inifile);
+extern int emcRunHalFiles(const char *filename);
 
 class Task {
 public:
@@ -46,5 +50,7 @@ private:
 };
 
 extern Task *task_methods;
-
+extern int emcIoUpdate(EMC_IO_STAT * stat);
+extern int emcIoPluginCall(EMC_IO_PLUGIN_CALL *call_msg);
+extern int emcPluginCall(EMC_EXEC_PLUGIN_CALL * cmd);
 #endif

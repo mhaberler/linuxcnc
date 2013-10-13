@@ -1,21 +1,16 @@
-// #include "rcs.hh"		// NML classes, nmlErrorFormat()
-// #include "emc.hh"		// EMC NML
 #include "emc_nml.hh"
-// #include "canon.hh"		// CANON_TOOL_TABLE stuff
-// #include "inifile.hh"		// INIFILE
 #include "interpl.hh"		// NML_INTERP_LIST, interp_list
-// #include "emcglb.h"		// EMC_INIFILE,NMLFILE, EMC_TASK_CYCLE_TIME
 #include "interp_return.hh"	// public interpreter return values
 #include "interp_internal.hh"	// _() macro
 #include "rcs_print.hh"
 #include "timer.hh"
-// #include "nml_oi.hh"
-#include "task.hh"		// emcTaskCommand etc
-// #include "taskclass.hh"
-// #include "motion.h"             // EMCMOT_ORIENT_*
-// #include "iniload.hh"
+#include "main.hh"		// emcTaskCommand etc
+#include "taskclass.hh"
+
 #include "issue.hh"
-#include "interpdrv.hh"		// emcTaskCommand etc
+#include "interpqueue.hh"
+#include "readahead.hh"
+#include "systemcmd.hh"		// emcTaskCommand etc
 
 #include "nmlsetup.hh"    // emcCommandBuffer
 #include "zmqcmds.hh"
@@ -39,10 +34,6 @@ int mdi_execute_level = -1;
 int mdi_execute_next = 0;
 // Wait after interrupted command
 int mdi_execute_wait = 0;
-
-// locally generated
-static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
-
 
 // shorthand typecasting ptrs
 static EMC_AXIS_HALT *axis_halt_msg;
@@ -624,7 +615,7 @@ int emcTaskIssueCommand(NMLmsg * cmd)
 		steppingWait = 0;
 
 		// now queue up command to resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 	    }
 	    retval = emcTaskSetMode(mode_msg->mode);
 	}
@@ -710,7 +701,7 @@ int emcTaskIssueCommand(NMLmsg * cmd)
 		// until all is done
 		emcTaskPlanSetWait();
 		// and resynch the interpreter WM
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		// it's success, so retval really is 0
 		retval = 0;
 		break;

@@ -13,7 +13,7 @@ MILLTASKSRCS := \
 	emc/motion/emcmotglb.c \
 	emc/task/emctask.cc \
 	emc/task/emccanon.cc \
-	emc/task/emctaskmain.cc \
+	emc/task/main.cc \
 	emc/motion/usrmotintf.cc \
 	emc/motion/emcmotutil.c \
 	emc/task/taskintf.cc \
@@ -31,7 +31,8 @@ MILLTASKSRCS := \
 	emc/task/errorlog.cc \
 	emc/task/iniload.cc \
 	emc/task/nmlsetup.cc \
-	emc/task/interpdrv.cc \
+	emc/task/readahead.cc \
+	emc/task/interpqueue.cc \
 	emc/task/zmqsupport.cc \
 	$(ULAPISRCS)
 USERSRCS += $(MILLTASKSRCS)

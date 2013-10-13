@@ -4,11 +4,12 @@
 #include "interp_internal.hh"	// interpreter private definitions
 #include "rcs_print.hh"
 #include "task.hh"		// emcTaskCommand etc
-#include "interpdrv.hh"		// emcTaskCommand etc
+#include "readahead.hh"
+#include "interpqueue.hh"		// emcTaskCommand etc
+#include "issue.hh"
+#include "main.hh"
 
 // XXX
-static EMC_TASK_PLAN_RUN taskPlanRunCmd;
-static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
 
 /*
   emcTaskPlan()
@@ -101,14 +102,14 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 		// signify no more reading
 		emcTaskPlanSetWait();
 		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		break;
 
 	    case EMC_TOOL_SET_NUMBER_TYPE:
 		// send to IO
 		emcTaskQueueCommand(emcCommand);
 		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		break;
 
 	    default:
@@ -209,7 +210,7 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 	    case EMC_TASK_PLAN_EXECUTE_TYPE:
 		// resynch the interpreter, since we may have moved
 		// externally
-		emcTaskIssueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		// and now call for interpreter execute
 		retval = emcTaskIssueCommand(emcCommand);
 		break;
@@ -221,14 +222,14 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 		// signify no more reading
 		emcTaskPlanSetWait();
 		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		break;
 
 	    case EMC_TOOL_SET_NUMBER_TYPE:
 		// send to IO
 		emcTaskQueueCommand(emcCommand);
 		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		break;
 
 		// otherwise we can't handle it
@@ -309,7 +310,8 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 		    taskPlanRunCmd.line = 1;	// run from start
 		    /*! \todo FIXME-- can have GUI set this; send a run instead of a
 		       step */
-		    retval = emcTaskIssueCommand(&taskPlanRunCmd);
+		    emcTaskQueueRunCmd(1);	// run from start
+
 		    if(retval != 0) break;
 		    emcTrajPause();
 		    if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
@@ -327,7 +329,8 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 		    // signify no more reading
 		    emcTaskPlanSetWait();
 		    // then resynch interpreter
-		    emcTaskQueueCommand(&taskPlanSynchCmd);
+		    emcTaskQueueSynchCmd();
+
 		    break;
 
 		    // otherwise we can't handle it
@@ -655,7 +658,7 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 		// signify no more reading
 		emcTaskPlanSetWait();
 		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 		break;
 
 		// otherwise we can't handle it

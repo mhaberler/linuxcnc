@@ -16,22 +16,14 @@
 #ifndef EMC_TASK_HH
 #define EMC_TASK_HH
 
-#include "taskclass.hh"
-extern NMLmsg *emcTaskCommand;
-extern int stepping;
-extern int steppingWait;
+//#include "taskclass.hh"
 
-extern int emcPluginCall(EMC_EXEC_PLUGIN_CALL *call_msg);
-extern int emcIoPluginCall(EMC_IO_PLUGIN_CALL *call_msg);
-extern int emcTaskOnce(const char *inifile);
-extern int emcRunHalFiles(const char *filename);
 
 // emctask.cc
 extern int emcTaskUpdate(EMC_TASK_STAT * stat); // use: emctaskmain.cc
 extern int emcTaskPlanSetWait(void);
 extern int emcTaskPlanIsWait(void);
 extern int emcTaskPlanClearWait(void);
-
 
 // exported by emctaskplan.cc
 extern int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus);
@@ -41,10 +33,8 @@ extern void mdi_execute_hook(void);
 extern void readahead_waiting(void);
 extern void readahead_reading(void);
 
-extern int  get_interpResumeState(void);
-extern void set_interpResumeState(int);
 
-// exported by emctaskexecute.cc
+// // used by emctaskexecute.cc
 
 extern int emcTaskExecute(EMC_STAT *emcStatus);
 // used by emctaskexecute.cc

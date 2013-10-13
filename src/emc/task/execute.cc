@@ -8,10 +8,13 @@
 #include "timer.hh"
 #include "task.hh"		// emcTaskCommand etc
 #include "motion.h"             // EMCMOT_ORIENT_*
-#include "issue.hh"             // emcTaskQueueCommand
-#include "interpdrv.hh"		// emcTaskCommand etc
+#include "issue.hh"
+#include "interpqueue.hh"
+#include "readahead.hh"
+#include "conditions.hh"
+#include "systemcmd.hh"
+#include "main.hh"
 
-static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
 static int steppedLine = 0;
 
 // from emctaskmain.cc:
@@ -95,8 +98,7 @@ int emcTaskExecute(EMC_STAT *emcStatus)
 	steppingWait = 0;
 
 	// now queue up command to resynch interpreter
-	emcTaskQueueCommand(&taskPlanSynchCmd);
-
+	emcTaskQueueSynchCmd();
 	retval = -1;
 	break;
 

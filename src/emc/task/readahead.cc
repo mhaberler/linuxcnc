@@ -4,13 +4,13 @@
 #include "interp_internal.hh"	// interpreter private definitions
 #include "rcs_print.hh"
 #include "task.hh"		// emcTaskCommand etc
+#include "main.hh"
 #include "taskparams.hh"
-#include "interpdrv.hh"		// emcTaskQueueCommand
+#include "interpqueue.hh"		// emcTaskCommand etc
 
 // MDI input queue
 static NML_INTERP_LIST mdi_input_queue;
 int max_mdi_queued_commands = MAX_MDI_QUEUE;
-static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
 
 static int checkInterpList(NML_INTERP_LIST * il, EMC_STAT * stat);
 
@@ -24,6 +24,9 @@ extern int mdi_execute_level;
 extern int mdi_execute_next;
 // Wait after interrupted command
 extern int mdi_execute_wait;
+
+// Side queue to store MDI commands
+NML_INTERP_LIST mdi_execute_queue;
 
 void readahead_reading(void)
 {
@@ -85,7 +88,8 @@ interpret_again:
 				// outstanding is completed
 				emcTaskPlanSetWait();
 				// and resynch interp WM
-				emcTaskQueueCommand(&taskPlanSynchCmd);
+				emcTaskQueueSynchCmd();
+
 			    } else if (execRetval != 0) {
 				// end of file
 				emcStatus->task.interpState =
@@ -242,7 +246,7 @@ void readahead_waiting(void)
 			 __FILE__, __LINE__);
 		}
 		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
+		emcTaskQueueSynchCmd();
 	    } else {
 		emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
 	    }
@@ -252,18 +256,6 @@ void readahead_waiting(void)
         }
 }
 
-
-// puts command on interp list
-int emcTaskQueueCommand(NMLmsg * cmd)
-{
-    if (0 == cmd) {
-	return 0;
-    }
-
-    interp_list.append(cmd);
-
-    return 0;
-}
 /*
   checkInterpList(NML_INTERP_LIST *il, EMC_STAT *stat) takes a pointer
   to an interpreter list and a pointer to the EMC status, pops each NML

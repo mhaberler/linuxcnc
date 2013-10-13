@@ -7,7 +7,7 @@
 * Author:
 * License: GPL Version 2
 * System: Linux
-*    
+*
 * Copyright (c) 2004 All rights reserved.
 *
 ********************************************************************/
@@ -88,10 +88,14 @@ using namespace google::protobuf;
 #include "rcs_print.hh"
 #include "timer.hh"
 #include "nml_oi.hh"
-#include "task.hh"		// emcTaskCommand etc
+#include "task.hh"
+#include "main.hh"
+#include "plan.hh"
+#include "execute.hh"
 #include "taskclass.hh"
 #include "motion.h"             // EMCMOT_ORIENT_*
-#include "interpdrv.hh"
+#include "interpqueue.hh"
+#include "readahead.hh"
 #include "iniload.hh"
 #include "nmlsetup.hh"
 #include "zmqsupport.hh"
@@ -104,8 +108,7 @@ using namespace google::protobuf;
  */
 #define DEFAULT_EMC_UI_TIMEOUT 5.0
 
-
-// command line args-- global so that other modules can access 
+// command line args-- global so that other modules can access
 int Argc;
 char **Argv;
 
@@ -193,33 +196,13 @@ double taskExecDelayTimeout = 0.0;
 
 // commands we compose here
 static EMC_TASK_PLAN_RUN taskPlanRunCmd;	// 16-Aug-1999 FMP
-static EMC_TASK_PLAN_INIT taskPlanInitCmd;
-static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
+//static EMC_TASK_PLAN_INIT taskPlanInitCmd;
 
-//static int interpResumeState = EMC_TASK_INTERP_IDLE;
 int programStartLine = 0;	// which line to run program from
 // how long the interp list can be
 
 int stepping = 0;
 int steppingWait = 0;
-//static int steppedLine = 0;
-
-// Variables to handle MDI call interrupts
-// Depth of call level before interrupted MDI call
-extern int mdi_execute_level;
-// Schedule execute(0) command
-extern int mdi_execute_next;
-// Wait after interrupted command
-extern int mdi_execute_wait;
-
-// Side queue to store MDI commands
-NML_INTERP_LIST mdi_execute_queue;
-
-
-
-extern int emcTaskMopup();
-
-
 
 /*
   syntax: a.out {-d -ini <inifile>} {-nml <nmlfile>} {-shm <key>}
@@ -502,7 +485,7 @@ int main(int argc, char *argv[])
 	    }
 	    // motion already should have reported this condition (and set RCS_ERROR?)
 	    // an M19 orient failed to complete within timeout
-	    // if ((emcStatus->motion.status == RCS_ERROR) && 
+	    // if ((emcStatus->motion.status == RCS_ERROR) &&
 	    // 	(emcStatus->motion.spindle.orient_state == EMCMOT_ORIENT_FAULTED) &&
 	    // 	(emcStatus->motion.spindle.orient_fault != 0)) {
 	    // 	emcOperatorError(0, "wait for orient complete timed out");
@@ -538,7 +521,8 @@ int main(int argc, char *argv[])
 	    steppingWait = 0;
 
 	    // now queue up command to resynch interpreter
-	    emcTaskQueueCommand(&taskPlanSynchCmd);
+	    emcTaskQueueSynchCmd();
+
 	}
 
 	// update task-specific status
