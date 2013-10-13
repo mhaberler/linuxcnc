@@ -15,6 +15,7 @@
 //    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #ifndef EMC_TASK_HH
 #define EMC_TASK_HH
+
 #include "taskclass.hh"
 extern NMLmsg *emcTaskCommand;
 extern int stepping;
@@ -64,5 +65,7 @@ extern void set_SystemCmdPid(pid_t pid);
 // exported by conditions.cc
 extern int emcTaskCheckPreconditions(NMLmsg * cmd);
 extern int emcTaskCheckPostconditions(NMLmsg * cmd);
+// issue.cc
+extern int emcTaskIssueCommand(NMLmsg * cmd);
 #endif
 
