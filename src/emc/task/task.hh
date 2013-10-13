@@ -21,11 +21,6 @@ extern NMLmsg *emcTaskCommand;
 extern int stepping;
 extern int steppingWait;
 
-// puts command on interp list
-extern int emcTaskQueueCommand(NMLmsg *cmd);
-// issues command immediately
-extern int emcTaskIssueCommand(NMLmsg *cmd);
-
 extern int emcPluginCall(EMC_EXEC_PLUGIN_CALL *call_msg);
 extern int emcIoPluginCall(EMC_IO_PLUGIN_CALL *call_msg);
 extern int emcTaskOnce(const char *inifile);

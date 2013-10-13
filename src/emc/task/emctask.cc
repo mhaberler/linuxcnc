@@ -33,6 +33,7 @@
 #include "task.hh"		// emcTaskCommand etc
 #include "python_plugin.hh"
 #include "taskclass.hh"
+#include "interpdrv.hh"		// emcTaskQueueCommand
 
 
 #define USER_DEFINED_FUNCTION_MAX_DIRS 5

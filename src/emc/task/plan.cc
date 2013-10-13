@@ -4,6 +4,7 @@
 #include "interp_internal.hh"	// interpreter private definitions
 #include "rcs_print.hh"
 #include "task.hh"		// emcTaskCommand etc
+#include "interpdrv.hh"		// emcTaskCommand etc
 
 // XXX
 static EMC_TASK_PLAN_RUN taskPlanRunCmd;

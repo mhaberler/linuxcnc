@@ -1,34 +1,23 @@
-
-#include <stdio.h>		// vsprintf()
-#include <string.h>		// strcpy()
-#include <stdarg.h>		// va_start()
-#include <stdlib.h>		// exit()
-#include <signal.h>		// signal(), SIGINT
-#include <float.h>		// DBL_MAX
-#include <sys/types.h>		// pid_t
-#include <unistd.h>		// fork()
-#include <sys/wait.h>		// waitpid(), WNOHANG, WIFEXITED
-#include <ctype.h>		// isspace()
-#include <libintl.h>
-#include <locale.h>
-
-#include "rcs.hh"		// NML classes, nmlErrorFormat()
-#include "emc.hh"		// EMC NML
+// #include "rcs.hh"		// NML classes, nmlErrorFormat()
+// #include "emc.hh"		// EMC NML
 #include "emc_nml.hh"
-#include "canon.hh"		// CANON_TOOL_TABLE stuff
-#include "inifile.hh"		// INIFILE
+// #include "canon.hh"		// CANON_TOOL_TABLE stuff
+// #include "inifile.hh"		// INIFILE
 #include "interpl.hh"		// NML_INTERP_LIST, interp_list
-#include "emcglb.h"		// EMC_INIFILE,NMLFILE, EMC_TASK_CYCLE_TIME
+// #include "emcglb.h"		// EMC_INIFILE,NMLFILE, EMC_TASK_CYCLE_TIME
 #include "interp_return.hh"	// public interpreter return values
-#include "interp_internal.hh"	// interpreter private definitions
+#include "interp_internal.hh"	// _() macro
 #include "rcs_print.hh"
 #include "timer.hh"
-#include "nml_oi.hh"
+// #include "nml_oi.hh"
 #include "task.hh"		// emcTaskCommand etc
-#include "taskclass.hh"
-#include "motion.h"             // EMCMOT_ORIENT_*
-#include "iniload.hh"
-#include "nmlsetup.hh"
+// #include "taskclass.hh"
+// #include "motion.h"             // EMCMOT_ORIENT_*
+// #include "iniload.hh"
+#include "issue.hh"
+#include "interpdrv.hh"		// emcTaskCommand etc
+
+#include "nmlsetup.hh"    // emcCommandBuffer
 #include "zmqcmds.hh"
 
 // config

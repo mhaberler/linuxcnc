@@ -8,6 +8,8 @@
 #include "timer.hh"
 #include "task.hh"		// emcTaskCommand etc
 #include "motion.h"             // EMCMOT_ORIENT_*
+#include "issue.hh"             // emcTaskQueueCommand
+#include "interpdrv.hh"		// emcTaskCommand etc
 
 static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
 static int steppedLine = 0;
