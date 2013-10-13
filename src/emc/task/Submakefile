@@ -27,6 +27,8 @@ MILLTASKSRCS := \
 	emc/task/plan.cc \
 	emc/task/execute.cc \
 	emc/task/systemcmd.cc \
+	emc/task/iniload.cc \
+	emc/task/nmlsetup.cc \
 	$(ULAPISRCS)
 USERSRCS += $(MILLTASKSRCS)
 
