@@ -19,39 +19,50 @@
 extern NMLmsg *emcTaskCommand;
 extern int stepping;
 extern int steppingWait;
+
+// puts command on interp list
 extern int emcTaskQueueCommand(NMLmsg *cmd);
+// issues command immediately
+extern int emcTaskIssueCommand(NMLmsg *cmd);
+
 extern int emcPluginCall(EMC_EXEC_PLUGIN_CALL *call_msg);
 extern int emcIoPluginCall(EMC_IO_PLUGIN_CALL *call_msg);
 extern int emcTaskOnce(const char *inifile);
 extern int emcRunHalFiles(const char *filename);
 
-int emcTaskInit();
-int emcTaskHalt();
-int emcTaskAbort();
-int emcTaskSetMode(int mode);
-int emcTaskSetState(int state);
-int emcTaskPlanInit();
-int emcTaskPlanSetWait();
-int emcTaskPlanIsWait();
-int emcTaskPlanClearWait();
-int emcTaskPlanSynch();
-int emcTaskPlanSetOptionalStop(bool state);
-int emcTaskPlanSetBlockDelete(bool state);
-void emcTaskPlanExit();
-int emcTaskPlanOpen(const char *file);
-int emcTaskPlanRead();
-int emcTaskPlanExecute(const char *command);
-int emcTaskPlanExecute(const char *command, int line_number); //used in case of MDI to pass the pseudo line number to interp
-int emcTaskPlanPause();
-int emcTaskPlanResume();
-int emcTaskPlanClose();
-int emcTaskPlanReset();
+// emctask.cc
+extern int emcTaskUpdate(EMC_TASK_STAT * stat); // use: emctaskmain.cc
+extern int emcTaskPlanSetWait(void);
+extern int emcTaskPlanIsWait(void);
+extern int emcTaskPlanClearWait(void);
 
-int emcTaskPlanLine();
-int emcTaskPlanLevel();
-int emcTaskPlanCommand(char *cmd);
 
-int emcTaskUpdate(EMC_TASK_STAT * stat);
+// exported by emctaskplan.cc
+extern int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus);
+// used by emcTaskPlan()
+extern NML_INTERP_LIST mdi_execute_queue;
+extern void mdi_execute_hook(void);
+extern void readahead_waiting(void);
+extern void readahead_reading(void);
 
+extern int  get_interpResumeState(void);
+extern void set_interpResumeState(int);
+
+// exported by emctaskexecute.cc
+
+extern int emcTaskExecute(EMC_STAT *emcStatus);
+// used by emctaskexecute.cc
+extern void set_eager(bool e);
+extern bool get_eager(void);
+extern void mdi_execute_abort(void);
+
+// systemcmd.cc
+extern int emcSystemCmd(char *s);
+extern pid_t get_SystemCmdPid(void);
+extern void set_SystemCmdPid(pid_t pid);
+
+// exported by conditions.cc
+extern int emcTaskCheckPreconditions(NMLmsg * cmd);
+extern int emcTaskCheckPostconditions(NMLmsg * cmd);
 #endif
 

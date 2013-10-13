@@ -111,7 +111,7 @@ static RCS_STAT_CHANNEL *emcStatusBuffer = 0;
 static NML *emcErrorBuffer = 0;
 
 // NML command channel data pointer
-static RCS_CMD_MSG *emcCommand = 0;
+//static RCS_CMD_MSG *emcCommand = 0;
 
 // global EMC status
 EMC_STAT *emcStatus = 0;
@@ -127,18 +127,16 @@ static int emcTaskNoDelay = 0;
 // flag signifying that on the next loop, there should be no delay.
 // this is set when transferring trajectory data from userspace to kernel
 // space, annd reset otherwise.
-static int emcTaskEager = 0;
+// static int emcTaskEager = 0;
 
 static int no_force_homing = 0; // forces the user to home first before allowing MDI and Program run
 //can be overriden by [TRAJ]NO_FORCE_HOMING=1
 
 static double EMC_TASK_CYCLE_TIME_ORIG = 0.0;
 
-// delay counter
-static double taskExecDelayTimeout = 0.0;
 
 // emcTaskIssueCommand issues command immediately
-static int emcTaskIssueCommand(NMLmsg * cmd);
+// moved to task.h static int emcTaskIssueCommand(NMLmsg * cmd);
 
 // pending command to be sent out by emcTaskExecute()
 NMLmsg *emcTaskCommand = 0;
@@ -358,6 +356,7 @@ int emcOperatorDisplay(int id, const char *fmt, ...)
     return emcErrorBuffer->write(display_msg);
 }
 
+#if 0
 /*
   handling of EMC_SYSTEM_CMD
  */
@@ -445,6 +444,7 @@ int emcSystemCmd(char *s)
     // else we're the parent
     return 0;
 }
+#endif
 
 // shorthand typecasting ptrs
 static EMC_AXIS_HALT *axis_halt_msg;
@@ -500,21 +500,25 @@ static EMC_TASK_PLAN_SET_OPTIONAL_STOP *os_msg;
 static EMC_TASK_PLAN_SET_BLOCK_DELETE *bd_msg;
 
 static EMC_AUX_INPUT_WAIT *emcAuxInputWaitMsg;
-static int emcAuxInputWaitType = 0;
-static int emcAuxInputWaitIndex = -1;
+
+// made visible for execute.cc
+int emcAuxInputWaitType = 0;
+int emcAuxInputWaitIndex = -1;
+// delay counter
+double taskExecDelayTimeout = 0.0;
 
 // commands we compose here
 static EMC_TASK_PLAN_RUN taskPlanRunCmd;	// 16-Aug-1999 FMP
 static EMC_TASK_PLAN_INIT taskPlanInitCmd;
 static EMC_TASK_PLAN_SYNCH taskPlanSynchCmd;
 
-static int interpResumeState = EMC_TASK_INTERP_IDLE;
+//static int interpResumeState = EMC_TASK_INTERP_IDLE;
 static int programStartLine = 0;	// which line to run program from
 // how long the interp list can be
 
 int stepping = 0;
 int steppingWait = 0;
-static int steppedLine = 0;
+//static int steppedLine = 0;
 
 // Variables to handle MDI call interrupts
 // Depth of call level before interrupted MDI call
@@ -523,8 +527,9 @@ static int mdi_execute_level = -1;
 static int mdi_execute_next = 0;
 // Wait after interrupted command
 static int mdi_execute_wait = 0;
+
 // Side queue to store MDI commands
-static NML_INTERP_LIST mdi_execute_queue;
+NML_INTERP_LIST mdi_execute_queue;
 
 // MDI input queue
 static NML_INTERP_LIST mdi_input_queue;
@@ -767,7 +772,7 @@ interpret_again:
 		}		// if interp len is less than max
 }
 
-static void mdi_execute_abort(void)
+void mdi_execute_abort(void)
 {
     // XXX: Reset needed?
     if (mdi_execute_wait || mdi_execute_next)
@@ -780,7 +785,7 @@ static void mdi_execute_abort(void)
     emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
 }
 
-static void mdi_execute_hook(void)
+void mdi_execute_hook(void)
 {
     if (mdi_execute_wait && emcTaskPlanIsWait()) {
 	// delay reading of next line until all is done
@@ -865,12 +870,13 @@ void readahead_waiting(void)
         }
 }
 
+#if 0
 /*
   emcTaskPlan()
 
   Planner for NC code or manual mode operations
   */
-static int emcTaskPlan(void)
+static int emcTaskPlan(RCS_CMD_MSG *emcCommand)
 {
     NMLTYPE type;
     int retval = 0;
@@ -1538,7 +1544,8 @@ static int emcTaskPlan(void)
 
     return retval;
 }
-
+#endif
+#if 0
 /*
    emcTaskCheckPreconditions() is called for commands on the interp_list.
    Immediate commands, i.e., commands sent from calls to emcTaskIssueCommand()
@@ -1676,6 +1683,7 @@ static int emcTaskCheckPreconditions(NMLmsg * cmd)
 
     return EMC_TASK_EXEC_DONE;
 }
+#endif
 
 // puts command on interp list
 int emcTaskQueueCommand(NMLmsg * cmd)
@@ -1690,7 +1698,7 @@ int emcTaskQueueCommand(NMLmsg * cmd)
 }
 
 // issues command immediately
-static int emcTaskIssueCommand(NMLmsg * cmd)
+int emcTaskIssueCommand(NMLmsg * cmd)
 {
     int retval = 0;
     int execRetval = 0;
@@ -2343,7 +2351,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
     case EMC_TASK_PLAN_PAUSE_TYPE:
 	emcTrajPause();
 	if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
-	    interpResumeState = emcStatus->task.interpState;
+	    set_interpResumeState(emcStatus->task.interpState);
 	}
 	emcStatus->task.interpState = EMC_TASK_INTERP_PAUSED;
 	emcStatus->task.task_paused = 1;
@@ -2354,7 +2362,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	if (GET_OPTIONAL_PROGRAM_STOP() == ON) {
 	    emcTrajPause();
 	    if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
-		interpResumeState = emcStatus->task.interpState;
+		set_interpResumeState(emcStatus->task.interpState);
 	    }
 	    emcStatus->task.interpState = EMC_TASK_INTERP_PAUSED;
 	    emcStatus->task.task_paused = 1;
@@ -2365,7 +2373,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
     case EMC_TASK_PLAN_RESUME_TYPE:
 	emcTrajResume();
 	emcStatus->task.interpState =
-	    (enum EMC_TASK_INTERP_ENUM) interpResumeState;
+	    (enum EMC_TASK_INTERP_ENUM) get_interpResumeState();
 	emcStatus->task.task_paused = 0;
 	stepping = 0;
 	steppingWait = 0;
@@ -2432,7 +2440,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
     }
     return retval;
 }
-
+#if 0
 /*
    emcTaskCheckPostconditions() is called for commands on the interp_list.
    Immediate commands, i.e., commands sent from calls to emcTaskIssueCommand()
@@ -2541,6 +2549,9 @@ static int emcTaskCheckPostconditions(NMLmsg * cmd)
     }
     return EMC_TASK_EXEC_DONE; // unreached
 }
+#endif
+
+#if 0
 
 /*
   STEPPING_CHECK() is a macro that prefaces a switch-case with a check
@@ -2632,7 +2643,7 @@ static int emcTaskExecute(void)
 		// interp_list now has line number associated with this-- get
 		// it
 		if (0 != emcTaskCommand) {
-		    emcTaskEager = 1;
+		    set_eager(true);
 		    emcStatus->task.currentLine =
 			interp_list.get_line_number();
 		    // and set it for all subsystems which use queued ids
@@ -2654,7 +2665,7 @@ static int emcTaskExecute(void)
 		} else {
 		    emcStatus->task.execState = (enum EMC_TASK_EXEC_ENUM)
 			emcTaskCheckPostconditions(emcTaskCommand);
-		    emcTaskEager = 1;
+		    set_eager(true);
 		}
 		emcTaskCommand = 0;	// reset it
 	    }
@@ -2667,10 +2678,10 @@ static int emcTaskExecute(void)
 	    if (0 != emcTaskCommand) {
 		emcStatus->task.execState = (enum EMC_TASK_EXEC_ENUM)
 		    emcTaskCheckPreconditions(emcTaskCommand);
-		emcTaskEager = 1;
+		set_eager(true);
 	    } else {
 		emcStatus->task.execState = EMC_TASK_EXEC_DONE;
-		emcTaskEager = 1;
+		set_eager(true);
 	    }
 	}
 	break;
@@ -2682,7 +2693,7 @@ static int emcTaskExecute(void)
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
 	} else if (emcStatus->motion.status == RCS_DONE) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
-	    emcTaskEager = 1;
+	    set_eager(true);
 	}
 	break;
 
@@ -2693,7 +2704,7 @@ static int emcTaskExecute(void)
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
 	} else if (emcStatus->io.status == RCS_DONE) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
-	    emcTaskEager = 1;
+	    set_eager(true);
 	}
 	break;
 
@@ -2708,7 +2719,7 @@ static int emcTaskExecute(void)
 	} else if (emcStatus->motion.status == RCS_DONE &&
 		   emcStatus->io.status == RCS_DONE) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
-	    emcTaskEager = 1;
+	    set_eager(true);
 	}
 	break;
 
@@ -2719,7 +2730,7 @@ static int emcTaskExecute(void)
 	case EMCMOT_ORIENT_COMPLETE:
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
 	    emcStatus->task.delayLeft = 0;
-	    emcTaskEager = 1;
+	    set_eager(true);
 	    rcs_print("wait for orient complete: nothing to do\n");
 	    break;
 
@@ -2728,7 +2739,7 @@ static int emcTaskExecute(void)
 	    if (etime() >= taskExecDelayTimeout) {
 		emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
 		emcStatus->task.delayLeft = 0;
-		emcTaskEager = 1;
+		set_eager(true);
 		emcOperatorError(0, "wait for orient complete: TIMED OUT");
 	    }
 	    break;
@@ -2737,7 +2748,7 @@ static int emcTaskExecute(void)
 	    // actually the code in main() should trap this before we get here
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
 	    emcStatus->task.delayLeft = 0;
-	    emcTaskEager = 1;
+	    set_eager(true);
 	    emcOperatorError(0, "wait for orient complete: FAULTED code=%d", 
 			     emcStatus->motion.spindle.orient_fault);
 	}
@@ -2752,7 +2763,7 @@ static int emcTaskExecute(void)
 	    emcStatus->task.delayLeft = 0;
 	    if (emcStatus->task.input_timeout != 0)
 		emcStatus->task.input_timeout = 1; // timeout occured
-	    emcTaskEager = 1;
+	    set_eager(true);
 	}
 	// delay can be also be because we wait for an input
 	// if the index is set (not -1)
@@ -2845,7 +2856,7 @@ static int emcTaskExecute(void)
 		// child exited normally
 		emcSystemCmdPid = 0;
 		emcStatus->task.execState = EMC_TASK_EXEC_DONE;
-		emcTaskEager = 1;
+		set_eager(true);
 	    } else {
 		// child exited with non-zero status
 		if (emc_debug & EMC_DEBUG_TASK_ISSUE) {
@@ -2883,6 +2894,7 @@ static int emcTaskExecute(void)
     }
     return retval;
 }
+#endif
 
 // called to allocate and init resources
 static int emctask_startup()
@@ -2929,7 +2941,7 @@ static int emctask_startup()
 	return -1;
     }
     // get our command data structure
-    emcCommand = emcCommandBuffer->get_address();
+    // emcCommand = emcCommandBuffer->get_address();
 
     // get the NML status buffer
     if (!(emc_debug & EMC_DEBUG_NML)) {
@@ -3137,7 +3149,7 @@ static int emctask_shutdown(void)
     if (0 != emcCommandBuffer) {
 	delete emcCommandBuffer;
 	emcCommandBuffer = 0;
-	emcCommand = 0;
+	//emcCommand = 0;
     }
 
     if (0 != emcStatus) {
@@ -3394,6 +3406,9 @@ int main(int argc, char *argv[])
     pb::Container request;
     string wrapped_nml;
 
+    // get our command data structure
+    RCS_CMD_MSG *emcCommand  = emcCommandBuffer->get_address();
+
     while (!done) {
  check_ini_hal_items();
 	if (zsocket_poll (cmd, emcTaskEager||emcTaskNoDelay ? 0: 10)) {
@@ -3485,10 +3500,10 @@ int main(int argc, char *argv[])
 	    }
 	}
 	// run control cycle
-	if (0 != emcTaskPlan()) {
+	if (0 != emcTaskPlan(emcCommand, emcStatus)) {
 	    taskPlanError = 1;
 	}
-	if (0 != emcTaskExecute()) {
+	if (0 != emcTaskExecute(emcStatus)) {
 	    taskExecuteError = 1;
 	}
 	// update subordinate status
@@ -3666,8 +3681,8 @@ int main(int argc, char *argv[])
 	    startTime = endTime;
 	}
 
-	if ((emcTaskNoDelay) || (emcTaskEager)) {
-	    emcTaskEager = 0;
+	if ((emcTaskNoDelay) || (get_eager())) {
+	    set_eager(false);
 	} else {
 	    // timer->wait();  // wait now happens in zmq_poll()
 	}
@@ -3685,4 +3700,33 @@ int main(int argc, char *argv[])
     }
     // and leave
     exit(0);
+}
+
+// encapsulate state access
+
+static int interp_ResumeState = EMC_TASK_INTERP_IDLE;
+
+int  get_interpResumeState(void)
+{
+    return interp_ResumeState;
+}
+
+void set_interpResumeState(int s)
+{
+    interp_ResumeState = s;
+}
+
+// flag signifying that on the next loop, there should be no delay.
+// this is set when transferring trajectory data from userspace to kernel
+// space, annd reset otherwise.
+static bool emc_TaskEager = false;
+
+void set_eager(bool e)
+{
+    emc_TaskEager = e;
+}
+
+bool get_eager(void)
+{
+    return emc_TaskEager;
 }

@@ -23,8 +23,13 @@ MILLTASKSRCS := \
 	emc/task/taskmodule.cc \
 	emc/task/taskclass.cc \
 	emc/task/backtrace.cc \
+	emc/task/conditions.cc \
+	emc/task/plan.cc \
+	emc/task/execute.cc \
+	emc/task/systemcmd.cc \
 	$(ULAPISRCS)
 USERSRCS += $(MILLTASKSRCS)
+
 
 #LDFLAGS +=
 
