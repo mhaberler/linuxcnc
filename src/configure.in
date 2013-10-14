@@ -697,6 +697,17 @@ AC_ARG_ENABLE(zeromq,
       USE_ZEROMQ=no
     ])
 
+AC_MSG_CHECKING(whether to enable NML-using parts)
+AC_ARG_ENABLE(nml,
+    [  --enable-nml      enable NML-using parts],
+    [
+	BUILD_NMLDEP=yes
+        AC_MSG_RESULT([configuring to build NML-using parts])
+    ],
+    [
+      AC_MSG_RESULT([not building non-essential NML-using parts])
+      BUILD_NMLDEP=no
+    ])
 ##############################################################################
 # Subsection 2.4                                                             #
 # Kernel detection                                                           #
@@ -1431,6 +1442,11 @@ fi
 AC_SUBST(BUILD_EMCWEB)
 if test "$BUILD_EMCWEB" = yes; then
    AC_DEFINE(BUILD_EMCWEB, [], [build emcweb UI])
+fi
+
+AC_SUBST(BUILD_NMLDEP)
+if test "$BUILD_NMLDEP" = yes; then
+   AC_DEFINE(BUILD_NMLDEP, [], [build NML dependent parts])
 fi
 
 AC_SUBST(USE_PROTOBUF)

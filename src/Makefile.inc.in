@@ -203,6 +203,9 @@ BUILD_EXAMPLES=@BUILD_EXAMPLES@
 # emcweb UI
 BUILD_EMCWEB=@BUILD_EMCWEB@
 
+# enable not-yet-ported NML parts
+BUILD_NMLDEP=@BUILD_NMLDEP@
+
 # Google protobuf
 USE_PROTOBUF=@USE_PROTOBUF@
 
