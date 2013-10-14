@@ -271,6 +271,48 @@ per Axis: 12 doubles, 11 flags
     unsigned char maxHardLimit;	// non-zero means max hard limit exceeded
     unsigned char overrideLimits; // non-zero means limits are overridden
 
+=== Files referencing emcStatus:
+
+emc/task/emccanon.cc
+emc/task/emcsvr.cc
+emc/task/emctask.cc
+emc/task/execute.cc
+emc/task/execute.hh
+emc/task/issue.cc
+emc/task/lost-ticket.txt
+emc/task/main.cc
+emc/task/nmlsetup.cc
+emc/task/nmlsetup.hh
+emc/task/nmlzmq.txt
+emc/task/plan.cc
+emc/task/plan.hh
+emc/task/readahead.cc
+emc/task/taskclass.cc
+emc/task/taskintf.cc
+emc/task/taskmodule.cc
+
+Non-task: 11 files
+
+Important immediately:
+emc/usr_intf/axis/extensions/emcmodule.cc
+emc/usr_intf/halui.cc
+
+less important - can disable build temporarily:
+
+emc/nml_intf/emc.hh
+emc/sai/dummyemcstat.cc
+
+emc/usr_intf/emccontroller.cc  emcweb
+emc/usr_intf/emclcd.cc
+emc/usr_intf/emcrsh.cc
+emc/usr_intf/emcsched.cc
+emc/usr_intf/emcsh.cc
+emc/usr_intf/keystick.cc
+emc/usr_intf/schedrmt.cc
+emc/usr_intf/shcom.cc
+emc/usr_intf/shcom.hh
+emc/usr_intf/xemc.cc
+
 === Correlating commands and status
 
 TBD: reverse-engineer what might have been the intended semantics of
