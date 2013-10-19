@@ -296,6 +296,9 @@ Non-task: 11 files
 Important immediately:
 emc/usr_intf/axis/extensions/emcmodule.cc
 emc/usr_intf/halui.cc
+tcl/linuxcnc.so: Axis needs this:
+emc/usr_intf/emcsh.cc
+emc/usr_intf/shcom.cc
 
 less important - can disable build temporarily:
 
@@ -312,6 +315,14 @@ emc/usr_intf/schedrmt.cc
 emc/usr_intf/shcom.cc
 emc/usr_intf/shcom.hh
 emc/usr_intf/xemc.cc
+
+--enable-nml will enable build of:
+bin/linuxcncrsh
+bin/schedrmt
+bin/linuxcnclcd
+bin/keystick
+bin/xlinuxcnc
+
 
 === Correlating commands and status
 
