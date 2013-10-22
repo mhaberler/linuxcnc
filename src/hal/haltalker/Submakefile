@@ -1,0 +1,26 @@
+ifeq ($(USE_PROTOBUF),yes)
+ifeq ($(USE_ZEROMQ),yes)
+
+PROFILE = # -pg
+TALKER_SRCS :=  $(addprefix hal/haltalker/, \
+	haltalker.cc)
+
+TALKER_CXXFLAGS := $(shell pkg-config libczmq libzmq protobuf --cflags)  \
+	$(PROFILE)  -DULAPI
+TALKER_LDFLAGS := $(shell pkg-config libczmq libzmq protobuf --libs) \
+	$(PROFILE)
+
+$(call TOOBJSDEPS, $(TALKER_SRCS)) : EXTRAFLAGS += $(TALKER_CXXFLAGS)
+
+../bin/haltalker: $(call TOOBJS, $(TALKER_SRCS)) \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(TALKER_LDFLAGS)
+
+USERSRCS += $(TALKER_SRCS)
+TARGETS += ../bin/haltalker
+
+endif # USE_ZEROMQ
+endif # USE_PROTOBUF
