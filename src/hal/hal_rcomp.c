@@ -336,7 +336,6 @@ int hal_retrieve_pinstate(const char *comp_name,
 int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 {
    hal_compiled_comp_t *tc;
-   hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
 
    if (!name) {
        rtapi_print_msg(RTAPI_MSG_ERR,
