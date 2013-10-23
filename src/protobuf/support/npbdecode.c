@@ -208,8 +208,8 @@ int main(int argc, char **argv)
 
     c.type = pb_ContainerType_MT_HALUPDATE;
 #ifdef ARGS_CALLBACK
-    c.args.funcs.decode = &print_object;
-    c.args.arg = "arg";
+    c.arg.funcs.decode = &print_object;
+    c.arg.arg = "arg";
 #endif
 
     if (!pb_decode(&stream, pb_Container_fields, &c)) {

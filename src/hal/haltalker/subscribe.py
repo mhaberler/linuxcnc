@@ -11,11 +11,14 @@ sub = context.socket(zmq.SUB)
 sub.connect("tcp://127.0.0.1:6650")
 sub.setsockopt(zmq.SUBSCRIBE, "")
 
-# handle
-names = {}
+class Sig:
+    def __init__(self):
+        pass
+    #self.value = None
+    #self.name = None
 
 # handle -> value
-values = {}
+signals = {}
 
 
 while True:
@@ -23,17 +26,19 @@ while True:
     c = Container()
     c.ParseFromString(msg)
     for s in c.signal:
+        if not s.handle in signals:
+            signals[s.handle] = Sig()
+        sig = signals[s.handle]
         if s.name:   # a full a.port conveying signal names
-            #print s.name,s.handle
-            names[s.handle] = s.name
+            sig.name = s.name
         if hasattr(s,"halbit"):
-            values[s.handle] = s.halbit
+            sig.value = s.halbit
         if hasattr(s,"hals32"):
-            values[s.handle] = s.hals32
+            sig.value = s.hals32
         if hasattr(s,"halu32"):
-            values[s.handle] = s.halu32
+            sig.value = s.halu32
         if hasattr(s,"halfloat"):
-            values[s.handle] = s.halfloat
+            sig.value = s.halfloat
 
-        if names.has_key(s.handle):
-            print "channel=%s %s=%s" % (channel,names[s.handle],values[s.handle])
+        if hasattr(sig,"name"):
+            print "channel=%s %s=%s" % (channel,sig.name,sig.value)

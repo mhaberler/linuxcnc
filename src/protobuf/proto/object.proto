@@ -53,11 +53,11 @@ message Pin {
 }
 
 message Signal {
-    optional ValueType  type       = 10;
+    optional ValueType   type       = 10;
     optional string      name       = 20; //  [(nanopb).max_size = 41];
-    optional fixed32      handle     = 25;
+    optional fixed32     handle     = 25;
 
-    optional bool          halbit   = 100;
+    optional bool        halbit     = 100;
     optional double        halfloat = 101;
     optional sfixed32        hals32   = 102;
     optional fixed32        halu32   = 103;

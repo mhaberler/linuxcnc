@@ -76,9 +76,11 @@ message Container {
     // where is this coming from:
     optional Originator            origin = 80;
 
-    // generalized polymorhic argument list
-    repeated Object                args   = 90;  //  [(nanopb).max_count = 20];
+    // generalized polymorphic argument list
+    repeated Object                arg   = 90;  //  [(nanopb).max_count = 20];
 
+    // simplified argument list for haltalker updates
+    repeated Signal               signal = 92;  //  [(nanopb).max_count = 20];
 
     // miscellanous
     optional string        ascii          = 100;

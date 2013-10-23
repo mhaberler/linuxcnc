@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
     object->set_allocated_origin(origin);
 #endif
     // add optional submessage(s)
-    object = container.add_args();
+    object = container.add_arg();
     object->set_type(HAL_PIN);
 
     pin = object->mutable_pin();
@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     pin->set_name("foo.1.bar");
     pin->set_hals32(4711);
 
-    object = container.add_args();
+    object = container.add_arg();
     object->set_type(NAMED_VALUE);
     object->set_name("pi");
 
