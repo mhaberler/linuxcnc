@@ -65,16 +65,16 @@ typedef struct htconf {
 } htconf_t;
 
 htconf_t conf = {
-    .progname = "",
-    .inifile = NULL,
-    .section = "HALTALKER",
-    .modname = "haltalker",
-    .status = "tcp://127.0.0.1:6650",
-    .command = "tcp://127.0.0.1:6651",
-    .msglevel = -1,
-    .debug = 0,
-    .pid = 0,
-    .named = 0,
+    "",
+    NULL,
+    "HALTALKER",
+    "haltalker",
+    "tcp://127.0.0.1:6650",
+    "tcp://127.0.0.1:6651",
+    -1,
+    0,
+    0,
+    0,
 };
 
 typedef struct htself {
