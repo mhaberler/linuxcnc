@@ -42,7 +42,7 @@ package pb;
 
 message TaskPlanExecute {
     optional string  command = 10; // "MDI"
-    optional sint32  line   = 30;
+    optional sfixed32  line   = 30;
 };
 
 message TaskPlanBlockDelete {
@@ -65,12 +65,12 @@ message TaskPlanReply {
 
 // Ticket msgs
 message TaskReply {
-    required int32  ticket   = 10;
+    required fixed32  ticket   = 10;
 };
 
 // signal completion of a particular ticket
 message TicketUpdate {
-    required int32  cticket  = 10;
+    required fixed32  cticket  = 10;
     required RCS_STATUS  status   = 20;
     optional string text     = 30;
 };

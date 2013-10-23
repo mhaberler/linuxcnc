@@ -12,8 +12,8 @@ message OfferObject {
     // subject to type field:
     optional bool    halbit   = 35;
     optional double  halfloat = 40;
-    optional sint32  hals32   = 45;
-    optional uint32  halu32   = 50;
+    optional sfixed32  hals32   = 45;
+    optional fixed32  halu32   = 50;
 };
 
 message UpdateObject {
@@ -21,8 +21,8 @@ message UpdateObject {
     optional fixed32   handle = 30;
     optional bool    halbit   = 35;
     optional double  halfloat = 40;
-    optional sint32  hals32   = 45;
-    optional uint32  halu32   = 50;
+    optional sfixed32  hals32   = 45;
+    optional fixed32  halu32   = 50;
 };
 
 message ConfirmObject {
