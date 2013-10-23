@@ -691,14 +691,12 @@ static int cgroup_init_members_cb(int level, hal_group_t **groups, hal_member_t 
 }
 
 // group generic change detection & reporting support
-
-int hal_group_compile(const char *name, hal_compiled_group_t **cgroup)
+// must be called with hal_data lock aquired by caller
+int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
 {
     int result;
     hal_compiled_group_t *tc;
-    hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
+    hal_group_t *grp;
 
     if ((grp = halpr_find_group_by_name(name)) == NULL) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -717,9 +715,9 @@ int hal_group_compile(const char *name, hal_compiled_group_t **cgroup)
     // this fills sets the n_members and n_monitored fields
     result = halpr_foreach_member(name, cgroup_size_cb,
 				  tc, RESOLVE_NESTED_GROUPS);
-    /* rtapi_print_msg(RTAPI_MSG_DBG, */
-    /* 		    "HAL:%d hal_group_compile(%s): %d signals %d monitored\n", */
-    /* 		    rtapi_instance, name, tc->n_members, tc->n_monitored ); */
+    rtapi_print_msg(RTAPI_MSG_DBG,
+		    "HAL:%d hal_group_compile(%s): %d signals %d monitored\n",
+		    rtapi_instance, name, tc->n_members, tc->n_monitored );
     if ((tc->member =
 	 malloc(sizeof(hal_member_t  *) * tc->n_members )) == NULL)
 	return -ENOMEM;
@@ -733,7 +731,7 @@ int hal_group_compile(const char *name, hal_compiled_group_t **cgroup)
     assert(tc->n_monitored == tc->mon_index);
     assert(tc->n_members == tc->mbr_index);
 
-    // this attribute combination doesn make sense - such a group
+    // this attribute combination does not make sense - such a group
     // definition will never trigger a report:
     if ((grp->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS)) &&
 	(tc->n_monitored  == 0)) {
@@ -744,7 +742,7 @@ int hal_group_compile(const char *name, hal_compiled_group_t **cgroup)
     }
 
     // set up value tracking if either the whole group is to be monitored for changes
-    // to cause a report, or some members should be included in a periodic
+    // to cause a report, or only changed members should be included in a periodic report
     if ((grp->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS)) ||
 	(tc->n_monitored  > 0)) {
 	if ((tc->tracking =
@@ -834,12 +832,13 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
     if (monitor) {
 	RTAPI_ZERO_BITMAP(cg->changed, cg->n_members);
 	for (i = 0; i < cg->n_members; i++) {
+	    if (!((cg->member[i]->userarg1 &  MEMBER_MONITOR_CHANGE) ||
+		  (cg->group->userarg2 &  GROUP_MONITOR_ALL_MEMBERS)))
+		continue;
 	    sig = SHMPTR(cg->member[i]->sig_member_ptr);
-	    /* if (!cg->member[i]->userarg1 &  MEMBER_MONITOR_CHANGE) */
-	    /* 	continue; */
 	    switch (sig->type) {
 	    case HAL_BIT:
-		halbit = *((char *) SHMPTR(sig->data_ptr));
+		halbit = *((hal_bit_t *) SHMPTR(sig->data_ptr));
 		if (cg->tracking[m].b != halbit) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -881,7 +880,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 	}
 	return nchanged;
     } else
-	return 1;
+	  return 1; // by default match
 }
 
 

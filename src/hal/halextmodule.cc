@@ -894,9 +894,11 @@ public:
 	return changed;
     }
     void compile() {
-	int result;
+	int result  __attribute__((cleanup(halpr_autorelease_mutex)));
+	rtapi_mutex_get(&(hal_data->mutex));
+
 	hal_cgroup_free(cg);
-	if ((result = hal_group_compile(hg->name, &cg)) < 0) {
+	if ((result = halpr_group_compile(hg->name, &cg)) < 0) {
 	    PyErr_Format(PyExc_RuntimeError,
 			 "hal_group_compile(%s) failed: %s",
 			 hg->name, strerror(-result) );

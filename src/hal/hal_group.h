@@ -34,7 +34,8 @@ typedef struct {
     hal_member_t  **member;      // all members (nesting resolved)
     unsigned long *changed;      // bitmap
     int n_monitored;             // count of pins to monitor for change
-    hal_data_u    *tracking;    // tracking values of monitored pins
+    hal_data_u    *tracking;     // tracking values of monitored pins
+    void *user_data;
 } hal_compiled_group_t;
 
 typedef int (*group_report_callback_t)(int,  hal_compiled_group_t *, int handle,
@@ -86,7 +87,9 @@ extern int halpr_foreach_group(const char *groupname,
 //
 // compiled_group_t *cgroup;
 //
-// int hal_group_compile("name", &cgroup)
+// int halpr_group_compile("name", &cgroup)
+// NB: halpr_group_compile() does not lock hal_data.
+
 // hal_group_execute(cgroup)  // not sure if needed
 // hal_group_report(cgroup, group_cb, member_cb, flags)
 // flags: 0.. changed; 1..all-unconditional
@@ -111,7 +114,7 @@ static inline int hal_cgroup_timer(hal_compiled_group_t *cgroup)
 	return -EINVAL;
     return cgroup->group->userarg1;
 }
-extern int hal_group_compile(const char *name, hal_compiled_group_t **cgroup);
+extern int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup);
 extern int hal_cgroup_match(hal_compiled_group_t *cgroup);
 
 // given a cgroup which returned a non-zero value from hal_cgroup_match(),
