@@ -80,10 +80,8 @@ int publish_ticket_update(int state, int ticket, string origin, string text)
     if (text.size()) {
 	tu->set_text(text);
     }
-    size_t pb_update_size = update.ByteSize();
-    zframe_t *pb_update_frame = zframe_new (NULL, pb_update_size);
-    assert(update.SerializeToArray(zframe_data (pb_update_frame),
-				   zframe_size (pb_update_frame)));
+    zframe_t *pb_update_frame = zframe_new (NULL, update.ByteSize());
+    assert(update.SerializeWithCachedSizesToArray(zframe_data (pb_update_frame)));
     zmsg_t *msg = zmsg_new ();
     zmsg_pushstr (msg, origin.c_str());
     zmsg_add (msg, pb_update_frame);
