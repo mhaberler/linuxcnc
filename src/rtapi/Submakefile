@@ -248,24 +248,28 @@ RTAPI_MSGD_SRCS = \
 	rtapi/syslog-async/syslog_async.c
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
 
-RTAPI_MSGD_CFLAGS := $(shell pkg-config  libwebsockets jansson libczmq libzmq  protobuf --cflags)
-RTAPI_MSGD_LDFLAGS := $(shell pkg-config libwebsockets jansson libczmq libzmq  protobuf --libs)
+RTAPI_MSGD_CFLAGS := $(shell pkg-config   jansson libczmq libzmq  protobuf --cflags)
+RTAPI_MSGD_LDFLAGS := $(shell pkg-config  jansson libczmq libzmq  protobuf --libs)
 
 # libev support
 RTAPI_MSGD_CFLAGS += $(LIBEV_CFLAGS)
 RTAPI_MSGD_LDFLAGS += $(LIBEV_LIBS)
 
 # websockets
-# RTAPI_MSGD_CFLAGS += -I/home/mah/src/libwebsockets/lib \
-# 	-I/home/mah/src/libwebsockets/build
-# RTAPI_MSGD_LDFLAGS += /home/mah/src//build/lib/libwebsockets.a
+RTAPI_MSGD_CFLAGS += -Iprotobuf/libwebsockets/lib \
+	-Iprotobuf/libwebsockets/build
+LIBWS := ../lib/libwebsockets.so.0
+RTAPI_MSGD_LDFLAGS += -lssl -lcrypto -ldl -lz
 
 $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	EXTRAFLAGS +=  $(RTAPI_MSGD_CFLAGS)
 
 ../libexec/rtapi_msgd: $(RTAPI_MSGD_OBJS) \
-		../lib/liblinuxcncshm.so ../lib/liblinuxcncini.so \
-	../lib/liblinuxcnc-pb2++.so ../lib/libjson2pb.so
+	../lib/liblinuxcncshm.so \
+	../lib/liblinuxcncini.so \
+	../lib/liblinuxcnc-pb2++.so \
+	../lib/libjson2pb.so \
+	$(LIBWS)
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ $(RTAPI_MSGD_LDFLAGS) -lrt
