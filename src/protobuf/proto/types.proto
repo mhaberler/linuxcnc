@@ -158,6 +158,8 @@ enum ContainerType {
     MT_LEGACY_NML     = 19;
     MT_LEGACY_MOTCONFIG = 20;
 
+    MT_HALUPDATE_FULL  = 25;
+
     MT_OFFER          = 30;
     MT_CONFIRM_OFFER  = 35;
     MT_DISPLAY_MESSAGE = 40;
