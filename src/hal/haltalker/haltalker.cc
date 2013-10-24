@@ -38,6 +38,10 @@
 #include <protobuf/generated/message.pb.h>
 using namespace google::protobuf;
 
+typedef enum {
+    GROUP_REPORT_FULL = 1,
+} group_flags_t;
+
 typedef  std::map<const char*, hal_compiled_group_t *> groupmap_t;
 typedef groupmap_t::iterator groupmap_iterator;
 
@@ -85,7 +89,6 @@ typedef struct htself {
     zloop_t *z_loop;
     pb::Container update;
     int serial;
-    bool new_subscription;
 } htself_t;
 
 static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -127,7 +130,12 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 
     case REPORT_BEGIN:	// report initialisation
 	self->update.Clear();
-	self->update.set_type(pb::MT_HALUPDATE);
+	// this enables a new subscriber to easily detect she's receiving
+	// a full status snapshot, not just a change tracking update
+	if (cgroup->user_flags & GROUP_REPORT_FULL)
+	    self->update.set_type(pb::MT_HALUPDATE_FULL);
+	else
+	    self->update.set_type(pb::MT_HALUPDATE);
 	self->update.set_serial(self->serial++);
 	break;
 
@@ -150,9 +158,8 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	    signal->set_halu32(vp->u);
 	    break;
 	}
-	if (self->new_subscription) {
+	if (cgroup->user_flags & GROUP_REPORT_FULL)
 	    signal->set_name(sig->name);
-	}
 	signal->set_handle(sig->data_ptr);
 	break;
 
@@ -164,7 +171,7 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	zmsg_add(msg, update_frame);
 	assert(zmsg_send (&msg, self->z_status) == 0);
 	assert(msg == NULL);
-	self->new_subscription = false;
+	cgroup->user_flags &= ~GROUP_REPORT_FULL;
 	break;
     }
     return 0;
@@ -175,20 +182,38 @@ static int handle_timer(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     hal_compiled_group_t *cg = (hal_compiled_group_t *) arg;
     htself_t *self = (htself_t *) cg->user_data;
 
-    if (hal_cgroup_match(cg) || self->new_subscription) {
-	hal_cgroup_report(cg, group_report_cb, self, self->new_subscription);
+    if (hal_cgroup_match(cg) ||  (cg->user_flags & GROUP_REPORT_FULL)) {
+	hal_cgroup_report(cg, group_report_cb, self,
+			  (cg->user_flags & GROUP_REPORT_FULL));
     }
     return 0;
 }
 
+// monitor subscribe events:
+//
+// a new subscriber will cause the next update to be 'full', i.e. with current
+// values and including signal names regardless of any change respective to the last scan
+//
+// this permits a new subscriber to establish the set of signal names immediately as
+// well as retrieve all current values without constantly broadcasting all
+// signal names
 static int handle_subscribe(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
     htself_t *self = (htself_t *) arg;
     zframe_t *f_subscribe = zframe_recv(poller->socket);
     unsigned char *s = zframe_data(f_subscribe);
-    // fprintf(stderr,"%ssubscribe event:'%s'\n",
-    // 	    *s ? "" : "un", s+1);
-    self->new_subscription = (*s != 0);
+
+    if (s && *s) { // non-zero: subscribe event
+	rtapi_print_msg(RTAPI_MSG_DBG,
+			"%s: subscribe event '%s'\n",
+			self->cfg->progname, s+1);
+	// mark all groups as requiring a full report on next poll
+	for (groupmap_iterator g = self->groups.begin();
+	     g != self->groups.end(); g++) {
+	    hal_compiled_group_t *cg = g->second;
+	    cg->user_flags |= GROUP_REPORT_FULL;
+	}
+    }
     zframe_destroy(&f_subscribe);
     return 0;
 }
@@ -226,7 +251,6 @@ static int mainloop( htself_t *self)
 	cg->user_data = self;
 	msec =  hal_cgroup_timer(cg);
 	if (msec > 0) {
-	    hal_cgroup_report(cg, group_report_cb, self, 1);
 	    zloop_timer(self->z_loop, msec, 0, handle_timer, cg);
 	}
     }
