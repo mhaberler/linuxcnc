@@ -74,7 +74,6 @@ static RCS_CMD_CHANNEL *emcioCommandBuffer = 0;
 static RCS_CMD_MSG *emcioCommand = 0;
 static RCS_STAT_CHANNEL *emcioStatusBuffer = 0;
 static EMC_IO_STAT emcioStatus;
-static NML *emcErrorBuffer = 0;
 
 static char *ttcomments[CANON_POCKETS_MAX];
 static int fms[CANON_POCKETS_MAX];
@@ -159,19 +158,6 @@ static int emcIoNmlGet()
 	    emcioStatus.echo_serial_number = 0;
 	    emcioStatus.status = RCS_DONE;
 	    emcioStatusBuffer->write(&emcioStatus);
-	}
-    }
-
-    /* try to connect to EMC error buffer */
-    if (emcErrorBuffer == 0) {
-	emcErrorBuffer =
-	    new NML(nmlErrorFormat, "emcError", "tool", emc_nmlfile);
-	if (!emcErrorBuffer->valid()) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "emcError buffer not available\n");
-	    delete emcErrorBuffer;
-	    emcErrorBuffer = 0;
-	    retval = -1;
 	}
     }
 
@@ -1041,11 +1027,6 @@ int main(int argc, char *argv[])
 	*(iocontrol_data->user_request_enable) = 0;
 
     }	// end of "while (! done)" loop
-
-    if (emcErrorBuffer != 0) {
-	delete emcErrorBuffer;
-	emcErrorBuffer = 0;
-    }
 
     if (emcioStatusBuffer != 0) {
 	delete emcioStatusBuffer;
