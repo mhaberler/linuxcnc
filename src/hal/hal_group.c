@@ -763,6 +763,8 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
     tc->magic = CGROUP_MAGIC;
     tc->group = grp;
     grp->refcount++;
+    tc->user_data = NULL;
+    tc->user_flags = 0;
     *cgroup = tc;
 
     return 0;

@@ -35,7 +35,8 @@ typedef struct {
     unsigned long *changed;      // bitmap
     int n_monitored;             // count of pins to monitor for change
     hal_data_u    *tracking;     // tracking values of monitored pins
-    void *user_data;
+    unsigned long user_flags;    // uninterpreted by HAL code
+    void *user_data;             // uninterpreted by HAL code
 } hal_compiled_group_t;
 
 typedef int (*group_report_callback_t)(int,  hal_compiled_group_t *, int handle,
