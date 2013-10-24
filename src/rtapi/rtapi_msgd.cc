@@ -516,14 +516,14 @@ cleanup_actions(void)
     }
 }
 
-static void zfree_cb(void *data, void *args) { free(data); }
+//static void zfree_cb(void *data, void *args) { free(data); }
 
 static void message_poll_cb(struct ev_loop *loop,
 			    struct ev_timer *timer,
 			    int revents)
 {
     rtapi_msgheader_t *msg;
-    size_t msg_size, pb_size;
+    size_t msg_size;
     size_t payload_length;
     int retval;
     char *cp;
@@ -532,7 +532,6 @@ static void message_poll_cb(struct ev_loop *loop,
     Container container;
     LogMessage *logmsg;
     zframe_t *z_pbframe, *z_jsonframe;
-    void *pb_buffer;
     std::string json;
 
     // sigset of all the signals that we're interested in
@@ -590,14 +589,10 @@ static void message_poll_cb(struct ev_loop *loop,
 		logmsg->set_tag(msg->tag);
 		logmsg->set_text(msg->buf, strlen(msg->buf));
 
-		pb_size = container.ByteSize();
-		pb_buffer = malloc(pb_size);
-		assert(pb_buffer != NULL);
-		z_pbframe = zframe_new_zero_copy(pb_buffer, pb_size, zfree_cb, NULL);
+		z_pbframe = zframe_new(NULL, container.ByteSize());
 		assert(z_pbframe != NULL);
 
-		if (container.SerializeToArray(zframe_data(z_pbframe),
-					       pb_size)) {
+		if (container.SerializeWithCachedSizesToArray(zframe_data(z_pbframe))) {
 		    // channel name:
 		    if (zstr_sendm(logpub, "pb2"))
 			syslog(LOG_ERR,"zstr_sendm(%s,pb2): %s",
@@ -1121,7 +1116,7 @@ mimetype(const char *mimetypes, const char *ext)
     char *mt;
 
     if ((fp = fopen(mimetypes, "r")) == NULL)
-	return FALSE;
+	return 0;
 
     while ((fgets(buf, sizeof(buf), fp)) != NULL) {
 	if (buf[0] == '#' || buf[0] == '\n')
