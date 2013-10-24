@@ -61,7 +61,6 @@ typedef struct htconf {
     int msglevel;
     int debug;
     int pid;
-    int named;
 } htconf_t;
 
 htconf_t conf = {
@@ -72,7 +71,6 @@ htconf_t conf = {
     "tcp://127.0.0.1:6650",
     "tcp://127.0.0.1:6651",
     -1,
-    0,
     0,
     0,
 };
@@ -87,6 +85,7 @@ typedef struct htself {
     zloop_t *z_loop;
     pb::Container update;
     int serial;
+    bool new_subscription;
 } htself_t;
 
 static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -123,7 +122,6 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
     hal_data_u *vp;
     pb::Signal *signal;
     zmsg_t *msg;
-    bool named = ((self->serial % self->cfg->named) == 0);
 
     switch (phase) {
 
@@ -152,9 +150,7 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	    signal->set_halu32(vp->u);
 	    break;
 	}
-	if (named) {
-	    // implicit by halbit/hals32 etc
-	    //signal->set_type((pb::ValueType) sig->type);
+	if (self->new_subscription) {
 	    signal->set_name(sig->name);
 	}
 	signal->set_handle(sig->data_ptr);
@@ -168,6 +164,7 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	zmsg_add(msg, update_frame);
 	assert(zmsg_send (&msg, self->z_status) == 0);
 	assert(msg == NULL);
+	self->new_subscription = false;
 	break;
     }
     return 0;
@@ -178,9 +175,21 @@ static int handle_timer(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     hal_compiled_group_t *cg = (hal_compiled_group_t *) arg;
     htself_t *self = (htself_t *) cg->user_data;
 
-    if (hal_cgroup_match(cg)) {
-	hal_cgroup_report(cg, group_report_cb, self, 0);
+    if (hal_cgroup_match(cg) || self->new_subscription) {
+	hal_cgroup_report(cg, group_report_cb, self, self->new_subscription);
     }
+    return 0;
+}
+
+static int handle_subscribe(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+{
+    htself_t *self = (htself_t *) arg;
+    zframe_t *f_subscribe = zframe_recv(poller->socket);
+    unsigned char *s = zframe_data(f_subscribe);
+    // fprintf(stderr,"%ssubscribe event:'%s'\n",
+    // 	    *s ? "" : "un", s+1);
+    self->new_subscription = (*s != 0);
+    zframe_destroy(&f_subscribe);
     return 0;
 }
 
@@ -202,12 +211,14 @@ static int mainloop( htself_t *self)
     }
     zmq_pollitem_t command_poller = { self->z_command, 0, ZMQ_POLLIN };
     zmq_pollitem_t signal_poller =  { 0, self->signal_fd, ZMQ_POLLIN };
+    zmq_pollitem_t subscribe_poller =  { self->z_status, 0, ZMQ_POLLIN };
 
     self->z_loop = zloop_new();
     assert (self->z_loop);
     zloop_set_verbose (self->z_loop, self->cfg->debug);
     zloop_poller(self->z_loop, &command_poller, handle_command, self);
     zloop_poller(self->z_loop, &signal_poller, handle_signal, self);
+    zloop_poller(self->z_loop, &subscribe_poller, handle_subscribe, self);
 
     for (groupmap_iterator g = self->groups.begin();
 	 g != self->groups.end(); g++) {
@@ -235,9 +246,13 @@ static int zmq_init(htself_t *self)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+    // fprintf(stderr, "czmq version: %d.%d.%d\n",
+    // 	    CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH);
+
     self->z_context = zctx_new ();
-    self->z_status = zsocket_new (self->z_context, ZMQ_PUB);
+    self->z_status = zsocket_new (self->z_context, ZMQ_XPUB);
     zsocket_set_linger (self->z_status, 0);
+    zsocket_set_xpub_verbose (self->z_status, 1);
     int rc = zsocket_bind(self->z_status, self->cfg->status);
     assert (rc != 0);
 
@@ -312,7 +327,6 @@ static int read_config(htconf_t *conf)
 	conf->command = strdup(s);
     if ((s = iniFind(inifp, "STATUS", conf->section)))
 	conf->status = strdup(s);
-    iniFindInt(inifp, "NAMED", conf->section, &conf->named);
     iniFindInt(inifp, "MSGLEVEL", conf->section, &conf->msglevel);
     fclose(inifp);
     return 0;
