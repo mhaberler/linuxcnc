@@ -175,7 +175,8 @@ static int prev_status = UNINITIALIZED_STATUS;
 
 // current command symbol
 const char *current_cmd = "";
-
+// zmq completion pub socket
+extern void *completion; // needed for subscription detection
 
 
 void emctask_quit(int sig)
@@ -320,7 +321,18 @@ int main(int argc, char *argv[])
 
     while (!done) {
  check_ini_hal_items();
-	if (zsocket_poll (cmd, emcTaskEager||emcTaskNoDelay ? 0: 10)) {
+	if (zsocket_poll (completion, 0)) {
+            zmsg_t *msg = zmsg_recv (completion);
+	    char *s = zmsg_popstr (msg);
+
+	    // on subscribe request  publish current ticket status
+	    fprintf(stderr, "--- main: %ssubscribe '%s' event\n",
+		    *s ? "" : "un", s+1);
+	    free(s);
+	    zmsg_destroy(&msg);
+	    publish_ticket_update(emcStatus->status, emcStatus->ticket, origin);
+	}
+	if (zsocket_poll (cmd, get_eager()||emcTaskNoDelay ? 0: 10)) {
             zmsg_t *msg = zmsg_recv (cmd);
             if (!msg)
                 continue;          //  Interrupted

@@ -57,7 +57,9 @@ int setup_zmq(void)
     rc = zsocket_bind(cmd, cmdsocket);
     assert (rc != 0);
 
-    completion = zsocket_new (zmq_ctx, ZMQ_PUB);
+    completion = zsocket_new (zmq_ctx, ZMQ_XPUB);
+    zsocket_set_xpub_verbose (completion, 1);
+
     rc = zsocket_bind(completion, completion_socket);
     assert (rc != 0);
     return 0;
