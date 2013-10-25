@@ -9,7 +9,7 @@
 
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <iostream>
 
 #include <inifile.hh>
@@ -30,16 +30,15 @@ typedef struct halvalue {
     void *ref;
 } value_t;
 
-typedef std::map<int,value_t> value_map;
-typedef std::map<std::string,int> name_map;
-typedef std::map<std::string,int>::iterator name_map_iterator;
+typedef std::unordered_map<int,value_t> value_map;
+typedef std::unordered_map<std::string,int> name_map;
+typedef std::unordered_map<std::string,int>::iterator name_map_iterator;
 typedef int (*update_cb)(void *self);
 
 typedef struct htconf {
     const char *progname;
     const char *inifile;
     const char *section;
-    int msglevel;
     int debug;
     int pid;
     string_array sockets;
@@ -62,9 +61,8 @@ typedef struct htself {
 using namespace google::protobuf;
 using namespace std;
 
-static const char *option_string = "m:hI:S:d";
+static const char *option_string = "hI:S:d";
 static struct option long_options[] = {
-    {"msglevel", required_argument, 0, 'm'},
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
@@ -76,7 +74,6 @@ htconf_t conf = {
     "haltracker",
     NULL,
     "HALTRACKER",
-    -1,
     0,
     0,
     {},
@@ -181,6 +178,14 @@ listener (void *arg)
 		    self->values[s.handle()] = v;
 		}
 	    }
+	case pb::MT_TICKET_UPDATE:
+	    if (update.has_ticket_update())
+		fprintf(stderr,"ticket %d %d owner '%s'\n",
+			update.ticket_update().cticket(),
+			update.ticket_update().status(),
+			dest);
+
+	    break;
 	default:
 	    break;
 	}
@@ -212,6 +217,22 @@ int track( htself_t *self, int type, const char *signame, void *ref)
     }
     v.ref = ref;
     self->values[handle]  = v;
+    switch (v.type) {
+    default:
+	assert("invalid signal type" == NULL);
+    case HAL_BIT:
+	*(bool *)v.ref = v.value.b;
+	break;
+    case HAL_FLOAT:
+	*(double *)v.ref = v.value.f;
+	break;
+    case HAL_S32:
+	*(int *)v.ref = v.value.s;
+	break;
+    case HAL_U32:
+	*(unsigned *)v.ref = v.value.u;
+	break;
+    }
     return 0;
 }
 
@@ -226,7 +247,6 @@ static int read_config(htconf_t *conf)
 {
     const char *s;
     FILE *inifp;
-
 
     if (!conf->inifile) {
 	fprintf(stderr,
@@ -253,7 +273,6 @@ static int read_config(htconf_t *conf)
     if (count == 1) // no TOPIC given - subscribe all topics
 	conf->topics.push_back("*");
 
-    iniFindInt(inifp, "MSGLEVEL", conf->section, &conf->msglevel);
     fclose(inifp);
     return 0;
 }
@@ -269,9 +288,7 @@ static void usage(void) {
 	   " variable INI_FILE_NAME)\n"
 	   "-S or --section <section-name> (default 8)\n"
 	   "    Read parameters from <section_name> (default 'VFS11')\n"
-	   "-m or --rtapi-msg-level <level>\n"
-	   "    set the RTAPI message level.\n"
-	   "-d or --debug\n"
+	   "-d <level> or --debug <level>\n"
 	   "    Turn on event debugging messages.\n");
 }
 
@@ -303,9 +320,6 @@ int main (int argc, char *argv[ ])
 	case 'I':
 	    conf.inifile = optarg;
 	    break;
-	case 'm':
-	    conf.msglevel = atoi(optarg);
-	    break;
 	case 'h':
 	default:
 	    usage();
@@ -331,6 +345,7 @@ int main (int argc, char *argv[ ])
     track(&self, HAL_FLOAT, "halui_axis_0_pos-commanded", &xpos);
     track(&self, HAL_FLOAT, "halui_axis_1_pos-commanded", &ypos);
     track(&self, HAL_FLOAT, "halui_axis_2_pos-commanded", &zpos);
+    update_callback(&self);  // show values post-registration
     self.callback = (update_cb) update_callback;
 
     sleep(100);
