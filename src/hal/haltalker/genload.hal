@@ -1,7 +1,7 @@
 # monitor all pins of halui
 
 # NB:
-newg halui 1 reportchanged  monitorall
+newg halui 100 reportchanged  monitorall
 
 
 net halui_abort halui.abort

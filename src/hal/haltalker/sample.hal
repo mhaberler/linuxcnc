@@ -62,7 +62,7 @@ newsig fuse-ok bit
 
 # declare named group 'power-suply'
 
-newg power-supply 1 reportall always
+newg power-supply 1
 #000 onchange reportchanged
 newm power-supply volt
 #monitor

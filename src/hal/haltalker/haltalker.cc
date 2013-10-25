@@ -158,8 +158,10 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	    signal->set_halu32(vp->u);
 	    break;
 	}
-	if (cgroup->user_flags & GROUP_REPORT_FULL)
+	if (cgroup->user_flags & GROUP_REPORT_FULL) {
 	    signal->set_name(sig->name);
+	    signal->set_type((pb::ValueType)sig->type);
+	}
 	signal->set_handle(sig->data_ptr);
 	break;
 
