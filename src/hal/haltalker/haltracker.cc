@@ -18,6 +18,7 @@
 #include <pthread.h>
 #include <hal.h>  // hal_bit_t etc
 #include <hal_priv.h>  // hal_data_u
+#include <rcs.hh>  // RCS_DONE etc
 
 #include <google/protobuf/text_format.h>
 #include <protobuf/generated/message.pb.h>
@@ -96,6 +97,8 @@ listener (void *arg)
     htself_t *self = (htself_t *)arg;
     int rc;
     unsigned i;
+    int ticket = 0;
+    int status = RCS_DONE;
 
     self->z_context = zctx_new ();
     self->z_status = zsocket_new (self->z_context, ZMQ_SUB);
@@ -179,12 +182,21 @@ listener (void *arg)
 		}
 	    }
 	case pb::MT_TICKET_UPDATE:
-	    if (update.has_ticket_update())
-		fprintf(stderr,"ticket %d %d owner '%s'\n",
-			update.ticket_update().cticket(),
-			update.ticket_update().status(),
-			dest);
+	    if (update.has_ticket_update()) {
+		// track  non-closed tickets
+		if ((update.ticket_update().cticket() >  ticket) &&
+		    (status != RCS_DONE)) {
+		    fprintf(stderr,
+			    "----- old ticket %d status %d new ticket %d owner '%s'\n",
+			    ticket, status, update.ticket_update().cticket(),
+			    dest);
+		}
 
+		ticket = update.ticket_update().cticket(),
+		status = update.ticket_update().status(),
+		fprintf(stderr,"ticket %d %d owner '%s'\n",
+			ticket, status, dest);
+	    }
 	    break;
 	default:
 	    break;
