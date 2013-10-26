@@ -894,7 +894,8 @@ int main(int argc, char **argv)
    if (logpub_uri) {
 	// start the zeromq log publisher socket
 	zmq_ctx  = zctx_new();
-	logpub = zsocket_new(zmq_ctx, ZMQ_PUB);
+	logpub = zsocket_new(zmq_ctx, ZMQ_XPUB);
+	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
 	    syslog(LOG_INFO,"publishing log messages at %s\n",
 		   logpub_uri);
@@ -1039,14 +1040,16 @@ callback_wslog(struct libwebsocket_context *context,
 					 sizeof(client_ip));
 
 	// make the ws instance an internal subscriber
-	wss->socket = zsocket_new (cfg->z_context, ZMQ_SUB);
+	wss->socket = zsocket_new (cfg->z_context, ZMQ_XSUB);
 	assert(wss->socket);
 	zsocket_set_linger (wss->socket, 0);
 
-	// we're interested in the json updates only:
-	zsocket_set_subscribe(wss->socket, (char *) "json");
 	rc = zsocket_connect (wss->socket, (char *) cfg->uri);
 	assert(rc == 0);
+
+	// subscribe XPUP-style by sending a message
+	// we're interested in the json updates only:
+	zstr_send (wss->socket, "\001json");
 
 	cfg->num_log_connections++;
 
@@ -1099,6 +1102,10 @@ callback_wslog(struct libwebsocket_context *context,
     case LWS_CALLBACK_RECEIVE:
 	syslog(LOG_DEBUG, "writing to a log socket has no effect: '%.*s'",
 	       len, (char *)in);
+	// TODO: read & parse a Container
+	// container is either a subscribe message or some other command
+	// like set log level
+	// WS side just sends container-as-json
 	break;
 
     default:
