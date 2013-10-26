@@ -400,6 +400,8 @@ static int waitTicketCompleted(int ticket, double timeout)
         double now = etime();
         esleep(fmin(timeout - (now - start), EMC_COMMAND_DELAY));
     } while (etime() - start < timeout);
+    fprintf(stderr, "emcmodule: timeout waiting for ticket %d\n", ticket);
+
     return -ETIMEDOUT;
 }
 
