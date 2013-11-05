@@ -3,7 +3,7 @@ msc {
 
   arcgradient = 4;
 
-  a [label="Remote"],b [label="Halserver"], c [label="HAL"];
+  a [label="Actor"],b [label="Halserver"], c [label="HAL"];
 
   a=>b [ label = "bind(comp=foo, pins=bar..)" ] ;
   b=>c [ label = "newcomp(foo)"];

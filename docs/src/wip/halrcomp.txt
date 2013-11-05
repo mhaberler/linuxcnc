@@ -28,7 +28,7 @@ be synced by observing HAL pins, for instance at the G-code level.
 
 == Concepts
 
-=== Remote Thread functions
+=== Actors: Remote Thread functions
 
 In the traditional HAL model, a thread function is a piece of code
 executing in the same address space as the HAL pins the component
@@ -42,6 +42,9 @@ the HAL pins of the component.
 With respect to timing remote thread functions are similar to userspace HAL
 component code since due to network delays they cannot provide
 realtime guarantuees.
+
+The entity implementing a remote thread function by talking the
+HALrcomp protocol will be denoted as _actor_ for the rest of this document.
 
 === Remote components
 
@@ -58,9 +61,9 @@ The component model remains unchanged with respect to component name, pin
 names, type and direction.
 
 Creating the component and its pins is decoupled from the
-execution of thread function code. A remote component may be defined
+execution of actor code. A remote component may be defined
 at the halcmd level, or by using the HAL API. At this point, it's pins
-may be linked to; however, the associated thread function is not
+may be linked to; however, the associated actor is not
 required to be active at pin link time.
 
 A remote component is created by calling 'hal_init_mode(name,
@@ -73,9 +76,9 @@ enter the state 'COMP_READY'.
 
 To be useful, a remote component requires a halserver process which
 executes on the same host as the realtime environment, and
-serves requests on behalf of one or several remote thread functions.
+serves requests on behalf of one or several remote actors.
 
-The halserver process interacts with the remote thread function by means
+The halserver process interacts with a remote actor by means
 of the HALrcomp protocol. It is a regular user process, tied into HAL
 through the rcomp HAL API, and talks to other parties via the HALrcomp
 protocol which is realized in zeroMQ/protobuf.
@@ -94,8 +97,8 @@ code will be completely generic as it does not have any
 compiled-in knowledge of HAL objecst; it will determine what to do by
 use of the extended HAL API.
 
-A remote component may be associated with several remote thread
-functions at the same time. This supports the simultaneaous
+A remote component may be associated with several actors
+at the same time. This supports the simultaneaous
 interaction with several UI's, and may have limited applicability
 outside the UI use case.
 
@@ -106,8 +109,8 @@ image::images/halrcomps.png[align="center"]
 
 === Bound and unbound state
 
-Once a halserver process has acquired the component, a remote thread
-function may interact with the halserver process to receive notification
+Once a halserver process has acquired the component, an actor
+may interact with the halserver process to receive notification
 of input pin changes, and set output pin values.
 
 A remote component starts out in the unbound state, and enters the
@@ -134,10 +137,10 @@ have entered the 'COMP_UNBOUND' state, or have exited.
 === Startup and Shutdown
 
 Startup works as follows: halcmd loads components as usual, and starts
-the halserver process which serves remote thread functions by a 'loadusr'
+the halserver process which serves remote actors by a 'loadusr'
 statement. Next, halcmd waits for all required remote components by
 executing 'waitbound <compnames>'. This will pause the halcmd script
-until all remote thread functions have registered with the halserver
+until all actors have registered with the halserver
 process, and have defined remote components and their pins. After the
 'waitbound' command completes, the halcmd script continues and pins
 can be linked as usual.
@@ -146,8 +149,8 @@ Alternatively, remote components can be defined at the halcmd level by
 means of the 'newcomp', 'newpin' and 'ready' commands. To wait for a
 halserver process to acquire such components, execute 'waitacquired <compname>',
 
-If the halcmd script should terminate once the last remote thread
-function deregisters (for instance because the user interface was
+If the halcmd script should terminate once the last remote actor
+deregisters (for instance because the user interface was
 terminated), the 'waitunbound <compname>' will wait for this
 condition.
 
@@ -160,8 +163,8 @@ startup considerably and also gets rid of the 'POSTGUI_HALFILE'
 == HALrcomp protocol overview
 
 HALrcomp is the protocol used between a halserver process and the
-(possibly remote) process defining the remote thread
-function. HALrcomp also suppports the creation of remote components
+(possibly remote) process implementing the actor.
+HALrcomp also suppports the creation of remote components
 and their pins, therefore the usage of 'newcomp', 'newpin' and 'ready'
 to pre-define the remote component in halcmd is optional.
 
@@ -170,14 +173,14 @@ proper type and direction. If a mismatch occurs, an error message
 indicates the name of the offending HAL object.
 
 HALrcomp is stateless except for changing the 'bound' state
-of a component. This means that actually several remote thread
-functions may by associated with a remote component: all thread
-functions will receive pin change updates. If a thread function
+of a component. This means that actually several actors
+may by associated with a remote component: all actors
+ will receive pin change updates. If an actor
 changes a pin value, this change will eventually be reflected in all
 connected parties.
 
 HALrcomp is idempotent - stopping and restarting the process which
-implements a remote thread function will result in an identical pin
+implements a remote actor will result in an identical pin
 binding.
 
 HALrcomp has the following phases:
@@ -205,7 +208,7 @@ process by either declaring success, or indicating which names/types
 etc were in error. The nature of this initial interaction is
 request/reply (a remote procedure call or RPC).
 
-Next, the remote thread function subscribes to a zeroMQ status publish socket
+Next, the remote actor subscribes to a zeroMQ status publish socket
 defined by halserver. Halserver detects this subscription event and
 does the following:
 
@@ -255,7 +258,7 @@ ready   gladevcp
 net toggle gladevcp.hal_button1
 net range  gladevcp.hal_label1
 
-# 3. the rcomp is still lacking a remote thread function.
+# 3. the rcomp is still lacking a remote actor.
 # start the halserver process, which will acquire any dormant
 # remote components at this stage (in this case 'gladevcp')
 loadusr -W halserver
@@ -274,8 +277,8 @@ start
 
 === Remote Component defined via a remote UI process by HALrcomp
 
-The HALrcomp protocol links a remote thread (typically a UI thread
-function like gladevcp) to a HAL instance by interacting with a remote
+The HALrcomp protocol links a remote thread (typically a UI actor
+like gladevcp) to a HAL instance by interacting with a remote
 component.
 
 While in the above example the remote component was explicitly defined
@@ -648,8 +651,31 @@ Halserver MUST react to a subscribe event by sending a
 MT_HALRCOMP_STATUS full report, and track the number of subscribers
 for each component name.
 
+A subscribe event MUST transition the corresponding component to the
+'bound' state.
+
 ==== Unubscribe event
 
 Halserver MAY react to an unsubscribe event by stopping change
 detection for a particular component iff there is no current
 subscriber for this component.
+
+An unsubscribe event resulting in no remaining subscribers for this
+component MUST transition the  component to the
+'unbound' state.
+
+=== Security considerations
+
+The HALrcomp protocol currently does not take security aspects into
+account.
+
+HALrcomp may eventually use the authentication and encryption
+mechanisms which are currently being finalized by the zeroMQ project. This step might
+affect the connect/accept code of halserver and actors; it should not
+affect the protocol flows per se.
+
+=== Configuration
+
+This document currently does not specify how configuration values like
+zeroMQ URI's are assigned. Besides the traditional ini file method,
+the zeroMQ beacon protocol might be used for autodiscovery of parties.
