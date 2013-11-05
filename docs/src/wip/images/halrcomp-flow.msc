@@ -1,0 +1,31 @@
+# HALrcomp message flow
+msc {
+
+  arcgradient = 4;
+
+  a [label="Remote"],b [label="Halserver"], c [label="HAL"];
+
+  a=>b [ label = "bind(comp=foo, pins=bar..)" ] ;
+  b=>c [ label = "newcomp(foo)"];
+  b=>c [ label = "newpin(bar) *"];
+  b=>c [ label = "hal_ready(foo)"];
+  b=>a [ label = "confirm(foo,pins=..)"];
+
+  a=>b [ label = "subscribe(foo)" ] ;
+  b=>c [ label = "status(foo) := bound"];
+  b=>a [ label = "full pin status(foo)"];
+
+  b=>c [ label = "periodic change detect(foo)"];
+  c=>b [ label = "changed pin values(...)"];
+  b=>a [ label = "incremental pin status(...)"];
+
+  a=>b [ label = "setpin(foo := 4711)" ] ;
+  b=>c [ label = "hal_setpin(foo,4711)"];
+  b=>c [ label = "periodic change detect(foo)"];
+  c=>b [ label = "changed pin values(foo = 4711)"];
+  b=>a [ label = "incremental pin status(foo = 4711)"];
+
+  a=>b [ label = "unsubscribe(foo)" ] ;
+  b=>c [ label = "status(foo) := unbound"];
+
+}

@@ -1,0 +1,4 @@
+# install this: http://www.mcternan.me.uk/mscgen/
+
+mscgen -Tpng halrcomp-flow.msc
+mscgen -Teps halrcomp-flow.msc

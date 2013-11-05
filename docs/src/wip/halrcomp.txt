@@ -1,0 +1,655 @@
+= Remote HAL Components
+
+Michael Haberler, 11/2013
+
+Status: draft
+
+:ini: {basebackend@docbook:'':ini}
+:hal: {basebackend@docbook:'':hal}
+:ngc: {basebackend@docbook:'':ngc}
+:proto: {basebackend@docbook:'':proto}
+
+
+== Purpose
+
+Remove the HAL limitation which requires all thread functions to execute
+in the same address space.
+
+The net effects of introducing HAL remote components are:
+
+. remote HAL user interfaces become possible - the UI need not run on
+the same host as the realtime environment
+
+. beyond user interfaces, HAL remote components may be used to bridge
+LinuxCNC instances at the HAL level by mirroring pins between
+instances. A typical use case could be synchronisation of
+multi-spindle setups (one LinuxCNC instance per spindle) which now can
+be synced by observing HAL pins, for instance at the G-code level.
+
+== Concepts
+
+=== Remote Thread functions
+
+In the traditional HAL model, a thread function is a piece of code
+executing in the same address space as the HAL pins the component
+defines. Thread functions typically read component input pins, provide some
+processing function, and provide a result by setting output pins.
+
+Remote Thread Functions are technically equivalent to the above,
+however they are not required to reside in the same address space as
+the HAL pins of the component.
+
+With respect to timing remote thread functions are similar to userspace HAL
+component code since due to network delays they cannot provide
+realtime guarantuees.
+
+=== Remote components
+
+A Remote Component is a type of HAL components which enables remote
+interaction with HAL at the pin level. A typical scenario would be a
+user interface to HAL. In this model, a UI is a HAL component like any
+other and its pins represent UI objects like LED's, buttons, sliders
+etc.
+
+Since HAL is based on a shared memory model, so far UI code was
+assumed to run in the same address space as the realtime environment.
+
+The component model remains unchanged with respect to component name, pin
+names, type and direction.
+
+Creating the component and its pins is decoupled from the
+execution of thread function code. A remote component may be defined
+at the halcmd level, or by using the HAL API. At this point, it's pins
+may be linked to; however, the associated thread function is not
+required to be active at pin link time.
+
+A remote component is created by calling 'hal_init_mode(name,
+TYPE_REMOTE)'. The creation of pins is identical to traditional
+components. Calling 'hal_ready(compid)' will transition a remote
+component to the state 'COMP_UNBOUND', whereas a local component will
+enter the state 'COMP_READY'.
+
+=== The  halserver process
+
+To be useful, a remote component requires a halserver process which
+executes on the same host as the realtime environment, and
+serves requests on behalf of one or several remote thread functions.
+
+The halserver process interacts with the remote thread function by means
+of the HALrcomp protocol. It is a regular user process, tied into HAL
+through the rcomp HAL API, and talks to other parties via the HALrcomp
+protocol which is realized in zeroMQ/protobuf.
+
+A halserver process interacts with the remote HAL component by acquiring a
+dormant component by calling 'hal_acquire()' API method, and disowns
+the component by calling 'hal_release()'. A non-zero process id in a
+remote component descriptor indicates a halserver process has acquireed the
+component.
+
+Only a component of 'TYPE_REMOTE' can be acquired and released.
+
+A single halserver process may serve any number of remote components, and
+may interact with any number of remote threads. Note that the halserver
+code will be completely generic as it does not have any
+compiled-in knowledge of HAL objecst; it will determine what to do by
+use of the extended HAL API.
+
+A remote component may be associated with several remote thread
+functions at the same time. This supports the simultaneaous
+interaction with several UI's, and may have limited applicability
+outside the UI use case.
+
+The overall interaction of HAL, the halserver process and remote
+threads like UI's looks like this:
+
+image::images/halrcomps.png[align="center"]
+
+=== Bound and unbound state
+
+Once a halserver process has acquired the component, a remote thread
+function may interact with the halserver process to receive notification
+of input pin changes, and set output pin values.
+
+A remote component starts out in the unbound state, and enters the
+bound state once a remote thread registers to receive pin change
+notifications (states COMP_UNBOUND, COMP_BOUND).
+
+=== Halcmd support for startup and shutdown
+
+halcmd supports the following new commands:
+
+. waitacquired <list of component names>
+. waitbound <list of component names>
+. waitunbound <list of component names>
+
+'waitacquired' pauses halcmd execution until the named components
+have been acquired by a halserver process by 'hal_acquire()'.
+
+'waitbound' pauses halcmd execution until the associated components
+exist and have entered the 'COMP_BOUND' state. 'bound' implies 'acquired'.
+
+'waitunbound' pauses halcmd execution until the associated components
+have entered the 'COMP_UNBOUND' state, or have exited.
+
+=== Startup and Shutdown
+
+Startup works as follows: halcmd loads components as usual, and starts
+the halserver process which serves remote thread functions by a 'loadusr'
+statement. Next, halcmd waits for all required remote components by
+executing 'waitbound <compnames>'. This will pause the halcmd script
+until all remote thread functions have registered with the halserver
+process, and have defined remote components and their pins. After the
+'waitbound' command completes, the halcmd script continues and pins
+can be linked as usual.
+
+Alternatively, remote components can be defined at the halcmd level by
+means of the 'newcomp', 'newpin' and 'ready' commands. To wait for a
+halserver process to acquire such components, execute 'waitacquired <compname>',
+
+If the halcmd script should terminate once the last remote thread
+function deregisters (for instance because the user interface was
+terminated), the 'waitunbound <compname>' will wait for this
+condition.
+
+Thanks to zeroMQ semantics, the startup order of a remote UI and the
+HAL realtime instance does not matter; a client will wait until the
+matching server appears and can be connected to. This simplifies
+startup considerably and also gets rid of the 'POSTGUI_HALFILE'
+'feature' which was an unelegant workaround for startup sequencing issues.
+
+== HALrcomp protocol overview
+
+HALrcomp is the protocol used between a halserver process and the
+(possibly remote) process defining the remote thread
+function. HALrcomp also suppports the creation of remote components
+and their pins, therefore the usage of 'newcomp', 'newpin' and 'ready'
+to pre-define the remote component in halcmd is optional.
+
+Once started, HALrcomp will verify all required pins exist and are of
+proper type and direction. If a mismatch occurs, an error message
+indicates the name of the offending HAL object.
+
+HALrcomp is stateless except for changing the 'bound' state
+of a component. This means that actually several remote thread
+functions may by associated with a remote component: all thread
+functions will receive pin change updates. If a thread function
+changes a pin value, this change will eventually be reflected in all
+connected parties.
+
+HALrcomp is idempotent - stopping and restarting the process which
+implements a remote thread function will result in an identical pin
+binding.
+
+HALrcomp has the following phases:
+
+. the startup phase
+. the interaction phase
+. shutdown.
+
+The following sequence diagram shows the three phases and associated
+message flows:
+
+image::images/halrcomp-flow.png[align="center"]
+
+During startup, a remote entity (for instance, a UI) connects to the
+halserver  process and request creation of a remote component as
+well as its pins, including type and direction.
+
+If the remote component already exists, the pins, types and direction
+are validated for a match, and missing or mis-typed pins are flagged
+by an error message. If the remote component does not yet exist, the
+component and its pins are created as specified in the inital request.
+
+This phase concludes with a reply by halserver to the requesting
+process by either declaring success, or indicating which names/types
+etc were in error. The nature of this initial interaction is
+request/reply (a remote procedure call or RPC).
+
+Next, the remote thread function subscribes to a zeroMQ status publish socket
+defined by halserver. Halserver detects this subscription event and
+does the following:
+
+. the component state is changed to 'bound'
+. a full status report including all HAL pin values is published on
+the status socket, causing all connected remotes to receive and
+reflect the initial HAL pin values.
+. periodic pin change detection commences: halserver starts scanning
+for changes in the input HAL pins periodically and sends incremental status updates
+on the publish socket. From now on, the remote(s) track all pin
+changes, and for instance may reflect changes in widget display as needed.
+
+Any other request by a remote connecting to halserver and requesting the same HAL
+remote component will just result in a validation of the names, types
+and directions. The status subscription again will result in a full
+component pin status being published.
+
+Halserver tracks the count of status subscriptions; a remote exiting
+(e.g. UI shutdown) will cause a unsubscribe event, and halserver
+decrements the subscriber count for the affected component. Once the
+subscriber count reaches zero, the component transitions to 'unbound'
+state; see also the related 'waitunbound' keyword in halcmd which may
+optionally be used to shut down the realtime stack once the last UI is gone.
+
+If a remote UI changes a pin, say by UI interaction (clicking a
+button, changing a value in a input field etc), the corresponding
+change event in the UI is used to send a 'set_pin' message to
+halserver, requesting to reflect the change in the underlying HAL
+pin(s). This pattern is a unidirectional message; the change in the
+HAL pin value will cause the next update to reflect the new value.
+
+
+== Example: Defining a remote component in halcmd
+
+[source,{hal}]
+---------------------------------------------------------------------
+...
+# 1. declare a remote component
+newcomp gladevcp
+newpin  gladevcp gladevcp.hal_button1 bit in eps=0.01 flags=4
+newpin  gladevcp gladevcp.hal_label1  float out
+ready   gladevcp
+
+# 2. at this stage, the component and its pins exist
+# and could be linked to signals; the gladvcp component is 'dormant'
+# and 'unbound':
+net toggle gladevcp.hal_button1
+net range  gladevcp.hal_label1
+
+# 3. the rcomp is still lacking a remote thread function.
+# start the halserver process, which will acquire any dormant
+# remote components at this stage (in this case 'gladevcp')
+loadusr -W halserver
+
+# at this stage the gladevcp component will have the acquisition state 'aquired by
+# the halserver process'. The UI is assumed to eventually start up and
+# connect to halsever, after which the bind state of the component(s)
+# served changes to 'bound'
+
+# 4. now wait until the UI is connected to halserver
+waitbound gladevcp
+
+# commence realtime execution
+start
+---------------------------------------------------------------------
+
+=== Remote Component defined via a remote UI process by HALrcomp
+
+The HALrcomp protocol links a remote thread (typically a UI thread
+function like gladevcp) to a HAL instance by interacting with a remote
+component.
+
+While in the above example the remote component was explicitly defined
+by 'newcomp', 'newpin' and 'ready' commands, this is not required
+because the component may just as well be defined by the remote
+process bind phase. To do so, the bind message contains the component
+attributes (name, pin names etc); halserver will create the remote
+component if it does not yet exist. If the remote component already
+exists, the component attributes in the bind message are validated
+against that existing component, and an error message is generated on
+missing or mismatched attributes.
+
+This feature enables the implicit construction of a remote component
+through startup of a UI which contains HAL widgets similar to
+gladevcp: the HAL widget attributes are collected to construct the
+bind message.
+
+
+=== Impact on UI design and widget behavior
+
+In previous versions of LinuxCNC, several UI's could connect to a
+running instance and issue commands (run, auto, MDI etc), and the
+resulting state would be reflected in all UI's by means of polling the
+emcstatus structure.
+
+This was different for HAL UI components, like gladevcp or pyvcp -
+only a single instance of such a UI can exist since the UI is a HAL
+component, which only may be defined once - starting the second UI
+which tries to create an identically named HAL component would fail.
+
+This changes through the introduction of HAL remote components: the
+component and its pins are defined once only (by the first creator,
+which might be halcmd or halserver acting on behalf of a remote
+UI). Thereafter several UI's may connect to HAL and observe as
+well as change HAL pins in such a component.
+
+This has no impact on output pins (like say a LED component) - whoever
+changes the underlying HAL pin, all connected parties will eventually
+receive the value update for that pin, and the visual indication will
+be identical in all UI's.
+
+However, with input pins (for example a spinbutton to set a float or
+integer HAL pin value), the following situation arises:
+
+. Assume the spinbutton is changed in UI #1. The widget behavior is
+such that the new value (e.g. by typing, or klicking up/down icons) is
+reflected in the visual appearance of the widget, so UI #1 is fine.
+
+. The HAL pin value is updated and the new value broadcast to all UI's
+connected to the remote component.
+
+. Assume UI #2 has an identical spinbutton to set and display this
+value. To remain consistent, the widgets should display identical
+values. However, as things stand, such output widgets are programmed
+to react to UI actions only. Therefore, unless mitigated, UI#2 will
+show a different value in the spinbutton than UI #1, which is
+undesirable.
+
+=== Required Change to UI widgets
+
+Fortunately, the solution is relatively simple; it affects all
+output widgets as follows:
+
+An output widget must not only react to UI activity, it must also
+react to HALrcomp value update messages sent by the halserver process.
+
+This change is only necessary if several remote HAL UI's are to be run in
+parallel. Since this is currently impossible, and likely not to be a
+common scenario at least initially, this change can be rolled out
+incrementally as needed.
+
+It might make sense to enable this behavior by configuration values
+after some experience has been gathered; conceptually  each output
+widget now has two updaters - the local UI callback, and the status
+update from Halserver. In principle, either one, or both could be used
+to cause a widget update. The local case will be faster in UI
+response, but not reflect say a HAL instance which has gone away; only
+using remote status updates will always track the true HAL pin value
+but likely be a bit slower than the local case. Using only remote or both update
+sources will enable correct behavior if several UI's are used in parallel.
+
+
+== Mirror components
+
+The primary purpose of remote components is to associate HAL-based
+UI's with a remote realtime instance. However, this does not preclude
+other uses.
+
+Assume for instance you would like to link HAL instances by mirroring
+component pins in another remote instance. An input pin in instance #1
+would become an output pin in instance #2 and vice versa.
+
+This could be achieved as follows:
+
+. Instance #1 define a remote component as outline in the above
+example using 'newcomp', 'newpin' and 'ready' commands.
+
+. Instance #1 now starts a HAL user component similar to the
+halserver process, behaving similar like a UI: it would acquire the remote
+component, read it's pin names, types, and direction, and connect to a
+remote halserver in Instance #2, creating a component with the same
+name and type but the pins having reversed directions. Once the
+initial protocol exchange is completed, Instance #1 changes its remote
+component state to 'bound' so a 'waitbound <compname>' continues
+halcmd execution.
+
+. Instance #2 would startup just as outlined above: start the
+halserver  process, and wait for the desired component to be
+bound by executing 'waitbound <compname>'.
+
+. At this point updates flow in both directions to mirror pin states.
+
+This feature can be implemented by a simple HAL user component which
+mimicks UI behavior as above. No other extensions to HAL or the
+HALrcomp protocol are needed.
+
+== Protocol Specification
+
+=== Language
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in RFC 2119.
+
+Field names are written in *bold*. Message types are written in _italic_.
+Message types are named after the symbolic value of the Container.type
+field.
+
+=== Rationale
+
+The protocol is intended to be stateless and idempotent, as well as
+support several actors for each active component.
+
+The separation of status reports into a full initial report including
+pin names, types, handles and values, and incremental updates
+consisting only of handle/value pairs is intended to minimize the
+per-update overhead both from a message overhead as well as processing
+needs perspective.
+
+=== zeroMQ socket usage
+
+The interaction is assumed to use zeroMQ as messaging stack. The
+socket types and options are:
+
+. the halserver command submission socket is of type ROUTER.
+. the halserver status update socket is of type XPUB, with the socket
+option 'verbose' set so client subscribe/unsubscribe causes a message
+reception event in halserver.
+. status updates are sent with a topic name equal to the remote
+component name.
+. the remote command submission socket is of type DEALER.
+. the remote command socket is assumed to have a unique identity set,
+for instance 'gladvcp%d % (os.getpid())'.
+. the remote status subscriber socket is of type XSUB.
+. the remote is expected to subscribe to all remote component names it
+is interested in receiving updates for.
+
+=== Protobuf Messages
+
+The HALrcomp protocol will use Google protobuf as message encoding
+method. The full protobuf formats can be be found under
+`src/protobuf/proto`. The type tag values listed therein take
+precedence over values used here.
+
+=== Messages types
+
+The message type tags of the messages used in the HALrcomp protocol are:
+....
+    MT_HALRCOMP_BIND
+    MT_HALRCOMP_BIND_CONFIRM
+    MT_HALRCOMP_BIND_REJECT
+    MT_HALRCOMP_SET_PINS
+    MT_HALRCOMP_SET_PINS_REJECT
+    MT_HALRCOMP_STATUS
+    MT_HALRCOMP_PIN_CHANGE
+    MT_HALRCOMP_PIN_CHANGE_REJECT
+    MT_PING
+    MT_PING_ACKNOWLEDGE
+....
+=== Message formats
+
+The messages below list the only those
+fields which are interpreted by the HALrcomp protocol. For field
+interpretation see the per-message descriptions.
+
+[source,{proto}]
+---------------------------------------------------------------------
+message Component {
+    optional string      name          = 20;
+    optional fixed32     type          = 40;
+    optional fixed32     state         = 50;
+}
+
+message Pin {
+    optional ValueType   type       = 10;
+    optional string      name       = 20;
+    optional fixed32     handle     = 25;
+    optional HalPinDirection dir    = 30;
+
+    // One of the following must be filled in, depending on type.
+    optional bool          halbit   = 100;
+    optional double        halfloat = 101;
+    optional sfixed32      hals32   = 102;
+    optional fixed32       halu32   = 103;
+
+    optional double      epsilon    = 80;
+    optional fixed32      flags     = 90;
+}
+
+message Container {
+    required ContainerType type = 1;
+    optional Component     comp = 93;
+    repeated Pin            pin = 95;
+    optional string        note = 68;
+}
+---------------------------------------------------------------------
+
+==== Container type MT_HALRCOMP_BIND:
+
+===== Fields
+* This message MUST carry a _Component_ submessage.
+* The _Component_ submessage MUST carry the *name* field.
+* This message MAY carry repeated _Pin_ messages.
+* Any _Pin_ message present MUST carry the *name*, *type* and *dir* fields.
+
+===== Interpretation
+If no _Pin_ messages are present, then this message refers to an
+existing component as named in _Component_. If the component does not
+exist, an error message is returned (MT_HALRCOMP_BIND_REJECT). If the
+component does exist and is of type 'remote', a MT_HALRCOMP_BIND_CONFIRM
+message is returned.
+
+If _Pin_ submessages are present, the behaviour is as follows:
+
+If the component exists, the pin descriptors are validated against the
+component's pins. If a name, type or direction mismatch occurs, a
+MT_HALRCOMP_BIND_REJECT message is returned, including a display string using
+the *note* field describing the nature of the error. Validation MUST
+happen such that all pins present in the message exist, and an
+existing component has no pins which are not specified in this message.
+
+If the component does not exist, halserver will create a remote
+component as per name and pin descriptions. On success, a
+MT_HALRCOMP_BIND_CONFIRM message is generated. On failure, a MT_HALRCOMP_BIND_REJECT
+message is returned as above.
+
+==== Container type MT_HALRCOMP_BIND_CONFIRM
+
+===== Fields
+* This message MUST carry a _Component_ submessage.
+* The _Component_ submessage MUST carry the *name* field.
+* This message MUST carry a _Pin_ message for each of pin.
+* Each _Pin_ message MUST carry the *name*, *type* and *dir* fields.
+
+===== Interpretation
+The MT_HALRCOMP_BIND_CONFIRM message asserts that the component now exists and
+is of the proper type. The _Component_ and _Pin_ messages describe the
+actual component layout, and may be interpreted by the actor, for
+instance to dynamically create user interface widgest matching the
+type/direction semantics of the pin.
+
+==== Container type MT_HALRCOMP_BIND_REJECT
+
+This message reports a mismatch in the MT_HALRCOMP_BIND request (for
+example, the named component already exists and is of the wrong type;
+or a pin name/type/direction mismatch occurred. A *note* displayable
+string field MAY be present and used for an error report.
+
+==== Container type MT_PING
+
+An actor MAY periodically send a MT_PING _Container_ to
+halserver. Halserver is expected to reply with a MT_PING_ACK
+_Container in turn. A reply timeout is to be interpreted as a loss of
+association between actor and halserver.
+
+==== Container type  MT_HALRCOMP_STATUS
+
+===== Fields
+* This message MUST carry a _Pin_ message for each of pin of the component.
+* Each _Pin_ message MUST carry the *name* and *handle* fields.
+* Each _Pin_ message MUST - depending on pin type - carry a *halbit*,
+*halfloat*, *hals32*, or *halu32* field.
+
+===== Interpretation
+The MT_HALRCOMP_STATUS message is sent on initial subscription (see
+below) and carries the current values of all pins including name,
+value and handle. A handle is a unique integer ID for a pin which is
+referred to later in  MT_HALRCOMP_PIN_CHANGE messages, and might be
+derived from the pin's memory address.
+
+An actor is expected to record the name/type/handle descriptor such
+that it can be quickly looked up by handle lateron, and also to record
+the initial pin value.
+
+An actor may force halserver to re-send an MT_HALRCOMP_STATUS message
+by unsubscribing, and re-subscribing to the halserver's status socket.
+
+==== Container type  MT_HALRCOMP_PIN_CHANGE
+
+===== Fields
+* This message MUST carry a _Pin_ message for each pin which has
+changed value since the last message of this type.
+* Each _Pin_ message MUST carry the *handle* field.
+* Each _Pin_ message MUST - depending on pin type - carry a *halbit*,
+*halfloat*, *hals32*, or *halu32* field.
+
+===== Interpretation
+The MT_HALRCOMP_PIN_CHANGE message is an incremental value update
+since the last report sent.
+
+An actor is expected to look up the local pin descriptor keyed by the
+*handle* field and update its local value accordingly.
+
+==== Container type  MT_HALRCOMP_SET_PINS
+
+===== Fields
+* This message MUST carry a _Pin_ message for each pin which has
+changed value since the last message of this type.
+* Each _Pin_ message MUST carry the *handle* field.
+* Each _Pin_ message MAY carry the *name* field.
+* Each _Pin_ message MUST - depending on pin type - carry a *halbit*,
+*halfloat*, *hals32*, or *halu32* field.
+
+===== Interpretation
+The MT_HALRCOMP_SET_PINS message causes halserver to update the value
+of the output pins as listed in the _Pin_ messages. No reply is
+generated except on error (see next message).
+
+
+==== Container type  MT_HALRCOMP_SET_PINS_REJECT
+
+===== Fields
+* This message MAY carry a _Pin_ message for each pin which halserver failed to
+set the underlying pin.
+* Each _Pin_ message MAY carry the *name* field.
+* Each _Pin_ message MAY carry the *handle* field.
+* Each _Pin_ message MAY - depending on pin type - carry a *halbit*,
+*halfloat*, *hals32*, or *halu32* field.
+* A *note* display string MUST be present.
+
+===== Interpretation
+The MT_HALRCOMP_SET_PINS_REJECT message is sent by halserver to notify
+an actor of failure to set a pin as described in a previous
+MT_HALRCOMP_SET_PINS message. The *note* field shall describe the
+nature of the error.
+
+
+=== Behavior
+
+==== Bind/Subscribe sequence
+
+. An actor is expected to connect to the halserver's command socket and
+request a bind operation with an MT_HALRCOMP_BIND message.
+. halserver is expected to reply with a MT_HALRCOMP_BIND_CONFIRM or
+MT_HALRCOMP_BIND_REJECT message.
+. on a MT_HALRCOMP_BIND_CONFIRM message, the actor is expected to
+subscribe to the halserver's status socket using the component name(s)
+it is interested in as subscribe topic(s).
+. the resulting MT_HALRCOMP_STATUS message published on the status
+socket shall be used by the actor to record an initial status snapshot
+of the component.
+
+An actor may send repeated MT_HALRCOMP_BIND message until a reply is
+received. A timeout mechanism may be used to generate an error message
+if no answer is received for this message.
+
+==== Subscribe event
+
+Halserver MUST react to a subscribe event by sending a
+MT_HALRCOMP_STATUS full report, and track the number of subscribers
+for each component name.
+
+==== Unubscribe event
+
+Halserver MAY react to an unsubscribe event by stopping change
+detection for a particular component iff there is no current
+subscriber for this component.
