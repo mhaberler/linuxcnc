@@ -121,7 +121,8 @@ DOC_SRCS_EN := \
 	Master_User.txt \
 	Master_HAL.txt \
 	Master_Integrator.txt \
-	Master_Developer.txt
+	Master_Developer.txt \
+	wip/halrcomp.txt
 
 DOC_SRCS_FR := \
 	common/Getting_linuxcnc_fr.txt \
