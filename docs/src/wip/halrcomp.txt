@@ -470,6 +470,8 @@ message Component {
     optional string      name          = 20;
     optional fixed32     type          = 40;
     optional fixed32     state         = 50;
+    optional sfixed32    scancycle     = 110;
+    optional sfixed32    flags         = 120;
 }
 
 message Pin {
@@ -486,6 +488,7 @@ message Pin {
 
     optional double      epsilon    = 80;
     optional fixed32      flags     = 90;
+    optional bool         linked    = 50;
 }
 
 message Container {
@@ -530,8 +533,10 @@ message is returned as above.
 ===== Fields
 * This message MUST carry a _Component_ submessage.
 * The _Component_ submessage MUST carry the *name* field.
+* The _Component_ submessage MAY carry the *scantimer* and *flags* field.
 * This message MUST carry a _Pin_ message for each of pin.
 * Each _Pin_ message MUST carry the *name*, *type* and *dir* fields.
+* A _Pin_ message MAY carry the *epsilon* and  *flags* fields.
 
 ===== Interpretation
 The MT_HALRCOMP_BIND_CONFIRM message asserts that the component now exists and
@@ -539,6 +544,18 @@ is of the proper type. The _Component_ and _Pin_ messages describe the
 actual component layout, and may be interpreted by the actor, for
 instance to dynamically create user interface widgest matching the
 type/direction semantics of the pin.
+
+The _Component_ *scantimer* field is to be interpreted as cycle
+duration for change detection. The  _Component_ *flags* field may be
+used to driver halserver behavior at the group level, and is not
+interpreted by the protocol.
+
+The *epsilon* field has significance for float pins only; it denotes
+the difference relative to the last scan which must be be exceeded to
+report a float pin as 'changed'.
+
+The _Pin_ *flags* field is an uninterpreted per-pin field which may be used
+by an actor to drive the halserver behavior on a per-pin level.
 
 ==== Container type MT_HALRCOMP_BIND_REJECT
 
@@ -561,6 +578,7 @@ association between actor and halserver.
 * Each _Pin_ message MUST carry the *name* and *handle* fields.
 * Each _Pin_ message MUST - depending on pin type - carry a *halbit*,
 *halfloat*, *hals32*, or *halu32* field.
+* A _Pin_ message SHOULD carry the *linked* field.
 
 ===== Interpretation
 The MT_HALRCOMP_STATUS message is sent on initial subscription (see
@@ -576,6 +594,10 @@ the initial pin value.
 An actor may force halserver to re-send an MT_HALRCOMP_STATUS message
 by unsubscribing, and re-subscribing to the halserver's status socket.
 
+The *linked* field reports whether a pin is linked to a signal. This
+information may be used by a user interface to mark unlinked pins, for
+instance by 'greying out' unconnected pins.
+
 ==== Container type  MT_HALRCOMP_PIN_CHANGE
 
 ===== Fields
@@ -584,6 +606,7 @@ changed value since the last message of this type.
 * Each _Pin_ message MUST carry the *handle* field.
 * Each _Pin_ message MUST - depending on pin type - carry a *halbit*,
 *halfloat*, *hals32*, or *halu32* field.
+* A _Pin_ message SHOULD carry the *linked* field.
 
 ===== Interpretation
 The MT_HALRCOMP_PIN_CHANGE message is an incremental value update
