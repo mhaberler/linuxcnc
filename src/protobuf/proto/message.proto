@@ -82,6 +82,13 @@ message Container {
     // simplified argument list for haltalker updates
     repeated Signal               signal = 92;  //  [(nanopb).max_count = 20];
 
+    // remote comp description for MT_HALCOMP_CREATE: [comp, pins*]
+    optional Component              comp = 93;
+
+    // simplified argument list for HAL UI remote comps
+    // used in MT_HALCOMP_CREATE, MT_HALCOMP_SET_PINS, MT_HALCOMP_PIN_CHANGE
+    repeated Pin                  pin = 95;
+
     // miscellanous
     optional string        ascii          = 100;
     optional bytes         unicode        = 101;

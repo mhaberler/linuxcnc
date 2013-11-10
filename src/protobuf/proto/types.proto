@@ -181,25 +181,21 @@ enum ContainerType {
     MT_SVG            = 112;
 
 
-    MT_PING            = 210;
-    MT_ACKNOWLEDGE     = 215;
+    MT_PING            = 210;  // keepalive test
+    MT_PING_ACKNOWLEDGE = 215;
     MT_REJECT          = 220;
     MT_DONE            = 240;
 
-    // REPORT         = 3010;
-    MT_SET_HAL_SIGNAL  = 270;
-    MT_LINK_PINS       = 280;
 
-    // HAL Bind messages
-    MT_BIND_REQUEST    = 300;
-    MT_UNBIND_REQUEST  = 310;
+    // remote HAL UI interaction
+    MT_HALRCOMP_BIND  = 260;
+    MT_HALRCOMP_BIND_CONFIRM  = 265;
+    MT_HALRCOMP_BIND_REJECT  = 266;
 
-    // generic multiple value update
-    MT_UPDATE          = 320;
-
-    // Response message types
-    MT_UNBIND_CONFIRM  = 350;
-    MT_BIND_CONFIRM    = 360;
+    MT_HALRCOMP_SET_PINS = 280;
+    MT_HALRCOMP_SET_PINS_REJECT = 281;
+    MT_HALRCOMP_STATUS = 282;
+    MT_HALRCOMP_PIN_CHANGE = 285;
 
     // task/client comms
     MT_TASK_REPLY     = 400;
