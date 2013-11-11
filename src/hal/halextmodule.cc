@@ -203,6 +203,7 @@ public:
     bp::list changed_pins();
     const char *get_name();
     int  get_id();
+    int  get_type();
     int get_state();
     int get_pid();
     int get_last_bound();
@@ -259,6 +260,10 @@ public:
     int get_dir()          { return pin->dir; }
     int  get_flags()       { return pin->flags; }
     double get_epsilon()   { return pin->epsilon; }
+    // just use the offset of the pin data struct
+    // the handle just needs to be unique
+    int get_handle()       { return SHMOFF(pin); }
+    int get_linkstatus()   { return (pin->signal != 0); }
 
     bp::object get_value() {
 	hal_data_u *dp;
@@ -561,6 +566,10 @@ void HalComponent::exit() {
 
 int HalComponent::get_id() {
     return comp->comp_id;
+}
+
+int HalComponent::get_type() {
+    return comp->type;
 }
 
 void HalComponent::bind() {
@@ -1128,6 +1137,7 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("pid", &HalComponent::get_pid)
 	.add_property("name", &HalComponent::get_name)
 	.add_property("id", &HalComponent::get_id)
+	.add_property("type", &HalComponent::get_type)
 	.def("bind", &HalComponent::bind)
 	.def("unbind", &HalComponent::unbind)
 	.def("acquire", &HalComponent::acquire)
@@ -1165,6 +1175,8 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("dir", &HalPin::get_dir)
 	.add_property("flags", &HalPin::get_flags)
 	.add_property("epsilon", &HalPin::get_epsilon)
+	.add_property("handle", &HalPin::get_handle)
+	.add_property("linked", &HalPin::get_linkstatus)
 	;
 
     class_<HalParam>("HalParam",no_init)
