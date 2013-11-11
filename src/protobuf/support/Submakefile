@@ -10,7 +10,8 @@ ENCDEC_SRCS :=  $(addprefix $(PBEX)/, \
 ENCDEC_CXX_CFLAGS = -g `pkg-config --cflags protobuf`  -DPB_FIELD_32BIT
 #ENCDEC_CXX_CFLAGS = -g `pkg-config --cflags protobuf` -I../../ -DPB_FIELD_32BIT
 ENCDEC_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf` \
-	 -ljansson
+	 -ljansson -lstdc++
+
 
 PBJSONLIB = ../lib/libjson2pb.so
 PB2CXX_PROTOLIB = ../lib/liblinuxcnc-pb2++.so
@@ -127,7 +128,8 @@ LINMOVE_SRCS :=  $(addprefix $(PBEX)/, \
 LINMOVE_CXX_CFLAGS = -g `pkg-config --cflags protobuf`  -DPB_FIELD_32BIT
 LINMOVE_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf` \
 	../lib/libjson2pb.so -ljansson \
-	 ../lib/liblinuxcnc-pb2++.so
+	 ../lib/liblinuxcnc-pb2++.so \
+	-lstdc++
 
 $(call TOOBJSDEPS, $(LINMOVE_SRCS)) : EXTRAFLAGS += $(LINMOVE_CXX_CFLAGS)
 

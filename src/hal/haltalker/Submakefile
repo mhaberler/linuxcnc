@@ -8,6 +8,7 @@ TALKER_SRCS :=  $(addprefix hal/haltalker/, \
 TALKER_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
 	$(PROFILE)  -DULAPI
 TALKER_LDFLAGS := $(shell pkg-config libczmq  protobuf --libs) \
+	-lstdc++ \
 	$(PROFILE)
 
 $(call TOOBJSDEPS, $(TALKER_SRCS)) : EXTRAFLAGS += $(TALKER_CXXFLAGS)
@@ -29,6 +30,7 @@ TRACKER_SRCS :=  $(addprefix hal/haltalker/, \
 TRACKER_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
 	$(PROFILE)
 TRACKER_LDFLAGS := $(shell pkg-config libczmq  protobuf --libs) \
+	-lstdc++ \
 	$(PROFILE)
 
 $(call TOOBJSDEPS, $(TRACKER_SRCS)) : EXTRAFLAGS += $(TRACKER_CXXFLAGS)

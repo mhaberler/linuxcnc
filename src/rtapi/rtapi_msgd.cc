@@ -1102,7 +1102,7 @@ callback_wslog(struct libwebsocket_context *context,
     case LWS_CALLBACK_RECEIVE:
 	syslog(LOG_DEBUG, "writing to a log socket has no effect: '%.*s'",
 	       len, (char *)in);
-	// TODO: read & parse a Container
+	// TODO: read & parse JSON into a pb::Container
 	// container is either a subscribe message or some other command
 	// like set log level
 	// WS side just sends container-as-json
