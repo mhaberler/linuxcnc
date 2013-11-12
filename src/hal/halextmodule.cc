@@ -558,7 +558,7 @@ void HalComponent::exit() {
     int result = hal_exit(comp->comp_id);
     if (result < 0) {
 	PyErr_Format(PyExc_RuntimeError,
-		     "hal_ready(%d) failed: %s",
+		     "hal_exit(%d) failed: %s",
 		     comp->comp_id, strerror(-result));
 	throw boost::python::error_already_set();
     }
@@ -606,7 +606,7 @@ void HalComponent::release() {
     int result = hal_release(comp->name);
     if (result < 0) {
 	PyErr_Format(PyExc_RuntimeError,
-		     "hal_acquire(%s) failed: %s",
+		     "hal_release(%s) failed: %s",
 		     comp->name, strerror(-result));
 	throw boost::python::error_already_set();
     }
