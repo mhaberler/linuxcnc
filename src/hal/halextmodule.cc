@@ -586,7 +586,7 @@ void HalComponent::unbind() {
     int result = hal_unbind(comp->name);
     if (result < 0) {
 	PyErr_Format(PyExc_RuntimeError,
-		     "hal_bind(%s) failed: %s",
+		     "hal_unbind(%s) failed: %s",
 		     comp->name, strerror(-result));
 	throw boost::python::error_already_set();
     }
@@ -969,7 +969,7 @@ static bp::dict signals(void)
     return result;
 }
 
-static list ring_names (void)
+static bp::list ring_names (void)
 {
     bp::list result;
     hal_ring_t *ring __attribute__((cleanup(halpr_autorelease_mutex)));
