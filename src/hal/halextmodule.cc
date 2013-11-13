@@ -250,7 +250,7 @@ public:
 
 class HalPin {
 private:
-    hal_comp_t *owner;
+    //hal_comp_t *owner;
     hal_pin_t *pin;
 public:
     HalPin(hal_pin_t *p) : pin(p) {}
@@ -264,6 +264,10 @@ public:
     // the handle just needs to be unique
     int get_handle()       { return SHMOFF(pin); }
     int get_linkstatus()   { return (pin->signal != 0); }
+    const char *get_owner() {
+	hal_comp_t *comp = (hal_comp_t *)SHMPTR(pin->owner_ptr);
+	return comp->name;
+    }
 
     bp::object get_value() {
 	hal_data_u *dp;
@@ -1177,6 +1181,7 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("epsilon", &HalPin::get_epsilon)
 	.add_property("handle", &HalPin::get_handle)
 	.add_property("linked", &HalPin::get_linkstatus)
+	.add_property("owner", &HalPin::get_owner)
 	;
 
     class_<HalParam>("HalParam",no_init)
