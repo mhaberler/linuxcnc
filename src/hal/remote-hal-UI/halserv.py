@@ -2,6 +2,8 @@ from halext import *
 import zmq
 import time
 import os
+import sys
+
 from message_pb2 import Container
 from types_pb2 import *
 
@@ -251,9 +253,13 @@ class HalServer:
                     tag = ord(notify[0])
                     topic = notify[1:]
                     if tag == 0:
-                        # an unsubscribe is sent only on last subscriber
-                        # going away
-                        self.rcomp[topic].unbind()
+                       # an unsubscribe is sent only on last subscriber
+                       # going away
+                       try:
+                          self.rcomp[topic].unbind()
+                       except Exception:
+                          sys.exc_clear()
+
                     elif tag == 1:
                         if not topic in self.rcomp.keys():
                             print "error: comp %s doesnt exist " % topic
