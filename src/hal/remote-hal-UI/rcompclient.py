@@ -87,12 +87,13 @@ class RcompClient:
         if r.type == MT_PING_ACKNOWLEDGE:
             pass
         if r.type == MT_HALRCOMP_BIND_CONFIRM:
-            self.update.send("\001" +  self.compname)
+            #self.update.setsockopt(zmq.SUBSCRIBE, self.compname)
+            self.update.send("\001" + self.compname)
         if r.type == MT_HALRCOMP_BIND_REJECT:
             pass
 
 
-    def __init__(self,cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=2000):
+    def __init__(self,cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=2000,useping=True):
 
         self.ctx = zmq.Context()
         self.client_id = "rcomp-client%d" % os.getpid()
@@ -108,14 +109,19 @@ class RcompClient:
         self.poller.register(self.cmd, zmq.POLLIN)
         self.poller.register(self.update, zmq.POLLIN)
 
+        self.pinsbyhandle = {}
+        self.pinsbyname = {}
+
+        # fake remote UI widgets
         pinlist = [('button', HAL_BIT, HAL_OUT),
                    ('spinbutton', HAL_FLOAT, HAL_OUT),
                    ('led',    HAL_BIT, HAL_IN),
                    ('speed',  HAL_FLOAT, HAL_IN)]
         self.compname = "demo"
-        self.pinsbyhandle = {}
-        self.pinsbyname = {}
         self.bind(self.compname,pinlist)
+        self.value = 3.14
+
+
 
         done = False
         while not done:
@@ -133,7 +139,9 @@ class RcompClient:
             if not sockets:
                 print "timer event"
                 # fake a pin change
-                self.pin_change("demo.spinbutton", 3.14)
+                self.pin_change("demo.spinbutton", self.value)
+                self.value += 2.718
+
 
 
     def pin_change(self, name, value):
