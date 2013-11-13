@@ -42,7 +42,6 @@ import gtk.glade
 import gobject
 import signal
 
-import gladevcp.makepins
 from gladevcp.gladebuilder import GladeBuilder
 from gladevcp import xembed
 
@@ -65,13 +64,17 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
                   , help="Reparent gladevcp into an existing window XID instead of creating a new top level window")
           , Option( '-u', dest='usermod', action='append', default=[], metavar='FILE'
                   , help='Use FILEs as additional user defined modules with handlers')
-          , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
+
+          , Option( '-z', dest='remote',  default=False, metavar='no HAL initialisation'
+                  , help='disable any HAL initialisation')
+           , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
                   , help='pass USEROPTs to Python modules')
           ]
 
 signal_func = 'on_unix_signal'
 
 gladevcp_debug = 0
+
 def dbg(str):
     global gladevcp_debug
     if not gladevcp_debug: return
@@ -198,13 +201,19 @@ def main():
 
     window.set_title(opts.component)
 
-    try:
-        halcomp = hal.component(opts.component)
-    except:
-        print >> sys.stderr, "*** GLADE VCP ERROR:    Asking for a HAL component using a name that already exists."
-        sys.exit(0)
+    if not opts.remote:
+        try:
+            import hal
+            halcomp = hal.component(opts.component)
+        except:
+            print >> sys.stderr, "*** GLADE VCP ERROR:    Asking for a HAL component using a name that already exists."
+            sys.exit(0)
 
-    panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
+
+        import gladevcp.makepins
+        panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
+    else:
+        halcomp = None
 
     # at this point, any glade HL widgets and their pins are set up.
     handlers = load_handlers(opts.usermod,halcomp,builder,opts.useropts)
@@ -280,8 +289,9 @@ def main():
             print >> sys.stderr, "'%s' exited with %d" %(' '.join(cmd), res)
             sys.exit(res)
 
-    # User components are set up so report that we are ready
-    halcomp.ready()
+    if not opts.remote:
+        # User components are set up so report that we are ready
+        halcomp.ready()
 
     if handlers.has_key(signal_func):
         dbg("Register callback '%s' for SIGINT and SIGTERM" %(signal_func))
@@ -293,7 +303,8 @@ def main():
     except KeyboardInterrupt:
         sys.exit(0)
     finally:
-        halcomp.exit()
+        if not opts.remote:
+            halcomp.exit()
 
     if opts.parent:
         gtk.gdk.flush()
