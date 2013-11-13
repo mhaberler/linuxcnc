@@ -65,7 +65,7 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
           , Option( '-u', dest='usermod', action='append', default=[], metavar='FILE'
                   , help='Use FILEs as additional user defined modules with handlers')
 
-          , Option( '-z', dest='remote',  default=False, metavar='no HAL initialisation'
+          , Option( '-z', action='store_true', dest='remote', metavar='no HAL initialisation'
                   , help='disable any HAL initialisation')
            , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
                   , help='pass USEROPTs to Python modules')
