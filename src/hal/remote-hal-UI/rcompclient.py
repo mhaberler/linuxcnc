@@ -1,3 +1,30 @@
+# example HALrcomp client
+#
+# interaction:
+# setup: pass in socket URI's for command & status, ping interval
+#
+# callbacks:
+#
+#    retrieve pin list:
+#       retrieve list of name/type/direction tuples during startup
+#       use case:
+#
+#    HAL per-pin change callback: name, type, value
+#       halserver reports pin change in HAL
+#       use case: change UI widgets, mirrored pins
+#
+#    UI per-pin change method: name,type, value
+#       use case: pass UI activity to HAL to set pins
+#       NB: actual value will be set by remote HAL change callback (too)
+#
+#    status callback: halserver dead/live changes
+#       use case: change status icon or pin
+#
+#    error: pass protocol error messages
+#       use case: popups - typically a config or programming error
+#
+# TODO: protocol state tracking
+#
 
 import zmq
 import time
@@ -30,8 +57,7 @@ class PinStatus:
         if callback:
             self.update(pin)
 
-def value_change(p):
-    print "value_change", p.name, str(p)
+
 
 class RcompClient:
 
@@ -50,18 +76,20 @@ class RcompClient:
             pin.name = cname +  "." + pname
             pin.type = ptype
             pin.dir = pdir
+
+        if self.debug: print "bind:", str(c)
         self.cmd.send(c.SerializeToString())
 
     def status_update(self, comp, msg):
         s = Container()
         s.ParseFromString(msg)
 
-        print "status_update ", comp, str(s)
+        if self.debug: print "status_update ", comp, str(s)
 
         if s.type == MT_HALRCOMP_STATUS:
             # full update
             for p in s.pin:
-                ps = PinStatus(p, value_change)
+                ps = PinStatus(p, self.halchange_cb)
                 self.pinsbyname[str(p.name)] = ps
                 self.pinsbyhandle[p.handle] = ps
             return
@@ -70,19 +98,18 @@ class RcompClient:
             # incremental update
             for p in s.pin:
                 if not self.pinsbyhandle.has_key(p.handle):
-                    print "no such handle:", p.handle
+                    self.error_cb("status_update: no such handle: %d " % (p.handle))
                     return
                 ps = self.pinsbyhandle[p.handle]
-                ps.update(p)
-                # update  pin status here:
+                ps.update(p) # reflect new pin value in UI
             return
 
-        print "status: unknown message type ",s.type
+        self.error_cb("status_update: unknown message type: %d " % (s.type))
 
     def server_message(self, msg):
         r = Container()
         r.ParseFromString(msg)
-        print "server_message " + str(r)
+        if self.debug: print "server_message " + str(r)
 
         if r.type == MT_PING_ACKNOWLEDGE:
             pass
@@ -90,10 +117,23 @@ class RcompClient:
             #self.update.setsockopt(zmq.SUBSCRIBE, self.compname)
             self.update.send("\001" + self.compname)
         if r.type == MT_HALRCOMP_BIND_REJECT:
-            pass
+            self.error_cb("bind rejected: %s" % (s.note))
 
 
-    def __init__(self,cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=2000,useping=True):
+    def __init__(self,
+                 cmd_uri="tcp://127.0.0.1:4711",
+                 update_uri="tcp://127.0.0.1:4712",
+                 retrieve_pinlist_cb=None,
+                 halchange_cb=None,
+                 error_cb=None,
+                 msec=2000,
+                 useping=True,
+                 debug=False):
+
+        self.halchange_cb = halchange_cb
+        self.error_cb = error_cb
+        self.debug = debug
+
 
         self.ctx = zmq.Context()
         self.client_id = "rcomp-client%d" % os.getpid()
@@ -112,16 +152,9 @@ class RcompClient:
         self.pinsbyhandle = {}
         self.pinsbyname = {}
 
-        # fake remote UI widgets
-        pinlist = [('button', HAL_BIT, HAL_OUT),
-                   ('spinbutton', HAL_FLOAT, HAL_OUT),
-                   ('led',    HAL_BIT, HAL_IN),
-                   ('speed',  HAL_FLOAT, HAL_IN)]
-        self.compname = "demo"
+        (self.compname, pinlist) = retrieve_pinlist_cb()
         self.bind(self.compname,pinlist)
         self.value = 3.14
-
-
 
         done = False
         while not done:
@@ -171,4 +204,20 @@ class RcompClient:
         self.cmd.send(c.SerializeToString())
 
 
-rc = RcompClient()
+def pinlist():
+    # fake UI widget information
+    # returns tuple (compname, pinlist)
+    return  ("demo",[('button', HAL_BIT, HAL_OUT),
+             ('spinbutton', HAL_FLOAT, HAL_OUT),
+             ('led',    HAL_BIT, HAL_IN),
+             ('speed',  HAL_FLOAT, HAL_IN)])
+
+def halchange(p):
+    print "halchange", p.name, str(p)
+
+def report_error():
+    pass
+
+rc = RcompClient(retrieve_pinlist_cb=pinlist,
+                 halchange_cb=halchange,
+                 error_cb=report_error)
