@@ -65,6 +65,72 @@ class GComponent:
     def __getitem__(self, k): return self.comp[k]
     def __setitem__(self, k, v): self.comp[k] = v
 
+
+# ------------------------------
+
+class GRemotePin(gobject.GObject):
+    __gtype_name__ = 'GRPin'
+    __gsignals__ = {'value-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ())}
+
+
+    # "h.newpin(\"in\", hal.HAL_FLOAT, hal.HAL_IN)\n"
+    def __init__(self, name, type, direction):
+        gobject.GObject.__init__(self)
+        self.name = name
+        self.type = type
+        self.direction = direction
+        self.value = None
+        self.handle = 0
+
+    def set(self, value):
+        self.value = value
+        self.emit('value-changed')
+
+    def get(self):
+        return self.value
+
+    def get_type(self):
+        return self.type
+
+    def get_dir(self):
+        return self.direction
+
+    def get_name(self):
+        return self.name
+
+    def is_pin(self):
+        return True
+
+    # def newpin(self, *a, **kw): return Pin(_hal.component.newpin(self, *a, **kw))
+    # def newparam(self, *a, **kw): return Param(_hal.component.newparam(self, *a, **kw))
+
+    # def getpin(self, *a, **kw): return Pin(_hal.component.getpin(self, *a, **kw))
+    # def getparam(self, *a, **kw): return Param(_hal.component.getparam(self, *a, **kw))
+
+class GRemoteComponent:
+    def __init__(self, name):
+        self.name = name
+        self.pinsbyname = {}
+        self.pinsbyhandle = {}
+
+    def newpin(self, name, type, direction):
+        p = GRemotePin(name,type, direction)
+        self.pinsbyname[name] = p
+        return p
+
+    def getpin(self, *a, **kw):
+        return self.pinsbyname[name]
+
+    def exit(self, *a, **kw):
+        pass
+    # return self.comp.exit(*a, **kw)
+
+    def __getitem__(self, k): return self.pinsbyname[k]
+    def __setitem__(self, k, v): self.pinsbyname[k].set(v)
+
+
+
+
 class _GStat(gobject.GObject):
     __gsignals__ = {
         'state-estop': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),

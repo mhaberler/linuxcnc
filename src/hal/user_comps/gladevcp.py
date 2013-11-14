@@ -42,8 +42,23 @@ import gtk.glade
 import gobject
 import signal
 
+global remote_ok
+try:
+    import glib
+    import gtk.gdk
+    import zmq
+    from message_pb2 import Container
+    from types_pb2 import *
+except ImportError,msg:
+    print >> sys.stderr, "gladevcp: cant operate remotely - import error: %s" % (msg)
+    remote_ok = False
+else:
+    remote_ok = True
+
 from gladevcp.gladebuilder import GladeBuilder
 from gladevcp import xembed
+import gladevcp.makepins
+from hal_glib import GRemoteComponent
 
 options = [ Option( '-c', dest='component', metavar='NAME'
                   , help="Set component name to NAME. Default is basename of UI file")
@@ -65,8 +80,8 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
           , Option( '-u', dest='usermod', action='append', default=[], metavar='FILE'
                   , help='Use FILEs as additional user defined modules with handlers')
 
-          , Option( '-z', action='store_true', dest='remote', metavar='no HAL initialisation'
-                  , help='disable any HAL initialisation')
+          , Option( '-z', dest='halserver', metavar='HALserver IP address'
+                  , help='connect to remote HAL server')
            , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
                   , help='pass USEROPTs to Python modules')
           ]
@@ -91,7 +106,7 @@ class Trampoline(object):
         for m in self.methods:
             m(*a, **kw)
 
-def load_handlers(usermod,halcomp,builder,useropts):
+def load_handlers(usermod,halcomp,builder,useropts,compname):
     hdl_func = 'get_handlers'
 
     def add_handler(method, f):
@@ -122,7 +137,7 @@ def load_handlers(usermod,halcomp,builder,useropts):
 
             if h and callable(h):
                 dbg("module '%s' : '%s' function found" % (mod.__name__,hdl_func))
-                objlist = h(halcomp,builder,useropts)
+                objlist = h(halcomp,builder,useropts, compname)
             else:
                 # the module has no get_handlers() callable.
                 # in this case we permit any callable except class Objects in the module to register as handler
@@ -178,6 +193,10 @@ def main():
     gladevcp_debug = debug = opts.debug
     xmlname = args[0]
 
+    if opts.halserver and not remote_ok:
+        print >> sys.stderr, "gladevcp: cant operate remotely to %s - modules missing" % (opts.halserver)
+        sys.exit(1)
+
     #if there was no component name specified use the xml file name
     if opts.component is None:
         opts.component = os.path.splitext(os.path.basename(xmlname))[0]
@@ -201,7 +220,7 @@ def main():
 
     window.set_title(opts.component)
 
-    if not opts.remote:
+    if not opts.halserver:
         try:
             import hal
             halcomp = hal.component(opts.component)
@@ -210,13 +229,13 @@ def main():
             sys.exit(0)
 
 
-        import gladevcp.makepins
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
     else:
-        halcomp = None
+        halcomp = GRemoteComponent(opts.component)
+        panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
 
     # at this point, any glade HL widgets and their pins are set up.
-    handlers = load_handlers(opts.usermod,halcomp,builder,opts.useropts)
+    handlers = load_handlers(opts.usermod,halcomp,builder,opts.useropts,opts.component)
 
     builder.connect_signals(handlers)
 
@@ -282,6 +301,11 @@ def main():
     if opts.maximum:
         window.window.maximize()
 
+    if opts.halserver:
+        # zmq setup incantations
+        print "setup for halserver",opts.halserver
+        pass
+
     if opts.halfile:
         cmd = ["halcmd", "-f", opts.halfile]
         res = subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
@@ -289,7 +313,7 @@ def main():
             print >> sys.stderr, "'%s' exited with %d" %(' '.join(cmd), res)
             sys.exit(res)
 
-    if not opts.remote:
+    if not opts.halserver:
         # User components are set up so report that we are ready
         halcomp.ready()
 
@@ -303,7 +327,7 @@ def main():
     except KeyboardInterrupt:
         sys.exit(0)
     finally:
-        if not opts.remote:
+        if not opts.halserver:
             halcomp.exit()
 
     if opts.parent:
