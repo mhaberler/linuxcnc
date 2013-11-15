@@ -3,6 +3,15 @@
 
 import _hal, hal, gobject
 import linuxcnc
+import os
+import time
+import zmq
+import gtk.gdk
+import gobject
+import glib
+
+from message_pb2 import Container
+from types_pb2 import *
 
 class GPin(gobject.GObject, hal.Pin):
     __gtype_name__ = 'GPin'
@@ -72,17 +81,23 @@ class GRemotePin(gobject.GObject):
     __gtype_name__ = 'GRPin'
     __gsignals__ = {'value-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ())}
 
-
-    # "h.newpin(\"in\", hal.HAL_FLOAT, hal.HAL_IN)\n"
-    def __init__(self, name, type, direction):
+    def __init__(self, name, type, direction,change_cb):
         gobject.GObject.__init__(self)
         self.name = name
         self.type = type
         self.direction = direction
         self.value = None
         self.handle = 0
+        self.change_cb = change_cb
 
     def set(self, value):
+        print "set",self.name,value
+        self.value = value
+        self.emit('value-changed')
+        self.change_cb(self)
+
+    def set_remote(self, value):
+        print "set remote",self.name,value
         self.value = value
         self.emit('value-changed')
 
@@ -101,33 +116,230 @@ class GRemotePin(gobject.GObject):
     def is_pin(self):
         return True
 
-    # def newpin(self, *a, **kw): return Pin(_hal.component.newpin(self, *a, **kw))
-    # def newparam(self, *a, **kw): return Param(_hal.component.newparam(self, *a, **kw))
+class GRemoteComponent(gobject.GObject):
+    __gtype_name__ = 'GRemoteComponent'
+    __gsignals__ = {
+        'hal-connected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
+        'hal-disconnected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ())
+        }
 
-    # def getpin(self, *a, **kw): return Pin(_hal.component.getpin(self, *a, **kw))
-    # def getparam(self, *a, **kw): return Param(_hal.component.getparam(self, *a, **kw))
+    CONTEXT = None
+    UPDATE = None
+    CMD = None
+    COUNT = 0 # instance counter
 
-class GRemoteComponent:
-    def __init__(self, name):
+    def __init__(self, name, cmd_uri, update_uri, period=3):
+        gobject.GObject.__init__(self)
+        self.debug = True
+        self.period = period
+        self.last_contact = 0
+        self.ping_outstanding = False
         self.name = name
         self.pinsbyname = {}
         self.pinsbyhandle = {}
+        self.prefix = ""
+        if not GRemoteComponent.CONTEXT:
+            ctx = zmq.Context()
+            update = ctx.socket(zmq.SUB)
+            update.connect(update_uri)
+
+            cmd = ctx.socket(zmq.DEALER)
+            cmd.setsockopt(zmq.IDENTITY,"%s-%d" % (name,os.getpid()))
+            cmd.setsockopt(zmq.LINGER,0)
+            cmd.connect(cmd_uri)
+
+            # self.cmd_notify = gobject.io_add_watch(cmd.getsockopt(zmq.FD),
+            #                                        gobject.IO_IN,
+            #                                        self.zmq_readable, cmd, False)
+            # self.update_notify = gobject.io_add_watch(update.getsockopt(zmq.FD),
+            #                                           gobject.IO_IN,
+            #                                           self.zmq_readable, update, True)
+            self.poller = zmq.Poller()
+            self.poller.register(cmd, zmq.POLLIN)
+            self.poller.register(update, zmq.POLLIN)
+            gobject.timeout_add(100, self.pollme)
+            #update.setsockopt(zmq.SUBSCRIBE, self.name)
+
+            GRemoteComponent.CONTEXT = ctx
+            GRemoteComponent.UPDATE = update
+            GRemoteComponent.CMD = cmd
+
+        GRemoteComponent.COUNT += 1
+
+    def pollme(self):
+        while True:
+            cmd = GRemoteComponent.CMD
+            update = GRemoteComponent.UPDATE
+            sockets = dict(self.poller.poll(timeout=10))
+            if not sockets:
+                return True
+            if update in sockets and sockets[update] == zmq.POLLIN:
+                (comp,msg) = update.recv_multipart()
+                self.status_update(comp, msg)
+            if cmd in sockets and sockets[cmd] == zmq.POLLIN:
+                msg = cmd.recv()
+                self.server_message(msg)
+
+
+    def zmq_readable(self, eventfd, condition, zsocket, is_update):
+        print "--------------------------- update", is_update
+        while zsocket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+            print "--------------------------- update TRY"
+
+            try:
+                if is_update:
+                    (comp,msg) = zsocket.recv_multipart()
+                    print "--------------------------- update recv_multipart()"
+                    if msg:
+                        self.status_update(comp, msg)
+                else:
+                    msg = zsocket.recv(flags=zmq.NOBLOCK)
+                    print "--------------------------- command recv()"
+                    if msg:
+                        self.server_message(msg)
+            except zmq.ZMQError as e:
+                print "--------------------------- update ZMQError", e
+                if e.errno != zmq.EAGAIN:
+                    raise
+        return True
+
+
+    def _tick(self):
+        self.timer_tick()
+        return True # re-arm
+
+    # --- HALrcomp protocol support ---
+    def bind(self):
+        c = Container()
+        c.type = MT_HALRCOMP_BIND
+        c.comp.name = self.name
+        for pin_name,pin in self.pinsbyname.iteritems():
+            p = c.pin.add()
+            p.name = self.name +  "." + pin_name
+            p.type = pin.get_type()
+            p.dir = pin.get_dir()
+        if self.debug: print "bind:" , str(c)
+        GRemoteComponent.CMD.send(c.SerializeToString())
+
+    def pin_update(self,rp,lp):
+        if rp.HasField('halfloat'): lp.set_remote(rp.halfloat)
+        if rp.HasField('halbit'):   lp.set_remote(rp.halbit)
+        if rp.HasField('hals32'):   lp.set_remote(rp.hals32)
+        if rp.HasField('halu32'):   lp.set_remote(rp.halu32)
+
+
+    # process updates received on subscriber socket
+    def status_update(self, comp, msg):
+        print "--------------------------- message on update:"
+
+        s = Container()
+        s.ParseFromString(msg)
+        if self.debug: print "status_update ", comp, str(s)
+
+        if s.type == MT_HALRCOMP_PIN_CHANGE: # incremental update
+            print "--------------------------- PIN CHANGE"
+
+            for rp in s.pin:
+                lp = self.pinsbyhandle[rp.handle]
+                self.pin_update(rp,lp)
+            self.emit('hal-connected')
+            return
+
+        if s.type == MT_HALRCOMP_STATUS: # full update
+            print "--------------------------- FULL UPDATE"
+            for rp in s.pin:
+                lname = str(rp.name)
+                if "." in lname: # strip comp prefix
+                    cname,pname = lname.split(".",1)
+                lp = self.pinsbyname[pname]
+                lp.handle = rp.handle
+                self.pinsbyhandle[rp.handle] = lp
+                self.pin_update(rp,lp)
+                self.emit('hal-connected')
+            return
+
+        print "status_update: unknown message type: %d " % (s.type)
+
+    # process replies received on command socket
+    def server_message(self, msg):
+        r = Container()
+        r.ParseFromString(msg)
+        #if self.debug: print "server_message " + str(r)
+
+        if r.type == MT_PING_ACKNOWLEDGE:
+            self.emit('hal-connected')
+            self.ping_outstanding = False
+            return
+
+        if r.type == MT_HALRCOMP_BIND_CONFIRM:
+            print "--------------------------- BIND CONFIRM"
+            GRemoteComponent.UPDATE.setsockopt(zmq.SUBSCRIBE, self.name)
+            return
+
+        if r.type == MT_HALRCOMP_BIND_REJECT:
+            print "bind rejected: %s" % (r.note)
+            return
+
+        print "----------- UNKNOWN server message type ", r.type
+
+    def timer_tick(self):
+        if self.ping_outstanding:
+            print "timeout"
+            self.emit('hal-disconnected')
+        c = Container()
+        c.type = MT_PING
+        GRemoteComponent.CMD.send(c.SerializeToString())
+        self.ping_outstanding = True
+
+    def pin_change(self, rpin):
+        print "pinchange"
+        c = Container()
+        c.type = MT_HALRCOMP_SET_PINS
+
+        # This message MUST carry a Pin message for each pin which has
+        # changed value since the last message of this type.
+        # Each Pin message MUST carry the handle field.
+        # Each Pin message MAY carry the name field.
+        # Each Pin message MUST - depending on pin type - carry a halbit,
+        # halfloat, hals32, or halu32 field.
+        pin = c.pin.add()
+
+        pin.handle = rpin.handle
+        pin.name = rpin.name
+        if rpin.type == HAL_FLOAT:
+            pin.halfloat = rpin.get()
+        if rpin.type == HAL_BIT:
+            pin.halbit = rpin.get()
+        if rpin.type == HAL_S32:
+            pin.hals32 = rpin.get()
+        if rpin.type == HAL_U32:
+            pin.halu32 = rpin.get()
+
+        GRemoteComponent.CMD.send(c.SerializeToString())
+
+    #---- HAL 'emulation' --
 
     def newpin(self, name, type, direction):
-        p = GRemotePin(name,type, direction)
+        print "-------newpin ",name
+        p = GRemotePin(name,type, direction,self.pin_change)
         self.pinsbyname[name] = p
         return p
 
     def getpin(self, *a, **kw):
         return self.pinsbyname[name]
 
+    def ready(self, *a, **kw):
+        print self.name, "ready"
+        glib.timeout_add_seconds(self.period, self._tick)
+        self.bind()
+
     def exit(self, *a, **kw):
-        pass
-    # return self.comp.exit(*a, **kw)
+        GRemoteComponent.COUNT -= 1
+        if GRemoteComponent.COUNT == 0:
+            print "shutdown here"
 
     def __getitem__(self, k): return self.pinsbyname[k]
     def __setitem__(self, k, v): self.pinsbyname[k].set(v)
-
 
 
 

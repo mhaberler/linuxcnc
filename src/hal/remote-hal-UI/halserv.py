@@ -68,78 +68,85 @@ class HalServer:
         # all is well
 
     def client_command(self, client, message):
-        cmd = Container()
-        cmd.ParseFromString(message)
-        print client,str(cmd)
+        c = Container()
+        c.ParseFromString(message)
+        #print "--- client_command:", client,str(c)
 
         r = Container()
-        if cmd.type == MT_HALRCOMP_BIND:
-            try:
-                # raises KeyError if component non-existent:
-                ce = self.rcomp[cmd.comp.name]
+        if c.type == MT_HALRCOMP_BIND:
+           print "--- client_command BIND", client
 
-                # component exists, validate pinlist
-                self.validate(ce, cmd.pin)
+           try:
+              # raises KeyError if component non-existent:
+              ce = self.rcomp[c.comp.name]
+              # component exists, validate pinlist
+              self.validate(ce, c.pin)
 
-            except ValidateError,m:
-                # component existed, but pinlist mismatched
-                r.type = MT_HALRCOMP_BIND_REJECT
-                r.note = m
-                self.cmd.send_multipart([client,r.SerializeToString()])
-                return
+           except ValidateError,m:
+              print "--- client_command: ValidateError", client
 
-            except KeyError:
-                # remote component doesnt exist
-                try:
-                    # create as per pinlist
-                    name = str(cmd.comp.name)
-                    rcomp = HalComponent(name,TYPE_REMOTE)
-                    for s in cmd.pin:
-                        rcomp.newpin(str(s.name), s.type, s.dir)
-                    rcomp.ready()
-                    rcomp.acquire()
-                    rcomp.bind()
-                    # add to in-service dict
-                    self.rcomp[name] = rcomp
-                    r.type = MT_HALRCOMP_BIND_CONFIRM
-                except Exception,s:
-                    print "comp create fail", s
-                    r.type = MT_HALRCOMP_BIND_REJECT
-                    r.note = str(s)
-                self.cmd.send_multipart([client,r.SerializeToString()])
-                return
+              # component existed, but pinlist mismatched
+              r.type = MT_HALRCOMP_BIND_REJECT
+              r.note = m
+              self.cmd.send_multipart([client,r.SerializeToString()])
+              return
 
-            else:
-                # component existed and validated OK
-                r.type = MT_HALRCOMP_BIND_CONFIRM
-                # This message MUST carry a Component submessage.
-                # The Component submessage MUST carry the name field.
-                # The Component submessage MAY carry the scantimer and flags field.
-                # This message MUST carry a Pin message for each of pin.
-                # Each Pin message MUST carry the name, type and dir fields.
-                # A Pin message MAY carry the epsilon and flags fields.
-                # cm = r.comp
-                # cm.name = ce.name
-                r.comp.name = ce.name
-                # FIXME add scantimer, flags
-                for p in ce.pins():
-                    pin = r.pin.add()
-                    pin.name = p.name
-                    pin.type = p.type
-                    pin.dir = p.dir
-                    pin.epsilon = p.epsilon
-                    pin.flags = p.flags
-                self.cmd.send_multipart([client,r.SerializeToString()])
-                return
+           except KeyError:
+              # remote component doesnt exist
+              try:
+                 # create as per pinlist
+                 name = str(c.comp.name)
+                 rcomp = HalComponent(name,TYPE_REMOTE)
+                 for s in c.pin:
+                    rcomp.newpin(str(s.name), s.type, s.dir)
+                 rcomp.ready()
+                 rcomp.acquire()
+                 rcomp.bind()
+                 # add to in-service dict
+                 self.rcomp[name] = rcomp
+                 r.type = MT_HALRCOMP_BIND_CONFIRM
+              except Exception,s:
+                 print "comp create fail", s
+                 r.type = MT_HALRCOMP_BIND_REJECT
+                 r.note = str(s)
+              self.cmd.send_multipart([client,r.SerializeToString()])
+              return
 
-        if cmd.type == MT_PING:
-            r = Container()
-            r.type = MT_PING_ACKNOWLEDGE
-            self.cmd.send_multipart([client,r.SerializeToString()])
-            return
+           else:
+              print "--- client_command: existed and validated OK", client
+
+              # component existed and validated OK
+              r.type = MT_HALRCOMP_BIND_CONFIRM
+              # This message MUST carry a Component submessage.
+              # The Component submessage MUST carry the name field.
+              # The Component submessage MAY carry the scantimer and flags field.
+              # This message MUST carry a Pin message for each of pin.
+              # Each Pin message MUST carry the name, type and dir fields.
+              # A Pin message MAY carry the epsilon and flags fields.
+              # cm = r.comp
+              # cm.name = ce.name
+              r.comp.name = ce.name
+              # FIXME add scantimer, flags
+              for p in ce.pins():
+                 pin = r.pin.add()
+                 pin.name = p.name
+                 pin.type = p.type
+                 pin.dir = p.dir
+                 pin.epsilon = p.epsilon
+                 pin.flags = p.flags
+              self.cmd.send_multipart([client,r.SerializeToString()])
+              return
+
+        if c.type == MT_PING:
+           #print "--- client_command: MT_PING"
+
+           r = Container()
+           r.type = MT_PING_ACKNOWLEDGE
+           self.cmd.send_multipart([client,r.SerializeToString()])
+           return
 
 
-        if cmd.type == MT_HALRCOMP_SET_PINS:
+        if c.type == MT_HALRCOMP_SET_PINS:
             # This message MUST carry a Pin message for each pin
             # which has changed value since the last message of this type.
             # Each Pin message MUST carry the handle field.
@@ -148,7 +155,7 @@ class HalServer:
             # halbit, halfloat, hals32, or halu32 field.
 
             # update pins as per pinlist
-            for p in cmd.pin:
+            for p in c.pin:
                 try:
                     lpin = self.pinsbyhandle[p.handle]
                     if lpin.type == HAL_FLOAT:
@@ -164,8 +171,8 @@ class HalServer:
                     r.type = MT_HALRCOMP_PIN_CHANGE_REJECT
                     r.note = "pin handle %d: %s" % (p.handle,e)
                     self.cmd.send_multipart([client,r.SerializeToString()])
-            if lpin:
-                self.rcomp[lpin.owner].last_update = int(time.time())
+                if lpin:
+                   self.rcomp[lpin.owner].last_update = int(time.time())
             return
 
         print "error: unknown message type: %d " % c.type
@@ -178,10 +185,12 @@ class HalServer:
         r.type =  MT_HALRCOMP_PIN_CHANGE
         for p in pinlist:
             pin = r.pin.add()
+            pin.name = p.name
             pin.handle = p.handle
             pin.linked = p.linked
             if p.type == HAL_FLOAT:
                 pin.halfloat = p.value
+                print "floatval = ",p.value
             if p.type == HAL_BIT:
                 pin.halbit = p.value
             if p.type == HAL_S32:
@@ -192,7 +201,7 @@ class HalServer:
         self.update.send_multipart([comp.name,r.SerializeToString()])
 
     def timer_event(self):
-        print "timer"
+        #print "timer"
         for name,comp in self.rcomp.iteritems():
             self.report(comp)
 
@@ -211,10 +220,15 @@ class HalServer:
         self.ctx = zmq.Context()
 
         self.cmd = self.ctx.socket(zmq.ROUTER)
+        #self.cmd.setsockopt(zmq.ROUTER_MANDATORY, 1)
         self.cmd.bind(cmd_uri)
+        self.cmd.setsockopt(zmq.LINGER,0)
+
 
         self.update = self.ctx.socket(zmq.XPUB)
         self.update.set(zmq.XPUB_VERBOSE, 1)
+        self.update.setsockopt(zmq.LINGER,0)
+
         self.update.bind(update_uri)
 
         self.poller = zmq.Poller()
@@ -247,6 +261,10 @@ class HalServer:
                     (client,message) = self.cmd.recv_multipart()
                     self.client_command(client, message)
 
+                    # msgs = self.cmd.recv_multipart()
+                    # print len(msgs),msgs
+                    # self.client_command(client, message)
+
                 # subscribe/unsubscribe events
                 if self.update in sockets and sockets[self.update] == zmq.POLLIN:
                     notify = self.update.recv()
@@ -261,6 +279,7 @@ class HalServer:
                           sys.exc_clear()
 
                     elif tag == 1:
+                        print "----- subscribe", topic
                         if not topic in self.rcomp.keys():
                             print "error: comp %s doesnt exist " % topic
                         else:

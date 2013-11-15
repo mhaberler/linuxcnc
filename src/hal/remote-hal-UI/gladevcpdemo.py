@@ -27,33 +27,33 @@ class HandlerClass:
         global debug
         if debug: print "on_toggle()",w.name,w.hal_pin.get()
 
-    # ------------------ private -----
+    # # ------------------ private -----
 
-    def _update_readable(self,source,condition):
-        while self.update.getsockopt(zmq.EVENTS) & zmq.POLLIN:
-            try:
-                (comp,msg) = self.update.recv_multipart()
-                if msg:
-                    self.rhal.status_update(comp, msg)
-            except zmq.ZMQError as e:
-                if e.errno != zmq.EAGAIN:
-                    raise
-        return gtk.TRUE
+    # def _update_readable(self,source,condition):
+    #     while self.update.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+    #         try:
+    #             (comp,msg) = self.update.recv_multipart()
+    #             if msg:
+    #                 self.rhal.status_update(comp, msg)
+    #         except zmq.ZMQError as e:
+    #             if e.errno != zmq.EAGAIN:
+    #                 raise
+    #     return gtk.TRUE
 
-    def _cmd_readable(self,source,condition):
-        while self.cmd.getsockopt(zmq.EVENTS) & zmq.POLLIN:
-            try:
-                msg = self.cmd.recv(flags=zmq.NOBLOCK)
-                if msg:
-                    self.rhal.server_message(msg)
-            except zmq.ZMQError as e:
-                if e.errno != zmq.EAGAIN:
-                    raise
-        return gtk.TRUE
+    # def _cmd_readable(self,source,condition):
+    #     while self.cmd.getsockopt(zmq.EVENTS) & zmq.POLLIN:
+    #         try:
+    #             msg = self.cmd.recv(flags=zmq.NOBLOCK)
+    #             if msg:
+    #                 self.rhal.server_message(msg)
+    #         except zmq.ZMQError as e:
+    #             if e.errno != zmq.EAGAIN:
+    #                 raise
+    #     return gtk.TRUE
 
-    def _tick(self):
-        self.rhal.timer_tick()
-        return True # re-arm
+    # def _tick(self):
+    #     self.rhal.timer_tick()
+    #     return True # re-arm
 
     def pinlist(self):
         # fake UI widget information
@@ -70,46 +70,48 @@ class HandlerClass:
         pass
 
     def __init__(self, halcomp,builder,useropts,name):
+        print "-----",halcomp
+        self.halcomp = halcomp
         self.builder = builder
         self.name = name
-        self.widgets = dict()
-        for w in builder.get_objects():
-            if not isinstance(w, gtk.Widget):
-                continue
-            name = gtk.Buildable.get_name(w) #gtk bug
-            if isinstance(w, _HalWidgetBase): # and w.hal_pin.is_pin():
-                print  name #, dir(w) #, w.hal_pin.get_name()
-                self.widgets[name] = w
+        #self.widgets = dict()
+        # for w in builder.get_objects():
+        #     if not isinstance(w, gtk.Widget):
+        #         continue
+        #     name = gtk.Buildable.get_name(w) #gtk bug
+        #     if isinstance(w, _HalWidgetBase): # and w.hal_pin.is_pin():
+        #         print  name #, dir(w) #, w.hal_pin.get_name()
+        #         self.widgets[name] = w
 
 
-        cmd_uri="tcp://127.0.0.1:4711"
-        update_uri="tcp://127.0.0.1:4712"
+        # cmd_uri="tcp://127.0.0.1:4711"
+        # update_uri="tcp://127.0.0.1:4712"
 
-        self.context = zmq.Context()
-        self.update = self.context.socket(zmq.SUB)
-        self.update.connect(update_uri)
-        self.update.setsockopt(zmq.SUBSCRIBE, '')
+        # self.context = zmq.Context()
+        # self.update = self.context.socket(zmq.SUB)
+        # self.update.connect(update_uri)
+        # self.update.setsockopt(zmq.SUBSCRIBE, '')
 
-        self.update_notifier = gtk.input_add(self.update.getsockopt(zmq.FD),
-                                             gtk.gdk.INPUT_READ,
-                                             self._update_readable)
+        # self.update_notifier = gtk.input_add(self.update.getsockopt(zmq.FD),
+        #                                      gtk.gdk.INPUT_READ,
+        #                                      self._update_readable)
 
-        self.cmd = self.context.socket(zmq.DEALER)
-        self.cmd.set(zmq.IDENTITY,"gladevcp-%d" % os.getpid())
-        self.cmd.connect(cmd_uri)
-        self.cmd_notifier = gtk.input_add(self.cmd.getsockopt(zmq.FD),
-                                          gtk.gdk.INPUT_READ,
-                                          self._cmd_readable)
+        # self.cmd = self.context.socket(zmq.DEALER)
+        # self.cmd.set(zmq.IDENTITY,"gladevcp-%d" % os.getpid())
+        # self.cmd.connect(cmd_uri)
+        # self.cmd_notifier = gtk.input_add(self.cmd.getsockopt(zmq.FD),
+        #                                   gtk.gdk.INPUT_READ,
+        #                                   self._cmd_readable)
 
-        self.rhal = RcompClient(retrieve_pinlist_cb=self.pinlist,
-                                halchange_cb=self.halchange,
-                                error_cb=self.report_error)
+        # self.rhal = RcompClient(retrieve_pinlist_cb=self.pinlist,
+        #                         halchange_cb=self.halchange,
+        #                         error_cb=self.report_error)
 
-        self.rhal.bind(self.name, self.pinlist())
-        self.rhal.value = 3.14
+        # self.rhal.bind(self.name, self.pinlist())
+        # self.rhal.value = 3.14
 
-        # dead peer detection
-        glib.timeout_add_seconds(1, self._tick)
+        # # dead peer detection
+        # glib.timeout_add_seconds(1, self._tick)
 
 
 def get_handlers(halcomp,builder,useropts,name):
@@ -221,23 +223,26 @@ class RcompClient:
         self.halchange_cb = halchange_cb
         self.error_cb = error_cb
         self.debug = debug
-
-        self.ctx = zmq.Context()
-        self.client_id = "rcomp-client%d" % os.getpid()
-
-        self.cmd = self.ctx.socket(zmq.DEALER)
-        self.cmd.set(zmq.IDENTITY,self.client_id)
-        self.cmd.connect(cmd_uri)
-
-        self.update = self.ctx.socket(zmq.XSUB)
-        self.update.connect(update_uri)
-
-        self.poller = zmq.Poller()
-        self.poller.register(self.cmd, zmq.POLLIN)
-        self.poller.register(self.update, zmq.POLLIN)
-
         self.pinsbyhandle = {}
         self.pinsbyname = {}
+
+        pass
+
+        # self.ctx = zmq.Context()
+        # self.client_id = "rcomp-client%d" % os.getpid()
+
+        # self.cmd = self.ctx.socket(zmq.DEALER)
+        # self.cmd.set(zmq.IDENTITY,self.client_id)
+        # self.cmd.connect(cmd_uri)
+
+        # self.update = self.ctx.socket(zmq.XSUB)
+        # self.update.connect(update_uri)
+
+        # self.poller = zmq.Poller()
+        # self.poller.register(self.cmd, zmq.POLLIN)
+        # self.poller.register(self.update, zmq.POLLIN)
+
+
 
     def pin_change(self, name, value):
         pdesc = self.pinsbyname[name]

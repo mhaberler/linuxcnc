@@ -231,7 +231,9 @@ def main():
 
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
     else:
-        halcomp = GRemoteComponent(opts.component)
+        cmd_uri="tcp://127.0.0.1:4711"
+        update_uri="tcp://127.0.0.1:4712"
+        halcomp = GRemoteComponent(opts.component,cmd_uri,update_uri)
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
 
     # at this point, any glade HL widgets and their pins are set up.
@@ -313,9 +315,8 @@ def main():
             print >> sys.stderr, "'%s' exited with %d" %(' '.join(cmd), res)
             sys.exit(res)
 
-    if not opts.halserver:
-        # User components are set up so report that we are ready
-        halcomp.ready()
+    # User components are set up so report that we are ready
+    halcomp.ready()
 
     if handlers.has_key(signal_func):
         dbg("Register callback '%s' for SIGINT and SIGTERM" %(signal_func))
@@ -327,8 +328,7 @@ def main():
     except KeyboardInterrupt:
         sys.exit(0)
     finally:
-        if not opts.halserver:
-            halcomp.exit()
+        halcomp.exit()
 
     if opts.parent:
         gtk.gdk.flush()
