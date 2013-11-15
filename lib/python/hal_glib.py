@@ -147,23 +147,35 @@ class GRemoteComponent(gobject.GObject):
             cmd.setsockopt(zmq.IDENTITY,"%s-%d" % (name,os.getpid()))
             cmd.setsockopt(zmq.LINGER,0)
             cmd.connect(cmd_uri)
+            # print "cmd_FD=",cmd.getsockopt(zmq.FD)
+            # print "update_FD=",update.getsockopt(zmq.FD)
+            # print type(update.getsockopt(zmq.FD))
+            # print dir(update.getsockopt(zmq.FD))
+            self.cmd_notify = gobject.io_add_watch(cmd.getsockopt(zmq.FD),
+                                                   gobject.IO_IN,#|gobject.IO_ERR|gobject.IO_HUP,
+                                                   self.zmq_readable, cmd, False)
+            self.update_notify = gobject.io_add_watch(update.getsockopt(zmq.FD),
+                                                      gobject.IO_IN, #|gobject.IO_ERR|gobject.IO_HUP,
+                                                      self.zmq_readable, update, True)
 
-            # self.cmd_notify = gobject.io_add_watch(cmd.getsockopt(zmq.FD),
-            #                                        gobject.IO_IN,
-            #                                        self.zmq_readable, cmd, False)
-            # self.update_notify = gobject.io_add_watch(update.getsockopt(zmq.FD),
-            #                                           gobject.IO_IN,
-            #                                           self.zmq_readable, update, True)
-            self.poller = zmq.Poller()
-            self.poller.register(cmd, zmq.POLLIN)
-            self.poller.register(update, zmq.POLLIN)
-            gobject.timeout_add(100, self.pollme)
+            #GDK->gtk.gdk in GTK V 2.0
+            #self.cmd_id = gtk.input_add(cmd.getsockopt(zmq.FD), gtk.gdk.INPUT_READ, self.cmd_readable)
+
+            # self.poller = zmq.Poller()
+            # self.poller.register(cmd, zmq.POLLIN)
+            # self.poller.register(update, zmq.POLLIN)
+            # gobject.timeout_add(100, self.pollme)
             #update.setsockopt(zmq.SUBSCRIBE, self.name)
+#define ZMQ_POLLIN 1
+#define ZMQ_POLLOUT 2
+#define ZMQ_POLLERR 4
 
             GRemoteComponent.CONTEXT = ctx
             GRemoteComponent.UPDATE = update
             GRemoteComponent.CMD = cmd
-
+            while gtk.events_pending():
+                print "iter.................."
+                gtk.main_iteration()
         GRemoteComponent.COUNT += 1
 
     def pollme(self):
@@ -180,28 +192,30 @@ class GRemoteComponent(gobject.GObject):
                 msg = cmd.recv()
                 self.server_message(msg)
 
-
     def zmq_readable(self, eventfd, condition, zsocket, is_update):
-        print "--------------------------- update", is_update
-        while zsocket.getsockopt(zmq.EVENTS) & zmq.POLLIN:
-            print "--------------------------- update TRY"
+        #print "--------------------------- update", is_update
+        while True:
+            event = zsocket.getsockopt(zmq.EVENTS)
+            #print "--------------------------- event=",event
+            if event & zmq.POLLIN:
 
-            try:
-                if is_update:
-                    (comp,msg) = zsocket.recv_multipart()
-                    print "--------------------------- update recv_multipart()"
-                    if msg:
-                        self.status_update(comp, msg)
-                else:
-                    msg = zsocket.recv(flags=zmq.NOBLOCK)
-                    print "--------------------------- command recv()"
-                    if msg:
-                        self.server_message(msg)
-            except zmq.ZMQError as e:
-                print "--------------------------- update ZMQError", e
-                if e.errno != zmq.EAGAIN:
-                    raise
-        return True
+                try:
+                    if is_update:
+                        (comp,msg) = zsocket.recv_multipart()
+                        print "--------------------------- update recv_multipart()"
+                        if msg:
+                            self.status_update(comp, msg)
+                    else:
+                        msg = zsocket.recv(flags=zmq.NOBLOCK)
+                        print "--------------------------- command recv()"
+                        if msg:
+                            self.server_message(msg)
+                except zmq.ZMQError as e:
+                    print "--------------------------- update ZMQError", e
+                    if e.errno != zmq.EAGAIN:
+                        raise
+            else:
+                return True
 
 
     def _tick(self):
@@ -337,6 +351,8 @@ class GRemoteComponent(gobject.GObject):
         GRemoteComponent.COUNT -= 1
         if GRemoteComponent.COUNT == 0:
             print "shutdown here"
+            gobject.source_remove(self.cmd_notify)
+            gobject.source_remove(self.update_notify)
 
     def __getitem__(self, k): return self.pinsbyname[k]
     def __setitem__(self, k, v): self.pinsbyname[k].set(v)

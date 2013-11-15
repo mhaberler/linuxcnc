@@ -171,8 +171,8 @@ class HalServer:
                     r.type = MT_HALRCOMP_PIN_CHANGE_REJECT
                     r.note = "pin handle %d: %s" % (p.handle,e)
                     self.cmd.send_multipart([client,r.SerializeToString()])
-                if lpin:
-                   self.rcomp[lpin.owner].last_update = int(time.time())
+                # if lpin:
+                #    self.rcomp[lpin.owner].last_update = int(time.time())
             return
 
         print "error: unknown message type: %d " % c.type
