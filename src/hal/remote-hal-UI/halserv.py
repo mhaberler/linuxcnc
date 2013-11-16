@@ -1,4 +1,5 @@
 from halext import *
+import rtapi
 import zmq
 import time
 import os
@@ -83,7 +84,7 @@ class HalServer:
               self.validate(ce, c.pin)
 
            except ValidateError,m:
-              print "--- client_command: ValidateError", client
+              print >> self.rtapi, "--- client_command: ValidateError", client
 
               # component existed, but pinlist mismatched
               r.type = MT_HALRCOMP_BIND_REJECT
@@ -102,6 +103,8 @@ class HalServer:
                  rcomp.ready()
                  rcomp.acquire()
                  rcomp.bind()
+                 print >> self.rtapi, "created remote comp: %s" % (name)
+
                  # add to in-service dict
                  self.rcomp[name] = rcomp
                  r.type = MT_HALRCOMP_BIND_CONFIRM
@@ -135,6 +138,8 @@ class HalServer:
                  pin.epsilon = p.epsilon
                  pin.flags = p.flags
               self.cmd.send_multipart([client,r.SerializeToString()])
+              print >> self.rtapi, "%s: bound to %s" % (client, ce.name)
+
               return
 
         if c.type == MT_PING:
@@ -175,7 +180,7 @@ class HalServer:
                 #    self.rcomp[lpin.owner].last_update = int(time.time())
             return
 
-        print "error: unknown message type: %d " % c.type
+        print >> self.rtapi, "client %s: unknown message type: %d " % (client, c.type)
 
     def report(self, comp):
         pinlist = comp.changed_pins()
@@ -207,14 +212,25 @@ class HalServer:
     def unwind(self):
         # unbind and orphan any remote comps we owned
         for name,comp in self.rcomp.iteritems():
-            if comp.state == COMP_BOUND:
-                comp.unbind()
-            if comp.pid == os.getpid():
-                comp.release()
+           if comp.state == COMP_BOUND:
+              print >> self.rtapi, "unbind %s" % (name)
+              comp.unbind()
+           if comp.pid == os.getpid():
+              comp.release()
+              print >> self.rtapi, "release %s" % (name)
+
         # exit halserver comp
         self.halserver.exit()
 
     def __init__(self, cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=100,debug=False):
+
+        # need to create a dummy HAL component to keep hal_lib happy
+        self.halserver =  HalComponent("halserv%d" % os.getpid(), TYPE_USER)
+        self.halserver.ready()
+
+        # RTAPILogger will write to the shared log:
+        self.rtapi = rtapi.RTAPILogger(rtapi.MSG_ERR,"halserver")
+
         self.msec = msec
         self.debug = debug
         self.ctx = zmq.Context()
@@ -235,10 +251,6 @@ class HalServer:
         self.poller.register(self.cmd, zmq.POLLIN)
         self.poller.register(self.update, zmq.POLLIN)
 
-        # need to create a dummy HAL component to keep hal_lib happy
-        self.halserver =  HalComponent("halserv%d" % os.getpid(), TYPE_USER)
-        self.halserver.ready()
-
         # components in service
         self.rcomp = {}
 
@@ -247,7 +259,7 @@ class HalServer:
         # collect orphan & unbound remote components only
         for name, comp in components().iteritems():
             if comp.type == TYPE_REMOTE and comp.pid == 0 and comp.state == COMP_UNBOUND:
-                print "acquiring:", name
+                print >> self.rtapi, "acquire: %s" % (name)
                 comp.acquire()
                 self.rcomp[name] = comp
 
@@ -275,16 +287,19 @@ class HalServer:
                        # going away
                        try:
                           self.rcomp[topic].unbind()
+                          print >> self.rtapi, "unbind: %s" % (topic)
                        except Exception:
                           sys.exc_clear()
 
                     elif tag == 1:
                         print "----- subscribe", topic
                         if not topic in self.rcomp.keys():
-                            print "error: comp %s doesnt exist " % topic
+                           print >> self.rtapi, "subscribe: comp %s doesnt exist " % topic
                         else:
                             if self.rcomp[topic].state == COMP_UNBOUND:
                                 self.rcomp[topic].bind() # once only
+                                print >> self.rtapi, "bind: %s" % (topic)
+
                             for p in self.rcomp[topic].pins():
                                 self.pinsbyhandle[p.handle] = p
                             self.full_update(self.rcomp[topic])
