@@ -75,8 +75,6 @@ class HalServer:
 
         r = Container()
         if c.type == MT_HALRCOMP_BIND:
-           print "--- client_command BIND", client
-
            try:
               # raises KeyError if component non-existent:
               ce = self.rcomp[c.comp.name]
@@ -103,20 +101,20 @@ class HalServer:
                  rcomp.ready()
                  rcomp.acquire()
                  rcomp.bind()
-                 print >> self.rtapi, "created remote comp: %s" % (name)
+                 print >> self.rtapi, "%s created remote comp: %s" % (client,name)
 
                  # add to in-service dict
                  self.rcomp[name] = rcomp
                  r.type = MT_HALRCOMP_BIND_CONFIRM
               except Exception,s:
-                 print "comp create fail", s
+                 print >> self.rtapi, "%s: %s create failed: %s" % (client,str(c.comp.name), str(s))
                  r.type = MT_HALRCOMP_BIND_REJECT
                  r.note = str(s)
               self.cmd.send_multipart([client,r.SerializeToString()])
               return
 
            else:
-              print "--- client_command: existed and validated OK", client
+              print >> self.rtapi, "%s: %s existed and validated OK" % (client,str(c.comp.name))
 
               # component existed and validated OK
               r.type = MT_HALRCOMP_BIND_CONFIRM
@@ -292,17 +290,17 @@ class HalServer:
                           sys.exc_clear()
 
                     elif tag == 1:
-                        print "----- subscribe", topic
                         if not topic in self.rcomp.keys():
                            print >> self.rtapi, "subscribe: comp %s doesnt exist " % topic
                         else:
-                            if self.rcomp[topic].state == COMP_UNBOUND:
-                                self.rcomp[topic].bind() # once only
-                                print >> self.rtapi, "bind: %s" % (topic)
+                           print >> self.rtapi, "subscribe to: %s" % (topic)
+                           if self.rcomp[topic].state == COMP_UNBOUND:
+                              self.rcomp[topic].bind() # once only
+                              print >> self.rtapi, "bind: %s" % (topic)
 
-                            for p in self.rcomp[topic].pins():
-                                self.pinsbyhandle[p.handle] = p
-                            self.full_update(self.rcomp[topic])
+                           for p in self.rcomp[topic].pins():
+                              self.pinsbyhandle[p.handle] = p
+                           self.full_update(self.rcomp[topic])
                     else:
                         # normal message on XPUB - not used
                         pass
