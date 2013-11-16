@@ -233,7 +233,7 @@ def main():
     else:
         cmd_uri="tcp://127.0.0.1:4711"
         update_uri="tcp://127.0.0.1:4712"
-        halcomp = GRemoteComponent(opts.component,cmd_uri,update_uri)
+        halcomp = GRemoteComponent(opts.component,cmd_uri,update_uri, builder)
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
 
     # at this point, any glade HL widgets and their pins are set up.

@@ -43,7 +43,7 @@ class HalServer:
                 p.hals32 = pin.value
             if pin.type == HAL_U32:
                 p.halu32 = pin.value
-        print "full_update " + comp.name, str(u)
+        if self.debug: print "full_update " + comp.name, str(u)
         self.update.send_multipart([comp.name,u.SerializeToString()])
 
 
@@ -163,9 +163,9 @@ class HalServer:
                     if lpin.type == HAL_BIT:
                         lpin.value = p.halbit
                     if lpin.type == HAL_S32:
-                        lpinp.value = p.hals32
+                        lpin.value = p.hals32
                     if lpin.type == HAL_U32:
-                        lpinp.value = p.halu32
+                        lpin.value = p.halu32
                 except Exception,e:
                     r = Container()
                     r.type = MT_HALRCOMP_PIN_CHANGE_REJECT
@@ -190,14 +190,13 @@ class HalServer:
             pin.linked = p.linked
             if p.type == HAL_FLOAT:
                 pin.halfloat = p.value
-                print "floatval = ",p.value
             if p.type == HAL_BIT:
                 pin.halbit = p.value
             if p.type == HAL_S32:
                 pin.hals32 = p.value
             if p.type == HAL_U32:
                 pin.halu32 = p.value
-        print "report ",comp.name, str(r)
+        if self.debug: print "report ",comp.name, str(r)
         self.update.send_multipart([comp.name,r.SerializeToString()])
 
     def timer_event(self):
@@ -215,8 +214,9 @@ class HalServer:
         # exit halserver comp
         self.halserver.exit()
 
-    def __init__(self, cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=100):
+    def __init__(self, cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=100,debug=False):
         self.msec = msec
+        self.debug = debug
         self.ctx = zmq.Context()
 
         self.cmd = self.ctx.socket(zmq.ROUTER)
@@ -300,6 +300,6 @@ class HalServer:
             print "unwind"
             self.unwind()
 
-halserver = HalServer(msec=1000)
+halserver = HalServer(msec=20)
 
 
