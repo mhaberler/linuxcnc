@@ -256,6 +256,7 @@ const char *rtapi_get_logtag(void) {
     return logtag;
 }
 
+
 #ifdef RTAPI
 EXPORT_SYMBOL(rtapi_get_msg_handler);
 EXPORT_SYMBOL(rtapi_set_msg_handler);
