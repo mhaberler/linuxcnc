@@ -25,9 +25,17 @@ class HandlerClass:
         if debug: print "on_toggle()",w.name,w.hal_pin.get()
 
 
-    # note '_' - this method will not be visible to the widget tree
+        # note '_' - this method will not be visible to the widget tree
     def _on_example_trigger_change(self,pin,userdata=None):
         if debug: print "pin %s changed to: %s" % (pin.name,pin.get())
+
+    def _hal_disconnected(self, widget):
+        self.status.set_text("Disconnected")
+        self.statusbox.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("red"))
+
+    def _hal_connected(self, widget):
+        self.status.set_text("Connected")
+        self.statusbox.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse("#6FFF00"))
 
     def __init__(self, halcomp,builder,useropts,name):
         print "-----",halcomp
@@ -38,6 +46,10 @@ class HandlerClass:
         self.example_trigger.connect('value-changed', self._on_example_trigger_change)
         #self.example_trigger.connect('hal-pin-changed', self._on_example_trigger_change)
 
+        self.status = self.builder.get_object('status')
+        self.statusbox = self.builder.get_object('statusbox')
+        halcomp.connect('hal-connected',self._hal_connected)
+        halcomp.connect('hal-disconnected',self._hal_disconnected)
 
 
 def get_handlers(halcomp,builder,useropts,name):

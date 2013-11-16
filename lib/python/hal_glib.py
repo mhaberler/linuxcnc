@@ -185,6 +185,7 @@ class GRemoteComponent(gobject.GObject):
             GRemoteComponent.UPDATE = update
             GRemoteComponent.CMD = cmd
         GRemoteComponent.COUNT += 1
+        self.emit('hal-disconnected')
 
     # activity on one of the zmq sockets:
     def zmq_readable(self, eventfd, condition, zsocket, callback):
