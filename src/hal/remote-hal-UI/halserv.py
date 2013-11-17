@@ -1,6 +1,6 @@
 from halext import *
 import rtapi
-import zmq
+from pyczmq import zmq, zctx, zsocket, zmsg, zframe, zpoller
 import time
 import os
 import sys
@@ -45,7 +45,10 @@ class HalServer:
             if pin.type == HAL_U32:
                 p.halu32 = pin.value
         if self.debug: print "full_update " + comp.name, str(u)
-        self.update.send_multipart([comp.name,u.SerializeToString()])
+        m = zmsg.new()
+        zmsg.pushstr(m,comp.name)
+        zmsg.append(m,zframe.new(u.SerializeToString()))
+        zmsg.send(m, self.update)
 
 
     def validate(self, comp, pins):
@@ -71,7 +74,6 @@ class HalServer:
     def client_command(self, client, message):
         c = Container()
         c.ParseFromString(message)
-        #print "--- client_command:", client,str(c)
 
         r = Container()
         if c.type == MT_HALRCOMP_BIND:
@@ -87,7 +89,11 @@ class HalServer:
               # component existed, but pinlist mismatched
               r.type = MT_HALRCOMP_BIND_REJECT
               r.note = m
-              self.cmd.send_multipart([client,r.SerializeToString()])
+
+              msg = zmsg.new()
+              zmsg.pushstr(msg,client)
+              zmsg.append(msg,zframe.new(r.SerializeToString()))
+              zmsg.send(msg,self.cmd)
               return
 
            except KeyError:
@@ -110,7 +116,11 @@ class HalServer:
                  print >> self.rtapi, "%s: %s create failed: %s" % (client,str(c.comp.name), str(s))
                  r.type = MT_HALRCOMP_BIND_REJECT
                  r.note = str(s)
-              self.cmd.send_multipart([client,r.SerializeToString()])
+
+              msg = zmsg.new()
+              zmsg.pushstr(msg, client)
+              zmsg.append(msg, zframe.new(r.SerializeToString()))
+              zmsg.send(msg, self.cmd)
               return
 
            else:
@@ -135,17 +145,21 @@ class HalServer:
                  pin.dir = p.dir
                  pin.epsilon = p.epsilon
                  pin.flags = p.flags
-              self.cmd.send_multipart([client,r.SerializeToString()])
+              msg = zmsg.new()
+              zmsg.pushstr(msg, client)
+              zmsg.append(msg, zframe.new(r.SerializeToString()))
+              zmsg.send(msg, self.cmd)
               print >> self.rtapi, "%s: bound to %s" % (client, ce.name)
 
               return
 
         if c.type == MT_PING:
-           #print "--- client_command: MT_PING"
-
            r = Container()
            r.type = MT_PING_ACKNOWLEDGE
-           self.cmd.send_multipart([client,r.SerializeToString()])
+           msg = zmsg.new()
+           zmsg.pushstr(msg, client)
+           zmsg.append(msg, zframe.new(r.SerializeToString()))
+           zmsg.send(msg, self.cmd)
            return
 
 
@@ -173,7 +187,10 @@ class HalServer:
                     r = Container()
                     r.type = MT_HALRCOMP_PIN_CHANGE_REJECT
                     r.note = "pin handle %d: %s" % (p.handle,e)
-                    self.cmd.send_multipart([client,r.SerializeToString()])
+                    msg = zmsg.new()
+                    zmsg.pushstr(msg, client)
+                    zmsg.append(msg, zframe.new(r.SerializeToString()))
+                    zmsg.send(msg, self.cmd)
                 # if lpin:
                 #    self.rcomp[lpin.owner].last_update = int(time.time())
             return
@@ -200,10 +217,12 @@ class HalServer:
             if p.type == HAL_U32:
                 pin.halu32 = p.value
         if self.debug: print "report ",comp.name, str(r)
-        self.update.send_multipart([comp.name,r.SerializeToString()])
+        msg = zmsg.new()
+        zmsg.pushstr(msg, comp.name)
+        zmsg.append(msg,  zframe.new(r.SerializeToString()))
+        zmsg.send(msg, self.update)
 
     def timer_event(self):
-        #print "timer"
         for name,comp in self.rcomp.iteritems():
             self.report(comp)
 
@@ -231,23 +250,18 @@ class HalServer:
 
         self.msec = msec
         self.debug = debug
-        self.ctx = zmq.Context()
 
-        self.cmd = self.ctx.socket(zmq.ROUTER)
-        #self.cmd.setsockopt(zmq.ROUTER_MANDATORY, 1)
-        self.cmd.bind(cmd_uri)
-        self.cmd.setsockopt(zmq.LINGER,0)
+        self.ctx = zctx.new()
+        self.cmd = zsocket.new(self.ctx, zmq.ROUTER)
+        zsocket.bind(self.cmd, cmd_uri)
+        zsocket.set_linger(self.cmd, 0)
 
+        self.update = zsocket.new(self.ctx, zmq.XPUB)
+        zsocket.set_xpub_verbose(self.update, 1)
+        zsocket.set_linger(self.update, 0)
+        zsocket.bind(self.update, update_uri)
 
-        self.update = self.ctx.socket(zmq.XPUB)
-        self.update.set(zmq.XPUB_VERBOSE, 1)
-        self.update.setsockopt(zmq.LINGER,0)
-
-        self.update.bind(update_uri)
-
-        self.poller = zmq.Poller()
-        self.poller.register(self.cmd, zmq.POLLIN)
-        self.poller.register(self.update, zmq.POLLIN)
+        self.poller = zpoller.new(self.cmd, self.update)
 
         # components in service
         self.rcomp = {}
@@ -263,56 +277,56 @@ class HalServer:
 
         done = False
 
-        try:
-            while not done:
-                # command reception event
-                sockets = dict(self.poller.poll(timeout=msec))
-                if self.cmd in sockets and sockets[self.cmd] == zmq.POLLIN:
-                    (client,message) = self.cmd.recv_multipart()
-                    self.client_command(client, message)
+        while not done:
+           s = zpoller.wait(self.poller, msec)
 
-                    # msgs = self.cmd.recv_multipart()
-                    # print len(msgs),msgs
-                    # self.client_command(client, message)
+           if zpoller.terminated(self.poller):
+              if self.debug: print "--- interrupted"
+              self.unwind()
+              zmq.ctx_shutdown(self.ctx)
+              sys.exit(0)
 
-                # subscribe/unsubscribe events
-                if self.update in sockets and sockets[self.update] == zmq.POLLIN:
-                    notify = self.update.recv()
-                    tag = ord(notify[0])
-                    topic = notify[1:]
-                    if tag == 0:
-                       # an unsubscribe is sent only on last subscriber
-                       # going away
-                       try:
-                          self.rcomp[topic].unbind()
-                          print >> self.rtapi, "unbind: %s" % (topic)
-                       except Exception:
-                          sys.exc_clear()
+           if zpoller.expired(self.poller):
+              self.timer_event()
 
-                    elif tag == 1:
-                        if not topic in self.rcomp.keys():
-                           print >> self.rtapi, "subscribe: comp %s doesnt exist " % topic
-                        else:
-                           print >> self.rtapi, "subscribe to: %s" % (topic)
-                           if self.rcomp[topic].state == COMP_UNBOUND:
-                              self.rcomp[topic].bind() # once only
-                              print >> self.rtapi, "bind: %s" % (topic)
+           if s == self.cmd:
+              m = zmsg.recv(self.cmd)
+              client = zmsg.popstr(m)
+              f = zmsg.pop(m)
+              msg = buffer(zframe.data(f), 0, zframe.size(f))
+              self.client_command(client, msg)
 
-                           for p in self.rcomp[topic].pins():
-                              self.pinsbyhandle[p.handle] = p
-                           self.full_update(self.rcomp[topic])
+           # subscribe/unsubscribe events
+           if s == self.update: # in sockets and sockets[self.update] == zmq.POLLIN:
+              f = zframe.recv(self.update)
+              notify = buffer(zframe.data(f),0,zframe.size(f))
+              tag = ord(notify[0])
+              topic = notify[1:]
+              if tag == 0:
+                 # an unsubscribe is sent only on last subscriber
+                 # going away
+                 try:
+                    self.rcomp[topic].unbind()
+                    print >> self.rtapi, "unbind: %s" % (topic)
+                 except Exception:
+                    sys.exc_clear()
+
+              elif tag == 1:
+                 if not topic in self.rcomp.keys():
+                    print >> self.rtapi, "subscribe: comp %s doesnt exist " % topic
+                 else:
+                    print >> self.rtapi, "subscribe to: %s" % (topic)
+                    if self.rcomp[topic].state == COMP_UNBOUND:
+                       self.rcomp[topic].bind() # once only
+                       print >> self.rtapi, "bind: %s" % (topic)
+
+                       for p in self.rcomp[topic].pins():
+                          self.pinsbyhandle[p.handle] = p
+                       self.full_update(self.rcomp[topic])
                     else:
-                        # normal message on XPUB - not used
-                        pass
+                       # normal message on XPUB - not used
+                       pass
 
-                # timer tick
-                if not sockets:
-                    self.timer_event()
-
-        except KeyboardInterrupt:
-            print "unwind"
-            self.unwind()
-
-halserver = HalServer(msec=20,debug=True)
+halserver = HalServer(msec=20,debug=False)
 
 

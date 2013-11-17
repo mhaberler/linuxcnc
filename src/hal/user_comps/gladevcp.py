@@ -46,7 +46,7 @@ global remote_ok
 try:
     import glib
     import gtk.gdk
-    import zmq
+    import pyczmq
     from message_pb2 import Container
     from types_pb2 import *
 except ImportError,msg:
