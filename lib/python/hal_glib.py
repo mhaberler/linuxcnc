@@ -3,9 +3,11 @@
 
 import _hal, hal, gobject
 import linuxcnc
+import sys
 import os
 import time
-import zmq
+from pyczmq import zmq, zctx, zsocket, zmsg, zframe
+
 import gtk.gdk
 import gobject
 import glib
@@ -140,7 +142,6 @@ states = enum('DOWN', 'TRYING', 'UP')
 # print states.DOWN, states.UP
 # print states.reverse_mapping[1]
 
-
 class GRemoteComponent(gobject.GObject):
     __gtype_name__ = 'GRemoteComponent'
     __gsignals__ = {
@@ -173,21 +174,23 @@ class GRemoteComponent(gobject.GObject):
         self.synced = False
 
         if not GRemoteComponent.CONTEXT:
-            ctx = zmq.Context()
-            update = ctx.socket(zmq.SUB)
-            update.connect(update_uri)
+            ctx = zctx.new()
+            update = zsocket.new(ctx, zmq.SUB)
+            zsocket.connect(update, update_uri)
 
-            cmd = ctx.socket(zmq.DEALER)
-            cmd.setsockopt(zmq.IDENTITY,"%s-%d" % (name,os.getpid()))
-            cmd.setsockopt(zmq.LINGER,0)
-            cmd.connect(cmd_uri)
+            cmd = zsocket.new(ctx, zmq.DEALER)
+            zsocket.set_identity(cmd, "%s-%d" % (name,os.getpid()))
+            zsocket.set_linger(cmd, 0)
+            zsocket.connect(cmd, cmd_uri)
 
-            self.cmd_notify = gobject.io_add_watch(cmd.getsockopt(zmq.FD),
+            self.cmd_notify = gobject.io_add_watch(zsocket.fd(cmd),
                                                    gobject.IO_IN,
-                                                   self.zmq_readable, cmd, self.cmd_readable)
-            self.update_notify = gobject.io_add_watch(update.getsockopt(zmq.FD),
+                                                   self.zmq_readable, cmd,
+                                                   self.cmd_readable)
+            self.update_notify = gobject.io_add_watch(zsocket.fd(update),
                                                       gobject.IO_IN,
-                                                      self.zmq_readable, update, self.update_readable)
+                                                      self.zmq_readable, update,
+                                                      self.update_readable)
 
             # kick GTK event loop, or the zmq_readable callback gets stuck
             while gtk.events_pending():
@@ -200,9 +203,9 @@ class GRemoteComponent(gobject.GObject):
 
 
     # activity on one of the zmq sockets:
-    def zmq_readable(self, eventfd, condition, zsocket, callback):
-        while zsocket.getsockopt(zmq.EVENTS)  & zmq.POLLIN:
-            callback(zsocket)
+    def zmq_readable(self, eventfd, condition, socket, callback):
+        while zsocket.events(socket)  & zmq.POLLIN:
+            callback(socket)
         return True
 
     def _tick(self):
@@ -227,7 +230,7 @@ class GRemoteComponent(gobject.GObject):
             p.type = pin.get_type()
             p.dir = pin.get_dir()
         if self.debug: print "bind:" , str(c)
-        GRemoteComponent.CMD.send(c.SerializeToString())
+        zframe.send(zframe.new(c.SerializeToString()), GRemoteComponent.CMD, 0)
 
     def pin_update(self,rp,lp):
         if rp.HasField('halfloat'): lp.set_remote(rp.halfloat)
@@ -237,9 +240,13 @@ class GRemoteComponent(gobject.GObject):
 
     # process updates received on subscriber socket
     def update_readable(self, socket):
-        (topic, msg) = socket.recv_multipart()
+        m = zmsg.recv(socket)
+        topic = zmsg.popstr(m)
+        f = zmsg.pop(m)
+        msg = buffer(zframe.data(f),0,zframe.size(f))
         s = Container()
         s.ParseFromString(msg)
+
         if self.debug: print "status_update ", topic, str(s)
 
         if s.type == MT_HALRCOMP_PIN_CHANGE: # incremental update
@@ -269,10 +276,11 @@ class GRemoteComponent(gobject.GObject):
 
     # process replies received on command socket
     def cmd_readable(self, socket):
-        msg = socket.recv()
+        f = zframe.recv(socket)
+        m = buffer(zframe.data(f),0,zframe.size(f))
         r = Container()
-        r.ParseFromString(msg)
-        #if self.debug: print "server_message " + str(r)
+        r.ParseFromString(m)
+        if self.debug: print "server_message " + str(r)
 
         if r.type == MT_PING_ACKNOWLEDGE:
             self.emit('hal-connected')
@@ -283,7 +291,7 @@ class GRemoteComponent(gobject.GObject):
             if self.debug: print "--------------------------- BIND CONFIRM"
             self.cstate = states.UP
             self.emit('hal-connected')
-            GRemoteComponent.UPDATE.setsockopt(zmq.SUBSCRIBE, self.name)
+            zsocket.set_subscribe(GRemoteComponent.UPDATE, self.name)
             return
 
         if r.type == MT_HALRCOMP_BIND_REJECT:
@@ -303,7 +311,7 @@ class GRemoteComponent(gobject.GObject):
             self.emit('hal-disconnected')
         c = Container()
         c.type = MT_PING
-        GRemoteComponent.CMD.send(c.SerializeToString())
+        zframe.send(zframe.new(c.SerializeToString()), GRemoteComponent.CMD, 0)
         self.ping_outstanding = True
 
     def pin_change(self, rpin):
@@ -330,8 +338,7 @@ class GRemoteComponent(gobject.GObject):
             pin.hals32 = rpin.get()
         if rpin.type == HAL_U32:
             pin.halu32 = rpin.get()
-
-        GRemoteComponent.CMD.send(c.SerializeToString())
+        zframe.send(zframe.new(c.SerializeToString()), GRemoteComponent.CMD, 0)
 
     #---- HAL 'emulation' --
 
