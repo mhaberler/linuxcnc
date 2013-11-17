@@ -83,7 +83,7 @@ class GRemotePin(gobject.GObject):
         'value-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
         'hal-pin-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_OBJECT,))
 }
-    def __init__(self, name, type, direction,comp,change_cb):
+    def __init__(self, name, type, direction,comp):
         gobject.GObject.__init__(self)
         self.comp = comp
         self.name = name
@@ -91,7 +91,6 @@ class GRemotePin(gobject.GObject):
         self.direction = direction
         self.value = None
         self.handle = 0
-        self.change_cb = change_cb
         w = self.comp.builder.get_object(self.name)
         self.setter = None
         if isinstance(w, (gtk.Range, gtk.SpinButton)):
@@ -105,22 +104,16 @@ class GRemotePin(gobject.GObject):
         # print "set local",self.name,value
         self.value = value
         self.emit('value-changed')
-        self.change_cb(self)
 
 
     def set_remote(self, value):
         #print "set remote",self.name,value
-        w = self.comp.builder.get_object(self.name)
         if self.setter:
             self.setter(value)
-        # if isinstance(w,gtk.ToggleButton):
-        #     #print "--- set_remote ISTOGGLE"
-        #     w.set_active(value)
-
 
         self.value = value
         self.emit('value-changed')
-        #self.emit('hal-pin-changed',self)
+        self.emit('hal-pin-changed',self)
 
     def get(self):
         return self.value
@@ -137,11 +130,27 @@ class GRemotePin(gobject.GObject):
     def is_pin(self):
         return True
 
+def enum(*sequential, **named):
+    enums = dict(zip(sequential, range(len(sequential))), **named)
+    reverse = dict((value, key) for key, value in enums.iteritems())
+    enums['reverse_mapping'] = reverse
+    return type('Enum', (), enums)
+
+states = enum('DOWN', 'TRYING', 'UP')
+# print states.DOWN, states.UP
+# print states.reverse_mapping[1]
+
+
 class GRemoteComponent(gobject.GObject):
     __gtype_name__ = 'GRemoteComponent'
     __gsignals__ = {
         'hal-connected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
-        'hal-disconnected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ())
+        'hal-disconnected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
+        'protocol-error' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                              (gobject.TYPE_STRING,)),
+        'protocol-status' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                              (gobject.TYPE_INT,gobject.TYPE_INT,))
+
         }
 
     CONTEXT = None
@@ -154,6 +163,9 @@ class GRemoteComponent(gobject.GObject):
         self.builder = builder
         self.debug = debug
         self.period = period
+        self.cstate = states.DOWN
+        self.sstate = states.DOWN
+
         self.ping_outstanding = False
         self.name = name
         self.pinsbyname = {}
@@ -185,7 +197,7 @@ class GRemoteComponent(gobject.GObject):
             GRemoteComponent.UPDATE = update
             GRemoteComponent.CMD = cmd
         GRemoteComponent.COUNT += 1
-        self.emit('hal-disconnected')
+
 
     # activity on one of the zmq sockets:
     def zmq_readable(self, eventfd, condition, zsocket, callback):
@@ -199,11 +211,18 @@ class GRemoteComponent(gobject.GObject):
 
     # --- HALrcomp protocol support ---
     def bind(self):
+        self.emit('hal-disconnected')
+        self.emit('protocol-error', 'test error msg')
+        self.emit('protocol-status', self.cstate,self.sstate)
+
         c = Container()
         c.type = MT_HALRCOMP_BIND
         c.comp.name = self.name
+        #c.comp.ninst = 1
+        #inst = 0
         for pin_name,pin in self.pinsbyname.iteritems():
             p = c.pin.add()
+            #p.name = "%s.%d.%s" %(self.name, inst,pin_name)
             p.name = self.name +  "." + pin_name
             p.type = pin.get_type()
             p.dir = pin.get_dir()
@@ -262,14 +281,18 @@ class GRemoteComponent(gobject.GObject):
 
         if r.type == MT_HALRCOMP_BIND_CONFIRM:
             if self.debug: print "--------------------------- BIND CONFIRM"
+            self.cstate = states.UP
+            self.emit('hal-connected')
             GRemoteComponent.UPDATE.setsockopt(zmq.SUBSCRIBE, self.name)
             return
 
         if r.type == MT_HALRCOMP_BIND_REJECT:
+            self.cstate = states.DOWN
             print "bind rejected: %s" % (r.note)
             return
 
         if r.type == MT_HALRCOMP_PIN_CHANGE_REJECT:
+            #protocol error - emit string signal
             print "------ pin change rejected: %s" % (str(r.note))
 
         print "----------- UNKNOWN server message type ", r.type
@@ -314,7 +337,8 @@ class GRemoteComponent(gobject.GObject):
 
     def newpin(self, name, type, direction):
         if self.debug: print "-------newpin ",name
-        p = GRemotePin(name,type, direction,self,self.pin_change)
+        p = GRemotePin(name,type, direction,self)
+        p.connect('value-changed', self.pin_change)
         self.pinsbyname[name] = p
         return p
 
@@ -324,6 +348,7 @@ class GRemoteComponent(gobject.GObject):
     def ready(self, *a, **kw):
         if self.debug: print self.name, "ready"
         glib.timeout_add_seconds(self.period, self._tick)
+        self.cstate = states.TRYING
         self.bind()
 
     def exit(self, *a, **kw):
@@ -336,7 +361,7 @@ class GRemoteComponent(gobject.GObject):
     def __getitem__(self, k): return self.pinsbyname[k]
     def __setitem__(self, k, v): self.pinsbyname[k].set(v)
 
-
+#gobject.type_register(GRemoteComponent)
 
 class _GStat(gobject.GObject):
     __gsignals__ = {

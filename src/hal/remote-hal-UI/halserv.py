@@ -82,7 +82,7 @@ class HalServer:
               self.validate(ce, c.pin)
 
            except ValidateError,m:
-              print >> self.rtapi, "--- client_command: ValidateError", client
+              print >> self.rtapi, "--- client_command: ValidateError", client,str(m)
 
               # component existed, but pinlist mismatched
               r.type = MT_HALRCOMP_BIND_REJECT
@@ -313,6 +313,6 @@ class HalServer:
             print "unwind"
             self.unwind()
 
-halserver = HalServer(msec=20)
+halserver = HalServer(msec=20,debug=True)
 
 

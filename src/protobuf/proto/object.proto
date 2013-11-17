@@ -104,8 +104,9 @@ message Thread {
 
 message Component {
     optional string      name          = 20; //   [(nanopb).max_size = 41];
+    optional fixed32     ninst         = 22;
     optional fixed32      handle        = 25;
-    optional sfixed32      comp_id       = 30;
+    optional sfixed32     comp_id       = 30;
     optional fixed32      type          = 40;
     optional fixed32      state         = 50;
     optional fixed32      last_update   = 60;
