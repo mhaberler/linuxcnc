@@ -47,6 +47,8 @@ class HandlerClass:
         #self.example_trigger.connect('hal-pin-changed', self._on_example_trigger_change)
 
         self.status = self.builder.get_object('status')
+        #print dir(self.status) #self.status.signal_names()
+
         self.statusbox = self.builder.get_object('statusbox')
         halcomp.connect('hal-connected',self._hal_connected)
         halcomp.connect('hal-disconnected',self._hal_disconnected)
