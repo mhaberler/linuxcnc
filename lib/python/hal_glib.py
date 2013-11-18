@@ -172,6 +172,9 @@ class GRemoteComponent(gobject.GObject):
         self.pinsbyname = {}
         self.pinsbyhandle = {}
         self.synced = False
+        # more efficient to reuse a protobuf Message
+        self.rx = Container()
+        self.tx = Container()
 
         if not GRemoteComponent.CONTEXT:
             ctx = zctx.new()
@@ -218,19 +221,19 @@ class GRemoteComponent(gobject.GObject):
         self.emit('protocol-error', 'test error msg')
         self.emit('protocol-status', self.cstate,self.sstate)
 
-        c = Container()
-        c.type = MT_HALRCOMP_BIND
-        c.comp.name = self.name
+        self.tx.type = MT_HALRCOMP_BIND
+        self.tx.comp.name = self.name
         #c.comp.ninst = 1
         #inst = 0
         for pin_name,pin in self.pinsbyname.iteritems():
-            p = c.pin.add()
+            p = self.tx.pin.add()
             #p.name = "%s.%d.%s" %(self.name, inst,pin_name)
             p.name = self.name +  "." + pin_name
             p.type = pin.get_type()
             p.dir = pin.get_dir()
-        if self.debug: print "bind:" , str(c)
-        zframe.send(zframe.new(c.SerializeToString()), GRemoteComponent.CMD, 0)
+        if self.debug: print "bind:" , str(self.tx)
+        zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
+        self.tx.Clear()
 
     def pin_update(self,rp,lp):
         if rp.HasField('halfloat'): lp.set_remote(rp.halfloat)
@@ -242,25 +245,19 @@ class GRemoteComponent(gobject.GObject):
     def update_readable(self, socket):
         m = zmsg.recv(socket)
         topic = zmsg.popstr(m)
-        f = zmsg.pop(m)
-        msg = buffer(zframe.data(f),0,zframe.size(f))
-        s = Container()
-        s.ParseFromString(msg)
+        self.rx.ParseFromString(zframe.data(zmsg.pop(m)))
 
-        if self.debug: print "status_update ", topic, str(s)
+        if self.debug: print "status_update ", topic, str(self.rx)
 
-        if s.type == MT_HALRCOMP_PIN_CHANGE: # incremental update
-            if self.debug: print "--------------------------- PIN CHANGE"
-
-            for rp in s.pin:
+        if self.rx.type == MT_HALRCOMP_PIN_CHANGE: # incremental update
+            for rp in self.rx.pin:
                 lp = self.pinsbyhandle[rp.handle]
                 self.pin_update(rp,lp)
             self.emit('hal-connected')
             return
 
-        if s.type == MT_HALRCOMP_STATUS: # full update
-            if self.debug: print "--------------------------- FULL UPDATE"
-            for rp in s.pin:
+        if self.rx.type == MT_HALRCOMP_STATUS: # full update
+            for rp in self.rx.pin:
                 lname = str(rp.name)
                 if "." in lname: # strip comp prefix
                     cname,pname = lname.split(".",1)
@@ -272,53 +269,51 @@ class GRemoteComponent(gobject.GObject):
             self.synced = True
             return
 
-        print "status_update: unknown message type: %d " % (s.type)
+        print "status_update: unknown message type: ",str(self.rx)
 
     # process replies received on command socket
     def cmd_readable(self, socket):
         f = zframe.recv(socket)
-        m = buffer(zframe.data(f),0,zframe.size(f))
-        r = Container()
-        r.ParseFromString(m)
-        if self.debug: print "server_message " + str(r)
+        self.rx.ParseFromString(zframe.data(f))
 
-        if r.type == MT_PING_ACKNOWLEDGE:
+        if self.debug: print "server_message " + str(self.rx)
+
+        if self.rx.type == MT_PING_ACKNOWLEDGE:
             self.emit('hal-connected')
             self.ping_outstanding = False
             return
 
-        if r.type == MT_HALRCOMP_BIND_CONFIRM:
-            if self.debug: print "--------------------------- BIND CONFIRM"
+        if self.rx.type == MT_HALRCOMP_BIND_CONFIRM:
             self.cstate = states.UP
             self.emit('hal-connected')
             zsocket.set_subscribe(GRemoteComponent.UPDATE, self.name)
             return
 
-        if r.type == MT_HALRCOMP_BIND_REJECT:
+        if self.rx.type == MT_HALRCOMP_BIND_REJECT:
             self.cstate = states.DOWN
-            print "bind rejected: %s" % (r.note)
+            print "bind rejected: %s" % (self.rx.note)
             return
 
-        if r.type == MT_HALRCOMP_PIN_CHANGE_REJECT:
+        if self.rx.type == MT_HALRCOMP_SET_PINS_REJECT:
             #protocol error - emit string signal
-            print "------ pin change rejected: %s" % (str(r.note))
+            print "------ pin change rejected: %s" % (str(self.rx.note))
+            return
 
-        print "----------- UNKNOWN server message type ", r.type
+        print "----------- UNKNOWN server message type ", str(self.rx)
 
     def timer_tick(self):
         if self.ping_outstanding:
             print "timeout"
             self.emit('hal-disconnected')
-        c = Container()
-        c.type = MT_PING
-        zframe.send(zframe.new(c.SerializeToString()), GRemoteComponent.CMD, 0)
+        self.tx.type = MT_PING
+        zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
+        self.tx.Clear()
         self.ping_outstanding = True
 
     def pin_change(self, rpin):
         if self.debug: print "pinchange", self.synced
         if not self.synced: return
-        c = Container()
-        c.type = MT_HALRCOMP_SET_PINS
+        self.tx.type = MT_HALRCOMP_SET_PINS
 
         # This message MUST carry a Pin message for each pin which has
         # changed value since the last message of this type.
@@ -326,7 +321,7 @@ class GRemoteComponent(gobject.GObject):
         # Each Pin message MAY carry the name field.
         # Each Pin message MUST - depending on pin type - carry a halbit,
         # halfloat, hals32, or halu32 field.
-        pin = c.pin.add()
+        pin = self.tx.pin.add()
 
         pin.handle = rpin.handle
         pin.name = rpin.name
@@ -338,7 +333,8 @@ class GRemoteComponent(gobject.GObject):
             pin.hals32 = rpin.get()
         if rpin.type == HAL_U32:
             pin.halu32 = rpin.get()
-        zframe.send(zframe.new(c.SerializeToString()), GRemoteComponent.CMD, 0)
+        zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
+        self.tx.Clear()
 
     #---- HAL 'emulation' --
 

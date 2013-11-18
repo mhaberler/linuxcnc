@@ -28,10 +28,9 @@ class HalServer:
         # Each Pin message MUST carry the name and handle fields.
         # Each Pin message MUST - depending on pin type - carry a halbit, halfloat, hals32, or halu32 field.
         # A Pin message SHOULD carry the linked field.
-        u = Container()
-        u.type = MT_HALRCOMP_STATUS
+        self.tx.type = MT_HALRCOMP_STATUS
         for pin in comp.pins():
-            p = u.pin.add()
+            p = self.tx.pin.add()
             p.name = pin.name
             p.handle = pin.handle
             p.type = pin.type   # redundant FIXME
@@ -44,11 +43,12 @@ class HalServer:
                 p.hals32 = pin.value
             if pin.type == HAL_U32:
                 p.halu32 = pin.value
-        if self.debug: print "full_update " + comp.name, str(u)
+        if self.debug: print "full_update " + comp.name, str(self.tx)
         m = zmsg.new()
         zmsg.pushstr(m,comp.name)
-        zmsg.append(m,zframe.new(u.SerializeToString()))
+        zmsg.append(m,zframe.new(self.tx.SerializeToString()))
         zmsg.send(m, self.update)
+        self.tx.Clear()
 
 
     def validate(self, comp, pins):
@@ -71,99 +71,102 @@ class HalServer:
                 raise ValidateError, "pin %s direction mismatch: %d/%d" % (p.name, p.dir,pin.dir)
         # all is well
 
-    def client_command(self, client, message):
-        c = Container()
-        c.ParseFromString(message)
+    def client_command(self, socket):
+       m = zmsg.recv(socket)
+       client = zmsg.popstr(m)
+       self.rx.ParseFromString(zframe.data(zmsg.pop(m)))
 
-        r = Container()
-        if c.type == MT_HALRCOMP_BIND:
-           try:
-              # raises KeyError if component non-existent:
-              ce = self.rcomp[c.comp.name]
-              # component exists, validate pinlist
-              self.validate(ce, c.pin)
+       if self.rx.type == MT_HALRCOMP_BIND:
+          try:
+             # raises KeyError if component non-existent:
+             ce = self.rcomp[self.rx.comp.name]
+             # component exists, validate pinlist
+             self.validate(ce, self.rx.pin)
 
-           except ValidateError,m:
-              print >> self.rtapi, "--- client_command: ValidateError", client,str(m)
+          except ValidateError,e:
+             print >> self.rtapi, "--- client_command: ValidateError", client,str(e)
 
-              # component existed, but pinlist mismatched
-              r.type = MT_HALRCOMP_BIND_REJECT
-              r.note = m
+             # component existed, but pinlist mismatched
+             self.rx.type = MT_HALRCOMP_BIND_REJECT
+             self.tx.note = e
 
-              msg = zmsg.new()
-              zmsg.pushstr(msg,client)
-              zmsg.append(msg,zframe.new(r.SerializeToString()))
-              zmsg.send(msg,self.cmd)
-              return
+             msg = zmsg.new()
+             zmsg.pushstr(msg, client)
+             zmsg.append(msg, zframe.new(self.tx.SerializeToString()))
+             zmsg.send(msg, self.cmd)
+             self.tx.Clear()
+             return
 
-           except KeyError:
-              # remote component doesnt exist
-              try:
-                 # create as per pinlist
-                 name = str(c.comp.name)
-                 rcomp = HalComponent(name,TYPE_REMOTE)
-                 for s in c.pin:
-                    rcomp.newpin(str(s.name), s.type, s.dir)
-                 rcomp.ready()
-                 rcomp.acquire()
-                 rcomp.bind()
-                 print >> self.rtapi, "%s created remote comp: %s" % (client,name)
+          except KeyError:
+             # remote component doesnt exist
+             try:
+                # create as per pinlist
+                name = str(self.rx.comp.name)
+                rcomp = HalComponent(name,TYPE_REMOTE)
+                for s in self.rx.pin:
+                   rcomp.newpin(str(s.name), s.type, s.dir)
+                rcomp.ready()
+                rcomp.acquire()
+                rcomp.bind()
+                print >> self.rtapi, "%s created remote comp: %s" % (client,name)
 
-                 # add to in-service dict
-                 self.rcomp[name] = rcomp
-                 r.type = MT_HALRCOMP_BIND_CONFIRM
-              except Exception,s:
-                 print >> self.rtapi, "%s: %s create failed: %s" % (client,str(c.comp.name), str(s))
-                 r.type = MT_HALRCOMP_BIND_REJECT
-                 r.note = str(s)
+                # add to in-service dict
+                self.rcomp[name] = rcomp
+                self.tx.type = MT_HALRCOMP_BIND_CONFIRM
+             except Exception,s:
+                print >> self.rtapi, "%s: %s create failed: %s" % (client,str(self.rx.comp.name), str(s))
+                self.tx.type = MT_HALRCOMP_BIND_REJECT
+                self.tx.note = str(s)
 
-              msg = zmsg.new()
-              zmsg.pushstr(msg, client)
-              zmsg.append(msg, zframe.new(r.SerializeToString()))
-              zmsg.send(msg, self.cmd)
-              return
+             msg = zmsg.new()
+             zmsg.pushstr(msg, client)
+             zmsg.append(msg, zframe.new(self.tx.SerializeToString()))
+             zmsg.send(msg, self.cmd)
+             self.tx.Clear()
+             return
 
-           else:
-              print >> self.rtapi, "%s: %s existed and validated OK" % (client,str(c.comp.name))
+          else:
+             print >> self.rtapi, "%s: %s existed and validated OK" % (client,str(self.rx.comp.name))
 
-              # component existed and validated OK
-              r.type = MT_HALRCOMP_BIND_CONFIRM
-              # This message MUST carry a Component submessage.
-              # The Component submessage MUST carry the name field.
-              # The Component submessage MAY carry the scantimer and flags field.
-              # This message MUST carry a Pin message for each of pin.
-              # Each Pin message MUST carry the name, type and dir fields.
-              # A Pin message MAY carry the epsilon and flags fields.
-              # cm = r.comp
-              # cm.name = ce.name
-              r.comp.name = ce.name
-              # FIXME add scantimer, flags
-              for p in ce.pins():
-                 pin = r.pin.add()
-                 pin.name = p.name
-                 pin.type = p.type
-                 pin.dir = p.dir
-                 pin.epsilon = p.epsilon
-                 pin.flags = p.flags
-              msg = zmsg.new()
-              zmsg.pushstr(msg, client)
-              zmsg.append(msg, zframe.new(r.SerializeToString()))
-              zmsg.send(msg, self.cmd)
-              print >> self.rtapi, "%s: bound to %s" % (client, ce.name)
+             # component existed and validated OK
+             self.tx.type = MT_HALRCOMP_BIND_CONFIRM
+             # This message MUST carry a Component submessage.
+             # The Component submessage MUST carry the name field.
+             # The Component submessage MAY carry the scantimer and flags field.
+             # This message MUST carry a Pin message for each of pin.
+             # Each Pin message MUST carry the name, type and dir fields.
+             # A Pin message MAY carry the epsilon and flags fields.
+             # cm = r.comp
+             # cm.name = ce.name
+             self.tx.comp.name = ce.name
+             # FIXME add scantimer, flags
+             for p in ce.pins():
+                pin = self.tx.pin.add()
+                pin.name = p.name
+                pin.type = p.type
+                pin.dir = p.dir
+                pin.epsilon = p.epsilon
+                pin.flags = p.flags
+             msg = zmsg.new()
+             zmsg.pushstr(msg, client)
+             zmsg.append(msg, zframe.new(self.tx.SerializeToString()))
+             zmsg.send(msg, self.cmd)
+             self.tx.Clear()
+             print >> self.rtapi, "%s: bound to %s" % (client, ce.name)
 
-              return
+             return
 
-        if c.type == MT_PING:
-           r = Container()
-           r.type = MT_PING_ACKNOWLEDGE
-           msg = zmsg.new()
-           zmsg.pushstr(msg, client)
-           zmsg.append(msg, zframe.new(r.SerializeToString()))
-           zmsg.send(msg, self.cmd)
-           return
+       if self.rx.type == MT_PING:
+          self.tx.type = MT_PING_ACKNOWLEDGE
+          msg = zmsg.new()
+          zmsg.pushstr(msg, client)
+          zmsg.append(msg, zframe.new(self.tx.SerializeToString()))
+          zmsg.send(msg, self.cmd)
+          self.tx.Clear()
+          return
 
 
-        if c.type == MT_HALRCOMP_SET_PINS:
+       if self.rx.type == MT_HALRCOMP_SET_PINS:
             # This message MUST carry a Pin message for each pin
             # which has changed value since the last message of this type.
             # Each Pin message MUST carry the handle field.
@@ -172,39 +175,38 @@ class HalServer:
             # halbit, halfloat, hals32, or halu32 field.
 
             # update pins as per pinlist
-            for p in c.pin:
-                try:
-                    lpin = self.pinsbyhandle[p.handle]
-                    if lpin.type == HAL_FLOAT:
-                        lpin.value = p.halfloat
-                    if lpin.type == HAL_BIT:
-                        lpin.value = p.halbit
-                    if lpin.type == HAL_S32:
-                        lpin.value = p.hals32
-                    if lpin.type == HAL_U32:
-                        lpin.value = p.halu32
-                except Exception,e:
-                    r = Container()
-                    r.type = MT_HALRCOMP_PIN_CHANGE_REJECT
-                    r.note = "pin handle %d: %s" % (p.handle,e)
-                    msg = zmsg.new()
-                    zmsg.pushstr(msg, client)
-                    zmsg.append(msg, zframe.new(r.SerializeToString()))
-                    zmsg.send(msg, self.cmd)
+          for p in self.rx.pin:
+             try:
+                lpin = self.pinsbyhandle[p.handle]
+                if lpin.type == HAL_FLOAT:
+                   lpin.value = p.halfloat
+                if lpin.type == HAL_BIT:
+                   lpin.value = p.halbit
+                if lpin.type == HAL_S32:
+                   lpin.value = p.hals32
+                if lpin.type == HAL_U32:
+                   lpin.value = p.halu32
+             except Exception,e:
+                self.tx.type = MT_HALRCOMP_SET_PINS_REJECT
+                self.tx.note = "pin handle %d: %s" % (p.handle,e)
+                msg = zmsg.new()
+                zmsg.pushstr(msg, client)
+                zmsg.append(msg, zframe.new(self.tx.SerializeToString()))
+                zmsg.send(msg, self.cmd)
+                self.tx.Clear()
                 # if lpin:
                 #    self.rcomp[lpin.owner].last_update = int(time.time())
-            return
+                return
 
-        print >> self.rtapi, "client %s: unknown message type: %d " % (client, c.type)
+       print >> self.rtapi, "client %s: unknown message type: %d " % (client, self.tx.type)
 
     def report(self, comp):
         pinlist = comp.changed_pins()
         if not pinlist:
             return # no change, no update
-        r = Container()
-        r.type =  MT_HALRCOMP_PIN_CHANGE
+        self.tx.type =  MT_HALRCOMP_PIN_CHANGE
         for p in pinlist:
-            pin = r.pin.add()
+            pin = self.tx.pin.add()
             pin.name = p.name
             pin.handle = p.handle
             pin.linked = p.linked
@@ -219,8 +221,9 @@ class HalServer:
         if self.debug: print "report ",comp.name, str(r)
         msg = zmsg.new()
         zmsg.pushstr(msg, comp.name)
-        zmsg.append(msg,  zframe.new(r.SerializeToString()))
+        zmsg.append(msg,  zframe.new(self.tx.SerializeToString()))
         zmsg.send(msg, self.update)
+        self.tx.Clear()
 
     def timer_event(self):
         for name,comp in self.rcomp.iteritems():
@@ -263,6 +266,10 @@ class HalServer:
 
         self.poller = zpoller.new(self.cmd, self.update)
 
+        # more efficient to reuse a protobuf Message
+        self.rx = Container()
+        self.tx = Container()
+
         # components in service
         self.rcomp = {}
 
@@ -290,16 +297,11 @@ class HalServer:
               self.timer_event()
 
            if s == self.cmd:
-              m = zmsg.recv(self.cmd)
-              client = zmsg.popstr(m)
-              f = zmsg.pop(m)
-              msg = buffer(zframe.data(f), 0, zframe.size(f))
-              self.client_command(client, msg)
+              self.client_command(s)
 
            # subscribe/unsubscribe events
-           if s == self.update: # in sockets and sockets[self.update] == zmq.POLLIN:
-              f = zframe.recv(self.update)
-              notify = buffer(zframe.data(f),0,zframe.size(f))
+           if s == self.update:
+              notify = zframe.data(zframe.recv(self.update))
               tag = ord(notify[0])
               topic = notify[1:]
               if tag == 0:
@@ -320,12 +322,13 @@ class HalServer:
                        self.rcomp[topic].bind() # once only
                        print >> self.rtapi, "bind: %s" % (topic)
 
-                       for p in self.rcomp[topic].pins():
-                          self.pinsbyhandle[p.handle] = p
-                       self.full_update(self.rcomp[topic])
-                    else:
-                       # normal message on XPUB - not used
-                       pass
+                    for p in self.rcomp[topic].pins():
+                       self.pinsbyhandle[p.handle] = p
+                    self.full_update(self.rcomp[topic])
+              else:
+                 # normal message on XPUB - not used
+                 print "-- normal message on XPUB"
+                 pass
 
 halserver = HalServer(msec=20,debug=False)
 
