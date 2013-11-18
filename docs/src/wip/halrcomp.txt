@@ -457,6 +457,7 @@ The message type tags of the messages used in the HALrcomp protocol are:
     MT_HALRCOMP_PIN_CHANGE_REJECT
     MT_PING
     MT_PING_ACKNOWLEDGE
+    MT_HALRCOMP_SUBSCRIBE_ERROR
 ....
 === Message formats
 
@@ -648,6 +649,15 @@ an actor of failure to set a pin as described in a previous
 MT_HALRCOMP_SET_PINS message. The *note* field shall describe the
 nature of the error.
 
+==== Container type MT_HALRCOMP_SUBSCRIBE_ERROR:
+
+===== Fields
+* This message SHOULD carry a _notee_ field with text describing the
+nature or the error.
+
+===== Interpretation
+This message shall be sent by halserver if the subscribe operation
+failed, for instance if the topic refers to a nonexisting component.
 
 === Behavior
 
@@ -670,11 +680,15 @@ if no answer is received for this message.
 
 ==== Subscribe event
 
-Halserver MUST react to a subscribe event by sending a
+Halserver MUST react to a subscribe event by sending either a
 MT_HALRCOMP_STATUS full report, and track the number of subscribers
-for each component name.
+for each component name, or by publishing a
+MT_HALRCOMP_SUBSCRIBE_ERROR message describing the nature of the
+failure, which is likely due to a programming error. The client
+will consequently not receive MT_HALRCOMP_STATUS or
+MT_HALRCOMP_PIN_CHANGE messages on this socket.
 
-A subscribe event MUST transition the corresponding component to the
+A sucessful subscribe event MUST transition the corresponding component to the
 'bound' state.
 
 ==== Unubscribe event
