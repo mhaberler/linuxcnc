@@ -89,6 +89,7 @@ message Container {
     // used in MT_HALCOMP_CREATE, MT_HALCOMP_SET_PINS, MT_HALCOMP_PIN_CHANGE
     repeated Pin                  pin = 95;
 
+
     // miscellanous
     optional string        ascii          = 100;
     optional bytes         unicode        = 101;
@@ -103,6 +104,19 @@ message Container {
     optional bytes         tiff           = 110;
     optional bytes         postscript     = 111;
     optional bytes         svg            = 112;
+
+    // announcements (typically sent by zbeacon(7):
+    optional ServiceType     service_type = 115;
+    optional fixed32                 port = 116;  // TCP port number
+    optional fixed32              version = 117;
+    // might add a note string field to an announcement
+
+    // RTAPI instance id in service announcements (default 0):
+    optional fixed32             instance = 119;
+
+    // generally usable, optional in service announcement
+    optional string                   uri = 120;
+
 
 
     // infrequent compound messages
