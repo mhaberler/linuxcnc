@@ -135,6 +135,14 @@ typedef struct {
 #define USE_RMUTEX       RTAPI_BIT(1)
 #define USE_WMUTEX       RTAPI_BIT(2)
 
+// hint by creator how other side should handle protobuf messages:
+// deserialize into a nanopb struct RTMessage on write
+#define UNWRAP_ON_WRITE  RTAPI_BIT(3)
+// seerialize into a nanopb struct RTMessage on write
+#define UNWRAP_ON_READ   RTAPI_BIT(4)
+
+
+
 #define RB_ALIGN 8
 
 // record ring buffer size must be aligned on dword boundaries
