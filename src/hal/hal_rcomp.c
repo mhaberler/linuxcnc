@@ -113,7 +113,7 @@ int hal_acquire(const char *comp_name, int pid)
 	}
 	if (comp->type != TYPE_REMOTE) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: hal_acquire(%s): not a remote componet (%d)\n",
+			    "HAL: hal_acquire(%s): not a remote component (%d)\n",
 			    comp_name, comp->type);
 	    return -EINVAL;
 	}
