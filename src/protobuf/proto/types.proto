@@ -197,6 +197,7 @@ enum ContainerType {
     MT_HALRCOMP_STATUS = 275;
     MT_HALRCOMP_PIN_CHANGE = 276;
     MT_HALRCOMP_PIN_CHANGE_REJECT = 277;
+    MT_HALRCOMP_SUBSCRIBE_ERROR = 278;
 
     // task/client comms
     MT_TASK_REPLY     = 400;

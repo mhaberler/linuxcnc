@@ -315,7 +315,15 @@ class HalServer:
 
               elif tag == 1:
                  if not topic in self.rcomp.keys():
-                    print >> self.rtapi, "subscribe: comp %s doesnt exist " % topic
+                    note = "subscribe: comp %s doesnt exist " % topic
+                    print >> self.rtapi, note
+                    self.tx.type = MT_HALRCOMP_SUBSCRIBE_ERROR
+                    self.tx.note = note
+                    m = zmsg.new()
+                    zmsg.pushstr(m,topic)
+                    zmsg.append(m,zframe.new(self.tx.SerializeToString()))
+                    zmsg.send(m, self.update)
+                    self.tx.Clear()
                  else:
                     print >> self.rtapi, "subscribe to: %s" % (topic)
                     if self.rcomp[topic].state == COMP_UNBOUND:
@@ -327,7 +335,7 @@ class HalServer:
                     self.full_update(self.rcomp[topic])
               else:
                  # normal message on XPUB - not used
-                 print "-- normal message on XPUB"
+                 print "-- normal message on XPUB ?"
                  pass
 
 halserver = HalServer(msec=20,debug=False)

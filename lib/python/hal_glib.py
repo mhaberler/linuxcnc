@@ -145,8 +145,6 @@ states = enum('DOWN', 'TRYING', 'UP')
 class GRemoteComponent(gobject.GObject):
     __gtype_name__ = 'GRemoteComponent'
     __gsignals__ = {
-        'hal-connected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
-        'hal-disconnected': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
         'protocol-error' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                               (gobject.TYPE_STRING,)),
         'protocol-status' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -217,9 +215,6 @@ class GRemoteComponent(gobject.GObject):
 
     # --- HALrcomp protocol support ---
     def bind(self):
-        self.emit('hal-disconnected')
-        self.emit('protocol-error', 'test error msg')
-        self.emit('protocol-status', self.cstate,self.sstate)
 
         self.tx.type = MT_HALRCOMP_BIND
         self.tx.comp.name = self.name
@@ -253,7 +248,10 @@ class GRemoteComponent(gobject.GObject):
             for rp in self.rx.pin:
                 lp = self.pinsbyhandle[rp.handle]
                 self.pin_update(rp,lp)
-            self.emit('hal-connected')
+
+            if self.sstate != states.UP:
+                self.emit('protocol-status', self.cstate,states.UP)
+            self.sstate = states.UP
             return
 
         if self.rx.type == MT_HALRCOMP_STATUS: # full update
@@ -265,9 +263,17 @@ class GRemoteComponent(gobject.GObject):
                 lp.handle = rp.handle
                 self.pinsbyhandle[rp.handle] = lp
                 self.pin_update(rp,lp)
-                self.emit('hal-connected')
             self.synced = True
+            if self.sstate != states.UP:
+                self.emit('protocol-status', self.cstate,states.UP)
+            self.sstate = states.UP
             return
+
+        if self.rx.type == MT_HALRCOMP_SUBSCRIBE_ERROR:
+            self.sstate = states.DOWN
+            print "proto error on subscribe: ",str(self.rx.note)
+            self.emit('protocol-error', str(self.rx.note))
+            self.emit('protocol-status', self.cstate,self.sstate)
 
         print "status_update: unknown message type: ",str(self.rx)
 
@@ -279,22 +285,28 @@ class GRemoteComponent(gobject.GObject):
         if self.debug: print "server_message " + str(self.rx)
 
         if self.rx.type == MT_PING_ACKNOWLEDGE:
-            self.emit('hal-connected')
+            self.cstate = states.UP
+            self.emit('protocol-status', self.cstate,self.sstate)
+            #self.emit('hal-connected')
             self.ping_outstanding = False
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_CONFIRM:
             self.cstate = states.UP
-            self.emit('hal-connected')
+            self.sstate = states.TRYING
+            self.emit('protocol-status', self.cstate,self.sstate)
             zsocket.set_subscribe(GRemoteComponent.UPDATE, self.name)
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_REJECT:
             self.cstate = states.DOWN
-            print "bind rejected: %s" % (self.rx.note)
+            self.emit('protocol-status', self.cstate,self.sstate)
+            print "bind rejected: %s" % (str(self.rx.note))
             return
 
         if self.rx.type == MT_HALRCOMP_SET_PINS_REJECT:
+            self.cstate = states.DOWN
+            self.emit('protocol-status', self.cstate,self.sstate)
             #protocol error - emit string signal
             print "------ pin change rejected: %s" % (str(self.rx.note))
             return
@@ -303,8 +315,9 @@ class GRemoteComponent(gobject.GObject):
 
     def timer_tick(self):
         if self.ping_outstanding:
+            self.cstate = states.TRYING
+            self.emit('protocol-status', self.cstate,self.sstate)
             print "timeout"
-            self.emit('hal-disconnected')
         self.tx.type = MT_PING
         zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
         self.tx.Clear()
@@ -352,6 +365,7 @@ class GRemoteComponent(gobject.GObject):
         if self.debug: print self.name, "ready"
         glib.timeout_add_seconds(self.period, self._tick)
         self.cstate = states.TRYING
+        self.emit('protocol-status', self.cstate,self.sstate)
         self.bind()
 
     def exit(self, *a, **kw):

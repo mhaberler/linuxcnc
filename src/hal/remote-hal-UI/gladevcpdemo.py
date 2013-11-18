@@ -57,8 +57,8 @@ class HandlerClass:
         #print dir(self.status) #self.status.signal_names()
 
         self.statusbox = self.builder.get_object('statusbox')
-        halcomp.connect('hal-connected',self._hal_connected)
-        halcomp.connect('hal-disconnected',self._hal_disconnected)
+        # halcomp.connect('hal-connected',self._hal_connected)
+        # halcomp.connect('hal-disconnected',self._hal_disconnected)
         halcomp.connect('protocol-error',self._protocol_error)
         halcomp.connect('protocol-status',self._protocol_status)
 
