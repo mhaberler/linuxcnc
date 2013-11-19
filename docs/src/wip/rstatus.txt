@@ -169,18 +169,18 @@ net Xpos-fb stepgen.0.position-fb => axis.0.motor-pos-fb
 net Ypos-fb stepgen.1.position-fb => axis.1.motor-pos-fb
 net Zpos-fb stepgen.2.position-fb => axis.2.motor-pos-fb
 
-# 2. declare a HAL group 'cmd-pos', scan every 100mS
-newg cmd-pos 100
-newm cmd-pos Xpos-fb
-newm cmd-pos Ypos-fb
-newm cmd-pos Zpos-fb
+# 2. declare a HAL group 'fb-pos', scan every 100mS
+newg fb-pos 100
+newm fb-pos Xpos-fb
+newm fb-pos Ypos-fb
+newm fb-pos Zpos-fb
 
 # 3. Report this group via STP:
 # start the generic HAL reporter
-loadusr -W halstp --groups cmd-pos # <... other groups to report>
+loadusr -W halstp --groups fb-pos # <... other groups to report>
 ---------------------------------------------------------------------
 
-This will create an STP group 'cmd-pos'  which will track the three
+This will create an STP group 'fb-pos'  which will track the three
 axis values as they change. Any number of STP observers may now
 subscribe to this group, for instance to update the progress display
 in a UI.

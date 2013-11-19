@@ -9,7 +9,6 @@ Status: draft
 :ngc: {basebackend@docbook:'':ngc}
 :proto: {basebackend@docbook:'':proto}
 
-
 == Purpose
 
 Remove the HAL limitation which requires all thread functions to execute
