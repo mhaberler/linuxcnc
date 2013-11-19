@@ -123,6 +123,7 @@ DOC_SRCS_EN := \
 	Master_Integrator.txt \
 	Master_Developer.txt \
 	wip/halrcomp.txt  \
+	wip/rstatus.txt  \
 	wip/requirements.txt
 
 DOC_SRCS_FR := \

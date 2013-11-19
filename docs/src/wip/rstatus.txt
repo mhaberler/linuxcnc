@@ -1,0 +1,326 @@
+= The Status Tracking Protocol
+
+Michael Haberler, 11/2013
+
+Status: draft
+
+:ini: {basebackend@docbook:'':ini}
+:hal: {basebackend@docbook:'':hal}
+:ngc: {basebackend@docbook:'':ngc}
+:proto: {basebackend@docbook:'':proto}
+
+== Purpose
+
+The purpose of the Status Tracking Protocol (STP) is to enable
+observers to monitor system state in a distributed setup.
+
+STP supports arbitrary system components to export scalar variables as
+named, typed objects. Such named variables are assembled into named
+groups, and these groups are the unit of reporting by updaters.
+
+Observers can find out at runtime which groups exist and which member
+variables they report, including their name, type and current
+value. Observers subscribe to certain groups to receive change updates
+for their member variables, and might track all or a subset of the
+member variables as needed.
+
+Beyond tracking the current value of a given variable, the observer-side
+API supports attaching an action (callback) to a change event, both at the level
+of an individual variable, or the containing group. This obviates the
+need to periodically poll for changes in a given variable.
+
+Reported member variables are read-only for subscribers. Other than
+HAL, strings and blobs can be tracked by STP.
+
+The primary purpose of STP within LinuxCNC is to serve as the
+foundation for replacing the current EMC_STATUS tracking model with a
+more flexible, extensible and distributed scheme. It is assumed that
+all variables of interest in HAL components are exported as HAL
+pins.
+
+Another goal is to unify variable monitoring in LinuxCNC, which has
+suffered from disjoint mechanisms like NML and HAL, which required for
+instance 'bridging' components like 'halui'.
+
+== Requirements
+
+- setup-time declaration: Any entity may choose to export a set of
+  typed  variables assembled into groups as defined at setup time
+  (this applies to observing HAL signals in particular, but also
+  programs in scripting languages; only with compiled language code
+  like C++ the set of exported groups and members likely will be static).
+
+- introspection support: observers shall be able to inspect groups,
+their member variables and types and subscribe to those they declare
+interest in.
+
+- selective subscription: observers shall receive updates only for
+groups they are interested in.
+
+- type support: STP shall support the HAL basic types (bool, signed,
+  unsigned, double) as well as strings and byte blobs.
+
+- per-group reporting intervals: it shall be possible to define
+  reporting intervals on a per-group basis to support varying update
+  rate needs,
+
+- idempotent behavior: an observer which exits and restarts will see
+  the identical observed state all other observers see post initial update.
+
+- update atomicity: an observer may rely on all variables in a group
+  to reflect their last observed value once a group-update complete
+  callback is executed.
+
+== Concepts
+
+=== System state
+
+State is assumed to be the sum of all scalar variables managed in
+different entities; in the case of LinuxCNC these might be for instance
+task, interpreter, iocontrol, or the realtime environment. Such variables might
+represent electrical signals (like HAL signals), or the status of
+entities like the 'machine state', 'task state', 'task mode', 'interpreter state',
+or 'current machine position'.
+
+Other entities might want to monitor and display such state, for
+instance user interfaces, or base actions on changes thereof. Example
+use cases are:
+
+- displaying the status of the 'ESTOP' signal
+- tracking current machine position for on-screen progress display
+- using the current line number to highlight a line of G-code
+- disable all user interface elements until 'task state' is 'ON'
+- disable/enable user interface elements based on 'task mode' like
+ disable MDI input in 'AUTO' mode
+
+=== Sampled State and events
+
+The STP model rests on 'state sampling' and change detection, that is,
+periodically comparing the current value against the last observed
+value. Therefore, short changes like glitches or short events lasting
+less than the sampling interval cannot be observed (note this is
+identical to the current LinuxCNC model).
+
+STP is therefore geared for monitoring continuously changing variables
+whose meaning is independent of the sampling interval.
+
+=== The STP Namespace
+
+A name is considered unique if the concatenation of group name and
+variable name is unique, i.e. several updaters may export an identically named
+variable, say 'estop', but all group names exported by different
+updaters must be distinct.
+
+=== STP Updater and Observer roles
+
+Any process may be an Observer, and Updater, or both.
+
+An example would be task, which would subscribe to a HAL group
+defining the equivalent of EMC_STATUS as exported by the RT
+environment. But it would also be an Updater with respect to task
+state, taks mode, interpreter state etc.
+
+The zeroMQ socket startup semantics is very helpful here since this
+introduces no startup order dependencies.
+
+=== Relation to the HAL Remote Component Protocol
+
+A HAL remote component is an actor _within_ the HAL universe, acting
+strictly within the named component and pin model. Its purpose is to
+interact with other HAL components at the level of HAL types (bool,
+signed, unsigned, double).
+
+An STP Observer is a read-only tracker of variables. Such variables
+and groups may originate from several entities, HAL/RT being just
+one. Also, STP reporting is not limited to the HAL basic
+types. Speaking in the HAL electrical circuit mode, STP is like a
+scope or a meter: it may report a signal value, but it does not change
+the system behavior.
+
+While HAL may be an important generator of STP updates (see HAL groups
+below), it will not the only one; task and interpreter are generators
+just alike. Hence STP covers a wider range of status sources and
+variable types as HALrcomp; and it is specialized for status
+tracking. STP does not support any form of writing to observed
+variables, or attempt to synchronize state.
+
+It might also be useful to combine aspects of STP and HAL remote component
+support, or a direction of the HALrcomp protocol. This would for
+instance allow to replace 'halui' in a more generic way, for instance
+to mirror state like 'interpreter idle' in HAL as
+_halui.program.is-idle_.
+
+=== STP Updaters and HAL Groups
+
+HAL and 'halcmd' support assembling of signals into 'HAL groups'. A
+HAL group is a named, ordered collection of HAL signals. HAL groups
+are purely a management data structure and do not cause any change in
+HAL semantics. HAL group information will be used by an STP reporting
+process to monitor signal values.
+
+This is best explained by an example defining a simple group
+monitoring and reporting the current axis positions in a stepper
+config:
+
+[source,{hal}]
+---------------------------------------------------------------------
+# 1. signals as taken from configs/common/core_stepper.hal:
+net Xpos-fb stepgen.0.position-fb => axis.0.motor-pos-fb
+net Ypos-fb stepgen.1.position-fb => axis.1.motor-pos-fb
+net Zpos-fb stepgen.2.position-fb => axis.2.motor-pos-fb
+
+# 2. declare a HAL group 'cmd-pos', scan every 100mS
+newg cmd-pos 100
+newm cmd-pos Xpos-fb
+newm cmd-pos Ypos-fb
+newm cmd-pos Zpos-fb
+
+# 3. Report this group via STP:
+# start the generic HAL reporter
+loadusr -W halstp --groups cmd-pos # <... other groups to report>
+---------------------------------------------------------------------
+
+This will create an STP group 'cmd-pos'  which will track the three
+axis values as they change. Any number of STP observers may now
+subscribe to this group, for instance to update the progress display
+in a UI.
+
+Note that the reporter component (here called 'halstp') has no
+knowledge about names, types and groups. It is completely generic and driven by
+the HAL group definition expressed as halcmd script.
+
+This means adding or removing a reported signal amounts to adding or
+removing a line in a .hal file - as opposed to the status quo where
+adding a field to EMC_STATUS amounts to a serious programming venture.
+
+At the C++ level there will be an equivalent API to define a group,
+add variables to a group, and export those via a background thread
+which does the scanning automatically.
+
+== The STP Observer API
+
+The observer side API will have methods to:
+
+- connect to an STP server given a zeroMQ URI
+- define variables and groups of interest
+- associate internal variables with the update process
+- subscribe to one or several groups
+- associate callbacks with groups or individual variables as needed
+- start the listener thread which will set variables as updates are received
+
+== Interaction of STP updaters and observers
+
+The STP message flow between observer and updater is very similar to
+how HALrcomp reports changed pin values. The following sequence
+diagram shows the flow:
+
+image::images/rstatus-flow.png[align="center"]
+
+An observer initially connects to the updater and subscribes to the
+'empty group' which will cause the updater to report all groups and
+variables.
+
+Next the observer unsubscribes (if not all groups are desired) and
+subscribes only to the desired groups, againg receiving a full status
+report for the chosen groups.
+
+From there on, periodic change detecion by the updater will cause
+updates to be pushed to all subscribers.
+
+On exit, closing the SUB socket will cause an implicit 'unsubscribe'
+from the chosen groups.
+
+
+== Protocol Specification
+
+// === Language
+
+// The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+// "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+// document are to be interpreted as described in RFC 2119.
+
+// Field names are written in *bold*. Message types are written in _italic_.
+// Message types are named after the symbolic value of the Container.type
+// field.
+
+=== Rationale
+
+The protocol is intended to be stateless and idempotent. An arbitrary
+number of observers may connect to an updater.
+
+The separation of status reports into a full initial report including
+variable names, types, handles and values, and incremental updates
+consisting only of handle/value pairs is intended to minimize the
+per-update overhead both from a message overhead as well as processing
+needs perspective.
+
+=== zeroMQ socket usage
+
+The interaction is assumed to use zeroMQ as messaging stack. The
+socket types and options are:
+
+. the updater socket is of type XPUB, with the socket
+option 'verbose' set so client subscribe/unsubscribe causes a message
+reception event in the updater.
+.  updates are sent with a topic name equal to the group name.
+. the observer socket is of type XSUB.
+. the obsever is expected to subscribe to all groups it
+is interested in receiving updates for.
+
+=== Protobuf Messages
+
+STP will use Google protobuf as message encoding
+method. The full protobuf formats can be be found under
+`src/protobuf/proto`. The type tag values listed therein take
+precedence over values used here.
+
+=== Messages types
+
+The message type tags of the messages used in the HALrcomp protocol are:
+....
+    MT_STP_STATUS
+    MT_STP_UPDATE
+    MT_STP_ERROR
+....
+
+=== Message formats
+
+Note: the message formats used by STP are sufficiently similar to the
+HALrcomp MT_HALRCOMP_STATUS, MT_HALRCOMP_PIN_CHANGE  and
+MT_HALRCOMP_SUBSCRIBE_ERROR messages that they will be folded into a
+common message definition supporting both use cases.
+
+
+=== Security considerations
+
+The Status tracking  protocol currently does not take security aspects into
+account.
+
+STP may eventually use the authentication and encryption
+mechanisms which are currently being finalized by the zeroMQ project. This step might
+affect the subscribe phasse only, but will not affect the  protocol flow.
+
+=== Configuration
+
+This document currently does not specify how configuration values like
+zeroMQ URI's are assigned. Besides the traditional ini file method,
+the zeroMQ beacon protocol might be used for autodiscovery of parties.
+
+== Implementation notes
+
+The Status tracking protocol is supported by HAL userland code which
+accelerates the bottleneck process - change detection and reporting.
+
+A test implementation (400 lines of C++) has been timed on a Beaglebone doing 170.000
+change detections/second causing about 10% CPU usage, suggesting the
+method scales very well.
+
+=== Implications for HAL component(s)
+
+The HAL group-based status tracking method assumes all 'interesting'
+values are available as HAL pins which can be linked to signals.
+
+This mainly affects _motion_ where this process has been started a
+while back, but not completed. The upside is that the duplicity -
+reporting values both via NML and the motion-specific intermediate
+step, as well as select HAL pins - will go away.

@@ -1,0 +1,22 @@
+# Status Tracking message flow
+msc {
+
+  arcgradient = 4;
+
+  a [label="Observer"],b [label="Updater"], c [label="state"];
+
+  a=>b [ label = "subscribe('')" ] ;
+  b=>a [ label = "group('a',vars..)"];
+  b=>a [ label = "group('b',vars..)"];
+
+  a=>b [ label = "unsubscribe()" ] ;
+  a=>b [ label = "subscribe('b')" ] ;
+
+  b=>a [ label = "group('b',vars..)"];
+
+  b=>c [ label = "periodic change detect(vars('b'))"];
+  c=>b [ label = "changed variables(...)"];
+  b=>a [ label = "incremental variable status(...)"];
+
+  a=>b [ label = "unsubscribe('b')" ] ;
+}
