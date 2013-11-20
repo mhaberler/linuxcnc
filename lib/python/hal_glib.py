@@ -6,7 +6,7 @@ import linuxcnc
 import sys
 import os
 import time
-from pyczmq import zmq, zctx, zsocket, zmsg, zframe
+from pyczmq import zmq, zctx, zsocket, zmsg, zframe, zbeacon, zstr
 
 import gtk.gdk
 import gobject
@@ -14,6 +14,9 @@ import glib
 
 from message_pb2 import Container
 from types_pb2 import *
+
+BEACON_PORT = 10042
+HAL_RCOMP_VERSION = 1
 
 class GPin(gobject.GObject, hal.Pin):
     __gtype_name__ = 'GPin'
@@ -138,7 +141,7 @@ def enum(*sequential, **named):
     enums['reverse_mapping'] = reverse
     return type('Enum', (), enums)
 
-states = enum('DOWN', 'TRYING', 'UP')
+states = enum('DISCOVER', 'DOWN', 'TRYING', 'UP')
 # print states.DOWN, states.UP
 # print states.reverse_mapping[1]
 
@@ -157,7 +160,8 @@ class GRemoteComponent(gobject.GObject):
     CMD = None
     COUNT = 0 # instance counter
 
-    def __init__(self, name, cmd_uri, update_uri, builder,period=3,debug=False):
+    def __init__(self, name, builder,cmd_uri=None, update_uri=None, instance=0,
+                 period=3,debug=False):
         gobject.GObject.__init__(self)
         self.builder = builder
         self.debug = debug
@@ -177,12 +181,30 @@ class GRemoteComponent(gobject.GObject):
         if not GRemoteComponent.CONTEXT:
             ctx = zctx.new()
             update = zsocket.new(ctx, zmq.SUB)
-            zsocket.connect(update, update_uri)
-
             cmd = zsocket.new(ctx, zmq.DEALER)
             zsocket.set_identity(cmd, "%s-%d" % (name,os.getpid()))
             zsocket.set_linger(cmd, 0)
-            zsocket.connect(cmd, cmd_uri)
+
+            if not (cmd_uri and update_uri):
+                self.client_beacon = zbeacon.new(ctx, BEACON_PORT)
+                zbeacon.subscribe(self.client_beacon, '')
+                self.beacon_socket = zbeacon.socket(self.client_beacon)
+                zsocket.set_rcvtimeo(self.beacon_socket, 3000)
+                # FIXME match service_type, instance here
+                ipaddress = zstr.recv(self.beacon_socket)
+                content = zframe.recv(self.beacon_socket)
+                if not content:
+                    raise RuntimeError,"cant obtain server configuration"
+                r = Container()
+                r.ParseFromString(zframe.data(content))
+
+                print "got ip=%s msg=%s" % (ipaddress, str(r))
+                zframe.destroy(content)
+                zsocket.connect(update, "tcp://%s:%d" % (ipaddress, r.update_port))
+                zsocket.connect(cmd, "tcp://%s:%d" % (ipaddress, r.cmd_port))
+            else:
+                zsocket.connect(update, update_uri)
+                zsocket.connect(cmd, cmd_uri)
 
             self.cmd_notify = gobject.io_add_watch(zsocket.fd(cmd),
                                                    gobject.IO_IN,

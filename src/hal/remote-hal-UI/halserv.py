@@ -1,9 +1,12 @@
 from halext import *
 import rtapi
-from pyczmq import zmq, zctx, zsocket, zmsg, zframe, zpoller
+from pyczmq import zmq, zctx, zsocket, zmsg, zframe, zpoller, zbeacon
 import time
 import os
 import sys
+
+BEACON_PORT = 10042
+HAL_RCOMP_VERSION = 1
 
 from message_pb2 import Container
 from types_pb2 import *
@@ -196,9 +199,9 @@ class HalServer:
                 self.tx.Clear()
                 # if lpin:
                 #    self.rcomp[lpin.owner].last_update = int(time.time())
-                return
+             return
 
-       print >> self.rtapi, "client %s: unknown message type: %d " % (client, self.tx.type)
+       print >> self.rtapi, "client %s: unknown message type: %d " % (client, self.rx.type)
 
     def report(self, comp):
         pinlist = comp.changed_pins()
@@ -242,7 +245,7 @@ class HalServer:
         # exit halserver comp
         self.halserver.exit()
 
-    def __init__(self, cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=100,debug=False):
+    def __init__(self, cmd_uri=None, update_uri=None,msec=100,debug=False):
 
         # need to create a dummy HAL component to keep hal_lib happy
         self.halserver =  HalComponent("halserv%d" % os.getpid(), TYPE_USER)
@@ -255,14 +258,39 @@ class HalServer:
         self.debug = debug
 
         self.ctx = zctx.new()
+
         self.cmd = zsocket.new(self.ctx, zmq.ROUTER)
-        zsocket.bind(self.cmd, cmd_uri)
-        zsocket.set_linger(self.cmd, 0)
+        if cmd_uri:
+           cmd_port = zsocket.bind(self.cmd, cmd_uri)
+        else:
+           # bind to ephemeral port
+           cmd_port = zsocket.bind(self.cmd, "tcp://*:*")
 
         self.update = zsocket.new(self.ctx, zmq.XPUB)
         zsocket.set_xpub_verbose(self.update, 1)
         zsocket.set_linger(self.update, 0)
-        zsocket.bind(self.update, update_uri)
+        if update_uri:
+           update_port = zsocket.bind(self.update, update_uri)
+        else:
+           update_port = zsocket.bind(self.update,  "tcp://*:*")
+
+        zsocket.set_linger(self.cmd, 0)
+
+        if not (cmd_uri and update_uri):
+           self.service_beacon = zbeacon.new(self.ctx, BEACON_PORT)
+           zbeacon.set_interval(self.service_beacon, 1000)
+
+           #  Create beacon to broadcast
+           a = Container()
+           a.type =  MT_SERVICE_ANNOUNCEMENT
+           a.service_type = ST_HAL_RCOMP
+           a.cmd_port = cmd_port
+           a.update_port = update_port
+           a.version = HAL_RCOMP_VERSION
+           a.instance = 0
+           a.note = "halserv.py here"
+           pkt = a.SerializeToString()
+           zbeacon.publish(self.service_beacon, pkt)
 
         self.poller = zpoller.new(self.cmd, self.update)
 
@@ -337,6 +365,8 @@ class HalServer:
                  # normal message on XPUB - not used
                  print "-- normal message on XPUB ?"
                  pass
+
+#cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=100,debug=False):
 
 halserver = HalServer(msec=20,debug=False)
 

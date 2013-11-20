@@ -162,7 +162,7 @@ enum ContainerType {
     MT_HALUPDATE      = 8;
     MT_RTAPI_MESSAGE  = 9;
     MT_LOG_MESSAGE    = 10;
-    MT_SERVICE_ANNOUCNEMENT = 11;
+    MT_SERVICE_ANNOUNCEMENT = 11;
 
     MT_SYSLOG         = 18;
     MT_LEGACY_NML     = 19;

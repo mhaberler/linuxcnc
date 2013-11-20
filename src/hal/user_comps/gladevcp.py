@@ -231,9 +231,23 @@ def main():
 
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
     else:
-        cmd_uri="tcp://127.0.0.1:4711"
-        update_uri="tcp://127.0.0.1:4712"
-        halcomp = GRemoteComponent(opts.component,cmd_uri,update_uri, builder)
+        instance = 0
+
+        # explicitly configured sockets
+        #cmd_uri="tcp://127.0.0.1:4711"
+        #update_uri="tcp://127.0.0.1:4712"
+
+        # use zbeacon service discovery
+        cmd_uri = None
+        update_uri = None
+
+        pinginterval = 3
+        rcdebug=False
+        halcomp = GRemoteComponent(opts.component, builder,
+                                   cmd_uri=cmd_uri,update_uri=update_uri,
+                                   instance=instance,
+                                   period=pinginterval,
+                                   debug=rcdebug)
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
 
     # at this point, any glade HL widgets and their pins are set up.
