@@ -146,12 +146,16 @@ enum ReplyType {
 enum ServiceType {
     ST_HAL_RCOMP  = 1;
     ST_HAL_STATUS = 2;
-    ST_RT_LOGGING = 3;
-    ST_RT_COMMAND = 4;
+    ST_LOGGING = 3;
+    ST_COMMAND = 4;
     ST_CONFIG     = 5;
     ST_REDIS      = 6;
+    ST_HTTP      = 7;
 }
-
+enum ServiceAPI {
+    SA_ZMQ_PROTOBUF = 1;
+    SA_WS_JSON      = 2;
+}
 enum ContainerType {
 
     MT_MOTCMD         = 3;
@@ -162,7 +166,6 @@ enum ContainerType {
     MT_HALUPDATE      = 8;
     MT_RTAPI_MESSAGE  = 9;
     MT_LOG_MESSAGE    = 10;
-    MT_SERVICE_ANNOUNCEMENT = 11;
 
     MT_SYSLOG         = 18;
     MT_LEGACY_NML     = 19;
@@ -196,6 +199,12 @@ enum ContainerType {
     MT_REJECT          = 220;
     MT_DONE            = 240;
 
+    // ask for a specific list of services as specified in a ServiceRequest
+    MT_SERVICE_REQUST       = 250;
+    // respond to the above with one or several ServiceDescription messages
+    MT_SERVICE_ANNOUNCEMENT = 251;
+    // query for all available services
+    MT_SERVICE_PROBE        = 252;
 
     // remote HAL UI interaction
     MT_HALRCOMP_BIND  = 270;

@@ -63,13 +63,10 @@ newsig fuse-ok bit
 # declare named group 'power-suply'
 
 newg power-supply 1
-#000 onchange reportchanged
 newm power-supply volt
-#monitor
 newm power-supply amps
 newm power-supply mains
 newm power-supply fuse-ok
-#monitor
 
 # display the group
 show group power-supply

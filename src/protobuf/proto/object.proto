@@ -13,6 +13,31 @@ message Instance {
     optional sfixed32        id       = 40;
 }
 
+message ServiceDescription {
+    repeated ServiceType       stype = 1;
+    required fixed32     min_version = 2   [default = 0];
+}
+
+// a starting client requests a shopping list of services it needs:
+message ServiceRequest {
+    optional fixed32            instance = 1 ; // RTAPI instance id
+    required ServiceAPI              api = 2  [default =  SA_ZMQ_PROTOBUF ];
+    repeated ServiceDescription service  = 3; // the shopping list
+}
+
+// a service, for announcement/response to ServiceRequest via zbeacon(7)
+message ServiceAnnouncement {
+    required ServiceType              stype = 1;
+    required fixed32                version = 2 [default = 0];
+    required fixed32               instance = 3 [default = 0]; // RTAPI instance id
+    optional fixed32               cmd_port = 4;  // TCP port number
+    optional fixed32            update_port = 5;  // TCP port number
+    optional string                http_uri = 6;
+    optional string                  ws_uri = 7;
+    optional string            description  = 8;
+    optional string              ipaddress  = 9;
+}
+
 // describes an entity which may cause a message:
 // a process, a component, a thread, a group,
 // a remote component

@@ -105,20 +105,9 @@ message Container {
     optional bytes         postscript     = 111;
     optional bytes         svg            = 112;
 
-    // announcements (typically sent by zbeacon(7):
-    optional ServiceType     service_type = 115;
-    optional fixed32             cmd_port = 116;  // TCP port number
-    optional fixed32          update_port = 117;  // TCP port number
-    optional fixed32              version = 118;
-
-    // might add a note string field to an announcement
-
-    // RTAPI instance id in service announcements (default 0):
-    optional fixed32             instance = 119;
-
-    // generally usable, optional in service announcement
-    optional string                   uri = 120;
-
+    // announcements (typically sent/received via zbeacon(7):
+    optional ServiceRequest  service_request = 115;
+    optional ServiceAnnouncement  service_announcement = 116;
 
 
     // infrequent compound messages

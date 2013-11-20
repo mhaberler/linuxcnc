@@ -41,8 +41,28 @@ $(call TOOBJSDEPS, $(TRACKER_SRCS)) : EXTRAFLAGS += $(TRACKER_CXXFLAGS)
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(TRACKER_LDFLAGS)
 
-USERSRCS += $(TRACKER_SRCS)
-TARGETS += ../bin/haltracker
+USERSRCS += $(WRAPD_SRCS)
+TARGETS += ../bin/wrapd
+
+WRAPD_SRCS :=  $(addprefix hal/haltalker/, \
+	wrapd.cc)
+
+WRAPD_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
+	$(PROFILE)
+WRAPD_LDFLAGS := $(shell pkg-config libczmq  protobuf --libs) \
+	-lstdc++ \
+	$(PROFILE)
+
+$(call TOOBJSDEPS, $(WRAPD_SRCS)) : EXTRAFLAGS += $(WRAPD_CXXFLAGS)
+
+../bin/wrapd: $(call TOOBJS, $(WRAPD_SRCS)) \
+	../lib/liblinuxcnc-npb.so.0 \
+	../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(WRAPD_LDFLAGS)
+
+USERSRCS += $(WRAPD_SRCS)
+TARGETS += ../bin/wrapd
 
 
 

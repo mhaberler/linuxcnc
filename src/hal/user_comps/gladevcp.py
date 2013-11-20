@@ -234,12 +234,12 @@ def main():
         instance = 0
 
         # explicitly configured sockets
-        #cmd_uri="tcp://127.0.0.1:4711"
-        #update_uri="tcp://127.0.0.1:4712"
+        cmd_uri="tcp://127.0.0.1:4711"
+        update_uri="tcp://127.0.0.1:4712"
 
         # use zbeacon service discovery
-        cmd_uri = None
-        update_uri = None
+        # cmd_uri = None
+        # update_uri = None
 
         pinginterval = 3
         rcdebug=False

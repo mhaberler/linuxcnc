@@ -221,7 +221,7 @@ An observer initially connects to the updater and subscribes to the
 variables.
 
 Next the observer unsubscribes (if not all groups are desired) and
-subscribes only to the desired groups, againg receiving a full status
+subscribes only to the desired groups, again receiving a full status
 report for the chosen groups.
 
 From there on, periodic change detecion by the updater will cause

@@ -366,8 +366,11 @@ class HalServer:
                  print "-- normal message on XPUB ?"
                  pass
 
-#cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",msec=100,debug=False):
+#,msec=100,debug=False):
 
-halserver = HalServer(msec=20,debug=False)
+halserver = HalServer(msec=20,
+                      cmd_uri="tcp://127.0.0.1:4711", update_uri="tcp://127.0.0.1:4712",
+                      debug=False)
+
 
 

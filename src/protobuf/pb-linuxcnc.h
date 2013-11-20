@@ -66,7 +66,7 @@ static pb_dest_t status_dest  = {
     NULL
 };
 
-// see nanob.c for pb_encode_dest() / pb_decode_dest():
+// see nanopb.c for pb_encode_dest() / pb_decode_dest():
 container = (Container) {
     .legacy_motcmd.funcs.decode = pb_decode_dest,
     .legacy_motcmd.arg = &cmd_dest,
