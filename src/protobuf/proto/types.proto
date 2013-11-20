@@ -200,7 +200,7 @@ enum ContainerType {
     MT_DONE            = 240;
 
     // ask for a specific list of services as specified in a ServiceRequest
-    MT_SERVICE_REQUST       = 250;
+    MT_SERVICE_REQUEST      = 250;
     // respond to the above with one or several ServiceDescription messages
     MT_SERVICE_ANNOUNCEMENT = 251;
     // query for all available services

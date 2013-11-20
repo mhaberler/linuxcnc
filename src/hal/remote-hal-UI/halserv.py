@@ -1,6 +1,6 @@
 from halext import *
 import rtapi
-from pyczmq import ffi, zmq, zctx, zsocket, zmsg, zframe, zbeacon, zloop
+from pyczmq import ffi, zmq, zctx, zsocket, zmsg, zframe, zbeacon, zloop, zstr
 import time
 import os
 import sys
@@ -293,7 +293,45 @@ class HalServer:
        self = ffi.from_handle(arg)
        for name,comp in self.rcomp.iteritems():
           self.report(comp)
-       return False
+       return 0
+
+    def beacon_announce(self):
+       print "--- beacon announce:"
+       pass
+
+    @ffi.callback('zloop_fn')
+    def beacon_request(loop, item, arg):
+       self = ffi.from_handle(arg)
+       ipaddress = zstr.recv(self.beacon)
+       self.rx.ParseFromString(zframe.data(zframe.recv(self.beacon)))
+       print "--- beacon request: ip=%s msg=%s" % (ipaddress, str(self.rx))
+       if self.rx.type ==  MT_SERVICE_REQUEST:
+          srq = self.rx.service_request
+          for s in srq.service:
+             if s.type == ST_HAL_RCOMP:
+                # might want to match versions here
+                self.beacon_announce()
+
+       if self.rx.type ==  MT_SERVICE_PROBE:
+          self.tx.Clear()
+          self.tx.type = MT_SERVICE_ANNOUNCEMENT
+          sa = self.rx.service_announcement
+          sa.stype = ST_HAL_RCOMP
+          sa.cmd_port = self.cmd_port
+          sa.update_port = self.update_port
+          #zframe.new(self.tx.SerializeToString())
+       return 0
+
+       # a = Container()
+       # a.type =  MT_SERVICE_ANNOUNCEMENT
+       # a.service_type = ST_HAL_RCOMP
+       # a.cmd_port = cmd_port
+       # a.update_port = update_port
+       # a.version = HAL_RCOMP_VERSION
+       # a.instance = 0
+       # a.note = "halserv.py here"
+       # pkt = a.SerializeToString()
+       # zbeacon.publish(self.service_beacon, pkt)
 
     def __init__(self, cmd_uri=None, update_uri=None,msec=100,debug=False):
 
@@ -306,43 +344,6 @@ class HalServer:
 
         self.msec = msec
         self.debug = debug
-
-        self.ctx = zctx.new()
-
-        self.cmd = zsocket.new(self.ctx, zmq.ROUTER)
-        if cmd_uri:
-           cmd_port = zsocket.bind(self.cmd, cmd_uri)
-        else:
-           # bind to ephemeral port
-           cmd_port = zsocket.bind(self.cmd, "tcp://*:*")
-
-        self.update = zsocket.new(self.ctx, zmq.XPUB)
-        zsocket.set_xpub_verbose(self.update, 1)
-        zsocket.set_linger(self.update, 0)
-        if update_uri:
-           update_port = zsocket.bind(self.update, update_uri)
-        else:
-           update_port = zsocket.bind(self.update,  "tcp://*:*")
-
-        zsocket.set_linger(self.cmd, 0)
-
-        if not (cmd_uri and update_uri):
-           self.service_beacon = zbeacon.new(self.ctx, BEACON_PORT)
-           zbeacon.set_interval(self.service_beacon, 1000)
-
-           #  Create beacon to broadcast
-           a = Container()
-           a.type =  MT_SERVICE_ANNOUNCEMENT
-           a.service_type = ST_HAL_RCOMP
-           a.cmd_port = cmd_port
-           a.update_port = update_port
-           a.version = HAL_RCOMP_VERSION
-           a.instance = 0
-           a.note = "halserv.py here"
-           pkt = a.SerializeToString()
-           zbeacon.publish(self.service_beacon, pkt)
-
-
         # more efficient to reuse a protobuf Message
         self.rx = Container()
         self.tx = Container()
@@ -359,6 +360,35 @@ class HalServer:
                 comp.acquire()
                 self.rcomp[name] = comp
 
+        # zmq plumbing
+        self.ctx = zctx.new()
+
+        self.cmd = zsocket.new(self.ctx, zmq.ROUTER)
+        if cmd_uri:
+           self.cmd_port = zsocket.bind(self.cmd, cmd_uri)
+        else:
+           # bind to ephemeral port
+           self.cmd_port = zsocket.bind(self.cmd, "tcp://*:*")
+
+        self.update = zsocket.new(self.ctx, zmq.XPUB)
+        zsocket.set_xpub_verbose(self.update, 1)
+        zsocket.set_linger(self.update, 0)
+        if update_uri:
+           self.update_port = zsocket.bind(self.update, update_uri)
+        else:
+           self.update_port = zsocket.bind(self.update,  "tcp://*:*")
+
+        zsocket.set_linger(self.cmd, 0)
+
+        # service beacon responder
+        self.service_beacon = zbeacon.new(self.ctx, BEACON_PORT)
+        zbeacon.noecho(self.service_beacon)
+        zbeacon.subscribe(self.service_beacon, '')
+
+        self.beacon = zbeacon.socket(self.service_beacon)
+        #  zbeacon.set_interval(self.service_beacon, 1000)
+
+
         self.loop = zloop.new()
         zloop.set_verbose(self.loop, self.debug)
 
@@ -369,6 +399,9 @@ class HalServer:
 
         cmd_input = zmq.pollitem(socket=self.cmd, events=zmq.POLLIN)
         zloop.poller(self.loop, cmd_input, self.client_command, self)
+
+        beacon_input = zmq.pollitem(socket=self.beacon, events=zmq.POLLIN)
+        zloop.poller(self.loop, beacon_input, self.beacon_request, self)
 
         zloop.start(self.loop)
 
