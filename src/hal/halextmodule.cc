@@ -231,6 +231,7 @@ public:
     const char *get_name() { return param->name; }
     int get_type()         { return param->type; }
     int get_dir()          { return param->dir; }
+    int get_handle()       { return SHMOFF(param); }
 
     bp::object get_value() {
 	hal_data_u *dp = (hal_data_u *)SHMPTR(param->data_ptr);
@@ -811,6 +812,7 @@ public:
     int get_readers()      { return sig->readers; }
     int get_writers()      { return sig->writers; }
     int get_bidirs()       { return sig->bidirs; }
+    int get_handle()       { return SHMOFF(sig); }
 
     bp::object get_value() {
 	hal_data_u *dp = (hal_data_u *) SHMPTR(sig->data_ptr);
@@ -838,10 +840,11 @@ public:
     double get_epsilon()         { return hm->epsilon; }
     void set_epsilon(double eps) { hm->epsilon = eps; }
     void set_userarg1(int arg)   { hm->userarg1 = arg; }
+    int get_handle()             { return SHMOFF(hm); }
     int get_type() {
 	if (hm->sig_member_ptr)
 	    return (int) HAL_SIGNAL;
-	if (hm->sig_member_ptr)
+	if (hm->group_member_ptr)
 	    return (int) HAL_GROUP;
 	throw std::runtime_error("HalMember.type() neither group nor signal");
     }
@@ -881,6 +884,7 @@ public:
     int get_refcount()       { return hg->refcount; }
     int get_userarg1()       { return hg->userarg1; }
     int get_userarg2()       { return hg->userarg2; }
+    int get_handle()         { return SHMOFF(hg); }
     void set_refcount(int r) { hg->refcount = r; }
     void set_userarg1(int r) { hg->userarg1 = r; }
     void set_userarg2(int r) { hg->userarg2 = r; }
@@ -1190,6 +1194,7 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("type", &HalParam::get_type)
 	.add_property("dir", &HalParam::get_dir)
 	.add_property("owner", &HalParam::get_owner)
+	.add_property("handle", &HalParam::get_handle)
 	;
 
     class_<HalSignal>("HalSignal",no_init)
@@ -1199,12 +1204,14 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("bidirs",  &HalSignal::get_bidirs)
 	.add_property("name", &HalSignal::get_name)
 	.add_property("value", &HalSignal::get_value,&HalSignal::set_value)
+	.add_property("handle", &HalSignal::get_handle)
 	;
 
     class_<HalMember>("Member",no_init)
 	.add_property("userarg1", &HalMember::get_userarg1, &HalMember::set_userarg1)
 	.add_property("epsilon", &HalMember::get_epsilon, &HalMember::set_epsilon)
 	.add_property("type", &HalMember::get_type)
+	.add_property("handle", &HalMember::get_handle)
 	;
 
     class_<HalGroup>("HalGroup",no_init)
@@ -1212,6 +1219,7 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("refcount", &HalGroup::get_refcount, &HalGroup::set_refcount)
 	.add_property("userarg1", &HalGroup::get_userarg1, &HalGroup::set_userarg1)
 	.add_property("userarg2", &HalGroup::get_userarg2, &HalGroup::set_userarg2)
+	.add_property("handle", &HalGroup::get_handle)
 	.def("compile", &HalGroup::compile)
 	.def("changed", &HalGroup::changed)
 	.def("members", &HalGroup::members)
