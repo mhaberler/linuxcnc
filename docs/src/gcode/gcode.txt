@@ -207,14 +207,14 @@ plane: for example, if in the 'G17' plane, include a 'Z' word. This
 will cause the 'Z' axis to move to the programmed value during the
 circular 'XY' motion. 
 
-To program an arc that gives more than one full turn, use a 'P' word
-specifying the number of full or partial turns of arc. If 'P' is
-unspecified, the behavior is as if 'P1' was given: that is, only one
-full or partial turn will result, giving an arc less than or equal to
-one full circle. For example, if an arc is programmed with P2, the
-resulting motion will be more than one full circle and up to two full
-circles (depending on the programmed endpoint.) Multi turn helical arcs
-are supported and give motion useful for milling holes or threads.
+To program an arc that gives more than one full turn, use the 'P' word
+specifying the number of full turns plus the programmed arc. The 'P' word
+must be an integer. If 'P' is unspecified, the behavior is as if 'P1' was
+given: that is, only one full or partial turn will result. For example, if a
+180 degree arc is programmed with a P2, the resulting motion will be 1 1/2
+rotations. For each P increment above 1 an extra full circle is added to the
+progrmmed arc. Multi turn helical arcs are supported and give motion useful
+for milling holes or threads.
 
 If a line of code makes an arc and includes rotary axis motion,
 the rotary axes turn at a constant rate so that the rotary
@@ -233,6 +233,7 @@ Center Format and Radius Format.
 It is an error if:
 
 * No feed rate has been set.
+* The P word is not an integer.
 
 === Center Format Arcs
 
@@ -340,6 +341,7 @@ axis. In this case only an I offset is needed.
 .G2 Example Line
 [source,{ngc}]
 ----
+G0 X0 Y0
 G2 X1 Y1 I1 F10 (clockwise arc in the XY plane)
 ----
 
@@ -356,6 +358,7 @@ offset is -0.5.
 .G2-G3 Example Line
 [source,{ngc}]
 ----
+G0 X0 Y0
 G2 X0 Y1 I1 J0.5 F25 (clockwise arc in the XY plane)
 G3 X0 Y0 I1 J-0.5 F25 (counterclockwise arc in the XY plane)
 ----
@@ -367,7 +370,14 @@ image::images/g2-3.png[align="center"]
 .G2 Example Line
 [source,{ngc}]
 ----
-G17 G2 X10 Y16 I3 J4 Z9 (helix arc with Z added)
+G0 X0 Y0 Z0
+G17 G2 X10 Y16 I3 J4 Z-1 (helix arc with Z added)
+----
+
+.P word Example
+----
+G0 X0 Y0 Z0
+G2 X0 Y1 Z-1 I1 J0.5 P2 F25
 ----
 
 The above example line will make a clockwise (as viewed from the positive Z-axis)
@@ -521,7 +531,7 @@ image:images/nurbs01.png[align="center"]
 
 More information on NURBs can be found here:
 
-http://wiki.linuxcnc.org/cgi-bin/emcinfo.pl?NURBS[http://wiki.linuxcnc.org/cgi-bin/emcinfo.pl?NURBS]
+http://wiki.linuxcnc.org/cgi-bin/wiki.pl?NURBS[http://wiki.linuxcnc.org/cgi-bin/wiki.pl?NURBS]
 
 [[sec:G7-Diameter-Mode]]
 == G7 Lathe Diameter Mode
@@ -644,7 +654,7 @@ It is an error if:
 .G10 L2 Example Line
 [source,{ngc}]
 ----
-G10 L2 P1 X3.5 Y17.2
+G10 L2 P1 X3.5 Y17.2
 ----
 
 In the above example the origin of the first coordinate system
@@ -655,7 +665,7 @@ the other coordinates are not changed.
 .G10 L2 Example Line
 [source,{ngc}]
 ----
-G10 L2 P1 X0 Y0 Z0 (clear offsets for X,Y & Z axes in coordinate system 1)
+G10 L2 P1 X0 Y0 Z0 (clear offsets for X,Y & Z axes in coordinate system 1)
 ----
 
 The above example sets the XYZ coordinates of the coordinate system 1 to the machine origin.
@@ -1381,7 +1391,7 @@ G76 P- Z- I- J- R- K- Q- H- E- L-
 image::images/g76-threads.png[align="center"]
 
 
-* 'Drive Line' - A line through the initial X position parallel to the Z.
+* 'Drive Line' - A line through the initial X position parallel to the Z.
 
 * 'P-' - The 'thread pitch' in distance per revolution.
 
@@ -1948,7 +1958,9 @@ for drilling or milling.
 
  . Preliminary motion, as described above. 
  . Move the Z-axis only at the current feed rate to the Z position.
- . Retract the Z-axis at the current feed rate to clear Z. 
+ . Retract the Z-axis at the current feed rate to the R plane if it is lower 
+ than the initial Z.
+ . Retract at the traverse rate to clear Z. 
 
 [[sec:G86-Boring-Rapid-Out]]
 == G86 Boring Cycle, Spindle Stop, Rapid Out
@@ -2132,6 +2144,7 @@ controlled point should move a certain number of inches per revolution
 of the spindle, depending on what length units are being used and which
 axis or axes are moving. G95 is not suitable for threading, for
 threading use G33 or G76.
+G95 requires that motion.spindle-speed-in to be connected.
 
 It is an error if:
 
@@ -2183,7 +2196,7 @@ of one or more contiguous canned cycles was started.
 
 Program a 'G98' and the canned cycle will use the Z position prior to
 the canned cycle as the Z return position if it is higher than the R
-value specified in the cycle. If it is lower then the R value will be
+value specified in the cycle. If it is lower, the R value will be
 used. The R word has different meanings in absolute distance mode and
 incremental distance mode.
 

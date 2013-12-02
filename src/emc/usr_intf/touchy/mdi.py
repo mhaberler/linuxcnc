@@ -47,6 +47,7 @@ class mdi:
             'M3' : [_('Spindle CW'), 'S'],
             'M4' : [_('Spindle CCW'), 'S'],
             'M6' : [_('Tool change'), 'T'],
+            'M61' : [_('Set tool number'), 'Q'],
             'M66' : [_('Input control'), 'P', 'E', 'L', 'Q'],
 
             # 'A' means 'the axes'
@@ -54,10 +55,10 @@ class mdi:
             'G00' : [_('Straight rapid'), 'A'],
             'G1' : [_('Straight feed'), 'A', 'F'],
             'G01' : [_('Straight feed'), 'A', 'F'],
-            'G2' : [_('Arc CW'), 'A', 'I', 'J', 'K', 'R', 'F'],
-            'G02' : [_('Arc CW'), 'A', 'I', 'J', 'K', 'R', 'F'],
-            'G3' : [_('Arc CCW'), 'A', 'I', 'J', 'K', 'R', 'F'],
-            'G03' : [_('Arc CCW'), 'A', 'I', 'J', 'K', 'R', 'F'],
+            'G2' : [_('Arc CW'), 'A', 'I', 'J', 'K', 'R', 'P', 'F'],
+            'G02' : [_('Arc CW'), 'A', 'I', 'J', 'K', 'R', 'P', 'F'],
+            'G3' : [_('Arc CCW'), 'A', 'I', 'J', 'K', 'R', 'P', 'F'],
+            'G03' : [_('Arc CCW'), 'A', 'I', 'J', 'K', 'R', 'P', 'F'],
             'G4' : [_('Dwell'), 'P'],
             'G04' : [_('Dwell'), 'P'],
             'G10' : [_('Setup'), 'L', 'P', 'A', 'Q', 'R'],

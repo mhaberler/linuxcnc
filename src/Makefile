@@ -117,15 +117,15 @@ ifeq ($(BUILD_ALL_FLAVORS),yes)
 # placed far away from all others.
 FLAVORUP = $(shell echo $(1) | tr a-z- A-Z_)
 FLAVORVAR = $($(call FLAVORUP,$(1))_THREADS_$(2))
-modules:
+modules:  userspace
 	@$(foreach f,$(BUILD_THREAD_FLAVORS),\
 	    echo "Making modules for flavor $(f)"; \
 	    $(if $(findstring kbuild,$(call FLAVORVAR,$(f),BUILD_SYS)),\
 		$(foreach kd,$(call FLAVORVAR,$(f),KERNEL_DIRS),\
 		    echo "    kernel source dir $(kd)"; \
-		    $(MAKE) threads=$(f) KERNELDIR=$(kd);\
+		    $(MAKE) modules threads=$(f) KERNELDIR=$(kd);\
 		    ),\
-	        $(MAKE) threads=$(f);\
+	        $(MAKE) modules threads=$(f);\
 	    )\
 	)
 ifeq ($(RUN_IN_PLACE)+$(BUILD_DRIVERS),yes+yes)
@@ -143,7 +143,16 @@ ifeq ($(RUN_IN_PLACE)+$(BUILD_DRIVERS),yes+yes)
 	    $(VECHO) -n "You now need to run 'sudo make setuid' " && \
 	    $(VECHO) "in order to run in place." || true
 endif
+# see if logging is set up properly
+	@-../scripts/check-logging.sh
+
 endif # BUILD_ALL_FLAVORS
+
+log:
+	$(Q)echo installing log configuration to /etc/rsyslog.d/linuxcnc.conf
+	$(Q)cp rtapi/rsyslogd-linuxcnc.conf /etc/rsyslog.d/linuxcnc.conf
+	$(Q)echo restarting rsyslogd
+	$(Q)service rsyslog restart
 
 
 OBJDIR := objects/$(RTDIR_EXT)
@@ -159,9 +168,6 @@ ifeq ($(KERNELRELEASE),)
 # When KERNELRELEASE is not defined, this is the userspace build.
 # The "modules" target is the gateway to the kernel module build.
 default: configs userspace modules
-
-# list of supported hostmot2 boards
-HM2_BOARDS = 3x20 4i65 4i68 5i20 5i22 5i23 7i43
 
 # Print 'entering' all the time
 MAKEFLAGS += w
@@ -195,6 +201,7 @@ SUBDIRS := \
 	hal/user_comps \
 	hal/user_comps/vismach \
 	hal/user_comps/vfs11_vfd \
+	hal/user_comps/vfdb_vfd \
 	hal/classicladder \
 	hal/utils \
 	hal \
@@ -305,12 +312,12 @@ ifeq ($(BUILD_PYTHON),yes)
 INCLUDE += -I$(INCLUDEPY)
 endif
 
-# Compilation options.	Perhaps some of these should come from Makefile.inc?
+# Compilation options.	Perhaps some of these should come from Makefile.inc? (CXXFLAGS now does)
 OPT := -Os
 DEBUG := -g -Wall
-CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) -DULAPI \
-	$(call cc-option, -Wdeclaration-after-statement)
-CXXFLAGS := $(INCLUDE) $(OPT) $(DEBUG) -DULAPI
+
+CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) -DULAPI $(call cc-option,-std=gnu99 -fgnu89-inline)
+CXXFLAGS := $(INCLUDE) $(CXXFLAGS)   -DULAPI $(DEBUG) $(OPT)
 
 ifeq ($(RUN_IN_PLACE),yes)
 LDFLAGS := -L$(LIB_DIR) -Wl,-rpath,$(LIB_DIR)
@@ -430,6 +437,7 @@ HEADERS := \
     emc/nml_intf/motion_types.h \
     emc/nml_intf/debugflags.h \
     emc/rs274ngc/interp_internal.hh \
+    emc/rs274ngc/interp_base.hh \
     emc/rs274ngc/rs274ngc.hh \
     hal/hal.h \
     hal/hal_parport.h \
@@ -553,18 +561,8 @@ endif
 ifeq ($(BUILD_SYS)+$(BUILD_THREAD_MODULES),kbuild+yes)
 modules:  $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp
 	mkdir -p $(RTLIBDIR)
-ifeq ($(THREADS),XENOMAI_KERNEL)
-	$(MAKE) \
-	    -C $(OBJDIR)/rtapi/xeno_math \
-	    BASEPWD=$(BASEPWD) \
-	    KERNELDIR=$(KERNELDIR) \
-	    KERNEL_MATH_CFLAGS="$(KERNEL_MATH_CFLAGS)" \
-	    V=$(BUILD_VERBOSE) $(PRECISE_MULTILIB_BUG) modules
-	cp $(OBJDIR)/rtapi/xeno_math/xeno_math.ko $(RTLIBDIR)
-endif
 	$(PYTHON) modsilent.py $(MAKE) \
 	    -C $(KERNELDIR) \
-	    KBUILD_EXTRA_SYMBOLS="$(KBUILD_EXTRA_SYMBOLS)" \
 	    SUBDIRS=$(BASEPWD)/$(OBJDIR) \
 	    CC=$(CC) KBUILD_VERBOSE=$(BUILD_VERBOSE) modules
 	cp $(OBJDIR)/Module.symvers $(OBJDIR)/*$(MODULE_EXT) $(RTLIBDIR)
@@ -600,9 +598,6 @@ modclean:
 	find -name '.*.cmd' -or -name '*.ko' -or -name '*.mod.c' -or -name '*.mod.o' | xargs rm -f
 	-rm -rf .tmp_versions
 	-rm -rf halcomp-srcs
-	for flav in $(BUILD_THREAD_FLAVORS); do \
-	    rm -rf rtapi/$$flav; \
-	done
 	find . -name .tmp_versions |xargs rm -rf
 	-rm -f $(RTLIBDIR)/*.ko
 	-rm -f $(RTLIBDIR)/*.so
@@ -729,6 +724,7 @@ install-dirs:
 		$(DESTDIR)$(datadir)/axis/images \
 		$(DESTDIR)$(datadir)/axis/tcl \
 		$(DESTDIR)$(datadir)/gscreen/images \
+		$(DESTDIR)$(datadir)/gscreen/skins \
 		$(DESTDIR)$(datadir)/glade3/catalogs \
 		$(DESTDIR)$(datadir)/glade3/pixmaps \
 		$(DESTDIR)$(datadir)/gtksourceview-2.0/language-specs \
@@ -765,7 +761,7 @@ endif
 	cp --no-dereference \
 	    $(filter-out ../lib/ulapi-%.so,$(filter ../lib/%.so, $(TARGETS))) \
 	    $(DESTDIR)$(libdir)
-	$(FILE) ../lib/ulapi-*.so $(DESTDIR)$(EMC2_RTLIB_DIR)
+	$(FILE) ../lib/ulapi-*.so $(DESTDIR)$(EMC2_RTLIB_BASE_DIR)
 	-ldconfig $(DESTDIR)$(libdir)
 	$(FILE) $(filter %.h %.hh,$(TARGETS)) $(DESTDIR)$(includedir)/linuxcnc/
 	$(FILE) $(addprefix ../docs/,$(DOCS)) $(DESTDIR)$(docsdir)
@@ -816,9 +812,10 @@ install-python: install-dirs
 	$(FILE) ../share/linuxcnc/linuxcnc-wizard.gif $(DESTDIR)$(prefix)/share/linuxcnc
 	$(FILE) emc/usr_intf/axis/etc/axis_light_background $(DESTDIR)$(docsdir)
 	$(FILE) emc/usr_intf/axis/README $(DESTDIR)$(docsdir)/README.axis
-	$(FILE) ../share/axis/images/*.gif ../share/axis/images/*.xbm ../share/axis/images/*.ngc $(DESTDIR)$(datadir)/axis/images
+	$(FILE) ../share/axis/images/*.png ../share/axis/images/*.gif ../share/axis/images/*.xbm ../share/axis/images/*.ngc $(DESTDIR)$(datadir)/axis/images
 	$(FILE) ../share/axis/tcl/*.tcl $(DESTDIR)$(datadir)/axis/tcl
 	$(FILE) ../share/gscreen/images/*.gif $(DESTDIR)$(datadir)/gscreen/images
+	$(TREE) ../share/gscreen/skins/* $(DESTDIR)$(datadir)/gscreen/skins
 endif
 
 install-kernel-dep: install-dirs
@@ -839,9 +836,9 @@ endif
 	for flavor in $(BUILD_THREAD_FLAVORS); do \
 	    if test $${flavor%-kernel} = $${flavor}; then \
 		echo Installing modules for userland flavor $$flavor; \
-		$(DIR) $(DESTDIR)$(EMC2_RTLIB_DIR)/$$flavor; \
+		$(DIR) $(DESTDIR)$(EMC2_RTLIB_BASE_DIR)/$$flavor; \
 		$(FILE) ../rtlib/$$flavor/* \
-		    $(DESTDIR)$(EMC2_RTLIB_DIR)/$$flavor; \
+		    $(DESTDIR)$(EMC2_RTLIB_BASE_DIR)/$$flavor; \
 	    else \
 		echo Installing modules for kthreads flavor $$flavor; \
 		for srcdir in ../rtlib/$$flavor/*; do \
@@ -897,6 +894,7 @@ ifneq ($(KERNELRELEASE),)
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
+include $(BASEPWD)/rtapi/xeno_math/Submakefile
 endif # KERNELRELEASE non-empty
 
 
@@ -928,7 +926,7 @@ ifeq ($(TARGET_PLATFORM),beaglebone)
 EXTRA_CFLAGS += -I$(BASEPWD)/hal/support/pru
 endif
 ifeq ($(BUILD_SYS),kbuild)
-EXTRA_CFLAGS += $(call cc-option,-Wframe-larger-than=2560)
+EXTRA_CFLAGS += $(call cc-option,-Wframe-larger-than=2560) $(call cc-option,-Wno-declaration-after-statement)
 endif
 
 
@@ -1119,6 +1117,7 @@ hostmot2-objs :=			  \
     hal/drivers/mesa-hostmot2/backported-strings.o  \
     hal/drivers/mesa-hostmot2/ioport.o	  \
     hal/drivers/mesa-hostmot2/encoder.o   \
+    hal/drivers/mesa-hostmot2/abs_encoder.o\
 	hal/drivers/mesa-hostmot2/resolver.o  \
     hal/drivers/mesa-hostmot2/pwmgen.o	  \
     hal/drivers/mesa-hostmot2/tp_pwmgen.o \
@@ -1128,6 +1127,7 @@ hostmot2-objs :=			  \
 	hal/drivers/mesa-hostmot2/uart.o	  \
     hal/drivers/mesa-hostmot2/watchdog.o  \
     hal/drivers/mesa-hostmot2/pins.o	  \
+    hal/drivers/mesa-hostmot2/dpll.o  \
     hal/drivers/mesa-hostmot2/led.o	  \
     hal/drivers/mesa-hostmot2/tram.o	  \
     hal/drivers/mesa-hostmot2/raw.o	  \
@@ -1206,6 +1206,9 @@ rotatekins-objs := emc/kinematics/rotatekins.o
 
 obj-m += tripodkins.o
 tripodkins-objs := emc/kinematics/tripodkins.o
+
+obj-m += lineardeltakins.o
+lineardeltakins-objs := emc/kinematics/lineardeltakins.o
 
 obj-m += genhexkins.o
 genhexkins-objs := emc/kinematics/genhexkins.o
@@ -1383,6 +1386,7 @@ $(RTLIBDIR)/maxkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(maxkins-objs))
 $(RTLIBDIR)/gantrykins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(gantrykins-objs))
 $(RTLIBDIR)/rotatekins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rotatekins-objs))
 $(RTLIBDIR)/tripodkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tripodkins-objs))
+$(RTLIBDIR)/lineardeltakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(lineardeltakins-objs))
 $(RTLIBDIR)/genhexkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genhexkins-objs))
 $(RTLIBDIR)/genserkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genserkins-objs))
 $(RTLIBDIR)/pumakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pumakins-objs))

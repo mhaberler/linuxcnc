@@ -270,7 +270,8 @@ void init_global_data(global_data_t * data, int flavor,
 
     // next value returned by rtapi_init (userland threads)
     // those dont use fixed sized arrays 
-    data->next_module_id = 0;
+    // start at 1 because the meaning of zero is special
+    data->next_module_id = 1;
 
     // tell the others what we determined as the proper flavor
     data->rtapi_thread_flavor = flavor;
@@ -427,16 +428,6 @@ static int message_thread()
 		// strip trailing newlines
 		while ((cp = strrchr(msg->buf,'\n')))
 		    *cp = '\0';
-
-		switch (msg->origin) {
-		case MSG_ULAPI:
-		    setlogmask(LOG_UPTO (rtapi2syslog(global_data->user_msg_level)));
-		    break;
-		case MSG_RTUSER:
-		case MSG_KERNEL:
-		    setlogmask(LOG_UPTO (rtapi2syslog(global_data->rt_msg_level)));
-		    break;
-		}
 		syslog(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
 		       msg->tag, msg->pid, origins[msg->origin],
 		       (int) payload_length, msg->buf);
@@ -631,7 +622,6 @@ int main(int argc, char **argv)
     snprintf(proctitle, sizeof(proctitle), "msgd:%d",rtapi_instance);
 
     openlog(proctitle, option , SYSLOG_FACILITY);
-    setlogmask(LOG_UPTO(SYSLOG_FACILITY));
 
     // set new process name
     argv0_len = strlen(argv[0]);
