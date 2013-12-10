@@ -1242,15 +1242,8 @@ class GlCanonDraw:
 
     def posstrs(self):
         s = self.stat
-        limit = []
-        for i,l in enumerate(s.limit):
-            if s.axis_mask & (1<<i):
-                limit.append(l)
-
-        homed = []
-        for i,h in enumerate(s.homed):
-            if s.axis_mask & (1<<i):
-                homed.append(h)
+        limit = s.limit[:]
+        homed = s.homed[:]
 
         if self.is_lathe() and not s.axis_mask & 2:
             homed.insert(1, 0)
