@@ -328,7 +328,7 @@ def soft_limits():
         if abs(x) > 1e30: return 0
         return x
 
-    ax = s.axis
+    ax = s.joint
     return (
         to_internal_units([fudge(ax[i]['min_position_limit']) for i in range(3)]),
         to_internal_units([fudge(ax[i]['max_position_limit']) for i in range(3)]))
@@ -802,11 +802,12 @@ class LivePlotter:
             if vars.metric.get(): m = m * 25.4
             vupdate(vars.maxvel_speed, float(int(600 * m)/10.0))
             root_window.tk.call("update_maxvel_slider")
-        vupdate(vars.override_limits, self.stat.axis[0]['override_limits'])
+        vupdate(vars.override_limits, self.stat.joint[0]['override_limits'])
         on_any_limit = 0
-        for i, l in enumerate(self.stat.limit):
-            if self.stat.axis_mask & (1<<i) and l:
+        for l in self.stat.limit:
+            if l:
                 on_any_limit = True
+                break
         vupdate(vars.on_any_limit, on_any_limit)
         global current_tool
         current_tool = self.stat.tool_table[0]
@@ -1108,9 +1109,9 @@ def open_file_guts(f, filtered=False, addrecent=True):
         if initcode == "":
             initcode = inifile.find("RS274NGC", "RS274NGC_STARTUP_CODE") or ""
         if not interpname:
-		unitcode = "G%d" % (20 + (s.linear_units == 1))
+            unitcode = "G%d" % (20 + (s.linear_units == 1))
         else:
-		unitcode = ''
+            unitcode = ''
         try:
             result, seq = o.load_preview(f, canon, unitcode, initcode, interpname)
         except KeyboardInterrupt:
@@ -2417,7 +2418,7 @@ class TclCommands(nf.TclCommands):
     def toggle_override_limits(*args):
         s.poll()
         if s.interp_state != linuxcnc.INTERP_IDLE: return
-        if s.axis[0]['override_limits']:
+        if s.joint[0]['override_limits']:
             ensure_mode(linuxcnc.MODE_AUTO)
         else:
             ensure_mode(linuxcnc.MODE_MANUAL)
@@ -2715,22 +2716,16 @@ def jog_on(a, b):
         jog_after[a] = None
         return
     jogincr = widgets.jogincr.get()
-    if s.motion_mode == linuxcnc.TRAJ_MODE_TELEOP:
-        jogging[a] = b
+    if jogincr != _("Continuous"):
+        s.poll()
+        if s.state != 1: return
+        distance = parse_increment(jogincr)
+        jog(linuxcnc.JOG_INCREMENT, a, b, distance)
         jog_cont[a] = False
-        cartesian_only=jogging[:6]
-        c.teleop_vector(*cartesian_only)
     else:
-        if jogincr != _("Continuous"):
-            s.poll()
-            if s.state != 1: return
-            distance = parse_increment(jogincr)
-            jog(linuxcnc.JOG_INCREMENT, a, b, distance)
-            jog_cont[a] = False
-        else:
-            jog(linuxcnc.JOG_CONTINUOUS, a, b)
-            jog_cont[a] = True
-            jogging[a] = b
+        jog(linuxcnc.JOG_CONTINUOUS, a, b)
+        jog_cont[a] = True
+        jogging[a] = b
 
 def jog_off(a):
     if isinstance(a, (str, unicode)):
@@ -2743,12 +2738,8 @@ def jog_off_actual(a):
     activate_axis(a)
     jog_after[a] = None
     jogging[a] = 0
-    if s.motion_mode == linuxcnc.TRAJ_MODE_TELEOP:
-        cartesian_only=jogging[:6]
-        c.teleop_vector(*cartesian_only)
-    else:
-        if jog_cont[a]:
-            jog(linuxcnc.JOG_STOP, a)
+    if jog_cont[a]:
+        jog(linuxcnc.JOG_STOP, a)
 
 def jog_off_all():
     for i in range(6):
@@ -2776,6 +2767,8 @@ def units(s, d=1.0):
 
 random_toolchanger = int(inifile.find("EMCIO", "RANDOM_TOOLCHANGER") or 0)
 vars.emcini.set(sys.argv[2])
+jointcount = int(inifile.find("KINS", "JOINTS"))
+jointnames = "012345678"[:jointcount]
 open_directory = inifile.find("DISPLAY", "PROGRAM_PREFIX")
 vars.machine.set(inifile.find("EMC", "MACHINE"))
 extensions = inifile.findall("FILTER", "PROGRAM_EXTENSION")
@@ -2852,7 +2845,7 @@ else:
     root_window.tk.eval("${pane_top}.jogspeed.l1 configure -text in/min")
     root_window.tk.eval("${pane_top}.maxvel.l1 configure -text in/min")
 root_window.tk.eval(u"${pane_top}.ajogspeed.l1 configure -text deg/min")
-homing_order_defined = inifile.find("AXIS_0", "HOME_SEQUENCE") is not None
+homing_order_defined = inifile.find("JOINT_0", "HOME_SEQUENCE") is not None
 
 if homing_order_defined:
     widgets.homebutton.configure(text=_("Home All"), command="home_all_axes")
@@ -2873,9 +2866,9 @@ s = linuxcnc.stat();
 s.poll()
 statfail=0
 statwait=.01
-while s.axes == 0:
-    print "waiting for s.axes"
-    time.sleep(statwait)
+while s.joints == 0:
+    print "waiting for s.joints"
+    time.sleep(.01)
     statfail+=1
     statwait *= 2
     if statfail > 8:
@@ -2884,17 +2877,14 @@ while s.axes == 0:
             "More information may be available when running from a terminal.")
     s.poll()
 
-live_axis_count = 0
-for i,j in enumerate("XYZABCUVW"):
-    if s.axis_mask & (1<<i) == 0: continue
-    live_axis_count += 1
+num_joints = s.joints
+for i in range(num_joints):
     widgets.homemenu.add_command(command=lambda i=i: commands.home_axis_number(i))
     widgets.unhomemenu.add_command(command=lambda i=i: commands.unhome_axis_number(i))
     root_window.tk.call("setup_menu_accel", widgets.homemenu, "end",
-            _("Home Axis _%s") % j)
+            _("Home Joint _%s") % i)
     root_window.tk.call("setup_menu_accel", widgets.unhomemenu, "end",
-            _("Unhome Axis _%s") % j)
-num_joints = int(inifile.find("TRAJ", "JOINTS") or live_axis_count)
+            _("Unhome Joint _%s") % i)
 
 astep_size = step_size = 1
 for a in range(9):
@@ -3328,10 +3318,10 @@ forget(widgets.spinoverridef, "motion.spindle-speed-out")
 has_limit_switch = 0
 for j in range(9):
     try:
-        if hal.pin_has_writer("axis.%d.neg-lim-sw-in" % j):
+        if hal.pin_has_writer("joint.%d.neg-lim-sw-in" % j):
             has_limit_switch=1
             break
-        if hal.pin_has_writer("axis.%d.pos-lim-sw-in" % j):
+        if hal.pin_has_writer("joint.%d.pos-lim-sw-in" % j):
             has_limit_switch=1
             break
     except NameError, detail:

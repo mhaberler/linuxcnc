@@ -406,6 +406,7 @@ HEADERS := \
     config.h \
     emc/ini/emcIniFile.hh \
     emc/ini/iniaxis.hh \
+    emc/ini/inijoint.hh \
     emc/ini/initool.hh \
     emc/ini/initraj.hh \
     emc/kinematics/cubic.h \
@@ -419,6 +420,7 @@ HEADERS := \
     emc/motion/emcmotglb.h \
     emc/motion/motion.h \
     emc/motion/usrmotintf.h \
+    emc/motion/simple_tp.h \
     emc/nml_intf/canon.hh \
     emc/nml_intf/emctool.h \
     emc/nml_intf/emc.hh \
@@ -1250,6 +1252,11 @@ scarakins-objs := emc/kinematics/scarakins.o
 scarakins-objs += libnml/posemath/_posemath.o
 scarakins-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
+obj-m += rotarydeltakins.o
+rotarydeltakins-objs := emc/kinematics/rotarydeltakins.o
+rotarydeltakins-objs += libnml/posemath/_posemath.o
+rotarydeltakins-objs += libnml/posemath/sincos.o $(MATHSTUB)
+
 obj-$(CONFIG_MOTMOD) += motmod.o
 motmod-objs := emc/kinematics/cubic.o
 motmod-objs += emc/kinematics/tc.o
@@ -1258,6 +1265,7 @@ motmod-objs += emc/motion/motion.o
 motmod-objs += emc/motion/command.o
 motmod-objs += emc/motion/control.o
 motmod-objs += emc/motion/homing.o
+motmod-objs += emc/motion/simple_tp.o
 motmod-objs += emc/motion/emcmotglb.o
 motmod-objs += emc/motion/emcmotutil.o
 motmod-objs += emc/motion/stashf.o
@@ -1410,6 +1418,7 @@ $(RTLIBDIR)/genhexkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genhexkins-objs))
 $(RTLIBDIR)/genserkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genserkins-objs))
 $(RTLIBDIR)/pumakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pumakins-objs))
 $(RTLIBDIR)/scarakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scarakins-objs))
+$(RTLIBDIR)/rotarydeltakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rotarydeltakins-objs))
 $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)

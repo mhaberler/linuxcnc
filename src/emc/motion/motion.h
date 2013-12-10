@@ -7,8 +7,6 @@
 * System: Linux
 *
 * Copyright (c) 2004 All rights reserved
-*
-* Last change:
 ********************************************************************/
 
 /* jmk says: This file is a mess! */
@@ -78,6 +76,7 @@ to another.
 #include "cubic.h"		/* CUBIC_STRUCT, CUBIC_COEFF */
 #include "emcmotcfg.h"		/* EMCMOT_MAX_JOINTS */
 #include "kinematics.h"
+#include "simple_tp.h"
 #include "rtapi_limits.h"
 #include <stdarg.h>
 
@@ -104,15 +103,8 @@ extern "C" {
 
     typedef enum {
 	EMCMOT_ABORT = 1,	/* abort all motion */
-	EMCMOT_AXIS_ABORT,	/* abort one axis */ //FIXME-AJ: replace command name to EMCMOT_JOINT_ABORT
 	EMCMOT_ENABLE,		/* enable servos for active joints */
 	EMCMOT_DISABLE,		/* disable servos for active joints */
-	EMCMOT_ENABLE_AMPLIFIER,	/* enable amp outputs */
-	EMCMOT_DISABLE_AMPLIFIER,	/* disable amp outputs */
-	EMCMOT_ENABLE_WATCHDOG,	/* enable watchdog sound, parport */
-	EMCMOT_DISABLE_WATCHDOG,	/* enable watchdog sound, parport */
-	EMCMOT_ACTIVATE_JOINT,	/* make joint active */
-	EMCMOT_DEACTIVATE_JOINT,	/* make joint inactive */
 
 	EMCMOT_PAUSE,		/* pause motion */
 	EMCMOT_RESUME,		/* resume motion */
@@ -129,41 +121,25 @@ extern "C" {
 	EMCMOT_AF_ENABLE,	/* enable/disable adaptive feedrate */
 	EMCMOT_OVERRIDE_LIMITS,	/* temporarily ignore limits until jog done */
 
-	EMCMOT_HOME,		/* home a joint or all joints */
-	EMCMOT_UNHOME,		/* unhome a joint or all joints*/
-	EMCMOT_JOG_CONT,	/* continuous jog */
-	EMCMOT_JOG_INCR,	/* incremental jog */
-	EMCMOT_JOG_ABS,		/* absolute jog */
 	EMCMOT_SET_LINE,	/* queue up a linear move */
 	EMCMOT_SET_CIRCLE,	/* queue up a circular move */
-	EMCMOT_SET_TELEOP_VECTOR,	/* Move at a given velocity but in
-					   world cartesian coordinates, not
-					   in joint space like EMCMOT_JOG_* */
-
 	EMCMOT_CLEAR_PROBE_FLAGS,	/* clears probeTripped flag */
 	EMCMOT_PROBE,		/* go to pos, stop if probe trips, record
 				   trip pos */
 	EMCMOT_RIGID_TAP,	/* go to pos, with sync to spindle speed, 
 				   then return to initial pos */
 
-	EMCMOT_SET_POSITION_LIMITS,	/* set the joint position +/- limits */
-	EMCMOT_SET_BACKLASH,	/* set the joint backlash */
-	EMCMOT_SET_MIN_FERROR,	/* minimum following error, input units */
-	EMCMOT_SET_MAX_FERROR,	/* maximum following error, input units */
 	EMCMOT_SET_VEL,		/* set the velocity for subsequent moves */
 	EMCMOT_SET_VEL_LIMIT,	/* set the max vel for all moves (tooltip) */
-	EMCMOT_SET_JOINT_VEL_LIMIT,	/* set the max joint vel */
-	EMCMOT_SET_JOINT_ACC_LIMIT,	/* set the max joint accel */
 	EMCMOT_SET_ACC,		/* set the max accel for moves (tooltip) */
 	EMCMOT_SET_TERM_COND,	/* set termination condition (stop, blend) */
-	EMCMOT_SET_NUM_AXES,	/* set the number of joints */ //FIXME-AJ: function needs to get renamed
+	EMCMOT_SET_NUM_JOINTS,	/* set the number of joints */
 	EMCMOT_SET_WORLD_HOME,	/* set pose for world home */
-	EMCMOT_SET_HOMING_PARAMS,	/* sets joint homing parameters */
+
 	EMCMOT_SET_DEBUG,       /* sets the debug level */
 	EMCMOT_SET_DOUT,        /* sets or unsets a DIO, this can be imediate or synched with motion */
 	EMCMOT_SET_AOUT,	/* sets or unsets a AIO, this can be imediate or synched with motion */
         EMCMOT_SET_SPINDLESYNC, /* syncronize motion to spindle encoder */
-	
 	EMCMOT_SPINDLE_ON,	/* start the spindle */
 	EMCMOT_SPINDLE_OFF,	/* stop the spindle */
 	EMCMOT_SPINDLE_INCREASE,	/* spindle faster */
@@ -171,9 +147,32 @@ extern "C" {
 	EMCMOT_SPINDLE_BRAKE_ENGAGE,	/* engage the spindle brake */
 	EMCMOT_SPINDLE_BRAKE_RELEASE,	/* release the spindle brake */
 	EMCMOT_SPINDLE_ORIENT,          /* orient the spindle */
-	EMCMOT_SET_MOTOR_OFFSET,	/* set the offset between joint and motor */
-	EMCMOT_SET_JOINT_COMP,	/* set a compensation triplet for a joint (nominal, forw., rev.) */
         EMCMOT_SET_OFFSET, /* set tool offsets */
+
+	EMCMOT_JOG_CONT,	/* continuous jog */
+	EMCMOT_JOG_INCR,	/* incremental jog */
+	EMCMOT_JOG_ABS,		/* absolute jog */
+
+	EMCMOT_JOINT_ABORT,             /* abort one joint */
+	EMCMOT_JOINT_ACTIVATE,          /* make joint active */
+	EMCMOT_JOINT_DEACTIVATE,        /* make joint inactive */
+	EMCMOT_JOINT_ENABLE_AMPLIFIER,  /* enable amp outputs */
+	EMCMOT_JOINT_DISABLE_AMPLIFIER, /* disable amp outputs */
+	EMCMOT_JOINT_HOME,              /* home a joint or all joints */
+	EMCMOT_JOINT_UNHOME,            /* unhome a joint or all joints*/
+	EMCMOT_SET_JOINT_POSITION_LIMITS, /* set the joint position +/- limits */
+	EMCMOT_SET_JOINT_BACKLASH,      /* set the joint backlash */
+	EMCMOT_SET_JOINT_MIN_FERROR,    /* minimum following error, input units */
+	EMCMOT_SET_JOINT_MAX_FERROR,    /* maximum following error, input units */
+	EMCMOT_SET_JOINT_VEL_LIMIT,     /* set the max joint vel */
+	EMCMOT_SET_JOINT_ACC_LIMIT,     /* set the max joint accel */
+	EMCMOT_SET_JOINT_HOMING_PARAMS, /* sets joint homing parameters */
+	EMCMOT_SET_JOINT_MOTOR_OFFSET,  /* set the offset between joint and motor */
+	EMCMOT_SET_JOINT_COMP,          /* set a compensation triplet for a joint (nominal, forw., rev.) */
+
+        EMCMOT_SET_AXIS_POSITION_LIMITS, /* set the axis position +/- limits */
+        EMCMOT_SET_AXIS_VEL_LIMIT,      /* set the max axis vel */
+        EMCMOT_SET_AXIS_ACC_LIMIT,      /* set the max axis acc */
     } cmd_code_t;
 
 /* this enum lists the possible results of a command */
@@ -218,7 +217,8 @@ extern "C" {
 	int id;			/* id for motion */
 	int termCond;		/* termination condition */
 	double tolerance;	/* tolerance for path deviation in CONTINUOUS mode */
-	int axis;		/* which index to use for below */ //FIXME-AJ: replace with joint
+	int joint;		/* which joint index to use for below */
+	int axis;		/* which axis index to use for below */
 	double scale;		/* velocity scale or spindle_speed scale arg */
 	double offset;		/* input, output, or home offset arg */
 	double home;		/* joint home position */
@@ -506,10 +506,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double ferror;		/* following error */
 	double ferror_limit;	/* limit depends on speed */
 	double ferror_high_mark;	/* max following error */
-	double free_pos_cmd;	/* position command for free mode TP */
-	double free_vel_lim;	/* velocity limit for free mode TP */
-	int free_tp_enable;	/* if zero, joint stops ASAP */
-	int free_tp_active;	/* if non-zero, move in progress */
+	simple_tp_t free_tp;	/* planner for free mode motion */
 	int kb_jog_active;	/* non-zero during a keyboard jog */
 	int wheel_jog_active;	/* non-zero during a wheel jog */
 
@@ -527,10 +524,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double motor_offset;	/* diff between internal and motor pos, used
 				   to set position to zero during homing */
 	int old_jog_counts;	/* prior value, used for deltas */
-
-	/* stuff moved from the other structs that might be needed (or might
-	   not!) */
-	double big_vel;		/* used for "debouncing" velocity */
     } emcmot_joint_t;
 
 /* This structure contains only the "status" data associated with
@@ -546,7 +539,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 
 */
     typedef struct {
-
 	EMCMOT_JOINT_FLAG flag;	/* see above for bit details */
 	double pos_cmd;		/* commanded joint position */
 	double pos_fb;		/* position feedback, comp removed */
@@ -579,6 +571,21 @@ Suggestion: Split this in to an Error and a Status flag register..
 	int orient_state;       // orient_state_t
     } spindle_status;
     
+    typedef struct {
+	double pos_cmd;		/* commanded axis position */
+	double vel_cmd;		/* comanded axis velocity */
+	double max_pos_limit;	/* upper soft limit on axis pos */
+	double min_pos_limit;	/* lower soft limit on axis pos */
+	double vel_limit;	/* upper limit of axis speed */
+	double acc_limit;	/* upper limit of axis accel */
+	simple_tp_t teleop_tp;	/* planner for teleop mode motion */
+    } emcmot_axis_t;
+
+    typedef struct {
+        double vel_cmd;		/* comanded axis velocity */
+	double max_pos_limit;	/* upper soft limit on axis pos */
+	double min_pos_limit;	/* lower soft limit on axis pos */
+    } emcmot_axis_status_t;
 
 /*********************************
         STATUS STRUCTURE
@@ -624,6 +631,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	int homing_active;	/* non-zero if any joint is homing */
 	home_sequence_state_t homingSequenceState;
 	emcmot_joint_status_t joint_status[EMCMOT_MAX_JOINTS];	/* all joint status data */
+        emcmot_axis_status_t axis_status[EMCMOT_MAX_AXIS];	/* all axis status data */
 
 	int on_soft_limit;	/* non-zero if any joint is on soft limit */
 
@@ -653,7 +661,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	unsigned int heartbeat;
 	int config_num;		/* incremented whenever configuration
 				   changed. */
-	double computeTime;
 	int id;			/* id for executing motion */
 	int depth;		/* motion queue depth */
 	int activeDepth;	/* depth of active blend elements */
@@ -668,7 +675,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double vel;		/* scalar max vel */
 	double acc;		/* scalar max accel */
 
-	int level;
         int motionType;
         double distance_to_go;  /* in this move */
         EmcPose dtg;
@@ -709,15 +715,20 @@ Suggestion: Split this in to an Error and a Status flag register..
     typedef struct emcmot_config_t {
 	unsigned char head;	/* flag count for mutex detect */
 
-/*! \todo FIXME - all structure members beyond this point are in limbo */
-
 	int config_num;		/* Incremented everytime configuration
 				   changed, should match status.config_num */
 	int numJoints;		/* The number of joints in the system (which
 				   must be between 1 and EMCMOT_MAX_JOINTS,
-				   inclusive). Allegedly, holds a copy of the
-				   global num_joints - seems daft to maintain
-				   duplicates ! */
+				   inclusive). Can be changed at insmod time */
+	KINEMATICS_TYPE kinType;
+
+        int numDIO;             /* userdefined number of digital IO. default is 4. (EMCMOT_MAX_DIO=64), 
+                                   but can be altered at motmod insmod time */
+
+        int numAIO;             /* userdefined number of analog IO. default is 4. (EMCMOT_MAX_AIO=16), 
+                                   but can be altered at motmod insmod time */
+
+/*! \todo FIXME - all structure members beyond this point are in limbo */
 
 	double trajCycleTime;	/* the rate at which the trajectory loop
 				   runs.... (maybe) */
@@ -728,30 +739,9 @@ Suggestion: Split this in to an Error and a Status flag register..
 				   approx line 50 */
 
 	double limitVel;	/* scalar upper limit on vel */
-	KINEMATICS_TYPE kinematics_type;
 	int debug;		/* copy of DEBUG, from .ini file */
 	unsigned char tail;	/* flag count for mutex detect */
     } emcmot_config_t;
-
-/*********************************
-      INTERNAL STRUCTURE
-*********************************/
-
-/* This is the internal structure.  It contains stuff that is used
-   internally by the motion controller that does not need to be in
-   shared memory.  It will wind up with a lot of the stuff that got
-   tossed into the debug structure.
-
-   FIXME - so far most if the stuff that was tossed in here got
-   moved back out, maybe don't need it after all?
-*/
-
-    typedef struct emcmot_internal_t {
-	unsigned char head;	/* flag count for mutex detect */
-
-	int probe_debounce_cntr;
-	unsigned char tail;	/* flag count for mutex detect */
-    } emcmot_internal_t;
 
 /* error structure - A ring buffer used to pass formatted printf stings to usr space */
     typedef struct emcmot_error_t {
