@@ -1,0 +1,5 @@
+this code show how the czmq zbeacon can used for
+DHCP-style service discovery
+
+eventually this might get replaced by the zmq UDP transport
+once that gets implemented, but the pattern will remain the same
