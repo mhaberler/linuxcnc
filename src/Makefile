@@ -191,6 +191,7 @@ SUBDIRS := \
 	protobuf \
 	protobuf/support \
 	protobuf/libwebsockets \
+	protobuf/stp \
 	\
 	hal/components \
 	hal/msgcomponents \
