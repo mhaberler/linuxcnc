@@ -69,6 +69,10 @@ PROTOCXX_FLAGS :=
 PROTOCXX_CXX_FLAGS := -fPIC
 NANOPB_GENERATOR := $(NANOPB)/generator/nanopb_generator.py
 
+# tell protobuf to use compiled C for Python bindings
+# not available in 2.4.1/jessie
+#export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
+
 # NANOPB_CFLAGS are also passed to module build through
 # RTFLAGS - see protobuf/components/Submakefile
 NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<protobuf/pb-linuxcnc.h>'
