@@ -120,9 +120,6 @@ static struct libwebsocket_protocols protocols[] = {
 };
 static struct libwebsocket_context *ws_context;
 
-static const char *mime_types = "/etc/mime.types";
-
-
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
 #endif
@@ -610,7 +607,7 @@ static void message_poll_cb(struct ev_loop *loop,
 		    if (ws_config.num_log_connections > 0) {
 			json = pb2json(container);
 			z_jsonframe = zframe_new( json.c_str(), json.size());
-
+			//syslog(LOG_DEBUG, "json pub: '%s'", json.c_str());
 			if (zstr_sendm(logpub, "json"))
 			    syslog(LOG_ERR,"zstr_sendm(%s,json): %s",
 				   logpub_uri, strerror(errno));
@@ -703,7 +700,7 @@ int main(int argc, char **argv)
     while (1) {
 	int option_index = 0;
 	int curind = optind;
-	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W",
+	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W:",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
@@ -948,7 +945,7 @@ int main(int argc, char **argv)
     exit(exit_code);
 }
 
-const char *mimetype(const char *mimetypes, const char *ext);
+const char *mimetype(const char *ext);
 
 
 // minimal HTTP server, intended to serve some files just to be able
@@ -980,7 +977,7 @@ static int callback_http(struct libwebsocket_context *context,
 	}
 	ext = strchr((const char *)in, '.');
 	if (ext)
-	    s = mimetype(mime_types, ++ext);
+	    s = mimetype(ext);
 	mt = (s == NULL) ? "text/hmtl" : s;
 
 	sprintf(buf, "%s/%s", cfg->www_dir, (char *)in);
@@ -1025,7 +1022,8 @@ callback_wslog(struct libwebsocket_context *context,
     wslog_sess_t *wss = (wslog_sess_t *)user;
     wsconfig_t *cfg = (wsconfig_t *) libwebsocket_context_user (context);
     zmsg_t *msg;
-    zframe_t *channel,*logframe;
+    zframe_t *logframe;
+    char *channel;
     std::string json;
 
     switch (reason) {
@@ -1047,7 +1045,7 @@ callback_wslog(struct libwebsocket_context *context,
 	rc = zsocket_connect (wss->socket, (char *) cfg->uri);
 	assert(rc == 0);
 
-	// subscribe XPUP-style by sending a message
+	// subscribe XPUB-style by sending a message
 	// we're interested in the json updates only:
 	zstr_send (wss->socket, "\001json");
 
@@ -1068,13 +1066,16 @@ callback_wslog(struct libwebsocket_context *context,
 		break;
 	    if (items [0].revents & ZMQ_POLLIN) {
 		msg = zmsg_recv(wss->socket);
-		channel = zmsg_pop(msg);
+		channel = zmsg_popstr(msg);
 		logframe = zmsg_pop(msg);
 
 		n = zframe_size(logframe);
 		memcpy(p, zframe_data(logframe), n);
+
+		syslog(LOG_DEBUG,"Websocket/%s: '%.*s'", channel,n, p);
+
 		zframe_destroy (&logframe);
-		zframe_destroy (&channel);
+		free(channel);
 
 		m = libwebsocket_write(wsi, p, n, LWS_WRITE_TEXT);
 		if (m < n)
@@ -1114,30 +1115,59 @@ callback_wslog(struct libwebsocket_context *context,
     return 0;
 }
 
+#define MT(ext, tag)  ext, tag
+static const struct {
+    const char *extension;
+    const char *mime_type;
+} builtin_mime_types[] = {
+
+    { MT(".html", "text/html") },
+    { MT(".htm",  "text/html") },
+    { MT(".shtm", "text/html") },
+    { MT(".shtml","text/html") },
+    { MT(".css",  "text/css") },
+    { MT(".js",   "application/x-javascript") },
+    { MT(".ico",  "image/x-icon") },
+    { MT(".gif",  "image/gif") },
+    { MT(".jpg",  "image/jpeg") },
+    { MT(".jpeg",  "image/jpeg") },
+    { MT(".png",  "image/png") },
+    { MT(".svg",  "image/svg+xml") },
+    { MT(".torrent",  "application/x-bittorrent") },
+    { MT(".wav",  "audio/x-wav") },
+    { MT(".mp3",  "audio/x-mp3") },
+    { MT(".mid",  "audio/mid") },
+    { MT(".m3u",  "audio/x-mpegurl") },
+    { MT(".ram",  "audio/x-pn-realaudio") },
+    { MT(".xml",  "text/xml") },
+    { MT(".xslt", "application/xml") },
+    { MT(".ra",   "audio/x-pn-realaudio") },
+    { MT(".doc",  "application/msword") },
+    { MT(".exe",  "application/octet-stream") },
+    { MT(".zip",  "application/x-zip-compressed") },
+    { MT(".xls",  "application/excel") },
+    { MT(".tgz",  "application/x-tar-gz") },
+    { MT(".tar",  "application/x-tar") },
+    { MT(".gz",   "application/x-gunzip") },
+    { MT(".arj",  "application/x-arj-compressed") },
+    { MT(".rar",  "application/x-arj-compressed") },
+    { MT(".rtf",  "application/rtf") },
+    { MT(".pdf",  "application/pdf") },
+    { MT(".swf",  "application/x-shockwave-flash") },
+    { MT(".mpg",  "video/mpeg") },
+    { MT(".mpeg", "video/mpeg") },
+    { MT(".asf",  "video/x-ms-asf") },
+    { MT(".avi",  "video/x-msvideo") },
+    { MT(".bmp",  "image/bmp") },
+    { NULL,  NULL }
+#undef MT
+};
+
 const char *
-mimetype(const char *mimetypes, const char *ext)
+mimetype(const char *ext)
 {
-    FILE *fp;
-    char *exts;
-    char buf[PATH_MAX];
-    char *mt;
-
-    if ((fp = fopen(mimetypes, "r")) == NULL)
-	return 0;
-
-    while ((fgets(buf, sizeof(buf), fp)) != NULL) {
-	if (buf[0] == '#' || buf[0] == '\n')
-	    continue;
-
-	if ((mt = strtok(buf, " \t\n")) != NULL) {
-	    while ((exts = strtok(NULL, " \t\n")) != NULL) {
-		if (strcasecmp(ext, exts) == 0) {
-		    fclose(fp);
-		    return strdup(mt); // result must be free()'d
-		}
-	    }
-	}
-    }
-    fclose(fp);
+    for (int i = 0; builtin_mime_types[i].extension != NULL; i++)
+	if (strcasecmp(ext, builtin_mime_types[i].extension) == 0)
+	    return  builtin_mime_types[i].mime_type;
     return NULL;
 }
