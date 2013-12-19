@@ -88,6 +88,7 @@ class GRemotePin(gobject.GObject):
         'value-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
         'hal-pin-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_OBJECT,))
 }
+
     def __init__(self, name, type, direction,comp):
         gobject.GObject.__init__(self)
         self.comp = comp
@@ -160,6 +161,14 @@ class GRemoteComponent(gobject.GObject):
     CMD = None
     COUNT = 0 # instance counter
 
+
+    # process service announcements on beacon socket
+    def beacon_readable(self, socket):
+        print "-------- beacon_readable "
+        f = zframe.recv(socket)
+        self.rx.ParseFromString(zframe.data(f))
+        print "beacon_message " + str(self.rx)
+
     def __init__(self, name, builder,cmd_uri=None, update_uri=None, instance=0,
                  period=3,debug=False):
         gobject.GObject.__init__(self)
@@ -185,24 +194,66 @@ class GRemoteComponent(gobject.GObject):
             zsocket.set_identity(cmd, "%s-%d" % (name,os.getpid()))
             zsocket.set_linger(cmd, 0)
 
-            if not (cmd_uri and update_uri):
+            if True:# not (cmd_uri and update_uri):
+                #  Create service discovery beacon
                 self.client_beacon = zbeacon.new(ctx, BEACON_PORT)
+                # receive any message
                 zbeacon.subscribe(self.client_beacon, '')
+                # ignore own queries
+                zbeacon.noecho(self.client_beacon)
+                # turn on unicast receive
+                zbeacon.unicast(self.client_beacon, 1)
                 self.beacon_socket = zbeacon.socket(self.client_beacon)
-                zsocket.set_rcvtimeo(self.beacon_socket, 3000)
-                # FIXME match service_type, instance here
-                ipaddress = zstr.recv(self.beacon_socket)
-                content = zframe.recv(self.beacon_socket)
-                if not content:
-                    raise RuntimeError,"cant obtain server configuration"
-                r = Container()
-                r.ParseFromString(zframe.data(content))
 
-                print "got ip=%s msg=%s" % (ipaddress, str(r))
-                zframe.destroy(content)
-                zsocket.connect(update, "tcp://%s:%d" % (ipaddress, r.update_port))
-                zsocket.connect(cmd, "tcp://%s:%d" % (ipaddress, r.cmd_port))
+                # publish MT_SERVICE_PROBE until all services
+                # collected, or giving up
+                zbeacon.set_interval(self.client_beacon, 500)
+                probe = Container()
+                probe.type = MT_SERVICE_PROBE
+                zbeacon.publish(self.client_beacon, probe.SerializeToString())
+
+                required = [ST_HAL_RCOMP]
+                known = dict()
+                # give up if not all services aquired after max_wait
+                max_wait = 2.0
+                done = False
+                start = time.time()
+
+                while not done:
+                    if (time.time() - start) > max_wait:
+                        break
+                    ipaddress = zstr.recv(self.beacon_socket)
+                    if zctx.interrupted:
+                        break
+                    if ipaddress is None:
+                        continue
+
+                    content = zframe.recv(self.beacon_socket)
+                    rx = Container()
+                    rx.ParseFromString(zframe.data(content))
+
+                    if rx.type == MT_SERVICE_ANNOUNCEMENT:
+                        for a in rx.service_announcement:
+                            if a.stype in required:
+                                print "aquiring:", a.stype
+                                known[a.stype] = a
+                                required.remove(a.stype)
+                        if not required:
+                            zbeacon.silence(self.client_beacon)
+                            done = True
+
+                    zframe.destroy(content)
+
+                if required:
+                    raise RuntimeError, "Service Discovery failed"
+
+                cfg = known[ST_HAL_RCOMP]
+                print "got ip=%s msg=%s" % (ipaddress, str(cfg))
+                zsocket.connect(update, "tcp://%s:%d" % (ipaddress, cfg.update_port))
+                zsocket.connect(cmd, "tcp://%s:%d" % (ipaddress, cfg.cmd_port))
+
             else:
+
                 zsocket.connect(update, update_uri)
                 zsocket.connect(cmd, cmd_uri)
 

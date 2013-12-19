@@ -1,6 +1,8 @@
 from halext import *
 import rtapi
 from pyczmq import ffi, zmq, zctx, zsocket, zmsg, zframe, zbeacon, zloop, zstr
+from pyczmq._cffi import ptop
+
 import time
 import os
 import sys
@@ -304,34 +306,23 @@ class HalServer:
        self = ffi.from_handle(arg)
        ipaddress = zstr.recv(self.beacon)
        self.rx.ParseFromString(zframe.data(zframe.recv(self.beacon)))
-       print "--- beacon request: ip=%s msg=%s" % (ipaddress, str(self.rx))
-       if self.rx.type ==  MT_SERVICE_REQUEST:
-          srq = self.rx.service_request
-          for s in srq.service:
-             if s.type == ST_HAL_RCOMP:
-                # might want to match versions here
-                self.beacon_announce()
+       print "--- beacon request: ip=%s msg=%s" % (ipaddress, str(self.rx)),
 
-       if self.rx.type ==  MT_SERVICE_PROBE:
+       if self.rx.type == MT_SERVICE_PROBE:
           self.tx.Clear()
           self.tx.type = MT_SERVICE_ANNOUNCEMENT
-          sa = self.rx.service_announcement
+          sa = self.tx.service_announcement.add()
+          sa.instance = 0
           sa.stype = ST_HAL_RCOMP
+          sa.version = HAL_RCOMP_VERSION
           sa.cmd_port = self.cmd_port
           sa.update_port = self.update_port
-          #zframe.new(self.tx.SerializeToString())
+
+          # UDP unicast reply
+          zbeacon.send(self.service_beacon, ipaddress,
+                       self.tx.SerializeToString())
        return 0
 
-       # a = Container()
-       # a.type =  MT_SERVICE_ANNOUNCEMENT
-       # a.service_type = ST_HAL_RCOMP
-       # a.cmd_port = cmd_port
-       # a.update_port = update_port
-       # a.version = HAL_RCOMP_VERSION
-       # a.instance = 0
-       # a.note = "halserv.py here"
-       # pkt = a.SerializeToString()
-       # zbeacon.publish(self.service_beacon, pkt)
 
     def __init__(self, cmd_uri=None, update_uri=None,msec=100,debug=False):
 
@@ -344,7 +335,7 @@ class HalServer:
 
         self.msec = msec
         self.debug = debug
-        # more efficient to reuse a protobuf Message
+        # it's more efficient to reuse a protobuf Message
         self.rx = Container()
         self.tx = Container()
 
@@ -384,10 +375,7 @@ class HalServer:
         self.service_beacon = zbeacon.new(self.ctx, BEACON_PORT)
         zbeacon.noecho(self.service_beacon)
         zbeacon.subscribe(self.service_beacon, '')
-
         self.beacon = zbeacon.socket(self.service_beacon)
-        #  zbeacon.set_interval(self.service_beacon, 1000)
-
 
         self.loop = zloop.new()
         zloop.set_verbose(self.loop, self.debug)
@@ -413,9 +401,10 @@ class HalServer:
 
 
 
-halserver = HalServer(msec=20,debug=False,
-                      cmd_uri="tcp://127.0.0.1:4711",
-                      update_uri="tcp://127.0.0.1:4712")
+halserver = HalServer(msec=20,debug=False)
+# ,
+#                       cmd_uri="tcp://127.0.0.1:4711",
+#                       update_uri="tcp://127.0.0.1:4712")
 
 
 
