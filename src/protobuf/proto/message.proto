@@ -36,6 +36,8 @@ message Container {
     optional TaskReply     task_reply     = 10;
     optional TicketUpdate  ticket_update  = 11;
     optional LogMessage    log_message    = 12;
+    // simplified argument list for hal_rcomp/stp  updates
+    repeated Signal               signal = 13;  //  [(nanopb).max_count = 20];
 
     // tags in the range 16 through 2047 take two bytes.
     // various blobs and less frequently used messages
@@ -79,8 +81,6 @@ message Container {
     // generalized polymorphic argument list
     repeated Object                arg   = 90;  //  [(nanopb).max_count = 20];
 
-    // simplified argument list for haltalker updates
-    repeated Signal               signal = 92;  //  [(nanopb).max_count = 20];
 
     // remote comp description for MT_HALCOMP_CREATE: [comp, pins*]
     optional Component              comp = 93;
@@ -107,7 +107,8 @@ message Container {
 
     // announcements (typically sent/received via zbeacon(7):
     optional ServiceRequest  service_request = 115;
-    optional ServiceAnnouncement  service_announcement = 116;
+    // a reply may carry several service announcements:
+    repeated ServiceAnnouncement  service_announcement = 116;
 
 
     // infrequent compound messages

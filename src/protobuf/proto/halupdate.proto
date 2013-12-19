@@ -1,6 +1,7 @@
 // Halupdate protocol messages
 package pb;
 
+
 import "types.proto";
 
 message OfferObject {

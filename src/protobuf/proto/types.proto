@@ -8,14 +8,14 @@ enum ValueType {
     HAL_FLOAT = 2;
     HAL_S32   = 3;
     HAL_U32   = 4;
+    STRING    = 5;
+    BYTES     = 6;
 
-    BYTES     = 10;
     INT32     = 20;
     UINT32    = 30;
     INT64     = 40;
     UINT64    = 50;
     DOUBLE    = 60;
-    STRING    = 70;
     BOOL      = 80;
 
     CARTESIAN = 100;
@@ -145,7 +145,7 @@ enum ReplyType {
 // services exported by various entities
 enum ServiceType {
     ST_HAL_RCOMP  = 1;
-    ST_HAL_STATUS = 2;
+    ST_STP = 2;
     ST_LOGGING = 3;
     ST_COMMAND = 4;
     ST_CONFIG     = 5;
@@ -166,12 +166,15 @@ enum ContainerType {
     MT_HALUPDATE      = 8;
     MT_RTAPI_MESSAGE  = 9;
     MT_LOG_MESSAGE    = 10;
+    MT_STP_UPDATE     = 11;
 
     MT_SYSLOG         = 18;
     MT_LEGACY_NML     = 19;
     MT_LEGACY_MOTCONFIG = 20;
 
     MT_HALUPDATE_FULL  = 25;
+    MT_STP_UPDATE_FULL = 26;
+    MT_STP_NOGROUP     = 27;
 
     MT_OFFER          = 30;
     MT_CONFIRM_OFFER  = 35;
