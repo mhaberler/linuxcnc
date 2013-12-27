@@ -151,6 +151,7 @@ enum ServiceType {
     ST_CONFIG     = 5;
     ST_REDIS      = 6;
     ST_HTTP      = 7;
+    ST_RTAPI_COMMAND = 8;
 }
 enum ServiceAPI {
     SA_ZMQ_PROTOBUF = 1;
@@ -220,6 +221,20 @@ enum ContainerType {
     MT_HALRCOMP_PIN_CHANGE = 276;
     MT_HALRCOMP_PIN_CHANGE_REJECT = 277;
     MT_HALRCOMP_SUBSCRIBE_ERROR = 278;
+
+    // rtapi_app commands from halcmd:
+    MT_RTAPI_APP_EXIT = 300;
+    MT_RTAPI_APP_PING = 301;
+    MT_RTAPI_APP_LOADRT = 302;
+    MT_RTAPI_APP_LOG_USR = 303;
+    MT_RTAPI_APP_LOG_RT= 304;
+    MT_RTAPI_APP_UNLOADRT= 305;
+    MT_RTAPI_APP_NEWINST= 306;
+    MT_RTAPI_APP_NEWTHREAD = 307;
+    MT_RTAPI_APP_DELTHREAD = 308;
+
+    MT_RTAPI_APP_REPLY = 310;
+
 
     // task/client comms
     MT_TASK_REPLY     = 400;

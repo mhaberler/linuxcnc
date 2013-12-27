@@ -37,7 +37,7 @@ message Container {
     optional TicketUpdate  ticket_update  = 11;
     optional LogMessage    log_message    = 12;
     // simplified argument list for hal_rcomp/stp  updates
-    repeated Signal               signal = 13;  //  [(nanopb).max_count = 20];
+    repeated Signal                signal = 13;  //  [(nanopb).max_count = 20];
 
     // tags in the range 16 through 2047 take two bytes.
     // various blobs and less frequently used messages
@@ -79,8 +79,22 @@ message Container {
     optional Originator            origin = 80;
 
     // generalized polymorphic argument list
-    repeated Object                arg   = 90;  //  [(nanopb).max_count = 20];
+    repeated Object                arg   = 85;  //  [(nanopb).max_count = 20];
 
+    // string argv-type vector; used in MT_RTAPI_APP_* and possibly others
+    repeated string                 argv =  86;  //  [(nanopb).max_count = 20];
+
+   // MT_RTAPI_APP_LOG_*, loglevels
+    optional int32              loglevel = 87;
+
+    // MT_RTAPI_APP_REPLY, possibly with 'note' tacked on:
+    optional int32               retcode = 88;
+
+    // used in MT_RTAPI_APP_LOADRT
+    optional string              modname = 89;
+
+    // used in MT_RTAPI_APP_LOADRT
+    optional int32              instance = 90;
 
     // remote comp description for MT_HALCOMP_CREATE: [comp, pins*]
     optional Component              comp = 93;
