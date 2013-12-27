@@ -48,6 +48,7 @@ getvar() {
 getvar flavor
 getvar linuxcnc_module_helper
 getvar rtapi_msgd
+#getvar halcmd
 
 # Flavor configuration
 FLAVOR=$($flavor)
@@ -257,9 +258,9 @@ Unload(){
 	RTAPI_PID=`$PIDOF rtapi:$INSTANCE`
 	if [ "$RTAPI_PID" != "" ] ; then
 	    if [ $DEBUG -gt 0 ] ; then
-		${rtapi_app} --instance=$INSTANCE exit
+		halcmd shutdown
 	    else
-		${rtapi_app} --instance=$INSTANCE exit            >/dev/null 2>&1
+		halcmd shutdown            >/dev/null 2>&1
             fi
 	fi
 
