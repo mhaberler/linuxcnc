@@ -67,6 +67,9 @@ FILE *halcmd_inifile = NULL;
 #include "hal.h"		/* HAL public API decls */
 #include "../hal_priv.h"	/* private HAL decls */
 #include "halcmd_commands.h"
+#include "halcmd_rtapiapp.h"
+
+
 
 /***********************************************************************
 *                  LOCAL FUNCTION DECLARATIONS                         *
@@ -92,7 +95,7 @@ flavor_ptr current_flavor;
 
 static void quit(int);
 
-int halcmd_startup(int quiet) {
+int halcmd_startup(int quiet, const char *uri) {
     int msg_lvl_save=rtapi_get_msg_level();
     /* register signal handlers - if the process is killed
        we need to call hal_exit() to free the shared memory */
@@ -121,6 +124,13 @@ int halcmd_startup(int quiet) {
     hal_ready(comp_id);
 
     current_flavor = flavor_byid(global_data->rtapi_thread_flavor);
+    int retval;
+    if ((retval = rtapi_connect(rtapi_instance, uri))) {
+        if (!quiet) {
+            fprintf(stderr, "halcmd: cant connect to rtapi_app: %d\n", retval );
+        }
+	return -EINVAL;
+    }
     return 0;
 }
 
@@ -158,11 +168,13 @@ struct halcmd_command halcmd_commands[] = {
     {"log",     FUNCT(do_log_cmd),     A_TWO | A_OPTIONAL},
     {"net",     FUNCT(do_net_cmd),     A_ONE | A_PLUS | A_REMOVE_ARROWS },
     {"newsig",  FUNCT(do_newsig_cmd),  A_TWO },
+    {"ping",    FUNCT(do_ping_cmd), A_ZERO },
     {"save",    FUNCT(do_save_cmd),    A_TWO | A_OPTIONAL | A_TILDE },
     {"setexact_for_test_suite_only", FUNCT(do_setexact_cmd), A_ZERO },
     {"setp",    FUNCT(do_setp_cmd),    A_TWO },
     {"sets",    FUNCT(do_sets_cmd),    A_TWO },
     {"show",    FUNCT(do_show_cmd),    A_ONE | A_OPTIONAL | A_PLUS},
+    {"shutdown",FUNCT(do_shutdown_cmd), A_ZERO },
     {"source",  FUNCT(do_source_cmd),  A_ONE | A_TILDE },
     {"start",   FUNCT(do_start_cmd),   A_ZERO},
     {"status",  FUNCT(do_status_cmd),  A_ONE | A_OPTIONAL },

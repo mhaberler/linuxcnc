@@ -44,6 +44,7 @@
 #include "hal_ring.h"	        /* ringbuffer declarations */
 #include "hal_group.h"	        /* group/member declarations */
 #include "halcmd_commands.h"
+#include "halcmd_rtapiapp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1128,9 +1129,12 @@ int do_loadrt_cmd(char *mod_name, char *args[])
     char *cp1;
     char executable[PATH_MAX];
     char mod_path[PATH_MAX];
-    char inst[50];
+    //char inst[50];
 
     if (!(current_flavor->flags & FLAVOR_KERNEL_BUILD)) {
+
+	retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
+#if 0
 	if (get_rtapi_config(executable,"rtapi_app",PATH_MAX) != 0) {
 	    halcmd_error("rtapi_app executable path not found in rtapi.ini\n");
 	    return -ENOENT;
@@ -1149,6 +1153,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 	}
 	argv[m++] = NULL;
 	retval = do_loadusr_cmd(argv);
+#endif
     } else {
 
 	if (hal_get_lock()&HAL_LOCK_LOAD) {
@@ -1389,13 +1394,31 @@ int do_unloadrt_cmd(char *mod_name)
     return retval1;
 }
 
+int do_shutdown_cmd(void)
+{
+    int retval = rtapi_shutdown(rtapi_instance);
+    return retval;
+}
+
+int do_ping_cmd(void)
+{
+    int retval = rtapi_ping(rtapi_instance);
+    return retval;
+}
+
 static int unloadrt_comp(char *mod_name)
 {
     int retval;
-    char *argv[10];
-    int m=0;
-    char executable[PATH_MAX];
+    /* char *argv[10]; */
+    /* int m=0; */
+    /* char executable[PATH_MAX]; */
 
+    retval = rtapi_unloadrt(rtapi_instance, mod_name);
+    /* print success message */
+    halcmd_info("Realtime module '%s' unloaded rc=%d\n",
+		mod_name, retval);
+    return retval;
+#if 0
     if (!(current_flavor->flags & FLAVOR_KERNEL_BUILD)) {
 	char inst[50];
 	snprintf(inst,sizeof(inst),"--instance=%d", rtapi_instance);
@@ -1430,6 +1453,8 @@ static int unloadrt_comp(char *mod_name)
     halcmd_info("Realtime module '%s' unloaded\n",
 	mod_name);
     return 0;
+#endif
+
 }
 
 int do_unload_cmd(char *mod_name) {
@@ -1474,6 +1499,18 @@ static char *guess_comp_name(char *prog_name)
     return name;
 }
 
+#if 0
+
+loadusr [flags] unix-command
+(load Userspace component) Executes the given unix-command, usually to load a userspace component. [flags] may be one or more of:
+
+-W to wait for the component to become ready. The component is assumed to have the same name as the first argument of the command.
+-Wn name to wait for the component, which will have the given name.
+-w to wait for the program to exit
+-i to ignore the program return value (with -w)
+
+#endif
+
 int do_loadusr_cmd(char *args[])
 {
     int wait_flag, wait_comp_flag, ignore_flag;
@@ -1483,7 +1520,11 @@ int do_loadusr_cmd(char *args[])
     pid_t pid;
 
     int argc = 0;
-    while(args[argc] && *args[argc]) argc++;
+    while(args[argc] && *args[argc]) {
+	fprintf(stderr, "loadusr: arg='%s'\n",args[argc]);
+
+	argc++;
+    }
     args--; argc++;
 
     if (hal_get_lock()&HAL_LOCK_LOAD) {
@@ -3148,7 +3189,7 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 	halcmd_error("cant allocate memory for pin '%s'\n", pin_name);
 	return -EINVAL;
     }
-    memset(p, 0, sizeof(p));
+    memset(p, 0, sizeof(void *));
 
     // mutex not held here - hal_pin_new wants it
     retval = hal_pin_new(pin_name, type, dir, p, comp->comp_id);

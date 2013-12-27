@@ -101,6 +101,11 @@ extern int do_waitbound_cmd(char *comp, char *tokens[]);
 extern int do_waitunbound_cmd(char *comp, char *tokens[]);
 //extern int do_unloadrem_cmd(char *comp, char *tokens[]);
 
+// shutdown the RTAPI stack
+extern int do_shutdown_cmd(void);
+// ping the RTAPI stack
+extern int do_ping_cmd(void);
+
 
 pid_t hal_systemv_nowait(char *const argv[]);
 int hal_systemv(char *const argv[]);

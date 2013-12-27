@@ -56,7 +56,7 @@ static const char *command_table[] = {
     "newg"," delg", "newm", "delm",
     "newring","delring","ringdump","ringwrite","ringread",
     "newcomp","newpin","ready","waitbound", "waitunbound",
-	"log",
+    "log","shutdown","ping",
     NULL,
 };
 

@@ -44,7 +44,7 @@
 #include "hal.h"
 #include "rtapi_compat.h"
 
-extern int halcmd_startup(int quiet);
+extern int halcmd_startup(int quiet, const char *uri);
 extern void halcmd_shutdown();
 extern int halcmd_parse_cmd(char * tokens[]);
 extern int halcmd_parse_line(char * line);

@@ -79,6 +79,7 @@ int main(int argc, char **argv)
     char raw_buf[MAX_CMD_LEN+1];
     int linenumber = 1;
     char *cf=NULL, *cw=NULL, *cl=NULL;
+    const char *uri = "tcp://127.0.0.1:10043" ;// NULL;
 
     if (argc < 2) {
 	/* no args specified, print help */
@@ -91,7 +92,7 @@ int main(int argc, char **argv)
     keep_going = 0;
     /* start parsing the command line, options first */
     while(1) {
-        c = getopt(argc, argv, "+RCfi:kqQsvVhe");
+        c = getopt(argc, argv, "+RCfi:kqQsvVhu:");
         if(c == -1) break;
         switch(c) {
             case 'R':
@@ -158,7 +159,7 @@ int main(int argc, char **argv)
                             break;
                         }
                     }
-                    halcmd_startup(1);
+                    halcmd_startup(1, uri);
                     propose_completion(cl, cf, n);
                 }
                 if (comp_id >= 0) halcmd_shutdown();
@@ -184,6 +185,10 @@ int main(int argc, char **argv)
 		}
 		break;
 #endif /* NO_INI */
+	    case 'u':
+		uri = optarg;
+		break;
+
 	    case '?':
 		/* option not in getopt() list
 		   getopt already printed an error message */
@@ -220,7 +225,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if ( halcmd_startup(0) != 0 ) return 1;
+    if ( halcmd_startup(0, uri) != 0 ) return 1;
 
     errorcount = 0;
     /* HAL init is OK, let's process the command(s) */
