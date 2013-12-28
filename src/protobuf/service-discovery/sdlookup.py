@@ -10,11 +10,13 @@ from pyczmq import zmq, zctx, zsocket, zstr, zbeacon, zframe
 from message_pb2 import Container
 from types_pb2 import *
 
-BEACON_PORT = 10042;
+SERVICE_DISCOVERY_PORT  = 10042;
 
 # shopping list of services needed
 #required = [ST_STP]
-required = [ST_HAL_RCOMP, ST_STP]
+
+required = [ST_RTAPI_COMMAND]
+#required = [ST_HAL_RCOMP, ST_STP]
 
 # services learned
 known = dict()
@@ -26,7 +28,7 @@ max_wait = 2.0
 ctx = zctx.new()
 
 #  Create service discovery listener
-sd_lookup = zbeacon.new (ctx, BEACON_PORT)
+sd_lookup = zbeacon.new (ctx, SERVICE_DISCOVERY_PORT)
 
 # turn on unicast receive
 zbeacon.unicast(sd_lookup, 1)
