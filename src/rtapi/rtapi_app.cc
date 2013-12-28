@@ -272,12 +272,15 @@ static int do_load_cmd(int instance, string name, pbstringarray_t args)
         result = do_comp_args(module, args);
         if(result < 0) { dlclose(module); return -1; }
 
+	do_setuid();
         if ((result=start()) < 0) {
+	    undo_setuid();
             rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app_main(%s): %d %s\n", 
 			    name.c_str(), result, strerror(-result));
 	    modules.erase(modules.find(name));
 	    return result;
         }
+	undo_setuid();
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: loaded from %s\n",
 			name.c_str(), module_name);
 	return 0;
@@ -581,18 +584,6 @@ static int mainloop(size_t  argc, char **argv)
     int retval;
     unsigned i;
     static char proctitle[20];
-
-    if (!foreground) {
-	pid_t pid = fork();
-	if (pid > 0) { // parent
-	    exit(0);
-	}
-	if (pid < 0) { // fork failed
-	    perror("fork");
-	    exit(1);
-	}
-    }
-    // in child
 
     // set new process name
     snprintf(proctitle, sizeof(proctitle), "rtapi:%d",instance_id);
@@ -1027,6 +1018,18 @@ int main(int argc, char **argv)
 	fprintf(stderr, "%s: FATAL - will not run as root\n", progname);
 	exit(EXIT_FAILURE);
     }
+
+    if (!foreground) {
+	pid_t pid = fork();
+	if (pid > 0) { // parent
+	    exit(0);
+	}
+	if (pid < 0) { // fork failed
+	    perror("fork");
+	    exit(1);
+	}
+    }
+    // in child
 
     exit(mainloop(argc, argv));
 }
