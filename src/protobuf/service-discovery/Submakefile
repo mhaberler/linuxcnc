@@ -1,8 +1,0 @@
-SD_DIR :=  $(PBDIR)/service-discovery
-
-INCLUDES += $(SD_DIR)
-
-
-../include/%.h: ./$(SD_DIR)/%.h
-	@mkdir -p $(dir $@)
-	cp $^ $@

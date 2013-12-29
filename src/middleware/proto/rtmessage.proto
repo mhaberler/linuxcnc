@@ -1,0 +1,16 @@
+import "nanopb.proto";
+import "types.proto";
+import "value.proto";
+
+// option (nanopb_fileopt).max_size = 20;
+
+package pb;
+
+message RTMessage {
+    //    option (nanopb_msgopt).autowrap = MT_PING;
+    //option (nanopb_msgopt).autowrap = 23;
+
+    required ContainerType type = 1; //  [(nanopb).wrap_hint = "MT_FOO" ];
+
+    required int32 blabla = 10;
+}
