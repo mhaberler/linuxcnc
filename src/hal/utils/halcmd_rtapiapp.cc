@@ -2,9 +2,10 @@
 #include "halcmd_rtapiapp.h"
 
 #include <czmq.h>
+#include <string.h>
 
 
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
 
 static pb::Container command, reply;
@@ -14,6 +15,7 @@ static zctx_t *z_context;
 static void *z_command;
 static int timeout = 1000;
 
+static std::string errormsg;
 
 int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
 {
@@ -24,27 +26,33 @@ int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
     assert (zframe_send (&request, socket, 0) == 0);
     zframe_t *reply = zframe_recv (socket);
     if (reply == NULL) {
-	fprintf(stderr, "rpc reply timeout\n");
+	errormsg =  "rtapi_rpc(): reply timeout";
 	return -1;
     }
     int retval =  rx.ParseFromArray(zframe_data (reply),
 				    zframe_size (reply)) ? 0 : -1;
     //    assert(retval == 0);
     zframe_destroy(&reply);
+    if (rx.has_note())
+	errormsg = rx.note();
+    else
+	errormsg = "";
     return retval;
 }
 
 static int rtapi_loadop(pb::ContainerType type, int instance, const char *modname, const char **args)
 {
+    pb::RTAPICommand *cmd;
     command.Clear();
     command.set_type(type);
-    command.set_modname(modname);
-    command.set_instance(instance);
+    cmd = command.mutable_rtapicmd();
+    cmd->set_modname(modname);
+    cmd->set_instance(instance);
 
     int argc = 0;
     if (args)
 	while(args[argc] && *args[argc]) {
-	    command.add_argv(args[argc]);
+	    cmd->add_argv(args[argc]);
 	    argc++;
 	}
     int retval = rtapi_rpc(z_command, command, reply);
@@ -65,9 +73,12 @@ int rtapi_unloadrt(int instance, const char *modname)
 
 int rtapi_shutdown(int instance)
 {
+    pb::RTAPICommand *cmd;
+
     command.Clear();
     command.set_type(pb::MT_RTAPI_APP_EXIT);
-    command.set_instance(instance);
+    cmd = command.mutable_rtapicmd();
+    cmd->set_instance(instance);
 
     int retval = rtapi_rpc(z_command, command, reply);
     if (retval)
@@ -78,9 +89,11 @@ int rtapi_shutdown(int instance)
 
 int rtapi_ping(int instance)
 {
+    pb::RTAPICommand *cmd;
     command.Clear();
     command.set_type(pb::MT_RTAPI_APP_PING);
-    command.set_instance(instance);
+    cmd = command.mutable_rtapicmd();
+    cmd->set_instance(instance);
 
     int retval = rtapi_rpc(z_command, command, reply);
     if (retval)
@@ -88,6 +101,42 @@ int rtapi_ping(int instance)
     return reply.retcode();
 }
 
+int rtapi_newthread(int instance, const char *name, int period, int cpu, bool use_fp)
+{
+    pb::RTAPICommand *cmd;
+    command.Clear();
+    command.set_type(pb::MT_RTAPI_APP_NEWTHREAD);
+    cmd = command.mutable_rtapicmd();
+    cmd->set_instance(instance);
+    cmd->set_threadname(name);
+    cmd->set_threadperiod(period);
+    cmd->set_cpu(cpu);
+    cmd->set_use_fp(use_fp);
+
+    int retval = rtapi_rpc(z_command, command, reply);
+    if (retval)
+	return retval;
+    return reply.retcode();
+}
+
+int rtapi_delthread(int instance, const char *name)
+{
+    pb::RTAPICommand *cmd;
+    command.Clear();
+    command.set_type(pb::MT_RTAPI_APP_DELTHREAD);
+    cmd = command.mutable_rtapicmd();
+    cmd->set_instance(instance);
+    cmd->set_threadname(name);
+    int retval = rtapi_rpc(z_command, command, reply);
+    if (retval)
+	return retval;
+    return reply.retcode();
+}
+
+const char *rtapi_rpcerror(void)
+{
+    return errormsg.c_str();
+}
 
 int rtapi_connect(int instance, const char *uri)
 {

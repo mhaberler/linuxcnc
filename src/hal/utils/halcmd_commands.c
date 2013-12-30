@@ -1123,75 +1123,20 @@ int do_status_cmd(char *type)
 int do_loadrt_cmd(char *mod_name, char *args[])
 {
     char arg_string[MAX_CMD_LEN+1];
-    int m=0, n=0, retval;
+    int  n=0, retval;
     hal_comp_t *comp;
-    char *argv[MAX_TOK+3];
     char *cp1;
-    char executable[PATH_MAX];
-    char mod_path[PATH_MAX];
-    //char inst[50];
 
-    if (!(current_flavor->flags & FLAVOR_KERNEL_BUILD)) {
-
-	retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
-#if 0
-	if (get_rtapi_config(executable,"rtapi_app",PATH_MAX) != 0) {
-	    halcmd_error("rtapi_app executable path not found in rtapi.ini\n");
-	    return -ENOENT;
-	}
-
-	snprintf(inst,sizeof(inst),"--instance=%d", rtapi_instance);
-	argv[m++] = "-Wn";
-	argv[m++] = mod_name;
-	argv[m++] = executable;
-	argv[m++] = inst;
-	argv[m++] = "load";
-	argv[m++] = mod_name;
-	/* loop thru remaining arguments */
-	while ( args[n] && args[n][0] != '\0' ) {
-	    argv[m++] = args[n++];
-	}
-	argv[m++] = NULL;
-	retval = do_loadusr_cmd(argv);
-#endif
-    } else {
-
-	if (hal_get_lock()&HAL_LOCK_LOAD) {
-	    halcmd_error("HAL is locked, loading of modules is not permitted\n");
-	    return -EPERM;
-	}
-	/* FIXME: Is checking this length still necessary?  Can we use
-	   PATH_MAX instead?  What's the arbitrary '+5' for?
-	*/
-	if ( (strlen(mod_path)+strlen(mod_name)+5) > MAX_CMD_LEN ) {
-	    halcmd_error("Module path too long\n");
-	    return -1;
-	}
-	if (get_rtapi_config(executable,"linuxcnc_module_helper",
-			     PATH_MAX) != 0) {
-	    halcmd_error("linuxcnc_module_helper executable path not found "
-			 "in rtapi.ini\n");
-	    return -ENOENT;
-	}
-	argv[0] = executable;
-	argv[1] = "insert";
-	argv[2] = mod_name;
-	/* loop thru remaining arguments */
-	n = 0;
-	m = 3;
-	while ( args[n] && args[n][0] != '\0' ) {
-	    argv[m++] = args[n++];
-	}
-	/* add a NULL to terminate the argv array */
-	argv[m] = NULL;
-
-	retval = hal_systemv(argv);
+    if (hal_get_lock()&HAL_LOCK_LOAD) {
+	halcmd_error("HAL is locked, loading of modules is not permitted\n");
+	return -EPERM;
     }
 
+    retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
     if ( retval != 0 ) {
 	halcmd_error("insmod failed, returned %d\n"
-            "See the log and output of 'dmesg' for more information.\n"
-        , retval );
+		     "See the log and output of 'dmesg' for more information.\n"
+		     , retval );
 	return -1;
     }
     /* make the args that were passed to the module into a single string */
@@ -1521,8 +1466,6 @@ int do_loadusr_cmd(char *args[])
 
     int argc = 0;
     while(args[argc] && *args[argc]) {
-	fprintf(stderr, "loadusr: arg='%s'\n",args[argc]);
-
 	argc++;
     }
     args--; argc++;
@@ -3527,6 +3470,43 @@ int do_setexact_cmd() {
         hal_data->exact_base_period = 1;
     }
     rtapi_mutex_give(&(hal_data->mutex));
+    return retval;
+}
+
+// create a new named RT thread
+int do_newthread_cmd(char *name, char *period, char *args[])
+{
+    int i, retval;
+    bool use_fp = false;
+    int cpu = -1;
+    const char *s;
+    int per = atoi(period) * 1000; // 1mS default
+
+    if (per < 10000)
+	halcmd_warning("a period < 10uS is unlikely to work\n");
+
+    for (i = 0; ((s = args[i]) != NULL) && strlen(s); i++) {
+	if (sscanf(s, "cpu=%d", &cpu) == 1)
+	    continue;
+	if (strcmp(s, "fp") == 0)
+	    use_fp = true;
+	if (strcmp(s, "nofp") == 0)
+	    use_fp = false;
+    }
+    retval = rtapi_newthread(rtapi_instance, name, per, cpu, use_fp);
+    if (retval)
+	halcmd_error("%s\n",rtapi_rpcerror());
+
+    return retval;
+}
+
+
+// delete an RT thread
+int do_delthread_cmd(char *name)
+{
+    int retval =  rtapi_delthread(rtapi_instance, name);
+    if (retval)
+	halcmd_error("%s\n",rtapi_rpcerror());
     return retval;
 }
 

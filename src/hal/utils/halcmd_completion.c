@@ -56,7 +56,7 @@ static const char *command_table[] = {
     "newg"," delg", "newm", "delm",
     "newring","delring","ringdump","ringwrite","ringread",
     "newcomp","newpin","ready","waitbound", "waitunbound",
-    "log","shutdown","ping",
+    "log","shutdown","ping","newthread","delthread",
     NULL,
 };
 
@@ -658,6 +658,8 @@ char **halcmd_completer(const char *text, int start, int end, hal_completer_func
         result = func(text, group_generator);
     } else if(startswith(buffer, "delm ") && argno == 1) {
         result = func(text, group_generator);
+    } else if(startswith(buffer, "delt ") && argno == 1) {
+        result = func(text, thread_generator);
 
     } else if(startswith(buffer, "newr ") && argno > 2) {
 	result = func(text, ring_generator);

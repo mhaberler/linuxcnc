@@ -105,7 +105,10 @@ extern int do_waitunbound_cmd(char *comp, char *tokens[]);
 extern int do_shutdown_cmd(void);
 // ping the RTAPI stack
 extern int do_ping_cmd(void);
-
+// create a new named RT thread
+extern int do_newthread_cmd(char *name, char *period, char *tokens[]);
+// delete an RT thread
+extern int do_delthread_cmd(char *name);
 
 pid_t hal_systemv_nowait(char *const argv[]);
 int hal_systemv(char *const argv[]);

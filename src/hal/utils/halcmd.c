@@ -153,6 +153,7 @@ struct halcmd_command halcmd_commands[] = {
     {"delf",    FUNCT(do_delf_cmd),    A_TWO | A_OPTIONAL },
     {"delsig",  FUNCT(do_delsig_cmd),  A_ONE },
     {"echo",    FUNCT(do_echo_cmd),    A_ZERO },
+    {"delthread",  FUNCT(do_delthread_cmd),  A_ONE },
     {"getp",    FUNCT(do_getp_cmd),    A_ONE },
     {"gets",    FUNCT(do_gets_cmd),    A_ONE },
     {"ptype",   FUNCT(do_ptype_cmd),   A_ONE },
@@ -188,6 +189,7 @@ struct halcmd_command halcmd_commands[] = {
     {"unlock",  FUNCT(do_unlock_cmd),  A_ONE | A_OPTIONAL },
     {"waitusr", FUNCT(do_waitusr_cmd), A_ONE },
 
+    {"newthread",FUNCT(do_newthread_cmd), A_TWO |  A_PLUS},
     {"newg",    FUNCT(do_newg_cmd),    A_ONE |  A_PLUS},
     {"delg",    FUNCT(do_delg_cmd),    A_ONE },
     {"newm",    FUNCT(do_newm_cmd),    A_TWO | A_OPTIONAL | A_PLUS},
