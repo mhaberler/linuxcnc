@@ -49,19 +49,22 @@
 #include <sys/signalfd.h>
 #include <assert.h>
 #include <string>
+#include <vector>
+
 using namespace std;
 
 #include <rtapi.h>
 #include "rtapi/shmdrv/shmdrv.h"
 #include "ring.h"
+
 #include "czmq.h"
 
-#include <protobuf/generated/types.pb.h>
-#include <protobuf/generated/log.pb.h>
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/types.pb.h>
+#include <middleware/generated/log.pb.h>
+#include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
 
-#include <protobuf/json2pb/json2pb.h>
+#include <middleware/json2pb/json2pb.h>
 #include <jansson.h> // just for library version tag
 
 /* Enable libev io loop */
@@ -817,9 +820,18 @@ int main(int argc, char **argv)
     if (((flavor->flags & FLAVOR_KERNEL_BUILD) ||
 	 use_shmdrv) &&
 	!shmdrv_available()) {
-	fprintf(stderr, "%s: FATAL - %s requires the shmdrv module loaded\n",
-		progname, use_shmdrv ? "--shmdrv" : flavor->name);
-	exit(EXIT_FAILURE);
+	if (run_module_helper("insert shmdrv debug=5")) {
+	    fprintf(stderr, "%s: cant insert shmdrv module - needed by %s\n",
+		    progname, use_shmdrv ? "--shmdrv" : flavor->name);
+	    exit(EXIT_FAILURE);
+	}
+
+	shm_common_init();
+	if (!shmdrv_available()) {
+	    fprintf(stderr, "%s: BUG: shmdrv module not detected\n",
+		    progname);
+	    exit(EXIT_FAILURE);
+	}
     }
 
     // the global segment every entity in HAL/RTAPI land attaches to
