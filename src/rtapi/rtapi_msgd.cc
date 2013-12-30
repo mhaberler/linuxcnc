@@ -75,8 +75,11 @@ using namespace google::protobuf;
 #include <libwebsockets.h>
 
 typedef struct {
-    void *socket;
     struct ev_io watcher;
+    void *socket;
+    zframe_t *current;
+    size_t already_sent;
+    struct libwebsocket *wsiref;
 } wslog_sess_t;
 
 typedef struct {
@@ -85,10 +88,11 @@ typedef struct {
     zctx_t *z_context;
     const char *uri;
     struct ev_loop* loop;
-    int num_log_connections;
+    bool publish_json;
 } wsconfig_t;
 
-// message_poll_cb() needs to inspect num_log_connections
+static void  logpub_readable_cb (struct ev_loop *loop, struct ev_io *w, int revents);
+
 static wsconfig_t ws_config;
 
 static int callback_wslog(struct libwebsocket_context *context,
@@ -119,7 +123,7 @@ static struct libwebsocket_protocols protocols[] = {
 	sizeof(wslog_sess_t),
 	0,
     },
-    { NULL, NULL, 0, 0 } /* terminator */
+    { NULL, NULL, 0, 0 } // end mark
 };
 static struct libwebsocket_context *ws_context;
 
@@ -516,7 +520,22 @@ cleanup_actions(void)
     }
 }
 
-//static void zfree_cb(void *data, void *args) { free(data); }
+// react to subscribe events
+static void logpub_readable_cb (struct ev_loop *loop,
+				struct ev_io *w, int revents)
+{
+    while (zsocket_events(logpub) & ZMQ_POLLIN) {
+	zframe_t *f = zframe_recv(logpub);
+	const char *s = (const char *) zframe_data(f);
+	if (strcmp(s+1, "json") == 0) {
+	    if (!ws_config.publish_json)
+		syslog(LOG_DEBUG,"%s publishing JSON log messages",
+		       *s ? "start" : "stop");
+	    ws_config.publish_json = (*s != 0);
+	}
+	zframe_destroy(&f);
+    }
+}
 
 static void message_poll_cb(struct ev_loop *loop,
 			    struct ev_timer *timer,
@@ -579,8 +598,12 @@ static void message_poll_cb(struct ev_loop *loop,
 
 	    if (logpub) {
 		// publish protobuf-encoded log message
-		// channel as per loglevel
 		container.set_type(pb::MT_LOG_MESSAGE);
+
+		struct timespec timestamp;
+		clock_gettime(CLOCK_REALTIME, &timestamp);
+		container.set_tv_sec(timestamp.tv_sec);
+		container.set_tv_nsec(timestamp.tv_nsec);
 
 		logmsg = container.mutable_log_message();
 		logmsg->set_origin((pb::MsgOrigin)msg->origin);
@@ -607,7 +630,7 @@ static void message_poll_cb(struct ev_loop *loop,
 
 		    // convert to JSON only if we have actual connections
 		    // to the log websocket:
-		    if (ws_config.num_log_connections > 0) {
+		    if (ws_config.publish_json) {
 			json = pb2json(container);
 			z_jsonframe = zframe_new( json.c_str(), json.size());
 			//syslog(LOG_DEBUG, "json pub: '%s'", json.c_str());
@@ -617,11 +640,6 @@ static void message_poll_cb(struct ev_loop *loop,
 			if (zframe_send(&z_jsonframe, logpub, 0))
 			    syslog(LOG_ERR,"zframe_send(%s): %s",
 				   logpub_uri, strerror(errno));
-
-			// cause a writable callback on all log sockets:
-			const struct libwebsocket_protocols *log =
-			    &protocols[PROTOCOL_WSLOG];
-			libwebsocket_callback_on_writable_all_protocol(log);
 		    }
 		} else {
 		    syslog(LOG_ERR, "container serialization failed");
@@ -904,13 +922,14 @@ int main(int argc, char **argv)
 	// start the zeromq log publisher socket
 	zmq_ctx  = zctx_new();
 	logpub = zsocket_new(zmq_ctx, ZMQ_XPUB);
+
 	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
-	    syslog(LOG_INFO,"publishing log messages at %s\n",
+	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
 
 	    lws_set_log_level(ws_config.debug_level, lwsl_emit_syslog);
-	    ws_config.z_context = zctx_new();
+	    ws_config.z_context = zmq_ctx;
 	    ws_config.uri = logpub_uri;
 	    ws_config.loop = loop;
 	    ws_info.user = (void *) &ws_config;
@@ -923,7 +942,6 @@ int main(int argc, char **argv)
 		syslog(LOG_ERR, "libwebsocket init failed");
 	    } else
 		libwebsocket_initloop(ws_context, loop);
-
 	} else {
 	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
@@ -977,6 +995,10 @@ static int callback_http(struct libwebsocket_context *context,
 
     switch (reason) {
     case LWS_CALLBACK_HTTP:
+	// syslog(LOG_DEBUG, "HTTP: request='%s'", (char *)in);
+	sprintf(buf, "%s/%s", cfg->www_dir, (char *)in);
+
+
 	if (cfg->www_dir == NULL) {
 	    syslog(LOG_ERR, "closing HTTP connection - wwwdir not configured");
 	    return -1;
@@ -990,9 +1012,8 @@ static int callback_http(struct libwebsocket_context *context,
 	ext = strchr((const char *)in, '.');
 	if (ext)
 	    s = mimetype(ext);
-	mt = (s == NULL) ? "text/hmtl" : s;
+	mt = (s == NULL) ? "text/html" : s;
 
-	sprintf(buf, "%s/%s", cfg->www_dir, (char *)in);
 	if (!((stat(buf, &sb) == 0)  && S_ISREG(sb.st_mode))) {
 	    syslog(LOG_ERR, "HTTP: file not found : %s", buf);
 	    return -1;
@@ -1000,10 +1021,8 @@ static int callback_http(struct libwebsocket_context *context,
 	syslog(LOG_DEBUG, "HTTP serving '%s' mime type='%s'", buf, mt);
 
 	if (libwebsockets_serve_http_file(context, wsi, buf, mt)) {
-	    if (s) free((void *) s);
 	    return -1; /* through completion or error, close the socket */
 	}
-	if (s) free((void *) s);
 	break;
 
     case LWS_CALLBACK_FILTER_NETWORK_CONNECTION:
@@ -1016,6 +1035,14 @@ static int callback_http(struct libwebsocket_context *context,
 	break;
     }
     return 0;
+}
+
+// if the subscriber socket becomes readable, trigger a ws writable callback
+// this callback will pull all pending messages
+static void  wsinput_readable_cb (struct ev_loop *loop, struct ev_io *w, int revents)
+{
+    wslog_sess_t *wss = (wslog_sess_t *) w;
+    libwebsocket_callback_on_writable(ws_context, wss->wsiref);
 }
 
 static int
@@ -1034,8 +1061,7 @@ callback_wslog(struct libwebsocket_context *context,
     wslog_sess_t *wss = (wslog_sess_t *)user;
     wsconfig_t *cfg = (wsconfig_t *) libwebsocket_context_user (context);
     zmsg_t *msg;
-    zframe_t *logframe;
-    char *channel;
+    char *topic;
     std::string json;
 
     switch (reason) {
@@ -1049,52 +1075,81 @@ callback_wslog(struct libwebsocket_context *context,
 					 client_ip,
 					 sizeof(client_ip));
 
+	wss->wsiref = wsi ; // needed so we can register callback
+
 	// make the ws instance an internal subscriber
-	wss->socket = zsocket_new (cfg->z_context, ZMQ_XSUB);
+	wss->socket = zsocket_new (cfg->z_context, ZMQ_SUB);
 	assert(wss->socket);
 	zsocket_set_linger (wss->socket, 0);
-
 	rc = zsocket_connect (wss->socket, (char *) cfg->uri);
 	assert(rc == 0);
-
 	// subscribe XPUB-style by sending a message
 	// we're interested in the json updates only:
 	zstr_send (wss->socket, "\001json");
 
-	cfg->num_log_connections++;
+	// subscribe to json updates
+	zsocket_set_subscribe (wss->socket, "json");
 
-	syslog(LOG_DEBUG,"Websocket/%s upgrade from %s (%s), %d subscriber(s)",
-	       proto->name, client_name, client_ip, cfg->num_log_connections);
+	// start watching the subscribe socket
+	ev_io_init (&wss->watcher, wsinput_readable_cb, zsocket_fd(wss->socket), EV_READ);
+	ev_io_start (cfg->loop, &wss->watcher);
 
+	syslog(LOG_DEBUG,"Websocket/%s upgrade from %s (%s)",
+	       proto->name, client_name, client_ip);
 	break;
 
     case LWS_CALLBACK_SERVER_WRITEABLE:
-	while (1) {
-	    // handle all pending messages
-	    zmq_pollitem_t items[] = { {wss->socket, 0, ZMQ_POLLIN, 0} };
 
-	    int rc = zmq_poll(items, 1, 10 * ZMQ_POLL_MSEC );
-	    if (rc == -1)
-		break;
-	    if (items [0].revents & ZMQ_POLLIN) {
+	// complete any pending partial writes first
+	if (wss->current != NULL) {
+	    n = zframe_size(wss->current) - wss->already_sent;
+	    memcpy(p, zframe_data(wss->current) + wss->already_sent, n);
+	    syslog(LOG_DEBUG, "write leftover %d/%d", n,  zframe_size(wss->current));
+	    m = libwebsocket_write(wsi, p, n, LWS_WRITE_TEXT);
+
+	    if (m < n) {
+		syslog(LOG_DEBUG, "stuck again writing leftover %d/%d", m,n);
+		wss->already_sent += m;
+		// reschedule once writable
+		libwebsocket_callback_on_writable(context, wsi);
+		return 0;
+	    } else {
+		syslog(LOG_DEBUG, "leftover completed %d", n);
+		zframe_destroy (&wss->current);
+		// fall through for new messages
+	    }
+	}
+
+	// now any new messages pending on the subscribe socket
+	do {
+	    if (zsocket_events(wss->socket) & ZMQ_POLLIN) {
 		msg = zmsg_recv(wss->socket);
-		channel = zmsg_popstr(msg);
-		logframe = zmsg_pop(msg);
-
-		n = zframe_size(logframe);
-		memcpy(p, zframe_data(logframe), n);
-
-		syslog(LOG_DEBUG,"Websocket/%s: '%.*s'", channel,n, p);
-
-		zframe_destroy (&logframe);
-		free(channel);
+		if (msg == NULL) // false alarm
+		    return 0;
+		topic = zmsg_popstr(msg);
+		wss->current = zmsg_pop(msg);
+		n = zframe_size(wss->current);
+		memcpy(p, zframe_data(wss->current), n);
+		free(topic);
 
 		m = libwebsocket_write(wsi, p, n, LWS_WRITE_TEXT);
-		if (m < n)
-		    syslog(LOG_ERR, "ERROR %d writing to log websocket", n);
+		if (m < n) {
+		    wss->already_sent = m;
+		    syslog(LOG_DEBUG, "partial write %d/%d", m,n);
+
+		    // register a callback once drained
+		    libwebsocket_callback_on_writable(context, wsi);
+		} else {
+		    // done with leftover frame, unmark
+		    zframe_destroy (&wss->current);
+		}
 	    } else
-		break;
-	}
+		// nothing pending on subscribe socket
+		return 0;
+	} while (!lws_send_pipe_choked(wsi));
+
+	// couldnt send all pending frames - needs more work:
+	libwebsocket_callback_on_writable(context, wsi);
 	break;
 
     case LWS_CALLBACK_CLOSED:
@@ -1105,20 +1160,15 @@ callback_wslog(struct libwebsocket_context *context,
 					 sizeof(client_name),
 					 client_ip,
 					 sizeof(client_ip));
-
+	ev_io_stop(cfg->loop, &wss->watcher);
 	zsocket_destroy(cfg->z_context, wss->socket);
-	cfg->num_log_connections--;
-	syslog(LOG_ERR,"Websocket/%s disconnect: %s (%s), %d subscriber(s)",
-	       proto->name, client_name, client_ip, cfg->num_log_connections);
+	syslog(LOG_ERR,"Websocket/%s disconnect: %s (%s)",
+	       proto->name, client_name, client_ip);
 	break;
 
     case LWS_CALLBACK_RECEIVE:
-	syslog(LOG_DEBUG, "writing to a log socket has no effect: '%.*s'",
+	syslog(LOG_DEBUG, "writing to a log Websocket has no effect: '%.*s'",
 	       len, (char *)in);
-	// TODO: read & parse JSON into a pb::Container
-	// container is either a subscribe message or some other command
-	// like set log level
-	// WS side just sends container-as-json
 	break;
 
     default:
