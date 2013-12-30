@@ -159,12 +159,31 @@ rtapi-objs += rtapi/rtapi_pci.o
 
 # userland PCI support needs -ludev for rtapi.so
 $(RTLIBDIR)/rtapi$(MODULE_EXT): EXTRA_LDFLAGS += $(LIBUDEV_LIBS)
-endif
+endif # USERMODE_PCI
 
 $(RTLIBDIR)/rtapi$(MODULE_EXT): EXTRA_LDFLAGS += $(RT_LDFLAGS)
 
 # rule for kernel module, moved from src/Makefile
 $(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))
+
+endif # BUILD_THREAD_MODULES
+
+
+##################################################################
+#                     KERNEL THREAD STYLES
+##################################################################
+else  # BUILD_SYS == kbuild
+
+obj-$(CONFIG_RTAPI) += rtapi.o
+
+rtapi-objs := \
+	$(patsubst %.c,rtapi/%.o,$(XXAPI_COMMON_SRCS)) \
+	rtapi/rtapi_module.o
+
+# rule for kernel module, moved from src/Makefile
+$(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))
+
+endif  # BUILD_SYS == kbuild
 
 ################################################
 # rtapi_app_<flavor>
@@ -204,24 +223,6 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	-lstdc++ -ldl
 
 modules:  ../libexec/rtapi_app_$(threads)
-endif # BUILD_THREAD_MODULES
-
-
-##################################################################
-#                     KERNEL THREAD STYLES
-##################################################################
-else  # BUILD_SYS == kbuild
-
-obj-$(CONFIG_RTAPI) += rtapi.o
-
-rtapi-objs := \
-	$(patsubst %.c,rtapi/%.o,$(XXAPI_COMMON_SRCS)) \
-	rtapi/rtapi_module.o
-
-# rule for kernel module, moved from src/Makefile
-$(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))
-
-endif  # BUILD_SYS == kbuild
 
 ##################################################################
 #                     the kdetect test program
@@ -260,8 +261,8 @@ RTAPI_MSGD_CFLAGS += $(LIBEV_CFLAGS)
 RTAPI_MSGD_LDFLAGS += $(LIBEV_LIBS)
 
 # websockets
-RTAPI_MSGD_CFLAGS += -Iprotobuf/libwebsockets/lib \
-	-Iprotobuf/libwebsockets/build
+RTAPI_MSGD_CFLAGS += -Imiddleware/libwebsockets/lib \
+	-Imiddleware/libwebsockets/build
 LIBWS := ../lib/libwebsockets.so.0
 RTAPI_MSGD_LDFLAGS += -lstdc++ -lssl -lcrypto -ldl -lz
 

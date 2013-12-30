@@ -26,6 +26,7 @@
 #include <sys/signalfd.h>
 #include <string>
 #include <map>
+#include <vector>
 #include <algorithm>
 #include <sys/resource.h>
 #include <linux/capability.h>
@@ -42,7 +43,9 @@
 
 #include <czmq.h>
 #include <google/protobuf/text_format.h>
-#include <protobuf/generated/message.pb.h>
+
+#include <middleware/generated/message.pb.h>
+
 using namespace google::protobuf;
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
@@ -72,6 +75,9 @@ template<class T> T DLSYM(void *handle, const char *name) {
 }
 
 static std::map<string, void*> modules;
+static std::vector<string> loading_order;
+static void remove_module(std::string name);
+
 static struct rusage rusage;
 static unsigned long minflt, majflt;
 static int instance_id;
@@ -118,6 +124,7 @@ static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list
 void save_uid(void);
 void do_setuid (void);
 void undo_setuid (void);
+
 
 static int do_one_item(char item_type_char, const string &param_name,
 		       const string &param_value, void *vitem, int idx=0)
@@ -230,94 +237,170 @@ static int do_comp_args(void *module, pbstringarray_t args)
     return 0;
 }
 
+static void pbconcat(string &s, const pbstringarray_t &args)
+{
+    for (int i = 0; i < args.size(); i++) {
+	s += args.Get(i);
+	if (i < args.size()-1)
+	    s += " ";
+    }
+}
+
+static inline bool kernel_threads(flavor_ptr f) {
+    assert(f);
+    return (f->flags & FLAVOR_KERNEL_BUILD) != 0;
+}
+
 static int do_load_cmd(int instance, string name, pbstringarray_t args)
 {
     void *w = modules[name];
     char module_name[PATH_MAX];
     void *module;
+    int retval;
 
-    if(w == NULL) {
-	strncpy(module_name, (name + flavor->mod_ext).c_str(),
-		PATH_MAX);
-
-        module = modules[name] = dlopen(module_name, RTLD_GLOBAL |RTLD_NOW);
-        if(!module) {
-            rtapi_print_msg(RTAPI_MSG_ERR, "%s: dlopen: %s\n", 
-			    name.c_str(), dlerror());
-            return -1;
-        }
-	// retrieve the address of rtapi_switch_struct
-	// so rtapi functions can be called and members
-	// access
-	if (rtapi_switch == NULL) {
-
-	    rtapi_get_handle_t rtapi_get_handle;
-    	    dlerror();
-	    rtapi_get_handle = (rtapi_get_handle_t) dlsym(module,
-							  "rtapi_get_handle");
-	    if (rtapi_get_handle != NULL) {
-		rtapi_switch = rtapi_get_handle();
-		assert(rtapi_switch != NULL);
+    if (w == NULL) {
+	if (kernel_threads(flavor)) {
+	    string cmdargs;
+	    pbconcat(cmdargs, args);
+	    retval = run_module_helper("insert %s %s", name.c_str(), cmdargs.c_str());
+	    if (retval) {
+		rtapi_print_msg(RTAPI_MSG_ERR, "couldnt insmod %s - see dmesg\n",
+				name.c_str());
+	    } else {
+		modules[name] = (void *) -1;  // so 'if (modules[name])' works
+		loading_order.push_back(name);
 	    }
+	    return retval;
+	} else {
+	    strncpy(module_name, (name + flavor->mod_ext).c_str(),
+		    PATH_MAX);
+	    module = modules[name] = dlopen(module_name, RTLD_GLOBAL |RTLD_NOW);
+	    if (!module) {
+		rtapi_print_msg(RTAPI_MSG_ERR, "%s: dlopen: %s\n",
+				name.c_str(), dlerror());
+		return -1;
+	    }
+	    // retrieve the address of rtapi_switch_struct
+	    // so rtapi functions can be called and members
+	    // accessed
+	    if (rtapi_switch == NULL) {
+		rtapi_get_handle_t rtapi_get_handle;
+		dlerror();
+		rtapi_get_handle = (rtapi_get_handle_t) dlsym(module,
+							      "rtapi_get_handle");
+		if (rtapi_get_handle != NULL) {
+		    rtapi_switch = rtapi_get_handle();
+		    assert(rtapi_switch != NULL);
+		}
+	    }
+	    /// XXX handle arguments
+	    int (*start)(void) = DLSYM<int(*)(void)>(module, "rtapi_app_main");
+	    if(!start) {
+		rtapi_print_msg(RTAPI_MSG_ERR, "%s: dlsym: %s\n",
+				name.c_str(), dlerror());
+		return -1;
+	    }
+	    int result;
+
+	    result = do_comp_args(module, args);
+	    if(result < 0) { dlclose(module); return -1; }
+
+	    // need to call rtapi_app_main with as root
+	    // RT thread creation and hardening requires this
+	    //do_setuid();
+	    if ((result = start()) < 0) {
+		undo_setuid();
+		rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app_main(%s): %d %s\n",
+				name.c_str(), result, strerror(-result));
+		modules.erase(modules.find(name));
+		return result;
+	    }
+	    //undo_setuid();
+	    loading_order.push_back(name);
+	    rtapi_print_msg(RTAPI_MSG_DBG, "%s: loaded from %s\n",
+			    name.c_str(), module_name);
+	    return 0;
 	}
-	/// XXX handle arguments
-        int (*start)(void) = DLSYM<int(*)(void)>(module, "rtapi_app_main");
-        if(!start) {
-            rtapi_print_msg(RTAPI_MSG_ERR, "%s: dlsym: %s\n",
-			    name.c_str(), dlerror());
-            return -1;
-        }
-        int result;
-
-        result = do_comp_args(module, args);
-        if(result < 0) { dlclose(module); return -1; }
-
-	do_setuid();
-        if ((result=start()) < 0) {
-	    undo_setuid();
-            rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app_main(%s): %d %s\n", 
-			    name.c_str(), result, strerror(-result));
-	    modules.erase(modules.find(name));
-	    return result;
-        }
-	undo_setuid();
-	rtapi_print_msg(RTAPI_MSG_DBG, "%s: loaded from %s\n",
-			name.c_str(), module_name);
-	return 0;
+    } else {
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: already loaded\n", name.c_str());
+	return -1;
     }
-    rtapi_print_msg(RTAPI_MSG_ERR, "%s: already loaded\n", name.c_str());
-    return -1;
 }
 
 static int do_unload_cmd(int instance, string name)
 {
     void *w = modules[name];
-    if(w == NULL) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "unload: '%s' not loaded\n", 
+    int retval = 0;
+
+    if (w == NULL) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "unload: '%s' not loaded\n",
 			name.c_str());
 	return -1;
     } else {
-        int (*stop)(void) = DLSYM<int(*)(void)>(w, "rtapi_app_exit");
-	if(stop) stop();
-	modules.erase(modules.find(name));
-        dlclose(w);
-	rtapi_print_msg(RTAPI_MSG_DBG, " '%s' unloaded\n", 
-			name.c_str());
+	if (kernel_threads(flavor)) {
+	    retval = run_module_helper("remove %s", name.c_str());
+	    if (retval) {
+		rtapi_print_msg(RTAPI_MSG_ERR, "couldnt rmmod %s - see dmesg\n",
+				name.c_str());
+		return retval;
+	    } else {
+		modules.erase(modules.find(name));
+		remove_module(name);
+	    }
+	} else {
+	    int (*stop)(void) = DLSYM<int(*)(void)>(w, "rtapi_app_exit");
+	    if (stop)
+		stop();
+	    modules.erase(modules.find(name));
+	    remove_module(name);
+	    dlclose(w);
+	}
     }
-    return 0;
+    rtapi_print_msg(RTAPI_MSG_DBG, " '%s' unloaded\n", name.c_str());
+    return retval;
 }
 
-// shut down the stack in proper order
+// shut down the stack in reverse loading order
 static void exit_actions(int instance)
 {
-    do_unload_cmd(instance, "hal_lib");
-    do_unload_cmd(instance, "rtapi");
+    size_t index = loading_order.size() - 1;
+    for(std::vector<std::string>::reverse_iterator rit = loading_order.rbegin();
+	rit != loading_order.rend(); ++rit, --index) {
+	do_unload_cmd(instance, *rit);
+    }
 }
 
 static int init_actions(int instance)
 {
     int retval;
 
+    if (kernel_threads(flavor)) {
+	// kthreads cant possibly run without shmdrv, so bail
+	if (!is_module_loaded("shmdrv")) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "shmdrv not loaded");
+	    return -1;
+	}
+	// leftovers or running session?
+	if (is_module_loaded("rtapi")) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "rtapi already loaded");
+	    return -1;
+	}
+	if (is_module_loaded("hal_lib")) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "hal_lib already loaded");
+	    return -1;
+	}
+	if (kernel_is_xenomai() && !is_module_loaded("xeno_math")) {
+	    rtapi_print_msg(RTAPI_MSG_DBG, "loading xeno_math");
+	    retval = run_module_helper("insert xeno_math");
+	    if (retval) {
+		rtapi_print_msg(RTAPI_MSG_ERR, "couldnt insmod xeno_math - see dmesg\n");
+		return retval;
+	    } else
+		rtapi_print_msg(RTAPI_MSG_DBG, "xeno_math loaded\n");
+	}
+	if (kernel_is_rtai() && !is_module_loaded("rtai_math")) {
+	}
+    }
     retval =  do_load_cmd(instance, "rtapi", pbstringarray_t());
     if (retval)
 	return retval;
@@ -371,6 +454,7 @@ static int attach_global_segment()
     return retval;
 }
 
+
 // handle commands from zmq socket
 static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
@@ -409,40 +493,40 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	break;
 
     case pb::MT_RTAPI_APP_EXIT:
-	assert(pbreq.has_instance());
-	exit_actions(pbreq.instance());
+	assert(pbreq.has_rtapicmd());
+	exit_actions(pbreq.rtapicmd().instance());
 	force_exit = true;
 	pbreply.set_retcode(0);
 	break;
 
     case pb::MT_RTAPI_APP_LOADRT:
-	assert(pbreq.has_modname());
-	assert(pbreq.has_instance());
-	pbreply.set_retcode(do_load_cmd(pbreq.instance(),pbreq.modname(), pbreq.argv()));
+	assert(pbreq.has_rtapicmd());
+	assert(pbreq.rtapicmd().has_modname());
+	assert(pbreq.rtapicmd().has_instance());
+	pbreply.set_retcode(do_load_cmd(pbreq.rtapicmd().instance(),
+					pbreq.rtapicmd().modname(),
+					pbreq.rtapicmd().argv()));
 	break;
 
     case pb::MT_RTAPI_APP_UNLOADRT:
-	assert(pbreq.has_instance());
-	assert(pbreq.has_modname());
-	pbreply.set_retcode(do_unload_cmd(pbreq.instance(),pbreq.modname()));
+	assert(pbreq.rtapicmd().has_modname());
+	assert(pbreq.rtapicmd().has_instance());
+
+	pbreply.set_retcode(do_unload_cmd(pbreq.rtapicmd().instance(),
+					  pbreq.rtapicmd().modname()));
 	break;
 
-    case pb::MT_RTAPI_APP_LOG_USR:
-	assert(pbreq.has_loglevel());
-	global_data->user_msg_level = pbreq.loglevel();
-	rtapi_print_msg(RTAPI_MSG_DBG, "User msglevel set to %d\n",
-			global_data->user_msg_level);
+    case pb::MT_RTAPI_APP_LOG:
+	assert(pbreq.has_rtapicmd());
+	if (pbreq.rtapicmd().has_rt_msglevel()) {
+	    global_data->rt_msg_level = pbreq.rtapicmd().rt_msglevel();
+	}
+	if (pbreq.rtapicmd().has_user_msglevel()) {
+	    global_data->user_msg_level = pbreq.rtapicmd().user_msglevel();
+	}
 	pbreply.set_retcode(0);
 	break;
 
-    case pb::MT_RTAPI_APP_LOG_RT:
-	assert(pbreq.has_loglevel());
-	global_data->rt_msg_level = pbreq.loglevel();
-	rtapi_set_msg_level(global_data->rt_msg_level);
-	rtapi_print_msg(RTAPI_MSG_DBG, "RT msglevel set to %d\n",
-			global_data->rt_msg_level);
-	pbreply.set_retcode(0);
-	break;
 
 #if DEPRECATED
     case pb::MT_RTAPI_APP_NEWINST:
@@ -451,11 +535,70 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 #endif
 
     case pb::MT_RTAPI_APP_NEWTHREAD:
-	pbreply.set_retcode(-1);
+	assert(pbreq.has_rtapicmd());
+	assert(pbreq.rtapicmd().has_threadname());
+	assert(pbreq.rtapicmd().has_threadperiod());
+	assert(pbreq.rtapicmd().has_cpu());
+	assert(pbreq.rtapicmd().has_use_fp());
+	assert(pbreq.rtapicmd().has_instance());
+
+	if (kernel_threads(flavor)) {
+	    int retval =  procfs_threadcmd("newthread %s %d %d %d",
+					   pbreq.rtapicmd().threadname().c_str(),
+					   pbreq.rtapicmd().threadperiod(),
+					   pbreq.rtapicmd().use_fp(),
+					   pbreq.rtapicmd().cpu());
+	    pbreply.set_retcode(retval < 0 ? retval:0);
+
+	} else {
+	    void *w = modules["hal_lib"];
+	    if (w == NULL) {
+		pbreply.set_note("hal_lib not loaded");
+		pbreply.set_retcode(-1);
+		break;
+	    }
+	    int (*create_thread)(const char *, unsigned long,int, int) =
+		DLSYM<int(*)(const char *, unsigned long,int, int)>(w,
+								    "hal_create_thread");
+	    if (create_thread == NULL) {
+		pbreply.set_note("symbol 'hal_create_thread' not found in hal_lib");
+		pbreply.set_retcode(-1);
+		break;
+	    }
+	    int retval = create_thread(pbreq.rtapicmd().threadname().c_str(),
+				       pbreq.rtapicmd().threadperiod(),
+				       pbreq.rtapicmd().use_fp(),
+				       pbreq.rtapicmd().cpu());
+	    pbreply.set_retcode(retval);
+	}
 	break;
 
     case pb::MT_RTAPI_APP_DELTHREAD:
-	pbreply.set_retcode(-1);
+	assert(pbreq.has_rtapicmd());
+	assert(pbreq.rtapicmd().has_threadname());
+	assert(pbreq.rtapicmd().has_instance());
+
+	if (kernel_threads(flavor)) {
+	    int retval =  procfs_threadcmd("delthread %s",
+					   pbreq.rtapicmd().threadname().c_str());
+	    pbreply.set_retcode(retval < 0 ? retval:0);
+	} else {
+	    void *w = modules["hal_lib"];
+	    if (w == NULL) {
+		pbreply.set_note("hal_lib not loaded");
+		pbreply.set_retcode(-1);
+		break;
+	    }
+	    int (*delete_thread)(const char *) =
+		DLSYM<int(*)(const char *)>(w,"hal_thread_delete");
+	    if (delete_thread == NULL) {
+		pbreply.set_note("symbol 'hal_thread_delete' not found in hal_lib");
+		pbreply.set_retcode(-1);
+		break;
+	    }
+	    int retval = delete_thread(pbreq.rtapicmd().threadname().c_str());
+	    pbreply.set_retcode(retval);
+	}
 	break;
 
     default:
@@ -493,6 +636,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 			    zframe_size(reply));
 	}
     }
+    free(origin);
     zmsg_destroy(&r);
     if (force_exit) // terminate the zloop
 	return -1;
@@ -639,6 +783,7 @@ static int mainloop(size_t  argc, char **argv)
 	exit(EXIT_FAILURE);
     }
 
+
     // make sure we're setuid root when we need to
     if (use_drivers || (flavor->flags & FLAVOR_DOES_IO)) {
 	if (geteuid() != 0)
@@ -721,6 +866,12 @@ static int mainloop(size_t  argc, char **argv)
 
     // the RT stack is now set up and good for use
     global_data->rtapi_app_pid = getpid();
+
+    // cant reliably drop privs when using xenomai-user or rt-preempt
+    // task creation fails
+    if ((flavor->id == RTAPI_XENOMAI_ID) ||
+	(flavor->id == RTAPI_RT_PREEMPT_ID))
+	do_setuid();
 
     // main loop
     do {
@@ -856,9 +1007,6 @@ static int harden_rt()
 	}
     }
 
-    if (!foreground)
-	setsid(); // Detach from the parent session
-
     setup_signals();
 
     if (flavor->id == RTAPI_XENOMAI_ID) {
@@ -866,6 +1014,16 @@ static int harden_rt()
 
 	switch (retval) {
 	case 1:
+	    // {
+	    // 	gid_t xg = xenomai_gid();
+	    // 	do_setuid();
+	    // 	if (setegid(xg))
+	    // 	    rtapi_print_msg(RTAPI_MSG_ERR,
+	    // 			    "setegid(%d): %s", xg, strerror(errno));
+	    // 	undo_setuid();
+	    // 	rtapi_print_msg(RTAPI_MSG_ERR,
+	    // 			"xg=%d egid now %d", xg, getegid());
+	    // }
 	    break;
 	case 0:
 	    rtapi_print_msg(RTAPI_MSG_ERR,
@@ -1014,23 +1172,27 @@ int main(int argc, char **argv)
 
     // sanity
     // the actual checking for setuid happens in harden_rt() (if needed)
-    if (getuid() == 0) {
-	fprintf(stderr, "%s: FATAL - will not run as root\n", progname);
-	exit(EXIT_FAILURE);
-    }
-
-    if (!foreground) {
-	pid_t pid = fork();
-	if (pid > 0) { // parent
-	    exit(0);
-	}
-	if (pid < 0) { // fork failed
-	    perror("fork");
+    if (getuid() != 0) {
+	pid_t pid1;
+	pid_t pid2;
+	int status;
+	if ((pid1 = fork())) {
+	    waitpid(pid1, &status, 0);
+	    exit(status);
+	} else if (!pid1) {
+	    if ((pid2 = fork())) {
+		exit(0);
+	    } else if (!pid2) {
+		setsid(); // Detach from the parent session
+	    } else {
+		exit(1);
+	    }
+	} else {
 	    exit(1);
 	}
+    } else {
+	// dont run as root XXX
     }
-    // in child
-
     exit(mainloop(argc, argv));
 }
 
@@ -1131,4 +1293,10 @@ void undo_setuid (void)
 	    global_data->rtapi_app_pid = 0;
 	exit(1);
     }
+}
+
+static void remove_module(std::string name)
+{
+    std::vector<string>::iterator invalid;
+    invalid = remove( loading_order.begin(), loading_order.end(), name );
 }
