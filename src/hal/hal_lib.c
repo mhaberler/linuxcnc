@@ -1884,7 +1884,8 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
     rtapi_snprintf(buf, sizeof(buf), "%s.tmax", name);
     hal_param_s32_new(buf, HAL_RW, &(new->maxtime), lib_module_id);
 #endif
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL: thread %s created prio=%d\n", name, new->priority);
+    rtapi_print_msg(RTAPI_MSG_DBG, "HAL: thread %s id %d created prio=%d\n",
+		    name, new->task_id, new->priority);
     return 0;
 }
 
@@ -3678,6 +3679,7 @@ EXPORT_SYMBOL(hal_set_constructor);
 EXPORT_SYMBOL(hal_export_funct);
 
 EXPORT_SYMBOL(hal_create_thread);
+EXPORT_SYMBOL(hal_thread_delete);
 
 EXPORT_SYMBOL(hal_add_funct_to_thread);
 EXPORT_SYMBOL(hal_del_funct_from_thread);
