@@ -153,13 +153,13 @@ Load(){
 
     # kernel threads must have shmdrv.ko loaded
     # userland threads optionally may use the shmdrv module
-    if test $BUILD_SYS = kbuild -o $USE_SHMDRV = yes; then
-	if ! test -c /dev/shmdrv ; then
-	    $linuxcnc_module_helper insert shmdrv $SHMDRV_OPTS || return $?
-	    # give some time to let shmdrv initialize
-	    CheckShm -w || return 1
-	fi
-    fi
+    # if test $BUILD_SYS = kbuild -o $USE_SHMDRV = yes; then
+    # 	if ! test -c /dev/shmdrv ; then
+    # 	    $linuxcnc_module_helper insert shmdrv $SHMDRV_OPTS || return $?
+    # 	    # give some time to let shmdrv initialize
+    # 	    CheckShm -w || return 1
+    # 	fi
+    # fi
 
     # rtapi_msgd creates the global segment containing the error ring buffer
     # so start this first:
@@ -170,26 +170,26 @@ Load(){
 	--halsize=$HAL_SIZE $MSGD_OPTS || \
 	(echo "rtapi_msgd startup failed - aborting"; exit $?)
 
-    # load kernel modules
-    for MOD in $MODULES; do
-	# if loading rtapi.ko, tack on parameters
-	if test $MOD = rtapi; then
-	    $linuxcnc_module_helper insert $MOD \
-		rtapi_instance=$INSTANCE $NAME_CMD || return $?
-	else
-	    $linuxcnc_module_helper insert $MOD || return $?
-	fi
-	sleep 0.2  # give some time to settle
-    done
-
-    if test $BUILD_SYS = user-dso; then
-        # run rtapi_app for userland
-	if [ $DEBUG -gt 0 ] ; then
-	    ${rtapi_app} --instance=$INSTANCE $RTAPI_APP_OPTS 2>&1 >/dev/null  || \
+    # # load kernel modules
+    # for MOD in $MODULES; do
+    # 	# if loading rtapi.ko, tack on parameters
+    # 	if test $MOD = rtapi; then
+    # 	    $linuxcnc_module_helper insert $MOD \
+    # 		rtapi_instance=$INSTANCE $NAME_CMD || return $?
+    # 	else
+    # 	    $linuxcnc_module_helper insert $MOD || return $?
+    # 	fi
+    # 	sleep 0.2  # give some time to settle
+    # done
+sleep 1
+#    if test $BUILD_SYS = user-dso; then
+#        # run rtapi_app for userland#
+#	if [ $DEBUG -gt 0 ] ; then
+	    ${rtapi_app} --instance=$INSTANCE $RTAPI_APP_OPTS  || \
 		(echo "rtapi_app startup failed - aborting"; exit $?)
-        fi
+#        fi
 
-    else  # BUILD_SYS = 'kbuild'
+    if test BUILD_SYS = 'kbuild'; then
 	# help debugging startup issues for kthreads
         if [ $DEBUG -gt 0 ] && [ -w /proc/rtapi/debug ] ; then
             echo "$DEBUG" > /proc/rtapi/debug
