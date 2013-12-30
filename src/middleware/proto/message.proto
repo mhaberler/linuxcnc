@@ -47,6 +47,11 @@ message Container {
     optional bytes         legacy_nml     = 19;  // legacy NML container
     optional bytes       legacy_motconfig = 20;  // emcmot_config_t wrapped in PB
 
+    // timestamps: as per struct timespec
+    // obtain with clock_gettime(CLOCK_REALTIME, &spec);
+    optional int32              tv_sec    = 21;  // can be used with ctime(3)
+    optional int32              tv_nsec   = 22;
+
     // this is an or of bits in ReplyType:
     optional int32                   rsvp = 30;  // if/how to answer
     optional ContainerType    in_reply_to = 33;
