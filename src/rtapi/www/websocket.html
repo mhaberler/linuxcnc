@@ -3,54 +3,64 @@
 <title>Log subscriber test</title>
 <script src="/ws.js"></script>
 <script language="javascript" type="text/javascript">
-  var output;
-  var input;
+var output;
+var input;
 
-  function init() {
-    output = document.getElementById("output");
-    testWebSocket();
+function init() {
+  output = document.getElementById("output");
+  testWebSocket();
+}
+
+function testWebSocket() {
+  websocket = new Connection("", "localhost:7681","log");
+  websocket.onopen = function(evt)    { onOpen(evt) };
+  websocket.onclose = function(evt)   { onClose(evt) };
+  websocket.onmessage = function(evt) { onMessage(evt) };
+  websocket.onerror = function(evt)   { onError(evt) };
+}
+
+function onOpen(evt) {
+  writeToScreen("CONNECTED");
+}
+
+function onClose(evt) {
+  writeToScreen("DISCONNECTED");
+}
+
+function onMessage(evt) {
+  // format of the log message:
+  // {"tv_sec": 1388427157,
+  //     "type": 10,
+  //   "log_message": {"origin": 2, "tag": "rtapi_app", "pid": 24926, "text": "or2: already loaded", "level": 1},
+  // "tv_nsec": 792609791}
+
+  try {
+    var container = JSON.parse(evt.data)
+    var text = container.log_message.text
+    var level = container.log_message.level
+
+    writeToScreen('<span style="color: red;">' + level +'</span> <span style="color: blue;">text: ' + text +'</span>')
   }
-
-  function testWebSocket() {
-    websocket = new Connection("", "localhost:7681","log");
-    websocket.onopen = function(evt)    { onOpen(evt) };
-    websocket.onclose = function(evt)   { onClose(evt) };
-    websocket.onmessage = function(evt) { onMessage(evt) };
-    websocket.onerror = function(evt)   { onError(evt) };
+  catch(err) {
+    txt="There was an error on this page.\n\n";
+    txt+="Error description: " + err.message + "\n\n";
+    txt+="Click OK to continue.\n\n";
+    alert(txt);
   }
+}
 
-  function onOpen(evt) {
-    writeToScreen("CONNECTED");
-  }
+function onError(evt) {
+  writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+}
 
-  function onClose(evt) {
-    writeToScreen("DISCONNECTED");
-  }
+function writeToScreen(message) {
+  var pre = document.createElement("p");
+  pre.style.wordWrap = "break-word";
+  pre.innerHTML = message;
+  output.appendChild(pre);
+}
 
-  function onMessage(evt) {
-      // format of the log message:
-      // {"type": 10,
-      //  "log_message": {"origin": 2, "tag": "hal_lib", "pid": 1491,
-      //                  "text": "some log text ", "level": 4}}
-      var container = JSON.parse(evt.data)
-      var text = container.log_message.text
-      var level = container.log_message.level
-
-      writeToScreen('<span style="color: red;">' + level +'</span> <span style="color: blue;">text: ' + text +'</span>')
-  }
-
-  function onError(evt) {
-    writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
-  }
-
-  function writeToScreen(message) {
-    var pre = document.createElement("p");
-    pre.style.wordWrap = "break-word";
-    pre.innerHTML = message;
-    output.appendChild(pre);
-  }
-
-  window.addEventListener("load", init, false);
+window.addEventListener("load", init, false);
 
 </script>
 <h2>Log subscriber test</h2>

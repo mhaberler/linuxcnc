@@ -58,6 +58,8 @@ using namespace std;
 #include "ring.h"
 
 #include "czmq.h"
+// #define INPROC_SOCKET "inproc://logsub"
+// #define IPC_SOCKET "ipc://tmp/logsub"
 
 #include <middleware/generated/types.pb.h>
 #include <middleware/generated/log.pb.h>
@@ -66,6 +68,7 @@ using namespace google::protobuf;
 
 #include <middleware/json2pb/json2pb.h>
 #include <jansson.h> // just for library version tag
+#include <uriparser/Uri.h>
 
 /* Enable libev io loop */
 #define LWS_USE_LIBEV
@@ -80,13 +83,21 @@ typedef struct {
     zframe_t *current;
     size_t already_sent;
     struct libwebsocket *wsiref;
+    int socket_type;
+    bool text; //default to binary
+    // stats
+    int partial_writes;
+    int partial_completed;
+    int partial_rescheduled;
+    int blocked;
+
 } wslog_sess_t;
 
 typedef struct {
+    const char *uri;
     const char *www_dir;
     int debug_level;
     zctx_t *z_context;
-    const char *uri;
     struct ev_loop* loop;
     bool publish_json;
 } wsconfig_t;
@@ -94,6 +105,11 @@ typedef struct {
 static void  logpub_readable_cb (struct ev_loop *loop, struct ev_io *w, int revents);
 
 static wsconfig_t ws_config;
+
+static int callback_zmqproxy(struct libwebsocket_context *context,
+			     struct libwebsocket *wsi,
+			     enum libwebsocket_callback_reasons reason,
+			     void *user, void *in, size_t len);
 
 static int callback_wslog(struct libwebsocket_context *context,
 			  struct libwebsocket *wsi,
@@ -108,6 +124,7 @@ static int callback_http(struct libwebsocket_context *context,
 enum wslog_protocols {
     PROTOCOL_HTTP  = 0,
     PROTOCOL_WSLOG = 1,
+    PROTOCOL_ZMQPROXY = 2
 };
 
 static struct libwebsocket_protocols protocols[] = {
@@ -120,6 +137,12 @@ static struct libwebsocket_protocols protocols[] = {
     {
 	"log",
 	callback_wslog,
+	sizeof(wslog_sess_t),
+	0,
+    },
+    {
+	"zmqproxy",
+	callback_zmqproxy,
 	sizeof(wslog_sess_t),
 	0,
     },
@@ -525,8 +548,12 @@ static void logpub_readable_cb (struct ev_loop *loop,
 				struct ev_io *w, int revents)
 {
     while (zsocket_events(logpub) & ZMQ_POLLIN) {
+
 	zframe_t *f = zframe_recv(logpub);
 	const char *s = (const char *) zframe_data(f);
+
+	syslog(LOG_DEBUG,"logpub: %d '%s'", *s, s+1);
+
 	if (strcmp(s+1, "json") == 0) {
 	    if (!ws_config.publish_json)
 		syslog(LOG_DEBUG,"%s publishing JSON log messages",
@@ -630,10 +657,9 @@ static void message_poll_cb(struct ev_loop *loop,
 
 		    // convert to JSON only if we have actual connections
 		    // to the log websocket:
-		    if (ws_config.publish_json) {
+		    if (true) { // ws_config.publish_json) {
 			json = pb2json(container);
 			z_jsonframe = zframe_new( json.c_str(), json.size());
-			//syslog(LOG_DEBUG, "json pub: '%s'", json.c_str());
 			if (zstr_sendm(logpub, "json"))
 			    syslog(LOG_ERR,"zstr_sendm(%s,json): %s",
 				   logpub_uri, strerror(errno));
@@ -922,8 +948,18 @@ int main(int argc, char **argv)
 	// start the zeromq log publisher socket
 	zmq_ctx  = zctx_new();
 	logpub = zsocket_new(zmq_ctx, ZMQ_XPUB);
-
 	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
+
+#ifdef INPROC_SOCKET
+	if (!zsocket_bind(logpub, INPROC_SOCKET))
+	    syslog(LOG_DEBUG, "bind(%s) failed: %s \n",
+		   INPROC_SOCKET, strerror(errno));
+#endif
+#ifdef IPC_SOCKET
+	if (!zsocket_bind(logpub, IPC_SOCKET))
+	    syslog(LOG_DEBUG, "bind(%s) failed: %s \n",
+		   IPC_SOCKET, strerror(errno));
+#endif
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
 	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
@@ -932,6 +968,7 @@ int main(int argc, char **argv)
 	    ws_config.z_context = zmq_ctx;
 	    ws_config.uri = logpub_uri;
 	    ws_config.loop = loop;
+	    ws_config.uri = logpub_uri;
 	    ws_info.user = (void *) &ws_config;
 	    ws_info.protocols = protocols;
 	    ws_info.gid = -1;
@@ -940,8 +977,10 @@ int main(int argc, char **argv)
 	    ws_context = libwebsocket_create_context(&ws_info);
 	    if (ws_context == NULL) {
 		syslog(LOG_ERR, "libwebsocket init failed");
-	    } else
+	    } else {
 		libwebsocket_initloop(ws_context, loop);
+		syslog(LOG_DEBUG, "serving http/Websockets on port %d\n", ws_info.port);
+	    }
 	} else {
 	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
@@ -994,16 +1033,21 @@ static int callback_http(struct libwebsocket_context *context,
     struct stat sb;
 
     switch (reason) {
-    case LWS_CALLBACK_HTTP:
-	// syslog(LOG_DEBUG, "HTTP: request='%s'", (char *)in);
-	sprintf(buf, "%s/%s", cfg->www_dir, (char *)in);
 
+
+    case LWS_CALLBACK_HTTP:
+	syslog(LOG_DEBUG, "HTTP: request='%s'", (char *)in);
 
 	if (cfg->www_dir == NULL) {
 	    syslog(LOG_ERR, "closing HTTP connection - wwwdir not configured");
 	    return -1;
 	}
-	if (strstr((const char *)in, "..")) {
+	sprintf(buf, "%s/", cfg->www_dir);
+	if (uriUriStringToUnixFilenameA((const char *)in, &buf[strlen(cfg->www_dir)])) {
+	    syslog(LOG_ERR, "HTTP: cant normalize '%s'", (const char *)in);
+	    return -1;
+	}
+	if (strstr((const char *)buf + strlen(cfg->www_dir), "..")) {
 	    syslog(LOG_ERR,
 		   "closing HTTP connection: not serving files with '..': '%s'",
 		   (char *) in);
@@ -1021,6 +1065,14 @@ static int callback_http(struct libwebsocket_context *context,
 	syslog(LOG_DEBUG, "HTTP serving '%s' mime type='%s'", buf, mt);
 
 	if (libwebsockets_serve_http_file(context, wsi, buf, mt)) {
+	    // int len = snprintf(buf, sizeof(buf), "Content-type: text/html\r\n\r\n"
+	    // 		       "<html><head><title>404 Not Found</title></head>"
+	    // 		       "<body><h1>Not Found</h1>"
+	    // 		       "<p>The requested URL %s was not found on this server.</p>"
+	    // 		       "<address>rtapi_msgd Port %d</address>"
+	    // 		       "</body></html>",
+	    // 		       in, 4711); //ws_info.port);
+	    // libwebsocket_write (wsi, (unsigned char *)buf, len, LWS_WRITE_HTTP);
 	    return -1; /* through completion or error, close the socket */
 	}
 	break;
@@ -1037,8 +1089,8 @@ static int callback_http(struct libwebsocket_context *context,
     return 0;
 }
 
-// if the subscriber socket becomes readable, trigger a ws writable callback
-// this callback will pull all pending messages
+// if the subscriber socket becomes readable, schedule a ws writable callback
+// this callback will pull all pending messages off the zmq socket
 static void  wsinput_readable_cb (struct ev_loop *loop, struct ev_io *w, int revents)
 {
     wslog_sess_t *wss = (wslog_sess_t *) w;
@@ -1066,6 +1118,7 @@ callback_wslog(struct libwebsocket_context *context,
 
     switch (reason) {
 
+
     case LWS_CALLBACK_ESTABLISHED:
 	proto = libwebsockets_get_protocol(wsi);
 	libwebsockets_get_peer_addresses(context, wsi,
@@ -1078,17 +1131,22 @@ callback_wslog(struct libwebsocket_context *context,
 	wss->wsiref = wsi ; // needed so we can register callback
 
 	// make the ws instance an internal subscriber
-	wss->socket = zsocket_new (cfg->z_context, ZMQ_SUB);
+	wss->socket = zsocket_new (cfg->z_context, ZMQ_XSUB);
 	assert(wss->socket);
-	zsocket_set_linger (wss->socket, 0);
-	rc = zsocket_connect (wss->socket, (char *) cfg->uri);
+#ifdef INPROC_SOCKET
+	rc = zsocket_connect (wss->socket, INPROC_SOCKET);
+#else
+	rc = zsocket_connect (wss->socket, cfg->uri);
+#endif
 	assert(rc == 0);
 	// subscribe XPUB-style by sending a message
 	// we're interested in the json updates only:
 	zstr_send (wss->socket, "\001json");
 
 	// subscribe to json updates
-	zsocket_set_subscribe (wss->socket, "json");
+	//zsocket_set_subscribe (wss->socket, "json");
+	//zsocket_set_subscribe (wss->socket, "");
+	zsocket_sendmem (wss->socket,"\001json",5, 0);
 
 	// start watching the subscribe socket
 	ev_io_init (&wss->watcher, wsinput_readable_cb, zsocket_fd(wss->socket), EV_READ);
@@ -1099,6 +1157,8 @@ callback_wslog(struct libwebsocket_context *context,
 	break;
 
     case LWS_CALLBACK_SERVER_WRITEABLE:
+
+	syslog(LOG_DEBUG,"-------------  LWS_CALLBACK_SERVER_WRITEABLE");
 
 	// complete any pending partial writes first
 	if (wss->current != NULL) {
