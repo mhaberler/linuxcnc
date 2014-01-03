@@ -105,11 +105,6 @@ int lws_issue_raw(struct libwebsocket *wsi, unsigned char *buf, size_t len)
 	 * one of the extensions is carrying our data itself?  Like mux?
 	 */
 
-    if (!wsi->sock) {
-        lwsl_warn("** error 0 sock but expected to send\n");
-        return -1;
-    }
-
 	for (n = 0; n < wsi->count_active_extensions; n++) {
 		/*
 		 * there can only be active extensions after handshake completed
@@ -130,6 +125,9 @@ int lws_issue_raw(struct libwebsocket *wsi, unsigned char *buf, size_t len)
 		}
 	}
 #endif
+	if (!wsi->sock)
+		lwsl_warn("** error 0 sock but expected to send\n");
+
 	/*
 	 * nope, send it on the socket directly
 	 */

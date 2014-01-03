@@ -1,0 +1,47 @@
+#ifeq ($(BUILD_EXAMPLES),yes)
+
+GROUPDEMO_SRCS := hal/hal-groups/groupdemo.c
+USERSRCS += $(GROUPDEMO_SRCS)
+
+$(call TOOBJSDEPS, $(GROUPDEMO_SRCS)) : EXTRAFLAGS =
+
+
+../bin/groupdemo: $(call TOOBJS, $(GROUPDEMO_SRCS)) ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) $(LDFLAGS) -o $@ $^
+TARGETS += ../bin/groupdemo
+
+#endif # BUILD_EXAMPLES
+
+ifeq ($(USE_HALBIND),yes)
+
+ifeq ($(USE_PROTOBUF),yes)
+ifeq ($(USE_ZEROMQ),yes)
+
+
+HALBIND_SRCS :=  $(addprefix hal/groupdemo/, \
+	halbind.c halops.c)
+
+HALBIND_CCFLAGS := $(shell pkg-config libczmq libzmq --cflags)  $(PROFILE)
+HALBIND_LDFLAGS := $(shell pkg-config libczmq libzmq --libs) $(PROFILE)
+
+HALBIND_CCFLAGS += $(PROFILE) -DULAPI
+
+
+$(call TOOBJSDEPS, $(HALBIND_SRCS)) : EXTRAFLAGS += $(HALBIND_CCFLAGS)
+
+
+../bin/halbind: $(call TOOBJS, $(HALBIND_SRCS)) \
+	../lib/liblinuxcnc-pb2.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(HALBIND_LDFLAGS) $(PROTOC_C_LDFLAGS)
+
+USERSRCS += $(HALBIND_SRCS)
+TARGETS += ../bin/halbind
+
+endif # USE_ZEROMQ
+endif # USE_PROTOBUF
+
+endif # USE_HALBIND

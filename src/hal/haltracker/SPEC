@@ -1,0 +1,7 @@
+- take requests of the form
+    track("name", &value)
+- connect to one or more sockets
+- subscribe some channels
+- issue binding request -- HOW
+- verify all tracked names are bound
+- run tracker thread

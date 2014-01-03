@@ -1,0 +1,19 @@
+    @ffi.callback('zloop_fn')
+    def timer_event(loop, item, arg):
+       print type(loop), type(item), type(arg)
+
+
+  def __init__(self, cmd_uri=None, update_uri=None,msec=100,debug=False):
+        ....
+        self.loop = zloop.new()
+        zloop.set_verbose(self.loop, self.debug)
+
+        zloop.timer(self.loop, msec, 1, self.timer_event, self) #ffi.new_handle(self))
+
+        update_input = zmq.pollitem(socket=self.update, events=zmq.POLLIN)
+        zloop.poller(self.loop, update_input, self.update_msg, self)
+
+        cmd_input = zmq.pollitem(socket=self.cmd, events=zmq.POLLIN)
+        zloop.poller(self.loop, cmd_input, self.client_command, self)
+
+        zloop.start(self.loop)

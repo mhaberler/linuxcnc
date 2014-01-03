@@ -22,15 +22,15 @@ license "GPLv2 or later";
 // 'halcmd loadrt pbmsgs' (message descriptors for parsing and generating pb msgs)
 // the nanopb library functions per se are now linked into hal_lib.so
 
-#include <protobuf/pb-linuxcnc.h>
-#include <protobuf/nanopb/pb_decode.h>
-#include <protobuf/nanopb/pb_encode.h>
+#include <middleware/include/pb-linuxcnc.h>
+#include <middleware/nanopb/pb_decode.h>
+#include <middleware/nanopb/pb_encode.h>
 
-#include <protobuf/generated/types.npb.h>
-#include <protobuf/generated/object.npb.h>
-#include <protobuf/generated/message.npb.h>
-#include <protobuf/generated/rtapi_message.npb.h>
-#include <protobuf/container.h>
+#include <middleware/generated/types.npb.h>
+#include <middleware/generated/object.npb.h>
+#include <middleware/generated/message.npb.h>
+#include <middleware/generated/rtapi_message.npb.h>
+#include <middleware/include/container.h>
 
 static char *command = "command";
 RTAPI_MP_STRING(command,  "name of command ring");

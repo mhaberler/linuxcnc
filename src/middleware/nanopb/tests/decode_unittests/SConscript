@@ -1,3 +1,3 @@
 Import('env')
-p = env.Program(["decode_unittests.c", "#common/unittestproto.pb.c", "#common/pb_decode.o"])
+p = env.Program(["decode_unittests.c", "$COMMON/unittestproto.pb.c"])
 env.RunTest(p)

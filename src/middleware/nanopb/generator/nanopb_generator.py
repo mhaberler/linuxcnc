@@ -1,34 +1,40 @@
 #!/usr/bin/python
 
 '''Generate header file for nanopb from a ProtoBuf FileDescriptorSet.'''
-nanopb_version = "nanopb-0.2.4-dev"
+nanopb_version = "nanopb-0.2.5"
+
+import sys
 
 try:
-    import google.protobuf.descriptor_pb2 as descriptor
+    # Add some dummy imports to keep packaging tools happy.
+    import google, distutils.util # bbfreeze seems to need these
+    import pkg_resources # pyinstaller / protobuf 2.5 seem to need these
+except:
+    # Don't care, we will error out later if it is actually important.
+    pass
+
+try:
     import google.protobuf.text_format as text_format
 except:
-    print
-    print "*************************************************************"
-    print "*** Could not import the Google protobuf Python libraries ***"
-    print "*** Try installing package 'python-protobuf' or similar.  ***"
-    print "*************************************************************"
-    print
+    sys.stderr.write('''
+         *************************************************************
+         *** Could not import the Google protobuf Python libraries ***
+         *** Try installing package 'python-protobuf' or similar.  ***
+         *************************************************************
+    ''' + '\n')
     raise
 
 try:
-    import nanopb_pb2
+    import proto.nanopb_pb2 as nanopb_pb2
+    import proto.descriptor_pb2 as descriptor
 except:
-    print
-    print "***************************************************************"
-    print "*** Could not import the precompiled nanopb_pb2.py.         ***"
-    print "*** Run 'make' in the 'generator' folder to update the file.***"
-    print "***************************************************************"
-    print
+    sys.stderr.write('''
+         ********************************************************************
+         *** Failed to import the protocol definitions for generator.     ***
+         *** You have to run 'make' in the nanopb/generator/proto folder. ***
+         ********************************************************************
+    ''' + '\n')
     raise
-
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +52,7 @@ datatypes = {
     FieldD.TYPE_FIXED32:    ('uint32_t', 'FIXED32',     4),
     FieldD.TYPE_FIXED64:    ('uint64_t', 'FIXED64',     8),
     FieldD.TYPE_FLOAT:      ('float',    'FLOAT',       4),
-    FieldD.TYPE_INT32:      ('int32_t',  'INT32',       5),
+    FieldD.TYPE_INT32:      ('int32_t',  'INT32',      10),
     FieldD.TYPE_INT64:      ('int64_t',  'INT64',      10),
     FieldD.TYPE_SFIXED32:   ('int32_t',  'SFIXED32',    4),
     FieldD.TYPE_SFIXED64:   ('int64_t',  'SFIXED64',    8),
@@ -93,6 +99,44 @@ def varint_max_size(max_value):
 assert varint_max_size(0) == 1
 assert varint_max_size(127) == 1
 assert varint_max_size(128) == 2
+
+class EncodedSize:
+    '''Class used to represent the encoded size of a field or a message.
+    Consists of a combination of symbolic sizes and integer sizes.'''
+    def __init__(self, value = 0, symbols = []):
+        if isinstance(value, (str, Names)):
+            symbols = [str(value)]
+            value = 0
+        self.value = value
+        self.symbols = symbols
+
+    def __add__(self, other):
+        if isinstance(other, (int, long)):
+            return EncodedSize(self.value + other, self.symbols)
+        elif isinstance(other, (str, Names)):
+            return EncodedSize(self.value, self.symbols + [str(other)])
+        elif isinstance(other, EncodedSize):
+            return EncodedSize(self.value + other.value, self.symbols + other.symbols)
+        else:
+            raise ValueError("Cannot add size: " + repr(other))
+
+    def __mul__(self, other):
+        if isinstance(other, (int, long)):
+            return EncodedSize(self.value * other, [str(other) + '*' + s for s in self.symbols])
+        else:
+            raise ValueError("Cannot multiply size: " + repr(other))
+
+    def __str__(self):
+        if not self.symbols:
+            return str(self.value)
+        else:
+            return '(' + str(self.value) + ' + ' + ' + '.join(self.symbols) + ')'
+
+    def upperlimit(self):
+        if not self.symbols:
+            return self.value
+        else:
+            return 2**32 - 1
 
 class Enum:
     def __init__(self, names, desc, enum_options):
@@ -151,6 +195,34 @@ class Field:
         else:
             raise NotImplementedError(desc.label)
 
+        # Check if the field can be implemented with static allocation
+        # i.e. whether the data size is known.
+        if desc.type == FieldD.TYPE_STRING and self.max_size is None:
+            can_be_static = False
+
+        if desc.type == FieldD.TYPE_BYTES and self.max_size is None:
+            can_be_static = False
+
+        # Decide how the field data will be allocated
+        if field_options.type == nanopb_pb2.FT_DEFAULT:
+            if can_be_static:
+                field_options.type = nanopb_pb2.FT_STATIC
+            else:
+                field_options.type = nanopb_pb2.FT_CALLBACK
+
+        if field_options.type == nanopb_pb2.FT_STATIC and not can_be_static:
+            raise Exception("Field %s is defined as static, but max_size or "
+                            "max_count is not given." % self.name)
+
+        if field_options.type == nanopb_pb2.FT_STATIC:
+            self.allocation = 'STATIC'
+        elif field_options.type == nanopb_pb2.FT_POINTER:
+            self.allocation = 'POINTER'
+        elif field_options.type == nanopb_pb2.FT_CALLBACK:
+            self.allocation = 'CALLBACK'
+        else:
+            raise NotImplementedError(field_options.type)
+
         # Decide the C data type to use in the struct.
         if datatypes.has_key(desc.type):
             self.ctype, self.pbtype, self.enc_size = datatypes[desc.type]
@@ -162,19 +234,18 @@ class Field:
             self.enc_size = 5 # protoc rejects enum values > 32 bits
         elif desc.type == FieldD.TYPE_STRING:
             self.pbtype = 'STRING'
-            if self.max_size is None:
-                can_be_static = False
-            else:
+            self.ctype = 'char'
+            if self.allocation == 'STATIC':
                 self.ctype = 'char'
                 self.array_decl += '[%d]' % self.max_size
                 self.enc_size = varint_max_size(self.max_size) + self.max_size
         elif desc.type == FieldD.TYPE_BYTES:
             self.pbtype = 'BYTES'
-            if self.max_size is None:
-                can_be_static = False
-            else:
+            if self.allocation == 'STATIC':
                 self.ctype = self.struct_name + self.name + 't'
                 self.enc_size = varint_max_size(self.max_size) + self.max_size
+            elif self.allocation == 'POINTER':
+                self.ctype = 'pb_bytes_ptr_t'
         elif desc.type == FieldD.TYPE_MESSAGE:
             self.pbtype = 'MESSAGE'
             self.ctype = self.submsgname = names_from_type_name(desc.type_name)
@@ -182,35 +253,31 @@ class Field:
         else:
             raise NotImplementedError(desc.type)
 
-        if field_options.type == nanopb_pb2.FT_DEFAULT:
-            if can_be_static:
-                field_options.type = nanopb_pb2.FT_STATIC
-            else:
-                field_options.type = nanopb_pb2.FT_CALLBACK
-
-        if field_options.type == nanopb_pb2.FT_STATIC and not can_be_static:
-            raise Exception("Field %s is defined as static, but max_size or max_count is not given." % self.name)
-
-        if field_options.type == nanopb_pb2.FT_STATIC:
-            self.allocation = 'STATIC'
-        elif field_options.type == nanopb_pb2.FT_CALLBACK:
-            self.allocation = 'CALLBACK'
-            self.ctype = 'pb_callback_t'
-            self.array_decl = ''
-        else:
-            raise NotImplementedError(field_options.type)
-
     def __cmp__(self, other):
         return cmp(self.tag, other.tag)
 
     def __str__(self):
-        if self.rules == 'OPTIONAL' and self.allocation == 'STATIC':
-            result = '    bool has_' + self.name + ';\n'
-        elif self.rules == 'REPEATED' and self.allocation == 'STATIC':
-            result = '    size_t ' + self.name + '_count;\n'
+        result = ''
+        if self.allocation == 'POINTER':
+            if self.rules == 'REPEATED':
+                result += '    size_t ' + self.name + '_count;\n'
+
+            if self.pbtype == 'MESSAGE':
+                # Use struct definition, so recursive submessages are possible
+                result += '    struct _%s *%s;' % (self.ctype, self.name)
+            elif self.rules == 'REPEATED' and self.pbtype == 'STRING':
+                # String arrays need to be defined as pointers to pointers
+                result += '    %s **%s;' % (self.ctype, self.name)
+            else:
+                result += '    %s *%s;' % (self.ctype, self.name)
+        elif self.allocation == 'CALLBACK':
+            result += '    pb_callback_t %s;' % self.name
         else:
-            result = ''
-        result += '    %s %s%s;' % (self.ctype, self.name, self.array_decl)
+            if self.rules == 'OPTIONAL' and self.allocation == 'STATIC':
+                result += '    bool has_' + self.name + ';\n'
+            elif self.rules == 'REPEATED' and self.allocation == 'STATIC':
+                result += '    size_t ' + self.name + '_count;\n'
+            result += '    %s %s%s;' % (self.ctype, self.name, self.array_decl)
         return result
 
     def types(self):
@@ -265,7 +332,7 @@ class Field:
         result  = '    PB_FIELD2(%3d, ' % self.tag
         result += '%-8s, ' % self.pbtype
         result += '%s, ' % self.rules
-        result += '%s, ' % self.allocation
+        result += '%-8s, ' % self.allocation
         result += '%s, ' % ("FIRST" if not prev_field_name else "OTHER")
         result += '%s, ' % self.struct_name
         result += '%s, ' % self.name
@@ -301,23 +368,32 @@ class Field:
         if self.allocation != 'STATIC':
             return None
 
-        encsize = self.enc_size
         if self.pbtype == 'MESSAGE':
             for msg in allmsgs:
                 if msg.name == self.submsgname:
                     encsize = msg.encoded_size(allmsgs)
                     if encsize is None:
                         return None # Submessage size is indeterminate
-                    encsize += varint_max_size(encsize) # submsg length is encoded also
+
+                    # Include submessage length prefix
+                    encsize += varint_max_size(encsize.upperlimit())
                     break
             else:
                 # Submessage cannot be found, this currently occurs when
                 # the submessage type is defined in a different file.
-                return None
+                # Instead of direct numeric value, reference the size that
+                # has been #defined in the other file.
+                encsize = EncodedSize(self.submsgname + 'size')
 
-        if encsize is None:
+                # We will have to make a conservative assumption on the length
+                # prefix size, though.
+                encsize += 5
+
+        elif self.enc_size is None:
             raise RuntimeError("Could not determine encoded size for %s.%s"
                                % (self.struct_name, self.name))
+        else:
+            encsize = EncodedSize(self.enc_size)
 
         encsize += varint_max_size(self.tag << 3) # Tag + wire type
 
@@ -362,7 +438,7 @@ class ExtensionRange(Field):
         # We exclude extensions from the count, because they cannot be known
         # until runtime. Other option would be to return None here, but this
         # way the value remains useful if extensions are not used.
-        return 0
+        return EncodedSize(0)
 
 class ExtensionField(Field):
     def __init__(self, struct_name, desc, field_options):
@@ -375,6 +451,11 @@ class ExtensionField(Field):
         else:
             self.skip = False
             self.rules = 'OPTEXT'
+
+    def tags(self):
+        '''Return the #define for the tag number of this field.'''
+        identifier = '%s_tag' % self.fullname
+        return '#define %-40s %d\n' % (identifier, self.tag)
 
     def extension_decl(self):
         '''Declaration of the extension type in the .pb.h file'''
@@ -491,7 +572,7 @@ class Message:
         '''Return the maximum size that this message can take when encoded.
         If the size cannot be determined, returns None.
         '''
-        size = 0
+        size = EncodedSize(0)
         for field in self.fields:
             fsize = field.encoded_size(allmsgs)
             if fsize is None:
@@ -662,6 +743,8 @@ def generate_header(dependencies, headername, enums, messages, extensions, optio
     for msg in sort_dependencies(messages):
         for field in msg.fields:
             yield field.tags()
+    for extension in extensions:
+        yield extension.tags()
     yield '\n'
 
     yield '/* Struct field encoding specification for nanopb */\n'
@@ -674,7 +757,7 @@ def generate_header(dependencies, headername, enums, messages, extensions, optio
         msize = msg.encoded_size(messages)
         if msize is not None:
             identifier = '%s_size' % msg.name
-            yield '#define %-40s %d\n' % (identifier, msize)
+            yield '#define %-40s %s\n' % (identifier, msize)
     yield '\n'
 
     yield '#ifdef __cplusplus\n'
@@ -819,6 +902,7 @@ def get_nanopb_suboptions(subdesc, options, name):
         ext_type = nanopb_pb2.nanopb_enumopt
     else:
         raise Exception("Unknown options type")
+#        raise Exception("Unknown options type" + str(subdesc)+"xxx")
 
     if subdesc.options.HasExtension(ext_type):
         ext = subdesc.options.Extensions[ext_type]
@@ -948,7 +1032,14 @@ def main_cli():
 def main_plugin():
     '''Main function when invoked as a protoc plugin.'''
 
-    import plugin_pb2
+    import sys
+    if sys.platform == "win32":
+        import os, msvcrt
+        # Set stdin and stdout to binary mode
+        msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+        msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+    import proto.plugin_pb2 as plugin_pb2
     data = sys.stdin.read()
     request = plugin_pb2.CodeGeneratorRequest.FromString(data)
 
@@ -959,7 +1050,9 @@ def main_plugin():
     # We can't go printing stuff to stdout
     Globals.verbose_options = False
     options.verbose = False
+#    options.verbose = True
     options.quiet = True
+#    options.quiet = False
 
     response = plugin_pb2.CodeGeneratorResponse()
 
@@ -980,7 +1073,7 @@ def main_plugin():
 
 if __name__ == '__main__':
     # Check if we are running as a plugin under protoc
-    if 'protoc-gen-' in sys.argv[0]:
+    if 'protoc-gen-' in sys.argv[0] or '--protoc-plugin' in sys.argv:
         main_plugin()
     else:
         main_cli()

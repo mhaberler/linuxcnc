@@ -1,34 +1,6 @@
 Changelog
 ---------
 
-User api additions
-------------------
- - HACKS:
- - * libwebsocket objects no have a statically sized body buffer for POST
-     requests. This data can be fetched via libwebsocket_get_body function.
-
- - socket objects can handle and track GET, POST, and OPTIONS request.
-   You can determine the type of request using libwebsocket_get_http_method.
-
- - libwebsocket_is_ws_connection returns true on WS connections, false
-   otherwise.
-
- - libwebsocket_initloop is used to provide a libev event loop to
-   libwebsockets.
-
- - parser now looks for GET, POST, "If-None-Match:", "Content-Type:",
-   "Content-Length:", and "Access-Control-Request-Headers:" and stashed the
-   http version string.
-   These can be accessed via:
-   libwebsocket_get_http_method, WSI_TOKEN_ETAG_MATCH, WSI_TOKEN_CONTENT_TYPE,
-   WSI_TOKEN_CONTENT_LENGTH, WSI_TOKEN_AC_REQUEST_HEADERS,
-   WSI_TOKEN_HTTP_VERSION.
-
- - In callbacks where socket is missing, pass protocol as 'in' pointer
-   to facilitate 'dispatcher' style handlers.
-
- - The docs are not updated yet!
-
 (development since 1.22)
 
 User api additions

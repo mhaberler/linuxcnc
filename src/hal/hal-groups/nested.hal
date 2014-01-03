@@ -1,0 +1,44 @@
+# all groups have reporting interval 1 second
+# newg test1 1000 ...
+# -----------^^^^ mSec
+
+
+newsig count u32
+newsig foo bit
+newsig bar float
+newsig baz s32
+
+
+# a group which reports all members if the 'bar' member
+# changes value by more than 0.2:
+
+newg test1 1000 reportall onchange
+newm test1 foo
+newm test1 bar monitor 0.2
+newm test1 baz
+newm test1 count
+
+# monitor & report all members if a single member changes
+
+newg test2 1000 reportall monitorall
+newm test2 foo
+newm test2 bar
+newm test2 baz
+newm test2 count
+
+# monitor all members, but report only changed members
+# note nested group
+
+newg nested 1000 reportchanged monitorall
+newm nested count
+newm nested test1
+
+# a doubly nested group, always matches and triggers a report
+#
+newg nestedtwice 1000 always
+# NB: duplicates are ok - count comes in twice, once here
+newm nestedtwice count
+# and once through group 'nested':
+newm nestedtwice nested # nest twice
+
+show group

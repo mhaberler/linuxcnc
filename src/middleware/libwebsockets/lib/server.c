@@ -170,10 +170,8 @@ int lws_server_socket_service(struct libwebsocket_context *context,
 			if (!len) {
 				lwsl_info("lws_server_skt_srv: read 0 len\n");
 				/* lwsl_info("   state=%d\n", wsi->state); */
-				if (!wsi->hdr_parsing_completed) {
+				if (!wsi->hdr_parsing_completed)
 					free(wsi->u.hdr.ah);
-                    wsi->u.hdr.ah = 0;
-                };
 				libwebsocket_close_and_free_session(
 				       context, wsi, LWS_CLOSE_STATUS_NOSTATUS);
 				return 0;

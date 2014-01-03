@@ -235,8 +235,6 @@ struct lws_tokens {
 
 enum lws_token_indexes {
 	WSI_TOKEN_GET_URI,
-	WSI_TOKEN_POST_URI,
-	WSI_TOKEN_OPTIONS_URI,
 	WSI_TOKEN_HOST,
 	WSI_TOKEN_CONNECTION,
 	WSI_TOKEN_KEY1,
@@ -254,13 +252,6 @@ enum lws_token_indexes {
 
 	/* new for 05 */
 	WSI_TOKEN_EXTENSIONS,
-
-    /* new for sockjs support */
-    WSI_TOKEN_ETAG_MATCH,
-    WSI_TOKEN_CONTENT_TYPE,
-    WSI_TOKEN_CONTENT_LENGTH,
-    WSI_TOKEN_AC_REQUEST_HEADERS,
-    WSI_TOKEN_HTTP_VERSION,
 
 	/* client receives these */
 	WSI_TOKEN_ACCEPT,
@@ -282,7 +273,6 @@ enum lws_token_indexes {
 	WSI_TOKEN_NAME_PART,
 	WSI_TOKEN_SKIPPING,
 	WSI_TOKEN_SKIPPING_SAW_CR,
-	WSI_TOKEN_BODY,
 	WSI_PARSING_COMPLETE,
 	WSI_INIT_TOKEN_MUXURL,
 };
@@ -921,6 +911,9 @@ libwebsocket_callback_on_writable_all_protocol(
 				 const struct libwebsocket_protocols *protocol);
 
 LWS_VISIBLE LWS_EXTERN int
+libwebsocket_num_connections(const struct libwebsocket_protocols *protocol);
+
+LWS_VISIBLE LWS_EXTERN int
 libwebsocket_get_socket_fd(struct libwebsocket *wsi);
 
 LWS_VISIBLE LWS_EXTERN int
@@ -1014,15 +1007,6 @@ LWS_VISIBLE LWS_EXTERN int
 libwebsocket_read(struct libwebsocket_context *context,
 				struct libwebsocket *wsi,
 					       unsigned char *buf, size_t len);
-
-LWS_VISIBLE LWS_EXTERN const char*
-libwebsocket_get_body(struct libwebsocket *wsi);
-
-LWS_VISIBLE LWS_EXTERN int
-libwebsocket_get_http_method(struct libwebsocket *wsi);
-
-LWS_VISIBLE LWS_EXTERN int
-libwebsocket_is_ws_connection(struct libwebsocket* wsi);
 
 #ifndef LWS_NO_EXTENSIONS
 LWS_VISIBLE LWS_EXTERN struct libwebsocket_extension *libwebsocket_get_internal_extensions();

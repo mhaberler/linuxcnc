@@ -134,7 +134,7 @@ ifeq ($(RUN_IN_PLACE)+$(BUILD_DRIVERS),yes+yes)
 		\( `stat -c %u ../libexec/linuxcnc_module_helper` -ne 0 -o \
 		    ! -u ../libexec/linuxcnc_module_helper \) \
 	    && need_setuid=1; \
-	for f in $(filter-out %-kernel,$(BUILD_THREAD_FLAVORS)); do \
+	for f in $(BUILD_THREAD_FLAVORS); do \
 	    test -f ../libexec/rtapi_app_$$f -a \
 		    \( 0`stat -c %u ../libexec/rtapi_app_$$f 2>/dev/null` \
 			-ne 0 -o ! -u ../libexec/rtapi_app_$$f \) \
@@ -171,6 +171,7 @@ TARGETS :=
 PYTARGETS :=
 
 # Submakefiles from each of these directories will be included if they exist
+#	middleware/stp
 SUBDIRS := \
 	libnml/linklist \
 	libnml/cms \
@@ -188,10 +189,10 @@ SUBDIRS := \
 	rtapi \
 	rtapi/shmdrv \
 	\
-	protobuf \
-	protobuf/support \
-	protobuf/libwebsockets \
-	protobuf/stp \
+	middleware \
+	middleware/support \
+	middleware/libwebsockets \
+	middleware/service-discovery \
 	\
 	hal/components \
 	hal/msgcomponents \
@@ -538,13 +539,13 @@ HEADERS := \
 
 ifeq ($(USE_PROTOBUF),yes)
 HEADERS += \
-	protobuf/pb-linuxcnc.h \
-	protobuf/container.h \
-	protobuf/json2pb/json2pb.h \
-	protobuf/json2pb/bin2ascii.h \
-	protobuf/nanopb/pb.h \
-	protobuf/nanopb/pb_encode.h \
-	protobuf/nanopb/pb_decode.h
+	middleware/include/pb-linuxcnc.h \
+	middleware/include/container.h \
+	middleware/json2pb/json2pb.h \
+	middleware/json2pb/bin2ascii.h \
+	middleware/nanopb/pb.h \
+	middleware/nanopb/pb_encode.h \
+	middleware/nanopb/pb_decode.h
 endif
 
 # need to do ths separately because the subdirectory is required
@@ -649,7 +650,7 @@ endif  # BUILD_SYS == 'kbuild'
 #
 # Then in the above 'modules:' target, cd to the link tree and call
 # kbuild.
-MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround protobuf
+MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround middleware
 MODULE_SOURCES = Makefile* config* modsilent.py
 $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp:
 	mkdir -p $(OBJDIR)
@@ -707,7 +708,7 @@ setuid:
 	$(call fix_perms,../libexec/linuxcnc_module_helper)
 	$(call fix_perms,../libexec/pci_read)
 	$(call fix_perms,../libexec/pci_write)
-	$(foreach f,$(filter-out %-kernel,$(BUILD_THREAD_FLAVORS)),\
+	$(foreach f,$(BUILD_THREAD_FLAVORS),\
 	    $(call fix_perms,../libexec/rtapi_app_$(f));)
 # check system configuration:  logging, ulimits, udev
 	@-../scripts/check-system-configuration.sh $(CHECK_KFLAV_SWITCH)
@@ -1018,7 +1019,7 @@ ifneq ($(KERNELRELEASE),)
 #
 # When the Submakefile is included in the kbuild Makefile, the
 # module's obj-m and foo-objs definitions may remain in the Submakefile
-include $(BASEPWD)/protobuf/Submakefile
+include $(BASEPWD)/middleware/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
@@ -1047,7 +1048,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/emc/kinematics \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
-	-I$(BASEPWD)/protobuf/nanopb \
+	-I$(BASEPWD)/middleware/nanopb \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
@@ -1329,9 +1330,9 @@ hal_lib-objs := hal/hal_lib.o $(MATHSTUB)
 hal_lib-objs += hal/hal_group.o
 hal_lib-objs += hal/hal_ring.o
 hal_lib-objs += hal/hal_rcomp.o
-hal_lib-objs += protobuf/support/nanopb.o
-hal_lib-objs += protobuf/nanopb/pb_decode.o
-hal_lib-objs += protobuf/nanopb/pb_encode.o
+hal_lib-objs += middleware/support/nanopb.o
+hal_lib-objs += middleware/nanopb/pb_decode.o
+hal_lib-objs += middleware/nanopb/pb_encode.o
 
 obj-m += trivkins.o
 trivkins-objs := emc/kinematics/trivkins.o

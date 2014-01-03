@@ -149,6 +149,7 @@ CheckStatus(){
     return $res
 }
 
+
 Load(){
 
     # kernel threads must have shmdrv.ko loaded
@@ -167,6 +168,7 @@ Load(){
     ${rtapi_msgd} --instance=$INSTANCE $NAME_CMD \
 	--rtmsglevel=$DEBUG \
 	--usrmsglevel=$DEBUG \
+	--wwwdir=$prefix/src/rtapi/www \
 	--halsize=$HAL_SIZE $MSGD_OPTS || \
 	(echo "rtapi_msgd startup failed - aborting"; exit $?)
 
@@ -181,7 +183,7 @@ Load(){
     # 	fi
     # 	sleep 0.2  # give some time to settle
     # done
-sleep 1
+#sleep 1
 #    if test $BUILD_SYS = user-dso; then
 #        # run rtapi_app for userland#
 #	if [ $DEBUG -gt 0 ] ; then

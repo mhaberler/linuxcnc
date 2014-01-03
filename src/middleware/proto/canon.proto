@@ -1,4 +1,4 @@
-
+import "nanopb.proto";
 import "types.proto";
 import "emcclass.proto";
 import "motcmds.proto";

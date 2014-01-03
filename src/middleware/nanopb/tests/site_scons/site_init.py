@@ -12,42 +12,6 @@ except ImportError:
 def add_nanopb_builders(env):
     '''Add the necessary builder commands for nanopb tests.'''
 
-    # Build command for building .pb from .proto using protoc
-    def proto_actions(source, target, env, for_signature):
-        esc = env['ESCAPE']
-        dirs = ' '.join(['-I' + esc(env.GetBuildPath(d)) for d in env['PROTOCPATH']])
-        return '$PROTOC $PROTOCFLAGS %s -o%s %s' % (dirs, esc(str(target[0])), esc(str(source[0])))
-
-    proto_file_builder = Builder(generator = proto_actions,
-                                 suffix = '.pb',
-                                 src_suffix = '.proto')
-    env.Append(BUILDERS = {'Proto': proto_file_builder})
-    env.SetDefault(PROTOC = 'protoc')
-    env.SetDefault(PROTOCPATH = ['.'])
-
-    # Build command for running nanopb generator
-    import os.path
-    def nanopb_targets(target, source, env):
-        basename = os.path.splitext(str(source[0]))[0]
-        target.append(basename + '.pb.h')
-        return target, source
-
-    nanopb_file_builder = Builder(action = '$NANOPB_GENERATOR $NANOPB_FLAGS $SOURCE',
-                                  suffix = '.pb.c',
-                                  src_suffix = '.pb',
-                                  emitter = nanopb_targets)
-    env.Append(BUILDERS = {'Nanopb': nanopb_file_builder})
-    gen_path = env['ESCAPE'](env.GetBuildPath("#../generator/nanopb_generator.py"))
-    env.SetDefault(NANOPB_GENERATOR = 'python ' + gen_path)
-    env.SetDefault(NANOPB_FLAGS = '-q')
-
-    # Combined method to run both protoc and nanopb generator
-    def run_protoc_and_nanopb(env, source):
-        b1 = env.Proto(source)
-        b2 = env.Nanopb(source)
-        return b1 + b2
-    env.AddMethod(run_protoc_and_nanopb, "NanopbProto")
-
     # Build command that runs a test program and saves the output
     def run_test(target, source, env):
         if len(source) > 1:
@@ -55,7 +19,11 @@ def add_nanopb_builders(env):
         else:
             infile = None
 
-        pipe = subprocess.Popen(str(source[0]),
+        args = [str(source[0])]
+        if env.has_key('ARGS'):
+            args.extend(env['ARGS'])
+
+        pipe = subprocess.Popen(args,
                                 stdin = infile,
                                 stdout = open(str(target[0]), 'w'),
                                 stderr = sys.stderr)
@@ -80,6 +48,17 @@ def add_nanopb_builders(env):
     decode_builder = Builder(generator = decode_actions,
                              suffix = '.decoded')
     env.Append(BUILDERS = {'Decode': decode_builder})
+
+    # Build command that encodes a message using protoc
+    def encode_actions(source, target, env, for_signature):
+        esc = env['ESCAPE']
+        dirs = ' '.join(['-I' + esc(env.GetBuildPath(d)) for d in env['PROTOCPATH']])
+        return '$PROTOC $PROTOCFLAGS %s --encode=%s %s <%s >%s' % (
+            dirs, env['MESSAGE'], esc(str(source[1])), esc(str(source[0])), esc(str(target[0])))
+
+    encode_builder = Builder(generator = encode_actions,
+                             suffix = '.encoded')
+    env.Append(BUILDERS = {'Encode': encode_builder})
 
     # Build command that asserts that two files be equal
     def compare_files(target, source, env):

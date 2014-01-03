@@ -209,22 +209,24 @@ libwebsocket_close_and_free_session(struct libwebsocket_context *context,
 
 	old_state = wsi->state;
 
+#ifdef LWS_USE_LIBEV
+    ev_io_stop(context->io_loop,(struct ev_io*)&(wsi->w_read));
+    ev_io_stop(context->io_loop,(struct ev_io*)&(wsi->w_write));
+#endif /* LWS_USE_LIBEV */
+
 	if (old_state == WSI_STATE_DEAD_SOCKET)
 		return;
 
 	/* we tried the polite way... */
-	if (old_state == WSI_STATE_AWAITING_CLOSE_ACK) {
+	if (old_state == WSI_STATE_AWAITING_CLOSE_ACK)
 		goto just_kill_connection;
-    };
 
 	wsi->u.ws.close_reason = reason;
 
-	if (wsi->mode == LWS_CONNMODE_HTTP_SERVING_ACCEPTED) {
-        if( wsi->u.http.fd ) {
-            lwsl_debug("closing http fd %d\n", wsi->u.http.fd);
-            close(wsi->u.http.fd);
-            wsi->u.http.fd = 0;
-        };
+	if (wsi->mode == LWS_CONNMODE_HTTP_SERVING_ACCEPTED && wsi->u.http.fd) {
+		lwsl_debug("closing http fd %d\n", wsi->u.http.fd);
+		close(wsi->u.http.fd);
+		wsi->u.http.fd = 0;
 		context->protocols[0].callback(context, wsi,
 			LWS_CALLBACK_CLOSED_HTTP, wsi->user_space, NULL, 0);
 	}
@@ -358,11 +360,6 @@ just_kill_connection:
 	 * delete socket from the internal poll list if still present
 	 */
 
-#ifdef LWS_USE_LIBEV
-    ev_io_stop(context->io_loop,(struct ev_io*)&(wsi->w_read));
-    ev_io_stop(context->io_loop,(struct ev_io*)&(wsi->w_write));
-#endif /* LWS_USE_LIBEV */
-
 	remove_wsi_socket_from_fds(context, wsi);
 
 	wsi->state = WSI_STATE_DEAD_SOCKET;
@@ -390,9 +387,8 @@ just_kill_connection:
 		lwsl_debug("calling back CLOSED\n");
 		wsi->protocol->callback(context, wsi, LWS_CALLBACK_CLOSED,
 						      wsi->user_space, NULL, 0);
-	} else {
+	} else
 		lwsl_debug("not calling back closed\n");
-    }
 
 #ifndef LWS_NO_EXTENSIONS
 	/* deallocate any active extension contexts */
@@ -1557,6 +1553,30 @@ libwebsocket_callback_on_writable_all_protocol(
 }
 
 /**
+ * libwebsocket_libwebsocket_num_connections() - Return the number of
+ *			active connections for a particular protocol.
+ *
+ * @protocol:	Protocol to return connection count for
+ */
+
+LWS_VISIBLE int
+libwebsocket_num_connections(const struct libwebsocket_protocols *protocol)
+{
+	struct libwebsocket_context *context = protocol->owning_server;
+	int n, count = 0;
+	struct libwebsocket *wsi;
+
+	for (n = 0; n < context->fds_count; n++) {
+		wsi = context->lws_lookup[context->fds[n].fd];
+		if (!wsi)
+			continue;
+		if (wsi->protocol == protocol)
+		    count++;
+	}
+	return count;
+}
+
+/**
  * libwebsocket_set_timeout() - marks the wsi as subject to a timeout
  *
  * You will not need this unless you are doing something special
@@ -2501,26 +2521,6 @@ LWS_VISIBLE void _lws_log(int filter, const char *format, ...)
 
 	lwsl_emit(filter, buf);
 }
-
-LWS_VISIBLE const char* libwebsocket_get_body(struct libwebsocket* wsi)
-{
-    return wsi->body;
-};
-
-LWS_VISIBLE int libwebsocket_get_http_method(struct libwebsocket* wsi)
-{
-    int http_method = -1;
-    if( wsi && (wsi->mode == LWS_CONNMODE_HTTP_SERVING ||
-        wsi->mode == LWS_CONNMODE_HTTP_SERVING_ACCEPTED) ) {
-        http_method = WSI_TOKEN_REQUEST_HTTP_METHOD;
-    }
-    return http_method;
-};
-
-LWS_VISIBLE int libwebsocket_is_ws_connection(struct libwebsocket* wsi)
-{
-    return (wsi != 0 && wsi->ietf_spec_revision > 0);
-};
 
 /**
  * lws_set_log_level() - Set the logging bitfield

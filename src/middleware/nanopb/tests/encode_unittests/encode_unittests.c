@@ -1,8 +1,8 @@
-#define NANOPB_INTERNALS
+/* This includes the whole .c file to get access to static functions. */
+#include "pb_encode.c"
 
 #include <stdio.h>
 #include <string.h>
-#include "pb_encode.h"
 #include "unittests.h"
 #include "unittestproto.pb.h"
 
@@ -172,9 +172,9 @@ int main()
         struct { size_t size; uint8_t bytes[5]; } value = {5, {'x', 'y', 'z', 'z', 'y'}};
 
         COMMENT("Test pb_enc_bytes")
-        TEST(WRITES(pb_enc_bytes(&s, NULL, &value), "\x05xyzzy"))
+        TEST(WRITES(pb_enc_bytes(&s, &BytesMessage_fields[0], &value), "\x05xyzzy"))
         value.size = 0;
-        TEST(WRITES(pb_enc_bytes(&s, NULL, &value), "\x00"))
+        TEST(WRITES(pb_enc_bytes(&s, &BytesMessage_fields[0], &value), "\x00"))
     }
 
     {
@@ -224,6 +224,20 @@ int main()
     }
 
     {
+        uint8_t buffer[50];
+        pb_ostream_t s;
+        FloatArray msg = {1, {99.0f}};
+
+        COMMENT("Test array size limit in pb_encode")
+
+        s = pb_ostream_from_buffer(buffer, sizeof(buffer));
+        TEST((msg.data_count = 10) && pb_encode(&s, FloatArray_fields, &msg))
+
+        s = pb_ostream_from_buffer(buffer, sizeof(buffer));
+        TEST((msg.data_count = 11) && !pb_encode(&s, FloatArray_fields, &msg))
+    }
+
+    {
         uint8_t buffer[10];
         pb_ostream_t s;
         CallbackArray msg;
@@ -243,6 +257,20 @@ int main()
         TEST(WRITES(pb_encode(&s, IntegerContainer_fields, &msg),
                     "\x0A\x07\x0A\x05\x01\x02\x03\x04\x05"))
     }
+
+    {
+        uint8_t buffer[32];
+        pb_ostream_t s;
+        BytesMessage msg = {{3, "xyz"}};
+
+        COMMENT("Test pb_encode with bytes message.")
+        TEST(WRITES(pb_encode(&s, BytesMessage_fields, &msg),
+                    "\x0A\x03xyz"))
+
+        msg.data.size = 17; /* More than maximum */
+        TEST(!pb_encode(&s, BytesMessage_fields, &msg))
+    }
+
 
     {
         uint8_t buffer[20];

@@ -1,0 +1,37 @@
+Hello Michael,
+
+   Please feel free to use my branch! Just be forewarned: changes are coming in the next 2-3 weeks. Though, I don't anticipate them being very disruptive. I've been using libev 4.15 built from the source at http://dist.schmorp.de/libev/. Initloop! Yes! I didn't update any of the stock examples. You need to do the following:
+
+ * build with -DWITH_LIBEV:BOOL=1 (I also use -DWITHOUT_EXTERNAL_POLL:BOOL=1 to optimize out superfluous callbacks for fd managemtn)
+ * call libwebsocket_initloop any time between the call to libwebsocket_create_context and libwebsocket_service - the intention is that after creating a context, if you want it to use libev and not the default poll event loop, it needs to plug itself into some ev loop.
+
+The arguments to libwebsocket_initloop are the context you've created and some ev_loop* or 0, if you just want libwebsockets to use the default loop.
+
+One of the only interface changes that I may make is to modify libwebsockets not to automatically call ev_run to facilitate sharing the io loop with another service of some kind.
+
+Best of luck!
+Pardon the cobwebs while I'm cleaning this thing up!
+Please don't hesitate to contact me if you run into any issues or if you have patches you'd like to submit.
+
+Thanks,
+-Andrew
+
+Example:
+struct lws_context_creation_info info = NULL;
+struct libwebsocket_context* context = NULL;
+/* ...
+ * initialize info with appropriate data, protocols, etc.
+ * ...
+ */
+context = libwebsocket_create_context(&info);
+
+#ifdef YOU_WANT_DEFAULT_LOOP
+libwebsocket_initloop(context,0);
+#else /* CUSTOM LOOP */
+ev_loop* my_loop = ev_loop_new(0);
+libwebsocket_initloop(context,my_loop);
+#endif /* YOU_WANT_DEFAULT_LOOP */
+
+libwebsocket_service(context,0);
+
+/* Fun! */

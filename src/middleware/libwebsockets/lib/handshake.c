@@ -53,7 +53,6 @@
  * machine that is completely independent of packet size.
  */
 
-
 LWS_VISIBLE int
 libwebsocket_read(struct libwebsocket_context *context,
 		     struct libwebsocket *wsi, unsigned char *buf, size_t len)
@@ -114,13 +113,13 @@ libwebsocket_read(struct libwebsocket_context *context,
 
 			/* it's not websocket.... shall we accept it as http? */
 
-			if (!lws_hdr_total_length(wsi, WSI_TOKEN_REQUEST_HTTP_METHOD)) {
+			if (!lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI)) {
 				lwsl_warn("Missing URI in HTTP request\n");
 				goto bail_nuke_ah;
 			}
 
 			lwsl_info("HTTP request for '%s'\n",
-				lws_hdr_simple_ptr(wsi, WSI_TOKEN_REQUEST_HTTP_METHOD));
+				lws_hdr_simple_ptr(wsi, WSI_TOKEN_GET_URI));
 
 			if (libwebsocket_ensure_user_space(wsi))
 				goto bail_nuke_ah;
@@ -133,25 +132,11 @@ libwebsocket_read(struct libwebsocket_context *context,
 			 */
 
 			ah = wsi->u.hdr.ah;
-			uri_ptr = lws_hdr_simple_ptr(wsi, WSI_TOKEN_REQUEST_HTTP_METHOD);
-			uri_len = lws_hdr_total_length(wsi, WSI_TOKEN_REQUEST_HTTP_METHOD);
+			uri_ptr = lws_hdr_simple_ptr(wsi, WSI_TOKEN_GET_URI);
+			uri_len = lws_hdr_total_length(wsi, WSI_TOKEN_GET_URI);
 
 			/* union transition */
-            /* Don't do this anymore, it's a struct and we want
-             * access to the headers. */
-            int have_method = 0;
-            int http_method = 0;
-            if ( wsi->u.hdr.have_method ) {
-                have_method = 1;
-                http_method = wsi->u.hdr.http_method;
-            };
 			memset(&wsi->u, 0, sizeof(wsi->u));
-            wsi->u.hdr.ah = ah;
-
-            if ( have_method ) {
-                wsi->u.hdr.have_method = 1;
-                wsi->u.hdr.http_method = http_method;
-            };
 
 			wsi->mode = LWS_CONNMODE_HTTP_SERVING_ACCEPTED;
 			wsi->state = WSI_STATE_HTTP;
@@ -162,13 +147,8 @@ libwebsocket_read(struct libwebsocket_context *context,
 				    wsi->user_space, uri_ptr, uri_len);
 
 			/* now drop the header info we kept a pointer to */
-			if (wsi->u.hdr.ah) {
-#ifdef LWS_DEBUG_HEADER_MEM
-                lwsl_info("%s:%i Freeing headers for (%p/%i)\n", __func__, __LINE__, (void*)wsi, wsi->sock);
-#endif /* LWS_DEBUG_HEADER_MEM */
-				free(wsi->u.hdr.ah);
-                wsi->u.hdr.ah = 0;
-            };
+			if (ah)
+				free(ah);
 
 			if (n) {
 				lwsl_info("LWS_CALLBACK_HTTP closing\n");
@@ -252,13 +232,8 @@ libwebsocket_read(struct libwebsocket_context *context,
 
 		/* drop the header info */
 
-		if (wsi->u.hdr.ah) {
-#ifdef LWS_DEBUG_HEADER_MEM
-            lwsl_info("%s:%i Freeing headers for (%p/%i)\n", __func__, __LINE__, (void*)wsi, wsi->sock);
-#endif /* LWS_DEBUG_HEADER_MEM */
+		if (wsi->u.hdr.ah)
 			free(wsi->u.hdr.ah);
-            wsi->u.hdr.ah = 0;
-        };
 
 		wsi->mode = LWS_CONNMODE_WS_SERVING;
 
@@ -328,16 +303,12 @@ libwebsocket_read(struct libwebsocket_context *context,
 
 bail_nuke_ah:
 	/* drop the header info */
-	if (wsi->u.hdr.ah) {
-#ifdef LWS_DEBUG_HEADER_MEM
-        lwsl_info("%s:%i Freeing headers for (%p/%i)\n", __func__, __LINE__, (void*)wsi, wsi->sock);
-#endif /* LWS_DEBUG_HEADER_MEM */
+	if (wsi->u.hdr.ah)
 		free(wsi->u.hdr.ah);
-        wsi->u.hdr.ah = 0;
-    };
 
 bail:
-	lwsl_info("closing connection at libwebsocket_read bail (%p/%i):\n", (void*)wsi, wsi->sock);
+	lwsl_info("closing connection at libwebsocket_read bail:\n");
+
 	libwebsocket_close_and_free_session(context, wsi,
 						     LWS_CLOSE_STATUS_NOSTATUS);
 

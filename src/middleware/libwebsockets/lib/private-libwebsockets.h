@@ -124,9 +124,6 @@ SHA1(const unsigned char *d, size_t n, unsigned char *md);
 #ifndef LWS_MAX_HEADER_LEN
 #define LWS_MAX_HEADER_LEN 1024
 #endif
-#ifndef LWS_MAX_BODY_LEN
-#define LWS_MAX_BODY_LEN 8192
-#endif
 #ifndef LWS_MAX_PROTOCOLS
 #define LWS_MAX_PROTOCOLS 5
 #endif
@@ -358,15 +355,10 @@ struct allocated_headers {
 #endif
 };
 
-#define WSI_TOKEN_REQUEST_HTTP_METHOD wsi->u.hdr.http_method
 struct _lws_header_related {
 	struct allocated_headers *ah;
 	short lextable_pos;
 	unsigned char parser_state; /* enum lws_token_indexes */
-    int have_method;
-    unsigned char http_method;
-    int have_body;
-    int content_length;
 };
 
 struct _lws_websocket_related {
@@ -423,13 +415,11 @@ struct libwebsocket {
 	unsigned long latency_start;
 #endif
 
-    int body_index;
-    char body[LWS_MAX_BODY_LEN];
 	void *user_space;
 
 	/* members with mutually exclusive lifetimes are unionized */
 
-	struct u {
+	union u {
 		struct _lws_http_mode_related http;
 		struct _lws_header_related hdr;
 		struct _lws_websocket_related ws;

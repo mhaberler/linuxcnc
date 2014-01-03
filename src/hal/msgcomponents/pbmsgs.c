@@ -40,12 +40,12 @@ void rtapi_app_exit(void)
 // FIXME many lacking - autogenerate
 
 PB_MESSAGE(Container);
-PB_MESSAGE(Telegram);
+//PB_MESSAGE(Telegram);
 PB_MESSAGE(Object);
 PB_MESSAGE(MotionCommand);
 PB_MESSAGE(MotionStatus);
-PB_MESSAGE(Pm_Cartesian);
-PB_MESSAGE(Emc_Pose);
+//PB_MESSAGE(Pm_Cartesian);
+//PB_MESSAGE(Emc_Pose);
 PB_MESSAGE(HalUpdate);
 //PB_MESSAGE(LegacyEmcPose);
 PB_MESSAGE(RTAPI_Message);

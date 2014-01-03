@@ -1,18 +1,18 @@
 #ifndef _PBMSGS_H
 #define _PBMSGS_H
 
-#include <protobuf/pb-linuxcnc.h>
-#include <protobuf/nanopb/pb_decode.h>
-#include <protobuf/nanopb/pb_encode.h>
+#include <middleware/include/pb-linuxcnc.h>
+#include <middleware/nanopb/pb_decode.h>
+#include <middleware/nanopb/pb_encode.h>
 
-#include <protobuf/generated/types.npb.h>
-#include <protobuf/generated/object.npb.h>
-#include <protobuf/generated/value.npb.h>
-#include <protobuf/generated/message.npb.h>
-#include <protobuf/generated/halupdate.npb.h>
-#include <protobuf/generated/rtapi_message.npb.h>
-#include <protobuf/generated/emcclass.npb.h>
-#include <protobuf/generated/motcmds.npb.h>
-#include <protobuf/generated/test.npb.h>
+#include <middleware/generated/types.npb.h>
+#include <middleware/generated/object.npb.h>
+#include <middleware/generated/value.npb.h>
+#include <middleware/generated/message.npb.h>
+#include <middleware/generated/halupdate.npb.h>
+#include <middleware/generated/rtapi_message.npb.h>
+#include <middleware/generated/emcclass.npb.h>
+#include <middleware/generated/motcmds.npb.h>
+#include <middleware/generated/test.npb.h>
 
 #endif // _PBMSGS_H

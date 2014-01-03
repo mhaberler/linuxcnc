@@ -27,421 +27,267 @@
 
 
 unsigned char lextable[] = {
-/* pos 0: state 0 */
-   0x47 /* 'G' */, 0x0A /* to pos 20 state 1 */,
-   0x50 /* 'P' */, 0x0D /* to pos 28 state 5 */,
-   0x4F /* 'O' */, 0x11 /* to pos 38 state 10 */,
-   0x48 /* 'H' */, 0x19 /* to pos 56 state 18 */,
-   0x43 /* 'C' */, 0x1E /* to pos 68 state 23 */,
-   0x53 /* 'S' */, 0x29 /* to pos 92 state 34 */,
-   0x55 /* 'U' */, 0x4F /* to pos 170 state 64 */,
-   0x0D /* '.' */, 0x62 /* to pos 210 state 84 */,
-   0x49 /* 'I' */, 0x7E /* to pos 268 state 113 */,
-   0xC1 /* 'A' */, 0x9D /* to pos 332 state 144 */,
-/* pos 20: state 1 */
-   0xC5 /* 'E' */, 0x01 /* to pos 22 state 2 */,
-/* pos 22: state 2 */
-   0xD4 /* 'T' */, 0x01 /* to pos 24 state 3 */,
-/* pos 24: state 3 */
-   0xA0 /* ' ' */, 0x01 /* to pos 26 state 4 */,
-/* pos 26: state 4 */
-   0x80, 0x00 /* terminal marker */,
-/* pos 28: state 5 */
-   0xCF /* 'O' */, 0x01 /* to pos 30 state 6 */,
-/* pos 30: state 6 */
-   0xD3 /* 'S' */, 0x01 /* to pos 32 state 7 */,
-/* pos 32: state 7 */
-   0xD4 /* 'T' */, 0x01 /* to pos 34 state 8 */,
-/* pos 34: state 8 */
-   0xA0 /* ' ' */, 0x01 /* to pos 36 state 9 */,
-/* pos 36: state 9 */
-   0x81, 0x00 /* terminal marker */,
-/* pos 38: state 10 */
-   0x50 /* 'P' */, 0x02 /* to pos 42 state 11 */,
-   0xF2 /* 'r' */, 0x49 /* to pos 186 state 72 */,
-/* pos 42: state 11 */
-   0xD4 /* 'T' */, 0x01 /* to pos 44 state 12 */,
-/* pos 44: state 12 */
-   0xC9 /* 'I' */, 0x01 /* to pos 46 state 13 */,
-/* pos 46: state 13 */
-   0xCF /* 'O' */, 0x01 /* to pos 48 state 14 */,
-/* pos 48: state 14 */
-   0xCE /* 'N' */, 0x01 /* to pos 50 state 15 */,
-/* pos 50: state 15 */
-   0xD3 /* 'S' */, 0x01 /* to pos 52 state 16 */,
-/* pos 52: state 16 */
-   0xA0 /* ' ' */, 0x01 /* to pos 54 state 17 */,
-/* pos 54: state 17 */
-   0x82, 0x00 /* terminal marker */,
-/* pos 56: state 18 */
-   0x6F /* 'o' */, 0x02 /* to pos 60 state 19 */,
-   0xD4 /* 'T' */, 0xB5 /* to pos 420 state 188 */,
-/* pos 60: state 19 */
-   0xF3 /* 's' */, 0x01 /* to pos 62 state 20 */,
-/* pos 62: state 20 */
-   0xF4 /* 't' */, 0x01 /* to pos 64 state 21 */,
-/* pos 64: state 21 */
-   0xBA /* ':' */, 0x01 /* to pos 66 state 22 */,
-/* pos 66: state 22 */
-   0x83, 0x00 /* terminal marker */,
-/* pos 68: state 23 */
-   0xEF /* 'o' */, 0x01 /* to pos 70 state 24 */,
-/* pos 70: state 24 */
-   0xEE /* 'n' */, 0x01 /* to pos 72 state 25 */,
-/* pos 72: state 25 */
-   0x6E /* 'n' */, 0x02 /* to pos 76 state 26 */,
-   0xF4 /* 't' */, 0x6F /* to pos 296 state 127 */,
-/* pos 76: state 26 */
-   0xE5 /* 'e' */, 0x01 /* to pos 78 state 27 */,
-/* pos 78: state 27 */
-   0xE3 /* 'c' */, 0x01 /* to pos 80 state 28 */,
-/* pos 80: state 28 */
-   0xF4 /* 't' */, 0x01 /* to pos 82 state 29 */,
-/* pos 82: state 29 */
-   0xE9 /* 'i' */, 0x01 /* to pos 84 state 30 */,
-/* pos 84: state 30 */
-   0xEF /* 'o' */, 0x01 /* to pos 86 state 31 */,
-/* pos 86: state 31 */
-   0xEE /* 'n' */, 0x01 /* to pos 88 state 32 */,
-/* pos 88: state 32 */
-   0xBA /* ':' */, 0x01 /* to pos 90 state 33 */,
-/* pos 90: state 33 */
-   0x84, 0x00 /* terminal marker */,
-/* pos 92: state 34 */
-   0xE5 /* 'e' */, 0x01 /* to pos 94 state 35 */,
-/* pos 94: state 35 */
-   0xE3 /* 'c' */, 0x01 /* to pos 96 state 36 */,
-/* pos 96: state 36 */
-   0xAD /* '-' */, 0x01 /* to pos 98 state 37 */,
-/* pos 98: state 37 */
-   0xD7 /* 'W' */, 0x01 /* to pos 100 state 38 */,
-/* pos 100: state 38 */
-   0xE5 /* 'e' */, 0x01 /* to pos 102 state 39 */,
-/* pos 102: state 39 */
-   0xE2 /* 'b' */, 0x01 /* to pos 104 state 40 */,
-/* pos 104: state 40 */
-   0xD3 /* 'S' */, 0x01 /* to pos 106 state 41 */,
-/* pos 106: state 41 */
-   0xEF /* 'o' */, 0x01 /* to pos 108 state 42 */,
-/* pos 108: state 42 */
-   0xE3 /* 'c' */, 0x01 /* to pos 110 state 43 */,
-/* pos 110: state 43 */
-   0xEB /* 'k' */, 0x01 /* to pos 112 state 44 */,
-/* pos 112: state 44 */
-   0xE5 /* 'e' */, 0x01 /* to pos 114 state 45 */,
-/* pos 114: state 45 */
-   0xF4 /* 't' */, 0x01 /* to pos 116 state 46 */,
-/* pos 116: state 46 */
-   0xAD /* '-' */, 0x01 /* to pos 118 state 47 */,
-/* pos 118: state 47 */
-   0x4B /* 'K' */, 0x08 /* to pos 134 state 48 */,
-   0x50 /* 'P' */, 0x10 /* to pos 152 state 55 */,
-   0x44 /* 'D' */, 0x26 /* to pos 198 state 78 */,
-   0x56 /* 'V' */, 0x2E /* to pos 216 state 87 */,
-   0x4F /* 'O' */, 0x35 /* to pos 232 state 95 */,
-   0x45 /* 'E' */, 0x3B /* to pos 246 state 102 */,
-   0x41 /* 'A' */, 0x84 /* to pos 394 state 175 */,
-   0xCE /* 'N' */, 0x8A /* to pos 408 state 182 */,
-/* pos 134: state 48 */
-   0xE5 /* 'e' */, 0x01 /* to pos 136 state 49 */,
-/* pos 136: state 49 */
-   0xF9 /* 'y' */, 0x01 /* to pos 138 state 50 */,
-/* pos 138: state 50 */
-   0x31 /* '1' */, 0x03 /* to pos 144 state 51 */,
-   0x32 /* '2' */, 0x04 /* to pos 148 state 53 */,
-   0xBA /* ':' */, 0x24 /* to pos 214 state 86 */,
-/* pos 144: state 51 */
-   0xBA /* ':' */, 0x01 /* to pos 146 state 52 */,
-/* pos 146: state 52 */
-   0x85, 0x00 /* terminal marker */,
-/* pos 148: state 53 */
-   0xBA /* ':' */, 0x01 /* to pos 150 state 54 */,
-/* pos 150: state 54 */
-   0x86, 0x00 /* terminal marker */,
-/* pos 152: state 55 */
-   0xF2 /* 'r' */, 0x01 /* to pos 154 state 56 */,
-/* pos 154: state 56 */
-   0xEF /* 'o' */, 0x01 /* to pos 156 state 57 */,
-/* pos 156: state 57 */
-   0xF4 /* 't' */, 0x01 /* to pos 158 state 58 */,
-/* pos 158: state 58 */
-   0xEF /* 'o' */, 0x01 /* to pos 160 state 59 */,
-/* pos 160: state 59 */
-   0xE3 /* 'c' */, 0x01 /* to pos 162 state 60 */,
-/* pos 162: state 60 */
-   0xEF /* 'o' */, 0x01 /* to pos 164 state 61 */,
-/* pos 164: state 61 */
-   0xEC /* 'l' */, 0x01 /* to pos 166 state 62 */,
-/* pos 166: state 62 */
-   0xBA /* ':' */, 0x01 /* to pos 168 state 63 */,
-/* pos 168: state 63 */
-   0x87, 0x00 /* terminal marker */,
-/* pos 170: state 64 */
-   0xF0 /* 'p' */, 0x01 /* to pos 172 state 65 */,
-/* pos 172: state 65 */
-   0xE7 /* 'g' */, 0x01 /* to pos 174 state 66 */,
-/* pos 174: state 66 */
-   0xF2 /* 'r' */, 0x01 /* to pos 176 state 67 */,
-/* pos 176: state 67 */
-   0xE1 /* 'a' */, 0x01 /* to pos 178 state 68 */,
-/* pos 178: state 68 */
-   0xE4 /* 'd' */, 0x01 /* to pos 180 state 69 */,
-/* pos 180: state 69 */
-   0xE5 /* 'e' */, 0x01 /* to pos 182 state 70 */,
-/* pos 182: state 70 */
-   0xBA /* ':' */, 0x01 /* to pos 184 state 71 */,
-/* pos 184: state 71 */
-   0x88, 0x00 /* terminal marker */,
-/* pos 186: state 72 */
-   0xE9 /* 'i' */, 0x01 /* to pos 188 state 73 */,
-/* pos 188: state 73 */
-   0xE7 /* 'g' */, 0x01 /* to pos 190 state 74 */,
-/* pos 190: state 74 */
-   0xE9 /* 'i' */, 0x01 /* to pos 192 state 75 */,
-/* pos 192: state 75 */
-   0xEE /* 'n' */, 0x01 /* to pos 194 state 76 */,
-/* pos 194: state 76 */
-   0xBA /* ':' */, 0x01 /* to pos 196 state 77 */,
-/* pos 196: state 77 */
-   0x89, 0x00 /* terminal marker */,
-/* pos 198: state 78 */
-   0xF2 /* 'r' */, 0x01 /* to pos 200 state 79 */,
-/* pos 200: state 79 */
-   0xE1 /* 'a' */, 0x01 /* to pos 202 state 80 */,
-/* pos 202: state 80 */
-   0xE6 /* 'f' */, 0x01 /* to pos 204 state 81 */,
-/* pos 204: state 81 */
-   0xF4 /* 't' */, 0x01 /* to pos 206 state 82 */,
-/* pos 206: state 82 */
-   0xBA /* ':' */, 0x01 /* to pos 208 state 83 */,
-/* pos 208: state 83 */
-   0x8A, 0x00 /* terminal marker */,
-/* pos 210: state 84 */
-   0x8A /* '.' */, 0x01 /* to pos 212 state 85 */,
-/* pos 212: state 85 */
-   0x8B, 0x00 /* terminal marker */,
-/* pos 214: state 86 */
-   0x8C, 0x00 /* terminal marker */,
-/* pos 216: state 87 */
-   0xE5 /* 'e' */, 0x01 /* to pos 218 state 88 */,
-/* pos 218: state 88 */
-   0xF2 /* 'r' */, 0x01 /* to pos 220 state 89 */,
-/* pos 220: state 89 */
-   0xF3 /* 's' */, 0x01 /* to pos 222 state 90 */,
-/* pos 222: state 90 */
-   0xE9 /* 'i' */, 0x01 /* to pos 224 state 91 */,
-/* pos 224: state 91 */
-   0xEF /* 'o' */, 0x01 /* to pos 226 state 92 */,
-/* pos 226: state 92 */
-   0xEE /* 'n' */, 0x01 /* to pos 228 state 93 */,
-/* pos 228: state 93 */
-   0xBA /* ':' */, 0x01 /* to pos 230 state 94 */,
-/* pos 230: state 94 */
-   0x8D, 0x00 /* terminal marker */,
-/* pos 232: state 95 */
-   0xF2 /* 'r' */, 0x01 /* to pos 234 state 96 */,
-/* pos 234: state 96 */
-   0xE9 /* 'i' */, 0x01 /* to pos 236 state 97 */,
-/* pos 236: state 97 */
-   0xE7 /* 'g' */, 0x01 /* to pos 238 state 98 */,
-/* pos 238: state 98 */
-   0xE9 /* 'i' */, 0x01 /* to pos 240 state 99 */,
-/* pos 240: state 99 */
-   0xEE /* 'n' */, 0x01 /* to pos 242 state 100 */,
-/* pos 242: state 100 */
-   0xBA /* ':' */, 0x01 /* to pos 244 state 101 */,
-/* pos 244: state 101 */
-   0x8E, 0x00 /* terminal marker */,
-/* pos 246: state 102 */
-   0xF8 /* 'x' */, 0x01 /* to pos 248 state 103 */,
-/* pos 248: state 103 */
-   0xF4 /* 't' */, 0x01 /* to pos 250 state 104 */,
-/* pos 250: state 104 */
-   0xE5 /* 'e' */, 0x01 /* to pos 252 state 105 */,
-/* pos 252: state 105 */
-   0xEE /* 'n' */, 0x01 /* to pos 254 state 106 */,
-/* pos 254: state 106 */
-   0xF3 /* 's' */, 0x01 /* to pos 256 state 107 */,
-/* pos 256: state 107 */
-   0xE9 /* 'i' */, 0x01 /* to pos 258 state 108 */,
-/* pos 258: state 108 */
-   0xEF /* 'o' */, 0x01 /* to pos 260 state 109 */,
-/* pos 260: state 109 */
-   0xEE /* 'n' */, 0x01 /* to pos 262 state 110 */,
-/* pos 262: state 110 */
-   0xF3 /* 's' */, 0x01 /* to pos 264 state 111 */,
-/* pos 264: state 111 */
-   0xBA /* ':' */, 0x01 /* to pos 266 state 112 */,
-/* pos 266: state 112 */
-   0x8F, 0x00 /* terminal marker */,
-/* pos 268: state 113 */
-   0xE6 /* 'f' */, 0x01 /* to pos 270 state 114 */,
-/* pos 270: state 114 */
-   0xAD /* '-' */, 0x01 /* to pos 272 state 115 */,
-/* pos 272: state 115 */
-   0xCE /* 'N' */, 0x01 /* to pos 274 state 116 */,
-/* pos 274: state 116 */
-   0xEF /* 'o' */, 0x01 /* to pos 276 state 117 */,
-/* pos 276: state 117 */
-   0xEE /* 'n' */, 0x01 /* to pos 278 state 118 */,
-/* pos 278: state 118 */
-   0xE5 /* 'e' */, 0x01 /* to pos 280 state 119 */,
-/* pos 280: state 119 */
-   0xAD /* '-' */, 0x01 /* to pos 282 state 120 */,
-/* pos 282: state 120 */
-   0xCD /* 'M' */, 0x01 /* to pos 284 state 121 */,
-/* pos 284: state 121 */
-   0xE1 /* 'a' */, 0x01 /* to pos 286 state 122 */,
-/* pos 286: state 122 */
-   0xF4 /* 't' */, 0x01 /* to pos 288 state 123 */,
-/* pos 288: state 123 */
-   0xE3 /* 'c' */, 0x01 /* to pos 290 state 124 */,
-/* pos 290: state 124 */
-   0xE8 /* 'h' */, 0x01 /* to pos 292 state 125 */,
-/* pos 292: state 125 */
-   0xBA /* ':' */, 0x01 /* to pos 294 state 126 */,
-/* pos 294: state 126 */
-   0x90, 0x00 /* terminal marker */,
-/* pos 296: state 127 */
-   0xE5 /* 'e' */, 0x01 /* to pos 298 state 128 */,
-/* pos 298: state 128 */
-   0xEE /* 'n' */, 0x01 /* to pos 300 state 129 */,
-/* pos 300: state 129 */
-   0xF4 /* 't' */, 0x01 /* to pos 302 state 130 */,
-/* pos 302: state 130 */
-   0xAD /* '-' */, 0x01 /* to pos 304 state 131 */,
-/* pos 304: state 131 */
-   0x54 /* 'T' */, 0x02 /* to pos 308 state 132 */,
-   0xCC /* 'L' */, 0x06 /* to pos 318 state 137 */,
-/* pos 308: state 132 */
-   0xF9 /* 'y' */, 0x01 /* to pos 310 state 133 */,
-/* pos 310: state 133 */
-   0xF0 /* 'p' */, 0x01 /* to pos 312 state 134 */,
-/* pos 312: state 134 */
-   0xE5 /* 'e' */, 0x01 /* to pos 314 state 135 */,
-/* pos 314: state 135 */
-   0xBA /* ':' */, 0x01 /* to pos 316 state 136 */,
-/* pos 316: state 136 */
-   0x91, 0x00 /* terminal marker */,
-/* pos 318: state 137 */
-   0xE5 /* 'e' */, 0x01 /* to pos 320 state 138 */,
-/* pos 320: state 138 */
-   0xEE /* 'n' */, 0x01 /* to pos 322 state 139 */,
-/* pos 322: state 139 */
-   0xE7 /* 'g' */, 0x01 /* to pos 324 state 140 */,
-/* pos 324: state 140 */
-   0xF4 /* 't' */, 0x01 /* to pos 326 state 141 */,
-/* pos 326: state 141 */
-   0xE8 /* 'h' */, 0x01 /* to pos 328 state 142 */,
-/* pos 328: state 142 */
-   0xBA /* ':' */, 0x01 /* to pos 330 state 143 */,
-/* pos 330: state 143 */
-   0x92, 0x00 /* terminal marker */,
-/* pos 332: state 144 */
-   0xE3 /* 'c' */, 0x01 /* to pos 334 state 145 */,
-/* pos 334: state 145 */
-   0xE3 /* 'c' */, 0x01 /* to pos 336 state 146 */,
-/* pos 336: state 146 */
-   0xE5 /* 'e' */, 0x01 /* to pos 338 state 147 */,
-/* pos 338: state 147 */
-   0xF3 /* 's' */, 0x01 /* to pos 340 state 148 */,
-/* pos 340: state 148 */
-   0xF3 /* 's' */, 0x01 /* to pos 342 state 149 */,
-/* pos 342: state 149 */
-   0xAD /* '-' */, 0x01 /* to pos 344 state 150 */,
-/* pos 344: state 150 */
-   0xC3 /* 'C' */, 0x01 /* to pos 346 state 151 */,
-/* pos 346: state 151 */
-   0xEF /* 'o' */, 0x01 /* to pos 348 state 152 */,
-/* pos 348: state 152 */
-   0xEE /* 'n' */, 0x01 /* to pos 350 state 153 */,
-/* pos 350: state 153 */
-   0xF4 /* 't' */, 0x01 /* to pos 352 state 154 */,
-/* pos 352: state 154 */
-   0xF2 /* 'r' */, 0x01 /* to pos 354 state 155 */,
-/* pos 354: state 155 */
-   0xEF /* 'o' */, 0x01 /* to pos 356 state 156 */,
-/* pos 356: state 156 */
-   0xEC /* 'l' */, 0x01 /* to pos 358 state 157 */,
-/* pos 358: state 157 */
-   0xAD /* '-' */, 0x01 /* to pos 360 state 158 */,
-/* pos 360: state 158 */
-   0xD2 /* 'R' */, 0x01 /* to pos 362 state 159 */,
-/* pos 362: state 159 */
-   0xE5 /* 'e' */, 0x01 /* to pos 364 state 160 */,
-/* pos 364: state 160 */
-   0xF1 /* 'q' */, 0x01 /* to pos 366 state 161 */,
-/* pos 366: state 161 */
-   0xF5 /* 'u' */, 0x01 /* to pos 368 state 162 */,
-/* pos 368: state 162 */
-   0xE5 /* 'e' */, 0x01 /* to pos 370 state 163 */,
-/* pos 370: state 163 */
-   0xF3 /* 's' */, 0x01 /* to pos 372 state 164 */,
-/* pos 372: state 164 */
-   0xF4 /* 't' */, 0x01 /* to pos 374 state 165 */,
-/* pos 374: state 165 */
-   0xAD /* '-' */, 0x01 /* to pos 376 state 166 */,
-/* pos 376: state 166 */
-   0xC8 /* 'H' */, 0x01 /* to pos 378 state 167 */,
-/* pos 378: state 167 */
-   0xE5 /* 'e' */, 0x01 /* to pos 380 state 168 */,
-/* pos 380: state 168 */
-   0xE1 /* 'a' */, 0x01 /* to pos 382 state 169 */,
-/* pos 382: state 169 */
-   0xE4 /* 'd' */, 0x01 /* to pos 384 state 170 */,
-/* pos 384: state 170 */
-   0xE5 /* 'e' */, 0x01 /* to pos 386 state 171 */,
-/* pos 386: state 171 */
-   0xF2 /* 'r' */, 0x01 /* to pos 388 state 172 */,
-/* pos 388: state 172 */
-   0xF3 /* 's' */, 0x01 /* to pos 390 state 173 */,
-/* pos 390: state 173 */
-   0xBA /* ':' */, 0x01 /* to pos 392 state 174 */,
-/* pos 392: state 174 */
-   0x93, 0x00 /* terminal marker */,
-/* pos 394: state 175 */
-   0xE3 /* 'c' */, 0x01 /* to pos 396 state 176 */,
-/* pos 396: state 176 */
-   0xE3 /* 'c' */, 0x01 /* to pos 398 state 177 */,
-/* pos 398: state 177 */
-   0xE5 /* 'e' */, 0x01 /* to pos 400 state 178 */,
-/* pos 400: state 178 */
-   0xF0 /* 'p' */, 0x01 /* to pos 402 state 179 */,
-/* pos 402: state 179 */
-   0xF4 /* 't' */, 0x01 /* to pos 404 state 180 */,
-/* pos 404: state 180 */
-   0xBA /* ':' */, 0x01 /* to pos 406 state 181 */,
-/* pos 406: state 181 */
-   0x94, 0x00 /* terminal marker */,
-/* pos 408: state 182 */
-   0xEF /* 'o' */, 0x01 /* to pos 410 state 183 */,
-/* pos 410: state 183 */
-   0xEE /* 'n' */, 0x01 /* to pos 412 state 184 */,
-/* pos 412: state 184 */
-   0xE3 /* 'c' */, 0x01 /* to pos 414 state 185 */,
-/* pos 414: state 185 */
-   0xE5 /* 'e' */, 0x01 /* to pos 416 state 186 */,
-/* pos 416: state 186 */
-   0xBA /* ':' */, 0x01 /* to pos 418 state 187 */,
-/* pos 418: state 187 */
-   0x95, 0x00 /* terminal marker */,
-/* pos 420: state 188 */
-   0xD4 /* 'T' */, 0x01 /* to pos 422 state 189 */,
-/* pos 422: state 189 */
-   0xD0 /* 'P' */, 0x01 /* to pos 424 state 190 */,
-/* pos 424: state 190 */
-   0xAF /* '/' */, 0x01 /* to pos 426 state 191 */,
-/* pos 426: state 191 */
-   0xB1 /* '1' */, 0x01 /* to pos 428 state 192 */,
-/* pos 428: state 192 */
-   0xAE /* '.' */, 0x01 /* to pos 430 state 193 */,
-/* pos 430: state 193 */
-   0xB1 /* '1' */, 0x01 /* to pos 432 state 194 */,
-/* pos 432: state 194 */
-   0xA0 /* ' ' */, 0x01 /* to pos 434 state 195 */,
-/* pos 434: state 195 */
-   0x96, 0x00 /* terminal marker */,
-/* total size 436 bytes */
+	/* pos 0: state 0 */
+	0x47 /* 'G' */, 0x07 /* to pos 14 state 1 */,
+	0x48 /* 'H' */, 0x0A /* to pos 22 state 5 */,
+	0x43 /* 'C' */, 0x0F /* to pos 34 state 10 */,
+	0x53 /* 'S' */, 0x19 /* to pos 56 state 21 */,
+	0x55 /* 'U' */, 0x3F /* to pos 134 state 51 */,
+	0x4F /* 'O' */, 0x46 /* to pos 150 state 59 */,
+	0x8D /* '.' */, 0x52 /* to pos 176 state 72 */,
+	/* pos 14: state 1 */
+	0xC5 /* 'E' */, 0x01 /* to pos 16 state 2 */,
+	/* pos 16: state 2 */
+	0xD4 /* 'T' */, 0x01 /* to pos 18 state 3 */,
+	/* pos 18: state 3 */
+	0xA0 /* ' ' */, 0x01 /* to pos 20 state 4 */,
+	/* pos 20: state 4 */
+	0x80, 0x00 /* terminal marker */,
+	/* pos 22: state 5 */
+	0x6F /* 'o' */, 0x02 /* to pos 26 state 6 */,
+	0xD4 /* 'T' */, 0x76 /* to pos 260 state 114 */,
+	/* pos 26: state 6 */
+	0xF3 /* 's' */, 0x01 /* to pos 28 state 7 */,
+	/* pos 28: state 7 */
+	0xF4 /* 't' */, 0x01 /* to pos 30 state 8 */,
+	/* pos 30: state 8 */
+	0xBA /* ':' */, 0x01 /* to pos 32 state 9 */,
+	/* pos 32: state 9 */
+	0x81, 0x00 /* terminal marker */,
+	/* pos 34: state 10 */
+	0xEF /* 'o' */, 0x01 /* to pos 36 state 11 */,
+	/* pos 36: state 11 */
+	0xEE /* 'n' */, 0x01 /* to pos 38 state 12 */,
+	/* pos 38: state 12 */
+	0xEE /* 'n' */, 0x01 /* to pos 40 state 13 */,
+	/* pos 40: state 13 */
+	0xE5 /* 'e' */, 0x01 /* to pos 42 state 14 */,
+	/* pos 42: state 14 */
+	0xE3 /* 'c' */, 0x01 /* to pos 44 state 15 */,
+	/* pos 44: state 15 */
+	0xF4 /* 't' */, 0x01 /* to pos 46 state 16 */,
+	/* pos 46: state 16 */
+	0xE9 /* 'i' */, 0x01 /* to pos 48 state 17 */,
+	/* pos 48: state 17 */
+	0xEF /* 'o' */, 0x01 /* to pos 50 state 18 */,
+	/* pos 50: state 18 */
+	0xEE /* 'n' */, 0x01 /* to pos 52 state 19 */,
+	/* pos 52: state 19 */
+	0xBA /* ':' */, 0x01 /* to pos 54 state 20 */,
+	/* pos 54: state 20 */
+	0x82, 0x00 /* terminal marker */,
+	/* pos 56: state 21 */
+	0xE5 /* 'e' */, 0x01 /* to pos 58 state 22 */,
+	/* pos 58: state 22 */
+	0xE3 /* 'c' */, 0x01 /* to pos 60 state 23 */,
+	/* pos 60: state 23 */
+	0xAD /* '-' */, 0x01 /* to pos 62 state 24 */,
+	/* pos 62: state 24 */
+	0xD7 /* 'W' */, 0x01 /* to pos 64 state 25 */,
+	/* pos 64: state 25 */
+	0xE5 /* 'e' */, 0x01 /* to pos 66 state 26 */,
+	/* pos 66: state 26 */
+	0xE2 /* 'b' */, 0x01 /* to pos 68 state 27 */,
+	/* pos 68: state 27 */
+	0xD3 /* 'S' */, 0x01 /* to pos 70 state 28 */,
+	/* pos 70: state 28 */
+	0xEF /* 'o' */, 0x01 /* to pos 72 state 29 */,
+	/* pos 72: state 29 */
+	0xE3 /* 'c' */, 0x01 /* to pos 74 state 30 */,
+	/* pos 74: state 30 */
+	0xEB /* 'k' */, 0x01 /* to pos 76 state 31 */,
+	/* pos 76: state 31 */
+	0xE5 /* 'e' */, 0x01 /* to pos 78 state 32 */,
+	/* pos 78: state 32 */
+	0xF4 /* 't' */, 0x01 /* to pos 80 state 33 */,
+	/* pos 80: state 33 */
+	0xAD /* '-' */, 0x01 /* to pos 82 state 34 */,
+	/* pos 82: state 34 */
+	0x4B /* 'K' */, 0x08 /* to pos 98 state 35 */,
+	0x50 /* 'P' */, 0x10 /* to pos 116 state 42 */,
+	0x44 /* 'D' */, 0x27 /* to pos 164 state 66 */,
+	0x56 /* 'V' */, 0x2F /* to pos 182 state 75 */,
+	0x4F /* 'O' */, 0x36 /* to pos 198 state 83 */,
+	0x45 /* 'E' */, 0x3C /* to pos 212 state 90 */,
+	0x41 /* 'A' */, 0x46 /* to pos 234 state 101 */,
+	0xCE /* 'N' */, 0x4C /* to pos 248 state 108 */,
+	/* pos 98: state 35 */
+	0xE5 /* 'e' */, 0x01 /* to pos 100 state 36 */,
+	/* pos 100: state 36 */
+	0xF9 /* 'y' */, 0x01 /* to pos 102 state 37 */,
+	/* pos 102: state 37 */
+	0x31 /* '1' */, 0x03 /* to pos 108 state 38 */,
+	0x32 /* '2' */, 0x04 /* to pos 112 state 40 */,
+	0xBA /* ':' */, 0x25 /* to pos 180 state 74 */,
+	/* pos 108: state 38 */
+	0xBA /* ':' */, 0x01 /* to pos 110 state 39 */,
+	/* pos 110: state 39 */
+	0x83, 0x00 /* terminal marker */,
+	/* pos 112: state 40 */
+	0xBA /* ':' */, 0x01 /* to pos 114 state 41 */,
+	/* pos 114: state 41 */
+	0x84, 0x00 /* terminal marker */,
+	/* pos 116: state 42 */
+	0xF2 /* 'r' */, 0x01 /* to pos 118 state 43 */,
+	/* pos 118: state 43 */
+	0xEF /* 'o' */, 0x01 /* to pos 120 state 44 */,
+	/* pos 120: state 44 */
+	0xF4 /* 't' */, 0x01 /* to pos 122 state 45 */,
+	/* pos 122: state 45 */
+	0xEF /* 'o' */, 0x01 /* to pos 124 state 46 */,
+	/* pos 124: state 46 */
+	0xE3 /* 'c' */, 0x01 /* to pos 126 state 47 */,
+	/* pos 126: state 47 */
+	0xEF /* 'o' */, 0x01 /* to pos 128 state 48 */,
+	/* pos 128: state 48 */
+	0xEC /* 'l' */, 0x01 /* to pos 130 state 49 */,
+	/* pos 130: state 49 */
+	0xBA /* ':' */, 0x01 /* to pos 132 state 50 */,
+	/* pos 132: state 50 */
+	0x85, 0x00 /* terminal marker */,
+	/* pos 134: state 51 */
+	0xF0 /* 'p' */, 0x01 /* to pos 136 state 52 */,
+	/* pos 136: state 52 */
+	0xE7 /* 'g' */, 0x01 /* to pos 138 state 53 */,
+	/* pos 138: state 53 */
+	0xF2 /* 'r' */, 0x01 /* to pos 140 state 54 */,
+	/* pos 140: state 54 */
+	0xE1 /* 'a' */, 0x01 /* to pos 142 state 55 */,
+	/* pos 142: state 55 */
+	0xE4 /* 'd' */, 0x01 /* to pos 144 state 56 */,
+	/* pos 144: state 56 */
+	0xE5 /* 'e' */, 0x01 /* to pos 146 state 57 */,
+	/* pos 146: state 57 */
+	0xBA /* ':' */, 0x01 /* to pos 148 state 58 */,
+	/* pos 148: state 58 */
+	0x86, 0x00 /* terminal marker */,
+	/* pos 150: state 59 */
+	0xF2 /* 'r' */, 0x01 /* to pos 152 state 60 */,
+	/* pos 152: state 60 */
+	0xE9 /* 'i' */, 0x01 /* to pos 154 state 61 */,
+	/* pos 154: state 61 */
+	0xE7 /* 'g' */, 0x01 /* to pos 156 state 62 */,
+	/* pos 156: state 62 */
+	0xE9 /* 'i' */, 0x01 /* to pos 158 state 63 */,
+	/* pos 158: state 63 */
+	0xEE /* 'n' */, 0x01 /* to pos 160 state 64 */,
+	/* pos 160: state 64 */
+	0xBA /* ':' */, 0x01 /* to pos 162 state 65 */,
+	/* pos 162: state 65 */
+	0x87, 0x00 /* terminal marker */,
+	/* pos 164: state 66 */
+	0xF2 /* 'r' */, 0x01 /* to pos 166 state 67 */,
+	/* pos 166: state 67 */
+	0xE1 /* 'a' */, 0x01 /* to pos 168 state 68 */,
+	/* pos 168: state 68 */
+	0xE6 /* 'f' */, 0x01 /* to pos 170 state 69 */,
+	/* pos 170: state 69 */
+	0xF4 /* 't' */, 0x01 /* to pos 172 state 70 */,
+	/* pos 172: state 70 */
+	0xBA /* ':' */, 0x01 /* to pos 174 state 71 */,
+	/* pos 174: state 71 */
+	0x88, 0x00 /* terminal marker */,
+	/* pos 176: state 72 */
+	0x8A /* '.' */, 0x01 /* to pos 178 state 73 */,
+	/* pos 178: state 73 */
+	0x89, 0x00 /* terminal marker */,
+	/* pos 180: state 74 */
+	0x8A, 0x00 /* terminal marker */,
+	/* pos 182: state 75 */
+	0xE5 /* 'e' */, 0x01 /* to pos 184 state 76 */,
+	/* pos 184: state 76 */
+	0xF2 /* 'r' */, 0x01 /* to pos 186 state 77 */,
+	/* pos 186: state 77 */
+	0xF3 /* 's' */, 0x01 /* to pos 188 state 78 */,
+	/* pos 188: state 78 */
+	0xE9 /* 'i' */, 0x01 /* to pos 190 state 79 */,
+	/* pos 190: state 79 */
+	0xEF /* 'o' */, 0x01 /* to pos 192 state 80 */,
+	/* pos 192: state 80 */
+	0xEE /* 'n' */, 0x01 /* to pos 194 state 81 */,
+	/* pos 194: state 81 */
+	0xBA /* ':' */, 0x01 /* to pos 196 state 82 */,
+	/* pos 196: state 82 */
+	0x8B, 0x00 /* terminal marker */,
+	/* pos 198: state 83 */
+	0xF2 /* 'r' */, 0x01 /* to pos 200 state 84 */,
+	/* pos 200: state 84 */
+	0xE9 /* 'i' */, 0x01 /* to pos 202 state 85 */,
+	/* pos 202: state 85 */
+	0xE7 /* 'g' */, 0x01 /* to pos 204 state 86 */,
+	/* pos 204: state 86 */
+	0xE9 /* 'i' */, 0x01 /* to pos 206 state 87 */,
+	/* pos 206: state 87 */
+	0xEE /* 'n' */, 0x01 /* to pos 208 state 88 */,
+	/* pos 208: state 88 */
+	0xBA /* ':' */, 0x01 /* to pos 210 state 89 */,
+	/* pos 210: state 89 */
+	0x8C, 0x00 /* terminal marker */,
+	/* pos 212: state 90 */
+	0xF8 /* 'x' */, 0x01 /* to pos 214 state 91 */,
+	/* pos 214: state 91 */
+	0xF4 /* 't' */, 0x01 /* to pos 216 state 92 */,
+	/* pos 216: state 92 */
+	0xE5 /* 'e' */, 0x01 /* to pos 218 state 93 */,
+	/* pos 218: state 93 */
+	0xEE /* 'n' */, 0x01 /* to pos 220 state 94 */,
+	/* pos 220: state 94 */
+	0xF3 /* 's' */, 0x01 /* to pos 222 state 95 */,
+	/* pos 222: state 95 */
+	0xE9 /* 'i' */, 0x01 /* to pos 224 state 96 */,
+	/* pos 224: state 96 */
+	0xEF /* 'o' */, 0x01 /* to pos 226 state 97 */,
+	/* pos 226: state 97 */
+	0xEE /* 'n' */, 0x01 /* to pos 228 state 98 */,
+	/* pos 228: state 98 */
+	0xF3 /* 's' */, 0x01 /* to pos 230 state 99 */,
+	/* pos 230: state 99 */
+	0xBA /* ':' */, 0x01 /* to pos 232 state 100 */,
+	/* pos 232: state 100 */
+	0x8D, 0x00 /* terminal marker */,
+	/* pos 234: state 101 */
+	0xE3 /* 'c' */, 0x01 /* to pos 236 state 102 */,
+	/* pos 236: state 102 */
+	0xE3 /* 'c' */, 0x01 /* to pos 238 state 103 */,
+	/* pos 238: state 103 */
+	0xE5 /* 'e' */, 0x01 /* to pos 240 state 104 */,
+	/* pos 240: state 104 */
+	0xF0 /* 'p' */, 0x01 /* to pos 242 state 105 */,
+	/* pos 242: state 105 */
+	0xF4 /* 't' */, 0x01 /* to pos 244 state 106 */,
+	/* pos 244: state 106 */
+	0xBA /* ':' */, 0x01 /* to pos 246 state 107 */,
+	/* pos 246: state 107 */
+	0x8E, 0x00 /* terminal marker */,
+	/* pos 248: state 108 */
+	0xEF /* 'o' */, 0x01 /* to pos 250 state 109 */,
+	/* pos 250: state 109 */
+	0xEE /* 'n' */, 0x01 /* to pos 252 state 110 */,
+	/* pos 252: state 110 */
+	0xE3 /* 'c' */, 0x01 /* to pos 254 state 111 */,
+	/* pos 254: state 111 */
+	0xE5 /* 'e' */, 0x01 /* to pos 256 state 112 */,
+	/* pos 256: state 112 */
+	0xBA /* ':' */, 0x01 /* to pos 258 state 113 */,
+	/* pos 258: state 113 */
+	0x8F, 0x00 /* terminal marker */,
+	/* pos 260: state 114 */
+	0xD4 /* 'T' */, 0x01 /* to pos 262 state 115 */,
+	/* pos 262: state 115 */
+	0xD0 /* 'P' */, 0x01 /* to pos 264 state 116 */,
+	/* pos 264: state 116 */
+	0xAF /* '/' */, 0x01 /* to pos 266 state 117 */,
+	/* pos 266: state 117 */
+	0xB1 /* '1' */, 0x01 /* to pos 268 state 118 */,
+	/* pos 268: state 118 */
+	0xAE /* '.' */, 0x01 /* to pos 270 state 119 */,
+	/* pos 270: state 119 */
+	0xB1 /* '1' */, 0x01 /* to pos 272 state 120 */,
+	/* pos 272: state 120 */
+	0xA0 /* ' ' */, 0x01 /* to pos 274 state 121 */,
+	/* pos 274: state 121 */
+	0x90, 0x00 /* terminal marker */,
+	/* total size 276 bytes */
 };
 
 int lextable_decode(int pos, char c)
@@ -558,46 +404,12 @@ int lws_hdr_simple_create(struct libwebsocket *wsi,
 	return 0;
 }
 
-
-int libwebsockets_is_http_method(int parser_state)
-{
-    int is_method = 0;
-    switch(parser_state) {
-        case WSI_TOKEN_GET_URI:
-        case WSI_TOKEN_POST_URI:
-        case WSI_TOKEN_OPTIONS_URI:
-            is_method = 1;
-            break;
-        default:
-            break;
-    };
-    return is_method;
-};
-
-/* TODO: Find out why this is necessary.
- * I think it may be caused by multiple requests being made over a keep-alive
- * session. */
-#define LWS_PARSE_REALLOCATE_HEADERS
-
 int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 {
-#ifdef LWS_PARSE_REALLOCATE_HEADERS
-    if( wsi && !wsi->u.hdr.ah ) {
-        /* Don't warn on this. We do this for repeat requests on a persistent
-         * connection.*/
-        /*
-        lwsl_warn("Allocating headers for %i (%p) again...\n",
-                wsi->sock, (void*)wsi);
-        */
-        lws_allocate_header_table(wsi);
-    };
-#endif
-
 	int n;
+
 	switch (wsi->u.hdr.parser_state) {
 	case WSI_TOKEN_GET_URI:
-	case WSI_TOKEN_POST_URI:
-	case WSI_TOKEN_OPTIONS_URI:
 	case WSI_TOKEN_HOST:
 	case WSI_TOKEN_CONNECTION:
 	case WSI_TOKEN_KEY1:
@@ -613,14 +425,8 @@ int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 	case WSI_TOKEN_ACCEPT:
 	case WSI_TOKEN_NONCE:
 	case WSI_TOKEN_EXTENSIONS:
-    case WSI_TOKEN_ETAG_MATCH:
-    case WSI_TOKEN_CONTENT_TYPE:
-    case WSI_TOKEN_CONTENT_LENGTH:
-    case WSI_TOKEN_AC_REQUEST_HEADERS:
 	case WSI_TOKEN_HTTP:
-    case WSI_TOKEN_HTTP_VERSION:
-        {
-        int parse_content_length = 0;
+
 		lwsl_parser("WSI_TOK_(%d) '%c'\n", wsi->u.hdr.parser_state, c);
 
 		/* collect into malloc'd buffers */
@@ -630,23 +436,17 @@ int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 			break;
 
 		/* special case space terminator for get-uri */
-		if (libwebsockets_is_http_method(wsi->u.hdr.parser_state) && c == ' ') {
+		if (wsi->u.hdr.parser_state == WSI_TOKEN_GET_URI && c == ' ') {
 			c = '\0';
-            wsi->u.hdr.http_method = wsi->u.hdr.http_method;
-			wsi->u.hdr.parser_state = WSI_TOKEN_HTTP_VERSION;
-            goto start_fragment;
+			wsi->u.hdr.parser_state = WSI_TOKEN_SKIPPING;
 		}
 
 		/* bail at EOL */
 		if (wsi->u.hdr.parser_state != WSI_TOKEN_CHALLENGE &&
 								  c == '\x0d') {
 			c = '\0';
-            if( wsi->u.hdr.parser_state == WSI_TOKEN_CONTENT_LENGTH) {
-                parse_content_length = 1;
-            };
 			wsi->u.hdr.parser_state = WSI_TOKEN_SKIPPING_SAW_CR;
 			lwsl_parser("*\n");
-
 		}
 
 		if (wsi->u.hdr.ah->pos == sizeof(wsi->u.hdr.ah->data)) {
@@ -658,22 +458,11 @@ int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 			wsi->u.hdr.ah->frags[
 					wsi->u.hdr.ah->next_frag_index].len++;
 
-        if (parse_content_length) {
-            int token_len=0;
-            char content_len_buf[10];
-            token_len = lws_hdr_copy(wsi, content_len_buf, 10, WSI_TOKEN_CONTENT_LENGTH);
-            content_len_buf[token_len] = '\0';
-            wsi->u.hdr.content_length = atoi(content_len_buf);
-            lwsl_parser("Content length: %li\n", wsi->u.hdr.content_length);
-        };
-
 		/* per-protocol end of headers management */
 
-		if (wsi->u.hdr.parser_state == WSI_TOKEN_CHALLENGE) {
+		if (wsi->u.hdr.parser_state == WSI_TOKEN_CHALLENGE)
 			goto set_parsing_complete;
-        };
 		break;
-        }
 
 		/* collecting and checking a name part */
 	case WSI_TOKEN_NAME_PART:
@@ -684,8 +473,8 @@ int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 
 		if (wsi->u.hdr.lextable_pos < 0) {
 			/* this is not a header we know about */
-			if (wsi->u.hdr.ah->frag_index[WSI_TOKEN_REQUEST_HTTP_METHOD] ||
-				    wsi->u.hdr.ah->frag_index[WSI_TOKEN_REQUEST_HTTP_METHOD]) {
+			if (wsi->u.hdr.ah->frag_index[WSI_TOKEN_GET_URI] ||
+				    wsi->u.hdr.ah->frag_index[WSI_TOKEN_HTTP]) {
 				/*
 				 * altready had the method, no idea what
 				 * this crap is, ignore
@@ -698,7 +487,7 @@ int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 			 * treat as dangerous
 			 */
 
-			lwsl_parser("Unknown method - dropping\n");
+			lwsl_info("Unknown method - dropping\n");
 			return -1;
 		}
 		if (lextable[wsi->u.hdr.lextable_pos + 1] == 0) {
@@ -708,48 +497,25 @@ int libwebsocket_parse(struct libwebsocket *wsi, unsigned char c)
 			n = lextable[wsi->u.hdr.lextable_pos] & 0x7f;
 
 			lwsl_parser("known hdr %d\n", n);
-            switch( n )
-            {
-                case WSI_TOKEN_GET_URI:
-                case WSI_TOKEN_POST_URI:
-                case WSI_TOKEN_OPTIONS_URI:
-                    wsi->u.hdr.have_method = 1;
-                    wsi->u.hdr.http_method = n;
-                    break;
 
-                case WSI_TOKEN_CONTENT_LENGTH:
-                    wsi->u.hdr.have_body = 1;
-                    break;
-                /*
-                 * WSORIGIN is protocol equiv to ORIGIN,
-                 * JWebSocket likes to send it, map to ORIGIN
-                 */
-                case WSI_TOKEN_SWORIGIN:
-				    n = WSI_TOKEN_ORIGIN;
-                    break;
-            };
-
-            if (n == WSI_TOKEN_REQUEST_HTTP_METHOD && wsi->u.hdr.ah &&
-				wsi->u.hdr.ah->frag_index[WSI_TOKEN_REQUEST_HTTP_METHOD]) {
-				lwsl_warn("Duplicated method\n");
+			if (n == WSI_TOKEN_GET_URI &&
+				wsi->u.hdr.ah->frag_index[WSI_TOKEN_GET_URI]) {
+				lwsl_warn("Duplicated GET\n");
 				return -1;
 			}
 
+			/*
+			 * WSORIGIN is protocol equiv to ORIGIN,
+			 * JWebSocket likes to send it, map to ORIGIN
+			 */
+			if (n == WSI_TOKEN_SWORIGIN)
+				n = WSI_TOKEN_ORIGIN;
+
 			wsi->u.hdr.parser_state = (enum lws_token_indexes)
 							(WSI_TOKEN_GET_URI + n);
+			if (wsi->u.hdr.parser_state == WSI_TOKEN_CHALLENGE)
+				goto set_parsing_complete;
 
-            /* Got to complete, or start looking for body data: */
-			if (wsi->u.hdr.parser_state == WSI_TOKEN_CHALLENGE) {
-                if (wsi->u.hdr.have_body && wsi->u.hdr.content_length > 0) {
-                    wsi->body_index = 0;
-                    wsi->u.hdr.parser_state = WSI_TOKEN_BODY;
-                    lwsl_parser("Saw challenge. Looking for body.\n");
-                    break;
-                }
-                else {
-				    goto set_parsing_complete;
-                };
-            };
 			goto start_fragment;
 		}
 		break;
@@ -807,20 +573,6 @@ start_fragment:
 		} else
 			wsi->u.hdr.parser_state = WSI_TOKEN_SKIPPING;
 		break;
-    case WSI_TOKEN_BODY:
-        /* append to the body buffer, if we have space: */
-        if( wsi->body_index < LWS_MAX_BODY_LEN -2) {
-            lwsl_parser("WSI_TOKEN_BODY: '%c' (STORING)\n", c);
-            wsi->body[wsi->body_index++] = c;
-            wsi->body[wsi->body_index] = '\0';
-        };
-
-        /* If we've consumed what the client sent, be done: */
-        if( wsi->body_index >= wsi->u.hdr.content_length ) {
-            lwsl_parser("WSI_TOKEN_BODY: '%c' (OUT OF SPACE)\n", c);
-            goto set_parsing_complete;
-        };
-        break;
 		/* we're done, ignore anything else */
 	case WSI_PARSING_COMPLETE:
 		lwsl_parser("WSI_PARSING_COMPLETE '%c'\n", c);

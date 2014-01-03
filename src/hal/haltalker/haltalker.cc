@@ -23,7 +23,7 @@
 #include <inifile.h>
 #include <czmq.h>
 
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
 
 typedef enum {
@@ -167,7 +167,7 @@ int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
     return 0;
 }
 
-static int handle_timer(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+static int handle_timer(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
     hal_compiled_group_t *cg = (hal_compiled_group_t *) arg;
     htself_t *self = (htself_t *) cg->user_data;
@@ -212,7 +212,7 @@ static int mainloop( htself_t *self)
 {
     int retval;
     sigset_t mask;
-    int msec;
+    size_t msec;
 
     sigemptyset(&mask);
     sigaddset(&mask, SIGINT);
@@ -241,7 +241,7 @@ static int mainloop( htself_t *self)
 	cg->user_data = self;
 	msec =  hal_cgroup_timer(cg);
 	if (msec > 0) {
-	    zloop_timer(self->z_loop, msec, 0, handle_timer, cg);
+	    //FIXME	    zloop_timer(self->z_loop, msec, 0, handle_timer, (void *)cg);
 	}
     }
 

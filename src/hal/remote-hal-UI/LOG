@@ -1,0 +1,203 @@
+/home/mah/linuxcnc/bin/gladevcp:242: RuntimeWarning: missing handler 'on_button_press'
+  builder.connect_signals(handlers)
+-------newpin  combo-value
+-------newpin  spindle-rpm-hbar
+-------newpin  settings
+-------newpin  scale
+-------newpin  current-tool
+-------newpin  button
+pinchange False
+-------newpin  check
+-------newpin  check-not
+-------newpin  led1
+-------newpin  led2
+-------newpin  led3
+-------newpin  led4
+-------newpin  led5
+-------newpin  led6
+-------newpin  radio3
+-------newpin  radio3-not
+-------newpin  radio1
+-------newpin  radio1-not
+-------newpin  radio2
+-------newpin  radio2-not
+-------newpin  spin-f
+-------newpin  spin-s
+pinchange False
+pinchange False
+-------newpin  toggle
+-------newpin  toggle-not
+-------newpin  combo-f
+-------newpin  combo-s
+-------newpin  scale-value
+-------newpin  status
+-------newpin  prepared-tool
+-------newpin  spin-value
+-------newpin  commands
+setup for halserver 127.0.0.1
+gladevcp ready
+bind: type: MT_HALRCOMP_BIND
+comp {
+  name: "gladevcp"
+}
+pin {
+  type: HAL_S32
+  name: "gladevcp.combo-s"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_FLOAT
+  name: "gladevcp.combo-f"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.toggle"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.toggle-not"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.check"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.led1"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.led3"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_FLOAT
+  name: "gladevcp.scale"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.led5"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_FLOAT
+  name: "gladevcp.spindle-rpm-hbar"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.led6"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_S32
+  name: "gladevcp.current-tool"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.status"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_S32
+  name: "gladevcp.combo-value"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.radio3-not"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.radio1"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.radio3"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.radio2"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_FLOAT
+  name: "gladevcp.spin-f"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.led2"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.radio1-not"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_S32
+  name: "gladevcp.spin-s"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_FLOAT
+  name: "gladevcp.scale-value"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.led4"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.commands"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_FLOAT
+  name: "gladevcp.spin-value"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.settings"
+  dir: HAL_IN
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.button"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.radio2-not"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_BIT
+  name: "gladevcp.check-not"
+  dir: HAL_OUT
+}
+pin {
+  type: HAL_S32
+  name: "gladevcp.prepared-tool"
+  dir: HAL_IN
+}
+
+pinchange False
+pinchange False
+pinchange False
+pinchange False
+shutdown here

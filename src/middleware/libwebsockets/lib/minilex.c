@@ -4,8 +4,6 @@
 
 const char *set[] = {
 	"GET ",
-    "POST ",
-    "OPTIONS ",
 	"Host:",
 	"Connection:",
 	"Sec-WebSocket-Key1:",
@@ -21,11 +19,6 @@ const char *set[] = {
 	"Sec-WebSocket-Origin:",
 
 	"Sec-WebSocket-Extensions:",
-
-    "If-None-Match:",
-    "Content-Type:",
-    "Content-Length:",
-    "Access-Control-Request-Headers:",
 
 	"Sec-WebSocket-Accept:",
 	"Sec-WebSocket-Nonce:",

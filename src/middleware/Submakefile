@@ -32,7 +32,7 @@ MWDIR=middleware
 PBGEN=$(MWDIR)/generated
 PROTODIR=$(MWDIR)/proto
 NANOPB := $(MWDIR)/nanopb
-NPBGENDIR :=  $(NANOPB)/generator
+NPBPROTODIR :=  $(NANOPB)/generator/proto
 
 # the directory where descriptor.proto lives:
 DESCDIR :=  $(shell pkg-config --variable=includedir protobuf)
@@ -42,9 +42,9 @@ PROTO_SPECS := $(wildcard $(PROTODIR)/*.proto)
 
 # generated files also depend on the following .proto specs:
 # not sure how to express those FIXME
-EXTRA_PROTO_SPECS := \
-	$(NPBGENDIR)/nanopb.proto \
-	$(DESCDIR)/descriptor.proto
+# EXTRA_PROTO_SPECS := \
+# 	$(NPBPROTODIR)/nanopb.proto \
+# 	$(DESCDIR)/descriptor.proto
 
 USERSRCS += $(PROTO_SPECS)
 
@@ -108,9 +108,13 @@ PROTO_NANOPB_C_SRCS := $(subst $(PROTODIR)/, \
 	$(PBGEN)/,  \
 	$(patsubst %.proto, %.npb.c, $(PROTO_SPECS)))
 
-# derived Python bindings
 
-PROTO_PY_TARGETS := ../lib/python/nanopb_pb2.py
+# generator support
+PROTO_PY_TARGETS := ../lib/python/proto/nanopb_pb2.py
+PROTO_PY_TARGETS += ../lib/python/proto/__init__.py
+PROTO_PY_TARGETS += ../lib/python/proto/plugin_pb2.py
+PROTO_PY_TARGETS += ../lib/python/proto/descriptor_pb2.py
+# derived Python bindings
 PROTO_PY_TARGETS += $(subst $(PROTODIR)/, \
 	../lib/python/, \
 	$(patsubst %.proto, %_pb2.py, $(PROTO_SPECS)))
@@ -167,7 +171,7 @@ $(PBGEN)/%.pb-c.c $(PBGEN)/%.pb-c.h: $(PROTODIR)/%.proto
 	$(Q)$(PROTOC_C) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	 --c_out=./$(PBGEN)/ $<
 
@@ -178,18 +182,18 @@ $(PBGEN)/google/protobuf/descriptor.pb-c.h: $(DESCDIR)/google/protobuf/descripto
 	@mkdir -p $(PBGEN)
 	$(Q)$(PROTOC_C) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	--c_out=./$(PBGEN)/ $<
 
 # generate nanopb.pb-c.c/.h from proto files
 $(PBGEN)/nanopb.pb-c.c \
-$(PBGEN)/nanopb.pb-c.h: $(NPBGENDIR)/nanopb.proto
+$(PBGEN)/nanopb.pb-c.h: $(NPBPROTODIR)/nanopb.proto
 	$(ECHO) "protoc-c create $@ from $<"
 	@mkdir -p $(PBGEN)
 	$(Q)$(PROTOC_C) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	--c_out=./$(PBGEN)/ $<
 
@@ -212,7 +216,7 @@ objects/$(MWDIR)/proto/%.d: $(PROTODIR)/%.proto
 	--plugin=protoc-gen-depends=../scripts/protoc-gen-depends \
 	--depends_out=$(PBDEP_OPTS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	 $<
 
@@ -223,18 +227,18 @@ $(PBGEN)/%.pb.cc $(PBGEN)/%.pb.h: $(PROTODIR)/%.proto
 	@mkdir -p $(PBGEN)
 	$(Q)$(PROTOC) $(PROTOCXX_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	--cpp_out=./$(PBGEN)/ $<
 
 # generate nanopb.cc/.h from proto files
 $(PBGEN)/nanopb.pb.cc \
-$(PBGEN)/nanopb.pb.h: $(NPBGENDIR)/nanopb.proto
+$(PBGEN)/nanopb.pb.h: $(NPBPROTODIR)/nanopb.proto
 	$(ECHO) "protoc create $@ from $<"
 	@mkdir -p $(PBGEN)
 	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	--cpp_out=./$(PBGEN)/ $<
 
@@ -243,21 +247,43 @@ $(PBGEN)/nanopb.pb.h: $(NPBGENDIR)/nanopb.proto
 	$(ECHO) "protoc create $@ from $<"
 	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
 	--python_out=../lib/python/ $<
 
 # generate Python module for nanopb.proto
 # this is for the stock protobuf Python bindings -
 # adapt here if using one of the accelerated methods
-#../lib/python/%_pb2.py: $(NPBGENDIR)/nanopb.proto
-../lib/python/nanopb_pb2.py: $(NPBGENDIR)/nanopb.proto
+#../lib/python/%_pb2.py: $(NPBPROTODIR)/nanopb.proto
+../lib/python/proto/nanopb_pb2.py: $(NPBPROTODIR)/nanopb.proto
 	$(ECHO) "protoc create $@ from $<"
+	@mkdir -p ../lib/python/proto
 	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
+	--proto_path=$(NPBPROTODIR)/ \
 	--proto_path=$(DESCDIR)/ \
-	--python_out=../lib/python/ $<
+	--python_out=../lib/python/proto $<
+
+../lib/python/proto/__init__.py:
+	@mkdir -p ../lib/python/proto
+	touch ../lib/python/proto/__init__.py
+
+../lib/python/proto/descriptor_pb2.py: $(DESCDIR)/google/protobuf/descriptor.proto
+	$(ECHO) "protoc create $@ from $<"
+	@mkdir -p ../lib/python/proto
+	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
+	--proto_path=$(DESCDIR)/google/protobuf/ \
+	--proto_path=$(DESCDIR) \
+	--python_out=../lib/python/proto  $<
+
+../lib/python/proto/plugin_pb2.py: $(DESCDIR)/google/protobuf/compiler/plugin.proto
+	$(ECHO) "protoc create $@ from $<"
+	@mkdir -p ../lib/python/proto
+	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
+	--proto_path=$(DESCDIR)/google/protobuf/compiler/ \
+	--proto_path=$(DESCDIR) \
+	--python_out=../lib/python/proto $<
+
 
 # Nanopb: generate *.npb.{c,h} from proto files
 # these depend on npb options
@@ -265,14 +291,27 @@ $(PBGEN)/%.npb.c $(PBGEN)/%.npb.h: $(PROTODIR)/%.proto \
 	$(NANOPB_OPTIONS) $(NANOPB_GENERATOR)
 	$(ECHO) "protoc create $@ from $<"
 	@mkdir -p $(PBGEN)
-	$(Q)$(PROTOC) $(PROTO_NANOPB_FLAGS) \
+	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
+	--plugin=protoc-gen-nanopb=$(NANOPB)/generator/protoc-gen-nanopb \
+	--nanopb_out=$(PBGEN) \
 	--proto_path=$(PROTODIR)/ \
-	--proto_path=$(NPBGENDIR)/ \
-	--proto_path=$(DESCDIR)/ \
-	-o$(PBGEN)/`basename $< .proto`.npb $<
-	$(Q)python $(NANOPB_GENERATOR) \
-	$(NANOPB_GENERATOR_FLAGS) \
-	$(PBGEN)/`basename $< .proto`.npb
+	--proto_path=$(NPBPROTODIR)/ \
+	$<
+
+	# $(Q)$(PROTOC) $(PROTO_NANOPB_FLAGS) \
+	# --proto_path=$(PROTODIR)/ \
+	# --proto_path=$(NPBPROTODIR)/ \
+	# --proto_path=$(DESCDIR)/ \
+	# -o$(PBGEN)/`basename $< .proto`.npb $<
+	# $(Q)python $(NANOPB_GENERATOR) \
+	# $(NANOPB_GENERATOR_FLAGS) \
+	# $(PBGEN)/`basename $< .proto`.npb
+
+	# $(PROTOC) --plugin=protoc-gen-nanopb=middleware/nanopb/generator/protoc-gen-nanopb \
+	# $(NANOPB_GENERATOR_FLAGS) \
+	# $(PBGEN)/`basename $< .proto`.npb
+
+
 
 # Nanopb C bindings library
 
@@ -353,7 +392,7 @@ USERSRCS +=  $(NANOPB_C_SRCS) \
 	$(PROTO_NANOPB_C_SRCS) \
 	$(PB2JSONLIB_SRCS)
 
-GENERATED += \
+GENERATED += $(PROTO_PY_TARGETS) \
 	$(MWDIR)/generated/google/protobuf/descriptor.pb-c.h \
 	$(MWDIR)/generated/google/protobuf/descriptor.pb-c.c \
 	$(MWDIR)/generated/nanopb.pb-c.h \
@@ -361,8 +400,8 @@ GENERATED += \
 	$(MWDIR)/generated/nanopb.pb-c.c \
 	$(MWDIR)/generated/nanopb.pb.cc \
 	$(PROTO_C_SRCS) $(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
-	$(PROTO_C_INCS) $(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS) \
-	$(PROTO_PY_TARGETS)
+	$(PROTO_C_INCS) $(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS)
+
 
 PYTARGETS += $(PROTO_PY_TARGETS)
 

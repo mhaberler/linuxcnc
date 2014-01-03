@@ -23,8 +23,9 @@
 #include "config.h"
 
 #include <google/protobuf/message_lite.h>
-#include <protobuf/generated/types.pb.h>
-#include <protobuf/generated/message.pb.h>
+
+#include <middleware/generated/types.pb.h>
+#include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
 
 #include "rcs.hh"

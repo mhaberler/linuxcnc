@@ -1,0 +1,527 @@
+
+halcmd: show pin
+Component Pins:
+Owner   Type  Dir         Value  Name	Epsilon		Flags
+ 32771  bit   OUT          TRUE  axis.0.active	0.000000	0
+ 32771  bit   OUT          TRUE  axis.0.amp-enable-out	0.000000	0
+ 32771  bit   IN          FALSE  axis.0.amp-fault-in	0.000000	0
+ 32771  float OUT            -0  axis.0.backlash-corr	0.000000	0
+ 32771  float OUT             0  axis.0.backlash-filt	0.000000	0
+ 32771  float OUT             0  axis.0.backlash-vel	0.000000	0
+ 32771  float OUT  2.569163e-08  axis.0.coarse-pos-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.error	0.000000	0
+ 32771  float OUT  3.487188e-17  axis.0.f-error	0.000000	0
+ 32771  float OUT         0.254  axis.0.f-error-lim	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.f-errored	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.faulted	0.000000	0
+ 32771  float OUT  2.569163e-08  axis.0.free-pos-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.free-tp-enable	0.000000	0
+ 32771  float OUT         30.48  axis.0.free-vel-lim	0.000000	0
+ 32771  s32   OUT             0  axis.0.home-state	0.000000	0
+ 32771  bit   IN           TRUE  axis.0.home-sw-in	0.000000	0 <== XZhomesw
+ 32771  bit   OUT          TRUE  axis.0.homed	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.homing	0.000000	0
+ 32771  bit   OUT          TRUE  axis.0.in-position	0.000000	0
+ 32771  bit   I/O         FALSE  axis.0.index-enable	0.000000	0
+ 32771  s32   IN              0  axis.0.jog-counts	0.000000	0
+ 32771  bit   IN          FALSE  axis.0.jog-enable	0.000000	0
+ 32771  float IN              0  axis.0.jog-scale	0.000000	0
+ 32771  bit   IN          FALSE  axis.0.jog-vel-mode	0.000000	0
+ 32771  float OUT  2.569163e-08  axis.0.joint-pos-cmd	0.000000	0
+ 32771  float OUT  2.569163e-08  axis.0.joint-pos-fb	0.000000	0
+ 32771  float OUT             0  axis.0.joint-vel-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.kb-jog-active	0.000000	0
+ 32771  float OUT       1.01346  axis.0.motor-offset	0.000000	0
+ 32771  float OUT       1.01346  axis.0.motor-pos-cmd	0.000000	0 ==> Xpos
+ 32771  float IN        1.01346  axis.0.motor-pos-fb	0.000000	0 <== Xpos
+ 32771  bit   OUT         FALSE  axis.0.neg-hard-limit	0.000000	0
+ 32771  bit   IN          FALSE  axis.0.neg-lim-sw-in	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.pos-hard-limit	0.000000	0
+ 32771  bit   IN          FALSE  axis.0.pos-lim-sw-in	0.000000	0
+ 32771  bit   OUT         FALSE  axis.0.wheel-jog-active	0.000000	0
+ 32771  bit   OUT          TRUE  axis.1.active	0.000000	0
+ 32771  bit   OUT          TRUE  axis.1.amp-enable-out	0.000000	0
+ 32771  bit   IN          FALSE  axis.1.amp-fault-in	0.000000	0
+ 32771  float OUT            -0  axis.1.backlash-corr	0.000000	0
+ 32771  float OUT             0  axis.1.backlash-filt	0.000000	0
+ 32771  float OUT             0  axis.1.backlash-vel	0.000000	0
+ 32771  float OUT  2.845021e-09  axis.1.coarse-pos-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.error	0.000000	0
+ 32771  float OUT  4.514607e-17  axis.1.f-error	0.000000	0
+ 32771  float OUT         0.254  axis.1.f-error-lim	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.f-errored	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.faulted	0.000000	0
+ 32771  float OUT  2.845021e-09  axis.1.free-pos-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.free-tp-enable	0.000000	0
+ 32771  float OUT         30.48  axis.1.free-vel-lim	0.000000	0
+ 32771  s32   OUT             0  axis.1.home-state	0.000000	0
+ 32771  bit   IN           TRUE  axis.1.home-sw-in	0.000000	0 <== Yhomesw
+ 32771  bit   OUT          TRUE  axis.1.homed	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.homing	0.000000	0
+ 32771  bit   OUT          TRUE  axis.1.in-position	0.000000	0
+ 32771  bit   I/O         FALSE  axis.1.index-enable	0.000000	0
+ 32771  s32   IN              0  axis.1.jog-counts	0.000000	0
+ 32771  bit   IN          FALSE  axis.1.jog-enable	0.000000	0
+ 32771  float IN              0  axis.1.jog-scale	0.000000	0
+ 32771  bit   IN          FALSE  axis.1.jog-vel-mode	0.000000	0
+ 32771  float OUT  2.845021e-09  axis.1.joint-pos-cmd	0.000000	0
+ 32771  float OUT  2.845021e-09  axis.1.joint-pos-fb	0.000000	0
+ 32771  float OUT             0  axis.1.joint-vel-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.kb-jog-active	0.000000	0
+ 32771  float OUT      0.526796  axis.1.motor-offset	0.000000	0
+ 32771  float OUT      0.526796  axis.1.motor-pos-cmd	0.000000	0 ==> Ypos
+ 32771  float IN       0.526796  axis.1.motor-pos-fb	0.000000	0 <== Ypos
+ 32771  bit   OUT         FALSE  axis.1.neg-hard-limit	0.000000	0
+ 32771  bit   IN          FALSE  axis.1.neg-lim-sw-in	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.pos-hard-limit	0.000000	0
+ 32771  bit   IN          FALSE  axis.1.pos-lim-sw-in	0.000000	0
+ 32771  bit   OUT         FALSE  axis.1.wheel-jog-active	0.000000	0
+ 32771  bit   OUT          TRUE  axis.2.active	0.000000	0
+ 32771  bit   OUT          TRUE  axis.2.amp-enable-out	0.000000	0
+ 32771  bit   IN          FALSE  axis.2.amp-fault-in	0.000000	0
+ 32771  float OUT            -0  axis.2.backlash-corr	0.000000	0
+ 32771  float OUT             0  axis.2.backlash-filt	0.000000	0
+ 32771  float OUT             0  axis.2.backlash-vel	0.000000	0
+ 32771  float OUT  2.919374e-08  axis.2.coarse-pos-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.error	0.000000	0
+ 32771  float OUT  -7.655516e-16  axis.2.f-error	0.000000	0
+ 32771  float OUT         0.254  axis.2.f-error-lim	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.f-errored	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.faulted	0.000000	0
+ 32771  float OUT  2.919374e-08  axis.2.free-pos-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.free-tp-enable	0.000000	0
+ 32771  float OUT         30.48  axis.2.free-vel-lim	0.000000	0
+ 32771  s32   OUT             0  axis.2.home-state	0.000000	0
+ 32771  bit   IN           TRUE  axis.2.home-sw-in	0.000000	0 <== XZhomesw
+ 32771  bit   OUT          TRUE  axis.2.homed	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.homing	0.000000	0
+ 32771  bit   OUT          TRUE  axis.2.in-position	0.000000	0
+ 32771  bit   I/O         FALSE  axis.2.index-enable	0.000000	0
+ 32771  s32   IN              0  axis.2.jog-counts	0.000000	0
+ 32771  bit   IN          FALSE  axis.2.jog-enable	0.000000	0
+ 32771  float IN              0  axis.2.jog-scale	0.000000	0
+ 32771  bit   IN          FALSE  axis.2.jog-vel-mode	0.000000	0
+ 32771  float OUT  2.919374e-08  axis.2.joint-pos-cmd	0.000000	0
+ 32771  float OUT  2.919374e-08  axis.2.joint-pos-fb	0.000000	0
+ 32771  float OUT             0  axis.2.joint-vel-cmd	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.kb-jog-active	0.000000	0
+ 32771  float OUT      -23.3807  axis.2.motor-offset	0.000000	0
+ 32771  float OUT      -23.3807  axis.2.motor-pos-cmd	0.000000	0 ==> Zpos
+ 32771  float IN       -23.3807  axis.2.motor-pos-fb	0.000000	0 <== Zpos
+ 32771  bit   OUT         FALSE  axis.2.neg-hard-limit	0.000000	0
+ 32771  bit   IN          FALSE  axis.2.neg-lim-sw-in	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.pos-hard-limit	0.000000	0
+ 32771  bit   IN          FALSE  axis.2.pos-lim-sw-in	0.000000	0
+ 32771  bit   OUT         FALSE  axis.2.wheel-jog-active	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.a	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.b	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.c	0.000000	0
+ 13415  float OUT             0  axisui.jog.increment	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.u	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.v	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.w	0.000000	0
+ 13415  bit   OUT          TRUE  axisui.jog.x	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.y	0.000000	0
+ 13415  bit   OUT         FALSE  axisui.jog.z	0.000000	0
+ 13415  bit   IN          FALSE  axisui.notifications-clear	0.000000	0
+ 13415  bit   IN          FALSE  axisui.notifications-clear-error	0.000000	0
+ 13415  bit   IN          FALSE  axisui.notifications-clear-info	0.000000	0
+ 13415  bit   IN          FALSE  axisui.set-manual-mode	0.000000	0
+ 32779  bit   OUT         FALSE  comp_x.equal	0.000000	0
+ 32779  float IN              1  comp_x.in0	0.000000	0 <== Xhomeswpos
+ 32779  float IN        1.01346  comp_x.in1	0.000000	0 <== Xpos
+ 32779  bit   OUT          TRUE  comp_x.out	0.000000	0 ==> Xhomesw
+ 32779  bit   OUT         FALSE  comp_y.equal	0.000000	0
+ 32779  float IN            0.5  comp_y.in0	0.000000	0 <== Yhomeswpos
+ 32779  float IN       0.526796  comp_y.in1	0.000000	0 <== Ypos
+ 32779  bit   OUT          TRUE  comp_y.out	0.000000	0 ==> Yhomesw
+ 32779  bit   OUT         FALSE  comp_z.equal	0.000000	0
+ 32779  float IN              2  comp_z.in0	0.000000	0 <== Zhomeswpos
+ 32779  float IN       -23.3807  comp_z.in1	0.000000	0 <== Zpos
+ 32779  bit   OUT         FALSE  comp_z.out	0.000000	0 ==> Zhomesw
+ 32772  float IN        1.01346  ddt_x.in	0.000000	0 <== Xpos
+ 32772  float OUT             0  ddt_x.out	0.000000	0 ==> Xvel
+ 32772  float IN              0  ddt_xv.in	0.000000	0 <== Xvel
+ 32772  float OUT             0  ddt_xv.out	0.000000	0 ==> Xacc
+ 32772  float IN       0.526796  ddt_y.in	0.000000	0 <== Ypos
+ 32772  float OUT             0  ddt_y.out	0.000000	0 ==> Yvel
+ 32772  float IN              0  ddt_yv.in	0.000000	0 <== Yvel
+ 32772  float OUT             0  ddt_yv.out	0.000000	0 ==> Yacc
+ 32772  float IN       -23.3807  ddt_z.in	0.000000	0 <== Zpos
+ 32772  float OUT             0  ddt_z.out	0.000000	0 ==> Zvel
+ 32772  float IN              0  ddt_zv.in	0.000000	0 <== Zvel
+ 32772  float OUT             0  ddt_zv.out	0.000000	0 ==> Zacc
+ 13398  bit   IN          FALSE  hal_manualtoolchange.change	0.000000	0 <== tool-change
+ 13398  bit   OUT         FALSE  hal_manualtoolchange.changed	0.000000	0 ==> tool-changed
+ 13398  s32   IN              0  hal_manualtoolchange.number	0.000000	0 <== tool-prep-number
+ 13377  bit   IN          FALSE  halui.abort	0.000000	0
+ 13377  float OUT  2.569163e-08  halui.axis.0.pos-commanded	0.000000	0
+ 13377  float OUT  2.569163e-08  halui.axis.0.pos-feedback	0.000000	0
+ 13377  float OUT  2.569163e-08  halui.axis.0.pos-relative	0.000000	0
+ 13377  float OUT  2.845021e-09  halui.axis.1.pos-commanded	0.000000	0
+ 13377  float OUT  2.845021e-09  halui.axis.1.pos-feedback	0.000000	0
+ 13377  float OUT  2.845021e-09  halui.axis.1.pos-relative	0.000000	0
+ 13377  float OUT  2.919374e-08  halui.axis.2.pos-commanded	0.000000	0
+ 13377  float OUT  2.919374e-08  halui.axis.2.pos-feedback	0.000000	0
+ 13377  float OUT  2.919374e-08  halui.axis.2.pos-relative	0.000000	0
+ 13377  float OUT             0  halui.axis.3.pos-commanded	0.000000	0
+ 13377  float OUT             0  halui.axis.3.pos-feedback	0.000000	0
+ 13377  float OUT             0  halui.axis.3.pos-relative	0.000000	0
+ 13377  float OUT             0  halui.axis.4.pos-commanded	0.000000	0
+ 13377  float OUT             0  halui.axis.4.pos-feedback	0.000000	0
+ 13377  float OUT             0  halui.axis.4.pos-relative	0.000000	0
+ 13377  float OUT             0  halui.axis.5.pos-commanded	0.000000	0
+ 13377  float OUT             0  halui.axis.5.pos-feedback	0.000000	0
+ 13377  float OUT             0  halui.axis.5.pos-relative	0.000000	0
+ 13377  float OUT             0  halui.axis.6.pos-commanded	0.000000	0
+ 13377  float OUT             0  halui.axis.6.pos-feedback	0.000000	0
+ 13377  float OUT             0  halui.axis.6.pos-relative	0.000000	0
+ 13377  float OUT             0  halui.axis.7.pos-commanded	0.000000	0
+ 13377  float OUT             0  halui.axis.7.pos-feedback	0.000000	0
+ 13377  float OUT             0  halui.axis.7.pos-relative	0.000000	0
+ 13377  float OUT             0  halui.axis.8.pos-commanded	0.000000	0
+ 13377  float OUT             0  halui.axis.8.pos-feedback	0.000000	0
+ 13377  float OUT             0  halui.axis.8.pos-relative	0.000000	0
+ 13377  bit   IN          FALSE  halui.estop.activate	0.000000	0
+ 13377  bit   OUT         FALSE  halui.estop.is-activated	0.000000	0
+ 13377  bit   IN          FALSE  halui.estop.reset	0.000000	0
+ 13377  bit   IN           TRUE  halui.feed-override.count-enable	0.000000	0
+ 13377  s32   IN              0  halui.feed-override.counts	0.000000	0
+ 13377  bit   IN          FALSE  halui.feed-override.decrease	0.000000	0
+ 13377  bit   IN          FALSE  halui.feed-override.direct-value	0.000000	0
+ 13377  bit   IN          FALSE  halui.feed-override.increase	0.000000	0
+ 13377  float IN            0.1  halui.feed-override.scale	0.000000	0
+ 13377  float OUT             1  halui.feed-override.value	0.000000	0
+ 13377  bit   OUT         FALSE  halui.flood.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.flood.off	0.000000	0
+ 13377  bit   IN          FALSE  halui.flood.on	0.000000	0
+ 13377  bit   IN          FALSE  halui.home-all	0.000000	0
+ 13377  float IN            0.2  halui.jog-deadband	0.000000	0
+ 13377  float IN              0  halui.jog-speed	0.000000	0
+ 13377  float IN              0  halui.jog.0.analog	0.000000	0
+ 13377  float IN              0  halui.jog.0.increment	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.0.increment-minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.0.increment-plus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.0.minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.0.plus	0.000000	0
+ 13377  float IN              0  halui.jog.1.analog	0.000000	0
+ 13377  float IN              0  halui.jog.1.increment	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.1.increment-minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.1.increment-plus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.1.minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.1.plus	0.000000	0
+ 13377  float IN              0  halui.jog.2.analog	0.000000	0
+ 13377  float IN              0  halui.jog.2.increment	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.2.increment-minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.2.increment-plus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.2.minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.2.plus	0.000000	0
+ 13377  float IN              0  halui.jog.selected.increment	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.selected.increment-minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.selected.increment-plus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.selected.minus	0.000000	0
+ 13377  bit   IN          FALSE  halui.jog.selected.plus	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.0.has-fault	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.0.home	0.000000	0
+ 13377  bit   OUT          TRUE  halui.joint.0.is-homed	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.0.is-selected	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.0.on-hard-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.0.on-hard-min-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.0.on-soft-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.0.on-soft-min-limit	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.0.select	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.0.unhome	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.1.has-fault	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.1.home	0.000000	0
+ 13377  bit   OUT          TRUE  halui.joint.1.is-homed	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.1.is-selected	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.1.on-hard-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.1.on-hard-min-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.1.on-soft-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.1.on-soft-min-limit	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.1.select	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.1.unhome	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.2.has-fault	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.2.home	0.000000	0
+ 13377  bit   OUT          TRUE  halui.joint.2.is-homed	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.2.is-selected	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.2.on-hard-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.2.on-hard-min-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.2.on-soft-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.2.on-soft-min-limit	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.2.select	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.2.unhome	0.000000	0
+ 13377  u32   OUT    0x00000000  halui.joint.selected	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.selected.has-fault	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.selected.home	0.000000	0
+ 13377  bit   OUT          TRUE  halui.joint.selected.is_homed	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.selected.on-hard-max-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.selected.on-hard-min-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.selected.on-soft-limit	0.000000	0
+ 13377  bit   OUT         FALSE  halui.joint.selected.on-soft-min-limit	0.000000	0
+ 13377  bit   IN          FALSE  halui.joint.selected.unhome	0.000000	0
+ 13377  bit   OUT          TRUE  halui.lube.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.lube.off	0.000000	0
+ 13377  bit   IN          FALSE  halui.lube.on	0.000000	0
+ 13377  bit   OUT          TRUE  halui.machine.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.machine.off	0.000000	0
+ 13377  bit   IN          FALSE  halui.machine.on	0.000000	0
+ 13377  bit   IN           TRUE  halui.max-velocity.count-enable	0.000000	0
+ 13377  s32   IN              0  halui.max-velocity.counts	0.000000	0
+ 13377  bit   IN          FALSE  halui.max-velocity.decrease	0.000000	0
+ 13377  bit   IN          FALSE  halui.max-velocity.direct-value	0.000000	0
+ 13377  bit   IN          FALSE  halui.max-velocity.increase	0.000000	0
+ 13377  float IN              0  halui.max-velocity.scale	0.000000	0
+ 13377  float OUT      53.33333  halui.max-velocity.value	0.000000	0
+ 13377  bit   OUT         FALSE  halui.mist.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.mist.off	0.000000	0
+ 13377  bit   IN          FALSE  halui.mist.on	0.000000	0
+ 13377  bit   IN          FALSE  halui.mode.auto	0.000000	0
+ 13377  bit   OUT         FALSE  halui.mode.is-auto	0.000000	0
+ 13377  bit   OUT          TRUE  halui.mode.is-joint	0.000000	0
+ 13377  bit   OUT          TRUE  halui.mode.is-manual	0.000000	0
+ 13377  bit   OUT         FALSE  halui.mode.is-mdi	0.000000	0
+ 13377  bit   OUT         FALSE  halui.mode.is-teleop	0.000000	0
+ 13377  bit   IN          FALSE  halui.mode.joint	0.000000	0
+ 13377  bit   IN          FALSE  halui.mode.manual	0.000000	0
+ 13377  bit   IN          FALSE  halui.mode.mdi	0.000000	0
+ 13377  bit   IN          FALSE  halui.mode.teleop	0.000000	0
+ 13377  bit   OUT         FALSE  halui.program.block-delete.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.block-delete.off	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.block-delete.on	0.000000	0
+ 13377  bit   OUT          TRUE  halui.program.is-idle	0.000000	0
+ 13377  bit   OUT         FALSE  halui.program.is-paused	0.000000	0
+ 13377  bit   OUT         FALSE  halui.program.is-running	0.000000	0
+ 13377  bit   OUT          TRUE  halui.program.optional-stop.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.optional-stop.off	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.optional-stop.on	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.pause	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.resume	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.run	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.step	0.000000	0
+ 13377  bit   IN          FALSE  halui.program.stop	0.000000	0
+ 13377  bit   IN           TRUE  halui.spindle-override.count-enable	0.000000	0
+ 13377  s32   IN              0  halui.spindle-override.counts	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle-override.decrease	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle-override.direct-value	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle-override.increase	0.000000	0
+ 13377  float IN            0.1  halui.spindle-override.scale	0.000000	0
+ 13377  float OUT             1  halui.spindle-override.value	0.000000	0
+ 13377  bit   OUT          TRUE  halui.spindle.brake-is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.brake-off	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.brake-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.decrease	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.forward	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.increase	0.000000	0
+ 13377  bit   OUT         FALSE  halui.spindle.is-on	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.reverse	0.000000	0
+ 13377  bit   OUT         FALSE  halui.spindle.runs-backward	0.000000	0
+ 13377  bit   OUT         FALSE  halui.spindle.runs-forward	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.start	0.000000	0
+ 13377  bit   IN          FALSE  halui.spindle.stop	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.a	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.b	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.c	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.u	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.v	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.w	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.x	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.y	0.000000	0
+ 13377  float OUT             0  halui.tool.length_offset.z	0.000000	0
+ 13377  u32   OUT    0x00000000  halui.tool.number	0.000000	0
+ 13375  bit   OUT         FALSE  iocontrol.0.coolant-flood	0.000000	0
+ 13375  bit   OUT         FALSE  iocontrol.0.coolant-mist	0.000000	0
+ 13375  bit   IN           TRUE  iocontrol.0.emc-enable-in	0.000000	0 <== estop-loop
+ 13375  bit   OUT          TRUE  iocontrol.0.lube	0.000000	0
+ 13375  bit   IN          FALSE  iocontrol.0.lube_level	0.000000	0
+ 13375  bit   OUT         FALSE  iocontrol.0.tool-change	0.000000	0 ==> tool-change
+ 13375  bit   IN          FALSE  iocontrol.0.tool-changed	0.000000	0 <== tool-changed
+ 13375  s32   OUT             0  iocontrol.0.tool-number	0.000000	0
+ 13375  s32   OUT             0  iocontrol.0.tool-prep-number	0.000000	0 ==> tool-prep-number
+ 13375  s32   OUT             0  iocontrol.0.tool-prep-pocket	0.000000	0
+ 13375  bit   OUT         FALSE  iocontrol.0.tool-prepare	0.000000	0 ==> tool-prep-loop
+ 13375  bit   IN          FALSE  iocontrol.0.tool-prepared	0.000000	0 <== tool-prep-loop
+ 13375  bit   OUT          TRUE  iocontrol.0.user-enable-out	0.000000	0 ==> estop-loop
+ 13375  bit   OUT         FALSE  iocontrol.0.user-request-enable	0.000000	0
+ 32775  float IN              0  limit_speed.in	0.000000	0 <== spindle-speed-cmd
+ 32775  bit   IN          FALSE  limit_speed.load	0.000000	0
+ 32775  float OUT             0  limit_speed.out	0.000000	0 ==> spindle-speed-limited
+ 32771  float IN              1  motion.adaptive-feed	0.000000	0
+ 32771  float IN              0  motion.analog-in-00	0.000000	0
+ 32771  float IN              0  motion.analog-in-01	0.000000	0
+ 32771  float IN              0  motion.analog-in-02	0.000000	0
+ 32771  float IN              0  motion.analog-in-03	0.000000	0
+ 32771  float OUT             0  motion.analog-out-00	0.000000	0
+ 32771  float OUT             0  motion.analog-out-01	0.000000	0
+ 32771  float OUT             0  motion.analog-out-02	0.000000	0
+ 32771  float OUT             0  motion.analog-out-03	0.000000	0
+ 32771  bit   OUT         FALSE  motion.coord-error	0.000000	0
+ 32771  bit   OUT         FALSE  motion.coord-mode	0.000000	0
+ 32771  float OUT             0  motion.current-vel	0.000000	0
+ 32771  bit   IN          FALSE  motion.digital-in-00	0.000000	0
+ 32771  bit   IN          FALSE  motion.digital-in-01	0.000000	0
+ 32771  bit   IN          FALSE  motion.digital-in-02	0.000000	0
+ 32771  bit   IN          FALSE  motion.digital-in-03	0.000000	0
+ 32771  bit   OUT         FALSE  motion.digital-out-00	0.000000	0
+ 32771  bit   OUT         FALSE  motion.digital-out-01	0.000000	0
+ 32771  bit   OUT         FALSE  motion.digital-out-02	0.000000	0
+ 32771  bit   OUT         FALSE  motion.digital-out-03	0.000000	0
+ 32771  float OUT             0  motion.distance-to-go	0.000000	0
+ 32771  bit   IN           TRUE  motion.enable	0.000000	0
+ 32771  bit   IN          FALSE  motion.feed-hold	0.000000	0
+ 32771  bit   IN          FALSE  motion.feed-inhibit	0.000000	0
+ 32771  bit   OUT          TRUE  motion.in-position	0.000000	0
+ 32771  bit   OUT          TRUE  motion.motion-enabled	0.000000	0
+ 32771  bit   OUT         FALSE  motion.on-soft-limit	0.000000	0
+ 32771  bit   IN          FALSE  motion.probe-input	0.000000	0
+ 32771  s32   OUT             0  motion.program-line	0.000000	0
+ 32771  float OUT             0  motion.requested-vel	0.000000	0
+ 32771  bit   IN           TRUE  motion.spindle-at-speed	0.000000	0 <== spindle-at-speed
+ 32771  bit   OUT          TRUE  motion.spindle-brake	0.000000	0
+ 32771  bit   OUT         FALSE  motion.spindle-forward	0.000000	0
+ 32771  bit   I/O         FALSE  motion.spindle-index-enable	0.000000	0 <=> spindle-index-enable
+ 32771  bit   IN          FALSE  motion.spindle-inhibit	0.000000	0
+ 32771  bit   IN          FALSE  motion.spindle-is-oriented	0.000000	0
+ 32771  bit   OUT         FALSE  motion.spindle-locked	0.000000	0
+ 32771  bit   OUT         FALSE  motion.spindle-on	0.000000	0
+ 32771  bit   OUT         FALSE  motion.spindle-orient	0.000000	0
+ 32771  float OUT             0  motion.spindle-orient-angle	0.000000	0
+ 32771  s32   IN              0  motion.spindle-orient-fault	0.000000	0
+ 32771  s32   OUT             0  motion.spindle-orient-mode	0.000000	0
+ 32771  bit   OUT         FALSE  motion.spindle-reverse	0.000000	0
+ 32771  float IN              0  motion.spindle-revs	0.000000	0 <== spindle-pos
+ 32771  float OUT             0  motion.spindle-speed-cmd-rps	0.000000	0
+ 32771  float IN              0  motion.spindle-speed-in	0.000000	0 <== spindle-rpm-filtered
+ 32771  float OUT             0  motion.spindle-speed-out	0.000000	0 ==> spindle-speed-cmd
+ 32771  float OUT             0  motion.spindle-speed-out-abs	0.000000	0
+ 32771  float OUT             0  motion.spindle-speed-out-rps	0.000000	0
+ 32771  float OUT             0  motion.spindle-speed-out-rps-abs	0.000000	0
+ 32771  bit   OUT         FALSE  motion.teleop-mode	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.a	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.b	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.c	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.u	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.v	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.w	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.x	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.y	0.000000	0
+ 32771  float OUT             0  motion.tooloffset.z	0.000000	0
+ 32777  float IN              0  near_speed.in1	0.000000	0 <== spindle-speed-cmd
+ 32777  float IN              0  near_speed.in2	0.000000	0 <== spindle-rpm-filtered
+ 32777  bit   OUT          TRUE  near_speed.out	0.000000	0 ==> spindle-at-speed
+ 32778  bit   IN           TRUE  or2_0.in0	0.000000	0 <== Xhomesw
+ 32778  bit   IN          FALSE  or2_0.in1	0.000000	0 <== Zhomesw
+ 32778  bit   OUT          TRUE  or2_0.out	0.000000	0 ==> XZhomesw
+ 32774  bit   I/O         FALSE  sim_spindle.index-enable	0.000000	0 <=> spindle-index-enable
+ 32774  float OUT             0  sim_spindle.position-fb	0.000000	0 ==> spindle-pos
+ 32774  float IN              0  sim_spindle.velocity-cmd	0.000000	0 <== spindle-speed-limited
+ 32776  float IN              0  spindle_mass.in	0.000000	0 <== spindle-speed-limited
+ 32776  bit   IN          FALSE  spindle_mass.load	0.000000	0
+ 32776  float OUT             0  spindle_mass.out	0.000000	0 ==> spindle-rpm-filtered
+ 32773  float IN              0  vel_xy.in0	0.000000	0 <== Xvel
+ 32773  float IN              0  vel_xy.in1	0.000000	0 <== Yvel
+ 32773  float IN              0  vel_xy.in2	0.000000	0
+ 32773  float OUT             0  vel_xy.out	0.000000	0 ==> XYvel
+ 32773  float IN              0  vel_xyz.in0	0.000000	0 <== Zvel
+ 32773  float IN              0  vel_xyz.in1	0.000000	0 <== XYvel
+ 32773  float IN              0  vel_xyz.in2	0.000000	0
+ 32773  float OUT             0  vel_xyz.out	0.000000	0 ==> XYZvel
+
+halcmd:
+halcmd: show sig
+Signals:
+Type          Value  Name     (linked to)
+float             0  XYZvel
+                         <== vel_xyz.out
+float             0  XYvel
+                         <== vel_xy.out
+                         ==> vel_xyz.in1
+bit            TRUE  XZhomesw
+                         ==> axis.0.home-sw-in
+                         ==> axis.2.home-sw-in
+                         <== or2_0.out
+float             0  Xacc
+                         <== ddt_xv.out
+bit            TRUE  Xhomesw
+                         <== comp_x.out
+                         ==> or2_0.in0
+float             1  Xhomeswpos
+                         ==> comp_x.in0
+float       1.01346  Xpos
+                         <== axis.0.motor-pos-cmd
+                         ==> axis.0.motor-pos-fb
+                         ==> comp_x.in1
+                         ==> ddt_x.in
+float             0  Xvel
+                         <== ddt_x.out
+                         ==> ddt_xv.in
+                         ==> vel_xy.in0
+float             0  Yacc
+                         <== ddt_yv.out
+bit            TRUE  Yhomesw
+                         ==> axis.1.home-sw-in
+                         <== comp_y.out
+float           0.5  Yhomeswpos
+                         ==> comp_y.in0
+float      0.526796  Ypos
+                         <== axis.1.motor-pos-cmd
+                         ==> axis.1.motor-pos-fb
+                         ==> comp_y.in1
+                         ==> ddt_y.in
+float             0  Yvel
+                         <== ddt_y.out
+                         ==> ddt_yv.in
+                         ==> vel_xy.in1
+float             0  Zacc
+                         <== ddt_zv.out
+bit           FALSE  Zhomesw
+                         <== comp_z.out
+                         ==> or2_0.in1
+float             2  Zhomeswpos
+                         ==> comp_z.in0
+float      -23.3807  Zpos
+                         <== axis.2.motor-pos-cmd
+                         ==> axis.2.motor-pos-fb
+                         ==> comp_z.in1
+                         ==> ddt_z.in
+float             0  Zvel
+                         <== ddt_z.out
+                         ==> ddt_zv.in
+                         ==> vel_xyz.in0
+bit            TRUE  estop-loop
+                         ==> iocontrol.0.emc-enable-in
+                         <== iocontrol.0.user-enable-out
+bit            TRUE  spindle-at-speed
+                         ==> motion.spindle-at-speed
+                         <== near_speed.out
+bit           FALSE  spindle-index-enable
+                         <=> motion.spindle-index-enable
+                         <=> sim_spindle.index-enable
+float             0  spindle-pos
+                         ==> motion.spindle-revs
+                         <== sim_spindle.position-fb
+float             0  spindle-rpm-filtered
+                         ==> motion.spindle-speed-in
+                         ==> near_speed.in2
+                         <== spindle_mass.out
+float             0  spindle-speed-cmd
+                         ==> limit_speed.in
+                         <== motion.spindle-speed-out
+                         ==> near_speed.in1
+float             0  spindle-speed-limited
+                         <== limit_speed.out
+                         ==> sim_spindle.velocity-cmd
+                         ==> spindle_mass.in
+bit           FALSE  tool-change
+                         ==> hal_manualtoolchange.change
+                         <== iocontrol.0.tool-change
+bit           FALSE  tool-change-loop
+bit           FALSE  tool-changed
+                         <== hal_manualtoolchange.changed
+                         ==> iocontrol.0.tool-changed
+bit           FALSE  tool-prep-loop
+                         <== iocontrol.0.tool-prepare
+                         ==> iocontrol.0.tool-prepared
+s32               0  tool-prep-number
+                         ==> hal_manualtoolchange.number
+                         <== iocontrol.0.tool-prep-number

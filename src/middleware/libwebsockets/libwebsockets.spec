@@ -1,5 +1,5 @@
 Name: libwebsockets
-Version: 1.4.2
+Version: 1.3
 Release: 47.gmaster_b89f21c%{?dist}
 Summary: Websocket Server Library
 
@@ -51,7 +51,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /usr/bin/libwebsockets-test-echo
 %attr(755,root,root) /usr/bin/libwebsockets-test-fraggle
 %attr(755,root,root)
-/%{_libdir}/libwebsockets.so.5.1.0
+/%{_libdir}/libwebsockets.so.4.0.0
 /%{_libdir}/libwebsockets.so
 %attr(755,root,root) /usr/share/libwebsockets-test-server
 %doc

@@ -5,12 +5,11 @@ project(libwebsockets)
 set(PACKAGE "libwebsockets")
 set(CPACK_PACKAGE_NAME "${PACKAGE}")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
-set(CPACK_PACKAGE_VERSION_MINOR "4")
-set(CPACK_PACKAGE_VERSION_PATCH "2")
-set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-set(CPACK_PACKAGE_VENDOR "andrew.canaday@nytimes.com")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PACKAGE} ${PACKAGE_VERSION} NYTD libev EXPERIMENTAL HACK version.")
-set(SOVERSION "5.1.0")
+set(CPACK_PACKAGE_VERSION_MINOR "3")
+set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}")
+set(CPACK_PACKAGE_VENDOR "andy@warmcat.com")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PACKAGE} ${PACKAGE_VERSION}")
+set(SOVERSION "4.0.0")
 set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}")
 set(VERSION "${CPACK_PACKAGE_VERSION}")
@@ -51,8 +50,8 @@ option(WITHOUT_DEBUG "Don't compile debug related code" OFF)
 option(WITHOUT_EXTENSIONS "Don't compile with extensions" OFF)
 option(WITH_LATENCY "Build latency measuring code into the library" OFF)
 option(WITHOUT_DAEMONIZE "Don't build the daemonization api" OFF)
-option(WITH_LIBEV "Compile with support for libev" ON)
-option(WITHOUT_EXTERNAL_POLL "Don't add external poll callbacks" ON)
+option(WITH_LIBEV "Compile with support for libev" OFF)
+option(WITHOUT_EXTERNAL_POLL "Don't add external poll callbacks" OFF)
 
 if (WITHOUT_CLIENT AND WITHOUT_SERVER)
 	message(FATAL_ERROR "Makes no sense to compile without both client or server.")
@@ -321,7 +320,7 @@ endif(UNIX)
 
 
 if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-	set( CMAKE_C_FLAGS "-Wall -Werror -O4 -fvisibility=hidden " )
+	set( CMAKE_C_FLAGS "-Wall -Werror -g -O0 -fvisibility=hidden " )
 endif ()
 
 source_group("Headers Private"  FILES ${HDR_PRIVATE})
@@ -466,12 +465,15 @@ endif(WITH_SSL)
 #
 if (WITH_LIBEV)
 	message("Compiling with libev support")
-	pkg_check_modules(LIBEV REQUIRED libev)
-	message("libev CFLAGS: ${LIBEV_CFLAGS}")
-	message("libev libraries: ${LIBEV_LIBRARIES}")
-	set(CMAKE_C_FLAGS "-ggdb ${CMAKE_C_FLAGS} ${LIBEV_CFLAGS}")
-	include_directories(${LIBEV_INCLUDE_PATH})
-	list(APPEND LIB_LIST ${LIBEV_LIBRARIES})
+#	pkg_check_modules(LIBEV REQUIRED libev)
+#	message("libev CFLAGS: -DEV_COMPAT3=0${LIBEV_CFLAGS}")
+#	message("libev libraries: ${LIBEV_LIBRARIES}")
+#	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${LIBEV_CFLAGS}")
+#	include_directories(${LIBEV_INCLUDE_PATH})
+#	list(APPEND LIB_LIST ${LIBEV_LIBRARIES})
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I/home/mah/src/libev")
+	list(APPEND LIB_LIST /home/mah/src/libev/ev.o -lczmq -lzmq -g)
+	message("libev CFLAGS: -DEV_COMPAT3=0")
 endif(WITH_LIBEV)
 
 
@@ -558,7 +560,16 @@ if (NOT WITHOUT_TESTAPPS)
 			create_test_app(test-server
 				"test-server/test-server.c"
 				""
+
 				"${WIN32_HELPERS_PATH}/netdb.h;${WIN32_HELPERS_PATH}/strings.h;${WIN32_HELPERS_PATH}/unistd.h;${WIN32_HELPERS_PATH}/websock-w32.h")
+		endif()
+
+		if (NOT WITHOUT_TEST_ZMQ)
+			create_test_app(test-zmq
+				"test-server/test-zmq.c"
+				""
+
+"${WIN32_HELPERS_PATH}/netdb.h;${WIN32_HELPERS_PATH}/strings.h;${WIN32_HELPERS_PATH}/unistd.h;${WIN32_HELPERS_PATH}/websock-w32.h")
 		endif()
 
 		#
@@ -650,6 +661,13 @@ if (NOT WITHOUT_TESTAPPS)
 		if (NOT WITHOUT_TEST_CLIENT)
 			create_test_app(test-client
 				"test-server/test-client.c"
+				""
+				"")
+		endif()
+
+		if (NOT WITHOUT_TEST_ZCLIENT)
+			create_test_app(test-zclient
+				"test-server/test-zclient.c"
 				""
 				"")
 		endif()
@@ -779,10 +797,10 @@ set(CPACK_SOURCE_IGNORE_FILES $(CPACK_SOURCE_IGNORE_FILES) ".git" "build" "tgz" 
 # Most people are more used to "make dist" compared to "make package_source"
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source)
 
-INCLUDE(UseRPMTools)
-IF(RPMTools_FOUND)
-	RPMTools_ADD_RPM_TARGETS(libwebsockets libwebsockets.spec)
-ENDIF(RPMTools_FOUND)
+# INCLUDE(UseRPMTools)
+# IF(RPMTools_FOUND)
+# 	RPMTools_ADD_RPM_TARGETS(libwebsockets libwebsockets.spec)
+# ENDIF(RPMTools_FOUND)
 
 # This must always be last!
 include(CPack)

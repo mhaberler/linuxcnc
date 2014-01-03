@@ -17,9 +17,9 @@
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/message_lite.h>
 
-#include <protobuf/generated/types.pb.h>
-#include <protobuf/generated/task.pb.h>
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/types.pb.h>
+#include <middleware/generated/task.pb.h>
+#include <middleware/generated/message.pb.h>
 
 using namespace google::protobuf;
 
