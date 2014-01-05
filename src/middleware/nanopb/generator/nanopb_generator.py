@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 '''Generate header file for nanopb from a ProtoBuf FileDescriptorSet.'''
-nanopb_version = "nanopb-0.2.5"
+nanopb_version = "nanopb-0.2.6-dev"
 
 import sys
 
@@ -25,8 +25,11 @@ except:
     raise
 
 try:
-    import proto.nanopb_pb2 as nanopb_pb2
-    import proto.descriptor_pb2 as descriptor
+    #import proto.nanopb_pb2 as nanopb_pb2
+    #import proto.descriptor_pb2 as descriptor
+    import nanopb_pb2 as nanopb_pb2
+    import google.protobuf.descriptor_pb2 as descriptor
+    #import proto.google.protobuf.descriptor_pb2 as descriptor
 except:
     sys.stderr.write('''
          ********************************************************************
@@ -169,6 +172,7 @@ class Field:
         self.max_count = None
         self.array_decl = ""
         self.enc_size = None
+        self.ctype = None
 
         # Parse field options
         if field_options.HasField("max_size"):
@@ -902,7 +906,6 @@ def get_nanopb_suboptions(subdesc, options, name):
         ext_type = nanopb_pb2.nanopb_enumopt
     else:
         raise Exception("Unknown options type")
-#        raise Exception("Unknown options type" + str(subdesc)+"xxx")
 
     if subdesc.options.HasExtension(ext_type):
         ext = subdesc.options.Extensions[ext_type]
@@ -1039,7 +1042,8 @@ def main_plugin():
         msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
         msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
-    import proto.plugin_pb2 as plugin_pb2
+    #import proto.plugin_pb2 as plugin_pb2
+    import google.protobuf.compiler.plugin_pb2 as plugin_pb2
     data = sys.stdin.read()
     request = plugin_pb2.CodeGeneratorRequest.FromString(data)
 
@@ -1050,9 +1054,7 @@ def main_plugin():
     # We can't go printing stuff to stdout
     Globals.verbose_options = False
     options.verbose = False
-#    options.verbose = True
     options.quiet = True
-#    options.quiet = False
 
     response = plugin_pb2.CodeGeneratorResponse()
 
