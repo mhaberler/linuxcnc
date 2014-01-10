@@ -58,8 +58,6 @@ using namespace std;
 #include "ring.h"
 
 #include "czmq.h"
-// #define INPROC_SOCKET "inproc://logsub"
-// #define IPC_SOCKET "ipc://tmp/logsub"
 
 #include <middleware/generated/types.pb.h>
 #include <middleware/generated/log.pb.h>
@@ -68,7 +66,6 @@ using namespace google::protobuf;
 
 #include <middleware/json2pb/json2pb.h>
 #include <jansson.h> // just for library version tag
-#include <uriparser/Uri.h>
 
 /* Enable libev io loop */
 #define LWS_USE_LIBEV
@@ -90,14 +87,13 @@ typedef struct {
     int partial_completed;
     int partial_rescheduled;
     int blocked;
-
 } wslog_sess_t;
 
 typedef struct {
-    const char *uri;
     const char *www_dir;
     int debug_level;
     zctx_t *z_context;
+    const char *uri;
     struct ev_loop* loop;
     bool publish_json;
 } wsconfig_t;
@@ -105,11 +101,6 @@ typedef struct {
 static void  logpub_readable_cb (struct ev_loop *loop, struct ev_io *w, int revents);
 
 static wsconfig_t ws_config;
-
-static int callback_zmqproxy(struct libwebsocket_context *context,
-			     struct libwebsocket *wsi,
-			     enum libwebsocket_callback_reasons reason,
-			     void *user, void *in, size_t len);
 
 static int callback_wslog(struct libwebsocket_context *context,
 			  struct libwebsocket *wsi,
@@ -124,7 +115,6 @@ static int callback_http(struct libwebsocket_context *context,
 enum wslog_protocols {
     PROTOCOL_HTTP  = 0,
     PROTOCOL_WSLOG = 1,
-    PROTOCOL_ZMQPROXY = 2
 };
 
 static struct libwebsocket_protocols protocols[] = {
@@ -548,12 +538,8 @@ static void logpub_readable_cb (struct ev_loop *loop,
 				struct ev_io *w, int revents)
 {
     while (zsocket_events(logpub) & ZMQ_POLLIN) {
-
 	zframe_t *f = zframe_recv(logpub);
 	const char *s = (const char *) zframe_data(f);
-
-	syslog(LOG_DEBUG,"logpub: %d '%s'", *s, s+1);
-
 	if (strcmp(s+1, "json") == 0) {
 	    if (!ws_config.publish_json)
 		syslog(LOG_DEBUG,"%s publishing JSON log messages",
@@ -657,9 +643,10 @@ static void message_poll_cb(struct ev_loop *loop,
 
 		    // convert to JSON only if we have actual connections
 		    // to the log websocket:
-		    if (true) { // ws_config.publish_json) {
+		    if (ws_config.publish_json) {
 			json = pb2json(container);
 			z_jsonframe = zframe_new( json.c_str(), json.size());
+			//syslog(LOG_DEBUG, "json pub: '%s'", json.c_str());
 			if (zstr_sendm(logpub, "json"))
 			    syslog(LOG_ERR,"zstr_sendm(%s,json): %s",
 				   logpub_uri, strerror(errno));
@@ -948,27 +935,25 @@ int main(int argc, char **argv)
 	// start the zeromq log publisher socket
 	zmq_ctx  = zctx_new();
 	logpub = zsocket_new(zmq_ctx, ZMQ_XPUB);
-	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
 
-#ifdef INPROC_SOCKET
-	if (!zsocket_bind(logpub, INPROC_SOCKET))
-	    syslog(LOG_DEBUG, "bind(%s) failed: %s \n",
-		   INPROC_SOCKET, strerror(errno));
-#endif
-#ifdef IPC_SOCKET
-	if (!zsocket_bind(logpub, IPC_SOCKET))
-	    syslog(LOG_DEBUG, "bind(%s) failed: %s \n",
-		   IPC_SOCKET, strerror(errno));
-#endif
+	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
 	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
 
 	    lws_set_log_level(ws_config.debug_level, lwsl_emit_syslog);
+<<<<<<< HEAD
 	    ws_config.z_context = zmq_ctx;
 	    ws_config.uri = logpub_uri;
 	    ws_config.loop = loop;
+||||||| merged common ancestors
+	    ws_config.z_context = zmq_ctx;
+	    ws_config.loop = loop;
+=======
+	    ws_config.z_context = zmq_ctx;
+>>>>>>> undo ws attempts
 	    ws_config.uri = logpub_uri;
+	    ws_config.loop = loop;
 	    ws_info.user = (void *) &ws_config;
 	    ws_info.protocols = protocols;
 	    ws_info.gid = -1;
@@ -977,10 +962,8 @@ int main(int argc, char **argv)
 	    ws_context = libwebsocket_create_context(&ws_info);
 	    if (ws_context == NULL) {
 		syslog(LOG_ERR, "libwebsocket init failed");
-	    } else {
+	    } else
 		libwebsocket_initloop(ws_context, loop);
-		syslog(LOG_DEBUG, "serving http/Websockets on port %d\n", ws_info.port);
-	    }
 	} else {
 	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
@@ -1007,7 +990,47 @@ int main(int argc, char **argv)
 
     message_thread();
 
+<<<<<<< HEAD
     // signal received - check if rtapi_app running, and shut it down
+||||||| merged common ancestors
+    ev_signal_start(loop, &sigint);
+    ev_signal_start(loop, &sigkill);
+    ev_signal_start(loop, &sigterm);
+    ev_signal_start(loop, &sigsegv);
+    ev_signal_start(loop, &sigfpe);
+
+    global_data->magic = GLOBAL_READY;
+
+    ev_timer_init (&msgpoll_timer, message_poll_cb, msg_poll, 0.);
+    ev_timer_start (loop, &msgpoll_timer);
+
+    ev_io_init (&logpub_readable, logpub_readable_cb, zsocket_fd(logpub), EV_READ);
+    ev_io_start (loop, &logpub_readable);
+
+    ev_run(loop, 0);
+    if (ws_context)
+	libwebsocket_context_destroy(ws_context);
+=======
+    ev_signal_start(loop, &sigint);
+    ev_signal_start(loop, &sigkill);
+    ev_signal_start(loop, &sigterm);
+    ev_signal_start(loop, &sigsegv);
+    ev_signal_start(loop, &sigfpe);
+
+    global_data->magic = GLOBAL_READY;
+
+    ev_timer_init (&msgpoll_timer, message_poll_cb, msg_poll, 0.);
+    ev_timer_start (loop, &msgpoll_timer);
+
+    if (logpub != NULL) {
+	ev_io_init (&logpub_readable, logpub_readable_cb, zsocket_fd(logpub), EV_READ);
+	ev_io_start (loop, &logpub_readable);
+    }
+
+    ev_run(loop, 0);
+    if (ws_context)
+	libwebsocket_context_destroy(ws_context);
+>>>>>>> undo ws attempts
 
     cleanup_actions();
     closelog_async();
@@ -1033,21 +1056,16 @@ static int callback_http(struct libwebsocket_context *context,
     struct stat sb;
 
     switch (reason) {
-
-
     case LWS_CALLBACK_HTTP:
-	syslog(LOG_DEBUG, "HTTP: request='%s'", (char *)in);
+	// syslog(LOG_DEBUG, "HTTP: request='%s'", (char *)in);
+	sprintf(buf, "%s/%s", cfg->www_dir, (char *)in);
+
 
 	if (cfg->www_dir == NULL) {
 	    syslog(LOG_ERR, "closing HTTP connection - wwwdir not configured");
 	    return -1;
 	}
-	sprintf(buf, "%s/", cfg->www_dir);
-	if (uriUriStringToUnixFilenameA((const char *)in, &buf[strlen(cfg->www_dir)])) {
-	    syslog(LOG_ERR, "HTTP: cant normalize '%s'", (const char *)in);
-	    return -1;
-	}
-	if (strstr((const char *)buf + strlen(cfg->www_dir), "..")) {
+	if (strstr((const char *)in, "..")) {
 	    syslog(LOG_ERR,
 		   "closing HTTP connection: not serving files with '..': '%s'",
 		   (char *) in);
@@ -1065,14 +1083,6 @@ static int callback_http(struct libwebsocket_context *context,
 	syslog(LOG_DEBUG, "HTTP serving '%s' mime type='%s'", buf, mt);
 
 	if (libwebsockets_serve_http_file(context, wsi, buf, mt)) {
-	    // int len = snprintf(buf, sizeof(buf), "Content-type: text/html\r\n\r\n"
-	    // 		       "<html><head><title>404 Not Found</title></head>"
-	    // 		       "<body><h1>Not Found</h1>"
-	    // 		       "<p>The requested URL %s was not found on this server.</p>"
-	    // 		       "<address>rtapi_msgd Port %d</address>"
-	    // 		       "</body></html>",
-	    // 		       in, 4711); //ws_info.port);
-	    // libwebsocket_write (wsi, (unsigned char *)buf, len, LWS_WRITE_HTTP);
 	    return -1; /* through completion or error, close the socket */
 	}
 	break;
@@ -1089,8 +1099,8 @@ static int callback_http(struct libwebsocket_context *context,
     return 0;
 }
 
-// if the subscriber socket becomes readable, schedule a ws writable callback
-// this callback will pull all pending messages off the zmq socket
+// if the subscriber socket becomes readable, trigger a ws writable callback
+// this callback will pull all pending messages
 static void  wsinput_readable_cb (struct ev_loop *loop, struct ev_io *w, int revents)
 {
     wslog_sess_t *wss = (wslog_sess_t *) w;
@@ -1115,9 +1125,16 @@ callback_wslog(struct libwebsocket_context *context,
     zmsg_t *msg;
     char *topic;
     std::string json;
+<<<<<<< HEAD
 
     switch (reason) {
+||||||| merged common ancestors
 
+    switch (reason) {
+=======
+>>>>>>> undo ws attempts
+
+    switch (reason) {
 
     case LWS_CALLBACK_ESTABLISHED:
 	proto = libwebsockets_get_protocol(wsi);
@@ -1131,22 +1148,31 @@ callback_wslog(struct libwebsocket_context *context,
 	wss->wsiref = wsi ; // needed so we can register callback
 
 	// make the ws instance an internal subscriber
-	wss->socket = zsocket_new (cfg->z_context, ZMQ_XSUB);
+	wss->socket = zsocket_new (cfg->z_context, ZMQ_SUB);
 	assert(wss->socket);
+<<<<<<< HEAD
 #ifdef INPROC_SOCKET
 	rc = zsocket_connect (wss->socket, INPROC_SOCKET);
 #else
 	rc = zsocket_connect (wss->socket, cfg->uri);
 #endif
+||||||| merged common ancestors
+#ifdef INPROC_SOCKET
+	rc = zsocket_connect (wss->socket, INPROC_SOCKET);
+#else
+	rc = zsocket_connect (wss->socket, cfg->uri);
+#endif
+=======
+	zsocket_set_linger (wss->socket, 0);
+	rc = zsocket_connect (wss->socket, (char *) cfg->uri);
+>>>>>>> undo ws attempts
 	assert(rc == 0);
 	// subscribe XPUB-style by sending a message
 	// we're interested in the json updates only:
 	zstr_send (wss->socket, "\001json");
 
 	// subscribe to json updates
-	//zsocket_set_subscribe (wss->socket, "json");
-	//zsocket_set_subscribe (wss->socket, "");
-	zsocket_sendmem (wss->socket,"\001json",5, 0);
+	zsocket_set_subscribe (wss->socket, "json");
 
 	// start watching the subscribe socket
 	ev_io_init (&wss->watcher, wsinput_readable_cb, zsocket_fd(wss->socket), EV_READ);
@@ -1157,8 +1183,6 @@ callback_wslog(struct libwebsocket_context *context,
 	break;
 
     case LWS_CALLBACK_SERVER_WRITEABLE:
-
-	syslog(LOG_DEBUG,"-------------  LWS_CALLBACK_SERVER_WRITEABLE");
 
 	// complete any pending partial writes first
 	if (wss->current != NULL) {
@@ -1237,7 +1261,289 @@ callback_wslog(struct libwebsocket_context *context,
     return 0;
 }
 
+<<<<<<< HEAD
 #define MT(ext, tag)  ext, tag
+||||||| merged common ancestors
+
+static int
+callback_zmqproxy(struct libwebsocket_context *context,
+		  struct libwebsocket *wsi,
+		  enum libwebsocket_callback_reasons reason,
+		  void *user, void *in, size_t len)
+{
+    const struct libwebsocket_protocols *proto;
+    char client_name[128];
+    char client_ip[128];
+    unsigned char buf[LWS_SEND_BUFFER_PRE_PADDING + 512 +
+		      LWS_SEND_BUFFER_POST_PADDING];
+    unsigned char *p = &buf[LWS_SEND_BUFFER_PRE_PADDING];
+    int n, m;
+    wslog_sess_t *wss = (wslog_sess_t *)user;
+    wsconfig_t *cfg = (wsconfig_t *) libwebsocket_context_user (context);
+    zmsg_t *msg;
+    char *topic;
+    std::string json;
+    UriParserStateA state;
+    UriUriA u;
+    UriQueryListA *queryList = NULL, *q;
+    int itemCount;
+
+    switch (reason) {
+
+
+    case LWS_CALLBACK_ESTABLISHED:
+	{
+	    proto = libwebsockets_get_protocol(wsi);
+	    libwebsockets_get_peer_addresses(context, wsi,
+					     libwebsocket_get_socket_fd(wsi),
+					     client_name,
+					     sizeof(client_name),
+					     client_ip,
+					     sizeof(client_ip));
+	    char buf[256];
+
+	    lws_hdr_copy(wsi, buf, sizeof buf, WSI_TOKEN_GET_URI);
+	    state.uri = &u;
+	    if (uriParseUriA(&state, buf) != URI_SUCCESS) {
+		uriFreeUriMembersA(&u);
+		syslog(LOG_DEBUG,"Websocket/%s cant parse URI: '%s'",
+		       proto->name, buf);
+		return 1;
+	    }
+	    if (uriDissectQueryMallocA(&queryList, &itemCount, u.query.first,
+				       u.query.afterLast) != URI_SUCCESS) {
+		syslog(LOG_DEBUG,"Websocket/%s cant dissect query: '%s'",
+		       proto->name, buf);
+		uriFreeUriMembersA(&u);
+		return 1;
+	    }
+	    q = queryList;
+	    const char *uri = NULL;
+	    while (q != NULL) {
+		syslog(LOG_DEBUG, "key='%s' value='%s'",
+		       q->key,q->value);
+		if (!strcmp(q->key,"dest")) uri = q->value;
+		if (!strcmp(q->key,"text")) wss->text = true;
+		else if (!strcmp(q->key,"type")) {
+		    if (!strcmp(q->value,"dealer")) wss->socket_type = ZMQ_DEALER;
+		    if (!strcmp(q->value,"sub")) wss->socket_type = ZMQ_SUB;
+		    if (!strcmp(q->value,"xsub")) wss->socket_type = ZMQ_XSUB;
+		}
+		q = q->next;
+	    }
+
+	    wss->wsiref = wsi ; // needed so we can register callback
+	    wss->socket = zsocket_new (cfg->z_context, wss->socket_type);
+	    if (socket == NULL) {
+		syslog(LOG_ERR,"Websocket/%s cant create ZMQ socket: %s",
+		       proto->name,strerror(errno));
+		uriFreeUriMembersA(&u);
+		uriFreeQueryListA(queryList);
+		return -1;
+	    }
+
+	    if (zsocket_connect (wss->socket, uri)) {
+		syslog(LOG_ERR,"Websocket/%s cant connect to %s: %s",
+		       proto->name, uri, strerror(errno));
+		uriFreeUriMembersA(&u);
+		uriFreeQueryListA(queryList);
+		return -1;
+	    }
+	    q = queryList;
+	    while (q != NULL) {
+		if (!strcmp(q->key,"topic")) {
+		    syslog(LOG_DEBUG, "subscribe '%s'",q->value);
+		    switch (wss->socket_type) {
+		    case ZMQ_DEALER:
+			syslog(LOG_ERR, "subscribe doesnt make sense on DEALER, closing");
+			uriFreeUriMembersA(&u);
+			uriFreeQueryListA(queryList);
+			return -1;
+
+		    case ZMQ_SUB:
+			zsocket_set_subscribe (wss->socket, q->value);
+			break;
+
+		    case ZMQ_XSUB:
+			{
+			    char buf[100];
+
+			    buf[0] = '\001';
+			    strcpy(&buf[1], q->value);
+			    if (zsocket_sendmem (wss->socket, (const void* )buf,
+						 strlen(q->value) + 1, 0)) {
+				syslog(LOG_ERR,
+				       "xsub subscribe(%s) msg: %s",
+				       q->value,strerror(errno));
+			    }
+			}
+			break;
+
+		    default:
+			syslog(LOG_ERR, "bad socket type %d, closing", wss->socket_type);
+			zmsg_destroy(&msg);
+			return -1;
+		    }
+		}
+		q = q->next;
+	    }
+
+	    // start watching the subscribe socket
+	    ev_io_init (&wss->watcher, wsinput_readable_cb,
+			zsocket_fd(wss->socket), EV_READ);
+	    ev_io_start (cfg->loop, &wss->watcher);
+
+	    syslog(LOG_DEBUG,"Websocket/%s to %s type %d %p",
+		   proto->name, uri, wss->socket_type, wss->socket);
+
+	    uriFreeUriMembersA(&u);
+	    uriFreeQueryListA(queryList);
+	}
+	break;
+
+    case LWS_CALLBACK_SERVER_WRITEABLE:
+
+	// complete any pending partial writes first
+	if (wss->current != NULL) {
+	    n = zframe_size(wss->current) - wss->already_sent;
+	    memcpy(p, zframe_data(wss->current) + wss->already_sent, n);
+	    syslog(LOG_DEBUG, "write leftover %d/%d", n,  zframe_size(wss->current));
+	    m = libwebsocket_write(wsi, p, n, wss->text ? LWS_WRITE_TEXT:LWS_WRITE_BINARY);
+
+	    if (m < n) {
+		syslog(LOG_DEBUG, "stuck again writing leftover %d/%d", m,n);
+		wss->already_sent += m;
+		wss->partial_rescheduled++;
+		// reschedule once writable
+		libwebsocket_callback_on_writable(context, wsi);
+		return 0;
+	    } else {
+		syslog(LOG_DEBUG, "leftover completed %d", n);
+		wss->partial_completed++;
+		zframe_destroy (&wss->current);
+		// fall through for new messages
+	    }
+	}
+
+	// now any new messages pending on the subscribe socket
+	do {
+	    if (zsocket_events(wss->socket) & ZMQ_POLLIN) {
+		msg = zmsg_recv(wss->socket);
+		if (msg == NULL)
+		    return 0;
+
+		switch (wss->socket_type) {
+		case ZMQ_DEALER:
+		    wss->current = zframe_recv(wss->socket);
+		    if (wss->current == NULL)
+			return 0;
+		    break;
+
+		case ZMQ_SUB:
+		case ZMQ_XSUB:
+		    topic = zmsg_popstr(msg);
+		    free(topic);
+		    wss->current = zmsg_pop(msg);
+		    break;
+
+		default:
+		    syslog(LOG_ERR, "bad socket type %d, closing", wss->socket_type);
+		    zmsg_destroy(&msg);
+		    return -1;
+		}
+		n = zframe_size(wss->current);
+		memcpy(p, zframe_data(wss->current), n);
+		m = libwebsocket_write(wsi, p, n,
+				       wss->text ? LWS_WRITE_TEXT:LWS_WRITE_BINARY);
+		if (m < n) {
+		    wss->already_sent = m;
+		    wss->partial_writes++;
+
+		    syslog(LOG_DEBUG, "partial write %d/%d", m,n);
+
+		    // register a callback once drained
+		    libwebsocket_callback_on_writable(context, wsi);
+		} else {
+		    // done with leftover frame, unmark
+		    zframe_destroy (&wss->current);
+		}
+	    } else {
+		// nothing pending on subscribe socket
+		return 0;
+	    }
+	} while (!lws_send_pipe_choked(wsi));
+
+	// couldnt send all pending frames - needs more work:
+	libwebsocket_callback_on_writable(context, wsi);
+	break;
+
+    case LWS_CALLBACK_CLOSED:
+	proto = libwebsockets_get_protocol(wsi);
+	libwebsockets_get_peer_addresses(context, wsi,
+					 libwebsocket_get_socket_fd(wsi),
+					 client_name,
+					 sizeof(client_name),
+					 client_ip,
+					 sizeof(client_ip));
+	ev_io_stop(cfg->loop, &wss->watcher);
+	zsocket_destroy(cfg->z_context, wss->socket);
+
+	syslog(LOG_INFO,
+	       "Websocket/%s disconnect: %s (%s) partial=%d completed=%d resched=%d",
+	       proto->name, client_name, client_ip,
+	       wss->partial_writes, wss->partial_completed, wss->partial_rescheduled);
+	break;
+
+    case LWS_CALLBACK_RECEIVE:
+	{
+	    syslog(LOG_INFO,"rx: '%.*s'", len,  (const char*)in);
+
+	    pb::Container c;
+	    try {
+		json2pb(c, (const char*)in, len);
+	    } catch (std::exception &ex) {
+		syslog(LOG_ERR, "exception converting '%.*s' to protobuf: %s",
+		       len, (char *)in, ex.what());
+		return -1;
+	    }
+	    switch (wss->socket_type) {
+	    case ZMQ_DEALER:
+		break;
+
+	    case ZMQ_SUB:
+	    case ZMQ_XSUB:
+		return 0;
+		break;
+
+	    default:
+		syslog(LOG_ERR, "bad socket type %d, closing", wss->socket_type);
+		zmsg_destroy(&msg);
+		return -1;
+	    }
+
+	    zframe_t *tx = zframe_new(NULL, c.ByteSize());
+	    assert(tx);
+
+	    if (c.SerializeWithCachedSizesToArray(zframe_data(tx))) {
+		// the pb2-encoded message
+		if (zframe_send(&tx, wss->socket, 0))
+		    syslog(LOG_ERR,"zframe_send(): %s",
+			   strerror(errno));
+	    }
+	    syslog(LOG_DEBUG, "done '%.*s'", len, (char *)in);
+	}
+	break;
+
+    default:
+	break;
+    }
+    return 0;
+}
+
+#define MT(ext, tag)  ext, tag
+=======
+#define MT(ext, tag)  ext, tag
+>>>>>>> undo ws attempts
 static const struct {
     const char *extension;
     const char *mime_type;
