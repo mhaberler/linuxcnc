@@ -60,6 +60,8 @@ typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 #include "hal/hal_priv.h"
 #include "rtapi/shmdrv/shmdrv.h"
 
+#define BACKGROUND_TIMER 1000
+
 using namespace std;
 
 /* Pre-allocation size. Must be enough for the whole application life to avoid
@@ -721,11 +723,26 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    global_data->rtapi_app_pid = 0;
 	return -1;
     default:
-	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received, dumping core\n",
-			fdsi.ssi_signo, strsignal(fdsi.ssi_signo));
+	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received, dumping core (current dir=%s)\n",
+			fdsi.ssi_signo, strsignal(fdsi.ssi_signo),
+			get_current_dir_name());
 	if (global_data)
 	    global_data->rtapi_app_pid = 0;
 	abort();
+    }
+    return 0;
+}
+
+static int
+s_handle_timer(zloop_t *loop, int  timer_id, void *args)
+{
+    if (global_data->rtapi_msgd_pid == 0) {
+	// cant log this via rtapi_print, since msgd is gone
+	syslog(LOG_ERR,"rtapi_msgd went away, exiting\n");
+	exit_actions(instance_id);
+	if (global_data)
+	    global_data->rtapi_app_pid = 0;
+	exit(EXIT_FAILURE);
     }
     return 0;
 }
@@ -858,6 +875,8 @@ static int mainloop(size_t  argc, char **argv)
 
     zmq_pollitem_t command_poller = { z_command, 0, ZMQ_POLLIN };
     zloop_poller(z_loop, &command_poller, rtapi_request, NULL);
+
+    zloop_timer (z_loop, BACKGROUND_TIMER, 0, s_handle_timer, NULL);
 
     int sd_socket = -1;
     if (sd_port) {
