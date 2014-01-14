@@ -706,7 +706,10 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	return 0;
     }
     switch (fdsi.ssi_signo) {
+
     case SIGINT:
+    case SIGQUIT:
+    case SIGKILL:
     case SIGTERM:
 	rtapi_print_msg(RTAPI_MSG_INFO,
 			"signal %d - '%s' received, exiting",
@@ -714,10 +717,15 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 	exit_actions(instance_id);
 	interrupted = true; // make mainloop exit
+	if (global_data)
+	    global_data->rtapi_app_pid = 0;
 	return -1;
     default:
-	rtapi_print_msg(RTAPI_MSG_ERR, "unhandled signal %d - '%s' received\n",
+	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received, dumping core\n",
 			fdsi.ssi_signo, strsignal(fdsi.ssi_signo));
+	if (global_data)
+	    global_data->rtapi_app_pid = 0;
+	abort();
     }
     return 0;
 }
@@ -958,18 +966,28 @@ exit_handler(void)
 
 static void setup_signals(void)
 {
-    sigset_t mask;
+    sigset_t sigmask;
 
-    sigemptyset( &mask );
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGSEGV);
-    sigaddset(&mask, SIGILL);
-    sigaddset(&mask, SIGFPE);
-    // sigaddset(&mask, SIGXCPU);
+    sigemptyset(&sigmask);
 
-    assert(sigprocmask(SIG_BLOCK, &mask, NULL) != -1);
-    signal_fd = signalfd(-1, &mask, 0);
+    // block all signal delivery through signal handler
+    // since we're using signalfd()
+    sigfillset(&sigmask);
+    if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
+	perror("sigprocmask");
+
+    sigemptyset(&sigmask);
+
+    // these we want delivered via signalfd()
+    sigemptyset(&sigmask);
+    sigaddset(&sigmask, SIGINT);
+    sigaddset(&sigmask, SIGQUIT);
+    sigaddset(&sigmask, SIGKILL);
+    sigaddset(&sigmask, SIGTERM);
+    sigaddset(&sigmask, SIGSEGV);
+    sigaddset(&sigmask, SIGFPE);
+
+    signal_fd = signalfd(-1, &sigmask, 0);
     assert(signal_fd > -1);
 }
 
@@ -986,10 +1004,26 @@ static int harden_rt()
 			strerror(errno));
 
     // even when setuid root
+    // note this may not be enough
+    // echo 1 >
+    // might be needed to have setuid programs dump core
     if (prctl(PR_SET_DUMPABLE, 1) < 0)
 	rtapi_print_msg(RTAPI_MSG_WARN, 
 			"prctl(PR_SET_DUMPABLE) failed: no core dumps will be created - %d - %s\n",
 			errno, strerror(errno));
+    FILE *fd;
+    if ((fd = fopen("/proc/sys/fs/suid_dumpable","r")) != NULL) {
+	int flag;
+	if ((fscanf(fd, "%d", &flag) == 1) && (flag == 0)) {
+	    rtapi_print_msg(RTAPI_MSG_WARN,
+			    "rtapi:%d: cannot create core dumps - /proc/sys/fs/suid_dumpable contains 0",
+			    instance_id);
+	    rtapi_print_msg(RTAPI_MSG_WARN,
+			    "you might have to run 'echo 1 > /proc/sys/fs/suid_dumpable'"
+			    " as root to enable rtapi_app core dumps");
+	}
+	fclose(fd);
+    }
 
     configure_memory();
 
