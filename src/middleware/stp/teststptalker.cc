@@ -58,7 +58,7 @@ int main(int argc, const char **argv)
     //strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, subscribe);
     strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, NULL);
 
-    sleep(30);
+    sleep(3000);
     strack_talker_exit(t);
     sleep(1);
 

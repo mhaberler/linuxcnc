@@ -6,7 +6,7 @@
 
 #include <stp.h>
 
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
 
 struct _stvar {

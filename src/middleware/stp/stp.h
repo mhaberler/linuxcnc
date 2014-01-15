@@ -28,6 +28,10 @@ extern "C" {
 	bool changed;
     } stp_valuetrack_u;
 
+
+    int retcode(void *socket); // receive and parse return code on a socket
+
+
 #ifdef __cplusplus
 }
 #endif

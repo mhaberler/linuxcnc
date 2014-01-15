@@ -1,9 +1,10 @@
 
-STPDIR=protobuf/stp
+STPDIR=$(MWDIR)/stp
 
 INCLUDES += $(STPDIR)
 LIBSTPSRCS := $(addprefix  $(STPDIR)/, \
 	stptalker.cc \
+	stputil.cc \
 	stptracker.cc)
 
 USERSRCS += $(LIBSTPSRCS)

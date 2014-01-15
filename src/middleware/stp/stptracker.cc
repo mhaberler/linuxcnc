@@ -5,7 +5,7 @@
 #include<sys/socket.h>
 
 #include <google/protobuf/text_format.h>
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/message.pb.h>
 #include <stptracker.h>
 #include <stptracker-private.h>
 
@@ -81,22 +81,229 @@ mvar_t *stmon_blob(const char *name, const void **bref, size_t *bsize)
     return self;
 }
 
+//-------- groups ----
 
-mgroup_t *stmon_group_new(const char *name, group_complete_cb callback)
+mgroup_t *stmon_group_new(const char *name, group_update_complete_cb callback, void *callback_arg)
 {
-    mgroup_t *self = (mgroup_t *) zmalloc (sizeof (mgroup_t));
+    // _mgroup_t *self = (_mgroup_t *) zmalloc (sizeof (_mgroup_t));
+    _mgroup_t *self = new _mgroup_t;
     assert (self);
     self->name = name;
     self->callback = callback;
-    self->vars = zlist_new ();
+    self->callback_arg = callback_arg;
+    // self->vars = value_list();
+    // self->byhandle = value_map();
+    self->serial = self->group_updates = 0;
     return self;
 }
 
-int stmon_addvar(mgroup_t *self, mvar_t *v)
+int stmon_add_var(_mgroup_t *self, _mvar_t *v)
 {
-    zlist_append (self->vars, v);
+    // should check for dups
+    self->vars.push_back(v);
     return 0;
 }
+
+
+//-------- source ----
+msource_t *stmon_source_new(_mtracker_t *t)
+{
+    _msource_t *self = (_msource_t *) zmalloc (sizeof (_msource_t));
+    assert (self);
+    assert (t);
+    self->socket = zsocket_new (t->ctx, ZMQ_SUB);
+    assert(self->socket);
+    self->groups = group_map();
+    //    self->groups = zlist_new ();
+    self->tracker = t;
+    return self;
+}
+
+int stmon_source_add_origin(msource_t *self, const char *uri)
+{
+    assert(self);
+    assert(uri);
+    return zsocket_connect (self->socket, uri);
+}
+
+int stmon_source_add_group(msource_t *self, _mgroup_t *group)
+{
+    self->groups[group->name] = group;
+    // return zlist_append (self->groups, group);
+    return 0;
+}
+
+//-------- tracker ----
+mtracker_t *stmon_tracker_new(zctx_t *ctx)
+{
+    _mtracker_t *self = new _mtracker_t;
+    assert (self);
+    if (ctx)
+	self->ctx = ctx;
+    else
+	self->ctx = zctx_new();
+    // self->sources = zlist_new ();
+    self->update =  new pb::Container();
+    return self;
+}
+
+static void s_tracker_task (void *args, zctx_t *ctx, void *pipe);
+
+int stmon_tracker_run(_mtracker_t *self)
+{
+    assert(self->ctx);
+
+    //  Start background agent
+    self->pipe = zthread_fork (self->ctx, s_tracker_task, self);
+    assert(self->pipe);
+
+    //  and wait for it to initialize
+    return retcode(self->pipe);
+}
+
+int stmon_tracker_stop(_mtracker_t *self)
+{
+    zstr_send (self->pipe, "EXIT");
+    return retcode(self->pipe);
+}
+
+int stmon_tracker_add_source(_mtracker_t *self, _msource_t *src)
+{
+    self->sources.push_back(src);
+    return 0;
+}
+
+
+//-------- internals ----
+// update: type: MT_STP_UPDATE_FULL
+// signal {
+//   type: HAL_FLOAT
+//   name: "x"
+//   handle: 158184224
+//   halfloat: 0
+// }
+// signal {
+//   type: HAL_FLOAT
+//   name: "y"
+//   handle: 158178280
+//   halfloat: 0
+// }
+// signal {
+//   type: HAL_FLOAT
+//   name: "z"
+//   handle: 158178192
+//   halfloat: 0
+// }
+// serial: 21
+
+static int apply_update(zframe_t *f, _mgroup_t *grp)
+{
+    fprintf(stderr,"%s: %p %s\n", __func__, f, grp->name);
+    pb::Container rx;
+    if (!rx.ParseFromArray(zframe_data(f), zframe_size(f)))
+	return -1;
+
+    std::string text;
+    if (TextFormat::PrintToString(rx, &text))
+	fprintf(stderr, "update: %s\n", text.c_str());
+
+    switch (rx.type()) {
+    case pb::MT_STP_UPDATE_FULL:
+	// names and handles
+
+	// check all vars in group set
+	break;
+    case pb::MT_STP_UPDATE:
+	// handles only
+	break;
+
+    case pb::MT_STP_NOGROUP: // note set
+	break;
+
+    default:
+	// bad message type
+	;
+    }
+    return 0;
+}
+
+
+static int
+s_source_recv(zloop_t *loop, zmq_pollitem_t *item, void *arg)
+{
+    _msource_t *src =  (_msource_t *) arg;
+    zmsg_t *m;
+    zframe_t *f;
+    struct _mgroup *grp;
+
+    m = zmsg_recv(item->socket);
+    assert(m);
+    char *topic = zmsg_popstr(m);
+    assert(topic);
+
+    fprintf(stderr,"%s: topic=%s\n", __func__, topic);
+
+    f = zmsg_pop (m);
+    assert(f);
+
+    grp = src->groups[topic];
+    if (grp)
+	apply_update(f, grp);
+    else
+	fprintf(stderr,"%s: no such group: %s\n", __func__, topic);
+    free(topic);
+    zframe_destroy(&f);
+    zmsg_destroy(&m);
+    return 0;
+}
+
+static int
+cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg)
+{
+    int retval = 0;
+
+    char *cmd_str = zstr_recv (item->socket);
+    assert (cmd_str);
+
+    fprintf(stderr,"%s: %s\n", __func__, cmd_str);
+
+    if (!strcmp(cmd_str,"EXIT")) {
+	retval = -1; // exit reactor
+    }
+    zstr_free(&cmd_str);
+    return retval;
+}
+
+static void s_tracker_task (void *args, zctx_t *ctx, void *pipe)
+{
+    _mtracker_t *self = (_mtracker_t *) args;
+    zloop_t *loop =  zloop_new();
+
+    // watch command pipe for EXIT command
+    zmq_pollitem_t cmditem =  { pipe, 0, ZMQ_POLLIN, 0 };
+    assert(zloop_poller (loop, &cmditem, cmdpipe_readable, self) == 0);
+
+    for (source_list::iterator sit = self->sources.begin();
+	 sit != self->sources.end(); ++sit) {
+	(*sit)->pollitem = { (*sit)->socket, 0, ZMQ_POLLIN, 0 };
+	assert(zloop_poller (loop, &(*sit)->pollitem, s_source_recv, (*sit)) == 0);
+
+	for (group_map::iterator it = (*sit)->groups.begin();
+	     it != (*sit)->groups.end(); ++it) {
+	    zsocket_set_subscribe ((*sit)->socket, it->first.c_str());
+	}
+    }
+    // good to go
+    zstr_send (pipe, "0");
+    zloop_start (loop);
+    zstr_send (pipe, "0");
+}
+
+
+
+
+#if 0
+//-------- TODO ----
 
 mservice_t *stmon_service_new(int port)
 {
@@ -112,7 +319,6 @@ mservice_t *stmon_service_new(int port)
     return self;
 }
 
-#if 0
 stgroup_t * strack_find_group(sttalker_t *self, const char *groupname)
 {
     assert (self);
@@ -315,15 +521,6 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 	self->update->Clear();
     }
     return 0;
-}
-
-
-static int retcode(void *pipe)
-{
-    char *retval = zstr_recv (pipe);
-    int rc = atoi(retval);
-    zstr_free(&retval);
-    return rc;
 }
 
 // deal with service discovery probes

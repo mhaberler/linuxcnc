@@ -7,13 +7,12 @@
 #include<sys/socket.h>
 
 #include <google/protobuf/text_format.h>
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/message.pb.h>
 
 namespace gpb = google::protobuf;
 
 
 static void s_talker_task (void *args, zctx_t *ctx, void *pipe);
-static int retcode(void *pipe);
 static inline int report_group(sttalker_t *self, stgroup_t *g, bool full);
 static inline int pack_and_send(sttalker_t *self, const char *topic);
 
@@ -325,14 +324,6 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
     return 0;
 }
 
-
-static int retcode(void *pipe)
-{
-    char *retval = zstr_recv (pipe);
-    int rc = atoi(retval);
-    zstr_free(&retval);
-    return rc;
-}
 
 // deal with service discovery probes
 static void s_beacon_recv (sttalker_t * self)

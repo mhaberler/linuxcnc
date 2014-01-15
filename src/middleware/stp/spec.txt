@@ -1,3 +1,6 @@
+
+
+
 STP Terminology:
 
 tracker:: monitors
@@ -13,6 +16,23 @@ group:: named source within a service.
 
 monitored variable:: a single scalar subject to update as monitoring
 on the originating side detects changes.
+
+-------
+pollitems are per source
+
+data struct needs:
+
+1. backlink to tracker from source? to get at context, Container - DONE
+
+fast:
+	topic -> group of source, accessed from source, map in source;
+		unique within a source
+	handle -> var (unique), map in group
+
+slow:
+	name -> var; map in group
+	tracker -> sources
+
 
 -------
 
