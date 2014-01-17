@@ -921,6 +921,10 @@ int main(int argc, char **argv)
 	syslog(LOG_DEBUG, "ØMQ version: %d.%d.%d", major, minor, patch);
 	syslog(LOG_DEBUG, "czmq version: %d.%d.%d",
 	       CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH);
+	major = GOOGLE_PROTOBUF_VERSION / 1000000;
+	minor = (GOOGLE_PROTOBUF_VERSION / 1000) % 1000;
+	patch = GOOGLE_PROTOBUF_VERSION % 1000;
+	syslog(LOG_DEBUG, "protobuf version: %d.%d.%d", major, minor, patch);
 	syslog(LOG_DEBUG, "jansson version: %s\n", JANSSON_VERSION);
 	syslog(LOG_DEBUG, "libwebsockets version: %s\n",  lws_get_library_version());
 
