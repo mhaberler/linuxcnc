@@ -16,6 +16,26 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/*
+ * TODO: on setuid and capabilites(7)
+ *
+ * right now this program runs as setuid root
+ * it might be possible to drop the wholesale root privs by using
+ * capabilites(7). in particular:
+ *
+ * CAP_SYS_RAWIO   open /dev/mem and /dev/kmem & Perform I/O port operations
+ * CAP_SYS_NICE    set real-time scheduling policies, set CPU affinity
+ * CAP_SYS_MODULE  Load  and  unload  kernel  modules
+ *
+ * NB:  Capabilities are a per-thread attribute,
+ * so this might need to be done on a per-thread basis
+ * see also CAP_SETPCAP, CAP_INHERITABLE and 'inheritable set'
+ *
+ * see also:
+ * http://stackoverflow.com/questions/13183327/drop-root-uid-while-retaining-cap-sys-nice
+ * http://stackoverflow.com/questions/12141420/losing-capabilities-after-setuid
+ */
+
 #include "config.h"
 
 #include <sys/types.h>
