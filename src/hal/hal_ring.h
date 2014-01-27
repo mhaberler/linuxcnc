@@ -14,10 +14,12 @@ RTAPI_BEGIN_DECLS
 typedef struct {
     char name[HAL_NAME_LEN + 1]; // ring HAL name
     int next_ptr;		 // next ring in used/free lists
-    int ring_shmid;              // RTAPI shm handle
-    int ring_shmkey;             // RTAPI shm key (a tad redundant)
+    int ring_shmid;              // RTAPI shm handle - if in shmseg
+    int ring_shmkey;             // RTAPI shm key - if in shmseg
     int total_size;              // size of shm segment allocated
     int owner;                   // creating HAL module
+    unsigned ring_offset;        // if created in HAL shared memory
+    unsigned hrflags;
 } hal_ring_t;
 
 // some components use a fifo and a scratchpad shared memory area,
@@ -47,6 +49,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id);
 // detach a ringbuffer. Decreases the reference count.
 int hal_ring_detach(const char *name, ringbuffer_t *rb);
 
+// not part of public API. Use with HAL lock engaged.
 hal_ring_t *halpr_find_ring_by_name(const char *name);
 
 RTAPI_END_DECLS
