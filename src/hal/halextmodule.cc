@@ -88,8 +88,9 @@ class RingIter;
 class Ring {
 public:
     ringbuffer_t rb;
+    hal_ring_t *halring;
     std::string rname;
-    bool is_stream, use_rmutex, use_wmutex;
+    bool is_stream, use_rmutex, use_wmutex, in_halmem;
 
     Ring(const char *name, ringbuffer_t rbuf);
     virtual ~Ring();
@@ -104,6 +105,7 @@ public:
     bool get_stream_mode();
     bool get_rmutex_mode();
     bool get_wmutex_mode();
+    bool get_in_halmem();
     std::string get_name();
 };
 
@@ -217,7 +219,8 @@ public:
 			 size_t spsize = 0,
 			 bool stream = false,
 			 bool use_rmutex = false,
-			 bool use_wmutex = false);
+			 bool use_wmutex = false,
+			 bool in_halmem = false);
     ring_ptr ring_attach(char *name);
     void ring_detach(Ring &r);
 };
@@ -336,6 +339,7 @@ int Ring::get_spsize()       { return ring_scratchpad_size(&rb); }
 bool Ring::get_stream_mode() { return is_stream; }
 bool Ring::get_rmutex_mode() { return use_rmutex; }
 bool Ring::get_wmutex_mode() { return use_wmutex; }
+bool Ring::get_in_halmem()   { return in_halmem; }
 std::string Ring::get_name() { return rname; }
 
 //------------------- record ring operations --------------------------
@@ -727,11 +731,13 @@ ring_ptr HalComponent::ring_create(char *name,
 				   size_t spsize,
 				   bool stream,
 				   bool use_rmutex,
-				   bool use_wmutex)
+				   bool use_wmutex,
+				   bool in_halmem)
 {
     int arg = 0;
     ringbuffer_t ringbuf;
     int retval;
+    ring_ptr r;
 
     if (stream)
 	arg |= MODE_STREAM;
@@ -739,6 +745,8 @@ ring_ptr HalComponent::ring_create(char *name,
 	arg |= USE_RMUTEX;
     if (use_wmutex)
 	arg |= USE_RMUTEX;
+    if (in_halmem)
+	arg |= ALLOC_HALMEM;
 
     if ((retval = hal_ring_new(name, size, spsize, comp->comp_id, arg)) < 0) {
 	PyErr_Format(PyExc_NameError, "hal_ring_new(): can't create ring '%s': %s",
@@ -752,27 +760,42 @@ ring_ptr HalComponent::ring_create(char *name,
     }
 
     if (stream) {
-	return boost::make_shared<StreamRing>(StreamRing(name, ringbuf));
+	r =  boost::make_shared<StreamRing>(StreamRing(name, ringbuf));
     } else {
-	return boost::make_shared<RecordRing>(RecordRing(name, ringbuf));
-
+	r = boost::make_shared<RecordRing>(RecordRing(name, ringbuf));
     }
+    {
+	int dummy __attribute__((cleanup(halpr_autorelease_mutex)));
+	rtapi_mutex_get(&(hal_data->mutex));
+	r->halring = halpr_find_ring_by_name(name);
+	r->in_halmem = (r->halring->hrflags & ALLOC_HALMEM) != 0;
+    }
+    return r;
 }
 
 ring_ptr HalComponent::ring_attach(char *name)
 {
     int retval;
     ringbuffer_t rbuf;
+    ring_ptr r;
 
     if ((retval = hal_ring_attach(name, &rbuf, comp->comp_id))) {
 	PyErr_Format(PyExc_NameError, "hal_ring_attach(): no such ring: '%s': %s",
 		     name, strerror(-retval));
 	throw boost::python::error_already_set();
     }
-    if (rbuf.header->is_stream)
-	return boost::make_shared<StreamRing>(StreamRing(name, rbuf));
-    else
-	return boost::make_shared<RecordRing>(RecordRing(name, rbuf));
+    if (rbuf.header->is_stream) {
+	r = boost::make_shared<StreamRing>(StreamRing(name, rbuf));
+    } else {
+	r = boost::make_shared<RecordRing>(RecordRing(name, rbuf));
+    }
+    {
+	int dummy __attribute__((cleanup(halpr_autorelease_mutex)));
+	rtapi_mutex_get(&(hal_data->mutex));
+	r->halring = halpr_find_ring_by_name(name);
+	r->in_halmem = (r->halring->hrflags & ALLOC_HALMEM) != 0;
+    }
+   return r;
 }
 
 void HalComponent::ring_detach(Ring &r)
@@ -1043,6 +1066,7 @@ BOOST_PYTHON_MODULE(halext) {
     scope().attr("MODE_STREAM") = MODE_STREAM;
     scope().attr("USE_RMUTEX") = USE_RMUTEX;
     scope().attr("USE_WMUTEX") = USE_WMUTEX;
+    scope().attr("ALLOC_HALMEM") = ALLOC_HALMEM;
 
     scope().attr("__doc__") = "extended HAL bindings";
 
@@ -1068,6 +1092,8 @@ BOOST_PYTHON_MODULE(halext) {
 	.add_property("use_wmutex",  &Ring::get_wmutex_mode,
 		      "'use writer mutex' atrribute. "
 		      "Advisory in nature.")
+	.add_property("in_halmem",  &Ring::get_in_halmem,
+		      "'ring allocated in HAL shared memory if true. ")
 	;
 
     class_<RecordRing,boost::noncopyable, recordring_ptr,
@@ -1170,7 +1196,8 @@ BOOST_PYTHON_MODULE(halext) {
 	      bp::arg("scratchpad") = 0,
 	      bp::arg("stream") = false,
 	      bp::arg("use_rmutex") = false,
-	      bp::arg("use_wmutex") = false
+	      bp::arg("use_wmutex") = false,
+	      bp::arg("in_halmem") = false
 	      ))
 	.def("attach",  &HalComponent::ring_attach)
 	.def("detach",  &HalComponent::ring_detach)
