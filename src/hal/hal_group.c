@@ -10,8 +10,6 @@
 #include <assert.h>
 #endif
 
-extern void *shmalloc_dn(long int size);
-
 static hal_group_t *alloc_group_struct(void);
 static void free_group_struct(hal_group_t * group);
 

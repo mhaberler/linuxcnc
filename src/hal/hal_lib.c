@@ -134,31 +134,7 @@ extern void  rtapi_printall(void);
 */
 static int init_hal_data(void);
 
-/** The 'shmalloc_xx()' functions allocate blocks of shared memory.
-    Each function allocates a block that is 'size' bytes long.
-    If 'size' is 3 or more, the block is aligned on a 4 byte
-    boundary.  If 'size' is 2, it is aligned on a 2 byte boundary,
-    and if 'size' is 1, it is unaligned.
-    These functions do not test a mutex - they are called from
-    within the hal library by code that already has the mutex.
-    (The public function 'hal_malloc()' is a wrapper that gets the
-    mutex and then calls 'shmalloc_up()'.)
-    The only difference between the two functions is the location
-    of the allocated memory.  'shmalloc_up()' allocates from the
-    base of shared memory and works upward, while 'shmalloc_dn()'
-    starts at the top and works down.
-    This is done to improve realtime performance.  'shmalloc_up()'
-    is used to allocate data that will be accessed by realtime
-    code, while 'shmalloc_dn()' is used to allocate the much
-    larger structures that are accessed only occaisionally during
-    init.  This groups all the realtime data together, inproving
-    cache performance.
-*/
-static void *shmalloc_up(long int size);
 
-// must resolve intra-hallib:
-// now extern in hal_priv.h
-//static void *shmalloc_dn(long int size);
 
 /** The alloc_xxx_struct() functions allocate a structure of the
     appropriate type and return a pointer to it, or 0 if they fail.
@@ -2928,7 +2904,7 @@ static int init_hal_data(void)
     return 0;
 }
 
-static void *shmalloc_up(long int size)
+void *shmalloc_up(long int size)
 {
     long int tmp_bot;
     void *retval;
