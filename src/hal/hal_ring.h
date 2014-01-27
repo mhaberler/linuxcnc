@@ -14,7 +14,7 @@ RTAPI_BEGIN_DECLS
 typedef struct {
     char name[HAL_NAME_LEN + 1]; // ring HAL name
     int next_ptr;		 // next ring in used/free lists
-    int ring_shmid;              // RTAPI shm handle - if in shmseg
+    int ring_id;                 // as per alloc bitmap
     int ring_shmkey;             // RTAPI shm key - if in shmseg
     int total_size;              // size of shm segment allocated
     int owner;                   // creating HAL module

@@ -2883,7 +2883,7 @@ static void print_ring_info(char **patterns)
 	if ( match(patterns, rptr->name) ) {
 	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, comp_id))) {
 		halcmd_error("%s: hal_ring_attach(%d) failed ",
-			     rptr->name, rptr->ring_shmid);
+			     rptr->name, rptr->ring_id);
 		goto failed;
 	    }
 	    rh = ringbuffer.header;
@@ -2913,7 +2913,7 @@ static void print_ring_info(char **patterns)
 	    halcmd_output("\n");
 	    if ((retval = hal_ring_detach(rptr->name,  &ringbuffer)) < 0) {
 		halcmd_error("%s: rtapi_ring_detach(%d) failed ",
-			     rptr->name, rptr->ring_shmid);
+			     rptr->name, rptr->ring_id);
 		goto failed;
 	    }
 	}
