@@ -21,7 +21,13 @@ print "rings: ", rings
 # print properties of an attached ring
 def print_ring(r):
     print "name=%s size=%d reader=%d writer=%d scratchpad=%d" % (r.name,r.size,r.reader,r.writer,r.scratchpad_size),
-    print "use_rmutex=%d use_wmutex=%d stream=%d" % (r.use_rmutex, r.use_wmutex,r.is_stream)
+    print "use_rmutex=%d use_wmutex=%d stream=%d in_halmem=%d" % (r.use_rmutex, r.use_wmutex,r.is_stream,r.in_halmem)
+
+halring = comp.create("halmemring%d" % os.getpid(),in_halmem=True)
+shmring = comp.create("shmsegring%d" % os.getpid(),in_halmem=False)
+
+print_ring(halring)
+print_ring(shmring)
 
 if "ring_0" in rings:
 
