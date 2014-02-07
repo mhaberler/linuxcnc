@@ -864,11 +864,12 @@ static int mainloop(size_t  argc, char **argv)
 
     // zmq & service discovery incantations
 
+    zctx_t *z_context = zctx_new ();
+
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()
     zsys_handler_set(NULL);
 
-    zctx_t *z_context = zctx_new ();
     void *z_command = zsocket_new (z_context, ZMQ_ROUTER);
     {
 	char z_ident[30];
