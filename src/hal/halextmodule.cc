@@ -91,6 +91,7 @@ public:
     hal_ring_t *halring;
     std::string rname;
     bool is_stream, use_rmutex, use_wmutex, in_halmem;
+    unsigned flags;
 
     Ring(const char *name, ringbuffer_t rbuf);
     virtual ~Ring();
@@ -753,7 +754,8 @@ ring_ptr HalComponent::ring_create(char *name,
 		     name, strerror(-retval));
 	throw boost::python::error_already_set();
     }
-    if (hal_ring_attach(name, &ringbuf, comp->comp_id) < 0) {
+    unsigned flags; // FIXME make Ring member
+    if (hal_ring_attach(name, &ringbuf, comp->comp_id, &flags) < 0) {
 	PyErr_Format(PyExc_NameError, "hal_ring_attach(): no such ring: '%s': %s",
 		       name, strerror(-retval));
 	throw boost::python::error_already_set();
@@ -768,7 +770,7 @@ ring_ptr HalComponent::ring_create(char *name,
 	int dummy __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 	r->halring = halpr_find_ring_by_name(name);
-	r->in_halmem = (r->halring->hrflags & ALLOC_HALMEM) != 0;
+	r->in_halmem = (r->halring->flags & ALLOC_HALMEM) != 0;
     }
     return r;
 }
@@ -778,8 +780,9 @@ ring_ptr HalComponent::ring_attach(char *name)
     int retval;
     ringbuffer_t rbuf;
     ring_ptr r;
+    unsigned flags; // FIXME make Ring member
 
-    if ((retval = hal_ring_attach(name, &rbuf, comp->comp_id))) {
+    if ((retval = hal_ring_attach(name, &rbuf, comp->comp_id, &flags))) {
 	PyErr_Format(PyExc_NameError, "hal_ring_attach(): no such ring: '%s': %s",
 		     name, strerror(-retval));
 	throw boost::python::error_already_set();
@@ -793,9 +796,9 @@ ring_ptr HalComponent::ring_attach(char *name)
 	int dummy __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 	r->halring = halpr_find_ring_by_name(name);
-	r->in_halmem = (r->halring->hrflags & ALLOC_HALMEM) != 0;
+	r->in_halmem = (r->halring->flags & ALLOC_HALMEM) != 0;
     }
-   return r;
+    return r;
 }
 
 void HalComponent::ring_detach(Ring &r)

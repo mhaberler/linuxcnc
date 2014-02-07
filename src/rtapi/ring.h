@@ -135,13 +135,18 @@ typedef struct {
 #define USE_RMUTEX       RTAPI_BIT(1)
 #define USE_WMUTEX       RTAPI_BIT(2)
 
+// allocate this ring in HAL shared memory rather than a separate shm segment
+// this is needed if pins/signals etc are allocated in the scratchpad area
+// because those objects must reside in HAL mem.
+// technically this option is a directive to the using HAL layer, not this
+// ringbuffer code.
+#define ALLOC_HALMEM     RTAPI_BIT(3)
+
 // hint by creator how other side should handle protobuf messages:
 // deserialize into a nanopb struct RTMessage on write
-#define UNWRAP_ON_WRITE  RTAPI_BIT(3)
+#define DECODE_BEFORE_WRITE  RTAPI_BIT(4)
 // seerialize into a nanopb struct RTMessage on write
-#define UNWRAP_ON_READ   RTAPI_BIT(4)
-
-
+#define ENCODE_AFTER_READ   RTAPI_BIT(5)
 
 #define RB_ALIGN 8
 

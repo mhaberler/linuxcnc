@@ -73,17 +73,16 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 	    return -ENOMEM;
 	}
 
-	rbdesc->hrflags = 0;
+	rbdesc->flags = flags;
 	rbdesc->ring_id = ring_id;
 
 	// make total allocation fit ringheader, ringbuffer and scratchpad
-	rbdesc->total_size = ring_memsize( flags, size, sp_size);
+	rbdesc->total_size = ring_memsize( rbdesc->flags, size, sp_size);
 
 	rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating ring '%s' total_size=%d\n",
 			rtapi_instance, name, rbdesc->total_size);
 
-	if (flags & ALLOC_HALMEM) {
-	    rbdesc->hrflags |= ALLOC_HALMEM;
+	if (rbdesc->flags & ALLOC_HALMEM) {
 	    void *ringmem = shmalloc_up(rbdesc->total_size);
 	    if (ringmem == NULL) {
 		rtapi_print_msg(RTAPI_MSG_ERR,
@@ -118,7 +117,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 		return -ENOMEM;
 	    }
 	}
-	ringheader_init(rhptr, flags, size, sp_size);
+	ringheader_init(rhptr, rbdesc->flags, size, sp_size);
 	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
 	rtapi_snprintf(rbdesc->name, sizeof(rbdesc->name), "%s", name);
 	rbdesc->next_ptr = 0;
@@ -194,7 +193,7 @@ int hal_ring_delete(const char *name, int module_id)
 	ringheader_t *rhptr;
 	int shmid;
 
-	if (hrptr->hrflags & ALLOC_HALMEM) {
+	if (hrptr->flags & ALLOC_HALMEM) {
 	    // ring exists as HAL memory.
 	    rhptr = SHMPTR(hrptr->ring_offset);
 	} else {
@@ -226,7 +225,7 @@ int hal_ring_delete(const char *name, int module_id)
 
 	rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d deleting ring '%s'\n",
 			rtapi_instance, name);
-	if (hrptr->hrflags & ALLOC_HALMEM) {
+	if (hrptr->flags & ALLOC_HALMEM) {
 	    ; // if there were a HAL memory free function, call it here
 	} else {
 	    if ((retval = rtapi_shmem_delete(shmid, module_id)) < 0)  {
@@ -261,7 +260,8 @@ int hal_ring_delete(const char *name, int module_id)
 
 }
 
-int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
+int hal_ring_attach(const char *name, ringbuffer_t *rbptr,
+		    int module_id, unsigned *flags)
 {
     hal_ring_t *rbdesc;
     ringheader_t *rhptr;
@@ -284,7 +284,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 	    return -EINVAL;
 	}
 
-	if (rbdesc->hrflags & ALLOC_HALMEM) {
+	if (rbdesc->flags & ALLOC_HALMEM) {
 	    rhptr = SHMPTR(rbdesc->ring_offset);
 	} else {
 	    int shmid;
@@ -315,6 +315,8 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr, int module_id)
 	// fill in ringbuffer_t
 	ringbuffer_init(rhptr, rbptr);
 
+	if (flags)
+	    *flags = rbdesc->flags;
 	// hal mutex unlock happens automatically on scope exit
     }
     return 0;

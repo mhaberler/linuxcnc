@@ -19,7 +19,7 @@ typedef struct {
     int total_size;              // size of shm segment allocated
     int owner;                   // creating HAL module
     unsigned ring_offset;        // if created in HAL shared memory
-    unsigned hrflags;
+    unsigned flags;
 } hal_ring_t;
 
 // some components use a fifo and a scratchpad shared memory area,
@@ -44,7 +44,8 @@ int hal_ring_delete(const char *name, int module_id);
 // make an existing ringbuffer accessible to a component
 // rb must point to storage of type ringbuffer_t.
 // Increases the reference count.
-int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id);
+// store halring flags in *flags if non-zero.
+int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id, unsigned *flags);
 
 // detach a ringbuffer. Decreases the reference count.
 int hal_ring_detach(const char *name, ringbuffer_t *rb);
