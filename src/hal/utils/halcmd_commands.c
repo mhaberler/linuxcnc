@@ -2080,7 +2080,7 @@ static void print_thread_info(char **patterns)
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *fentry;
     hal_funct_t *funct;
-    int named = patterns && strlen(patterns[0]);
+    int named = patterns && patterns[0] && strlen(patterns[0]);
 
     if (scriptmode == 0) {
 	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
@@ -2881,7 +2881,8 @@ static void print_ring_info(char **patterns)
     while (next_ring != 0) {
 	rptr = SHMPTR(next_ring);
 	if ( match(patterns, rptr->name) ) {
-	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, comp_id))) {
+	    unsigned flags;
+	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, comp_id, &flags))) {
 		halcmd_error("%s: hal_ring_attach(%d) failed ",
 			     rptr->name, rptr->ring_id);
 		goto failed;
