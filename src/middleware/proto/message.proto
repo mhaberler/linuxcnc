@@ -52,6 +52,10 @@ message Container {
     optional int32              tv_sec    = 21;  // can be used with ctime(3)
     optional int32              tv_nsec   = 22;
 
+    // this is for messages going over pub/sub streams and wind up in JSON frames
+    // duplicating the topic here allows us to drop the topic frame
+    optional string                 topic = 23;
+
     // this is an or of bits in ReplyType:
     optional int32                   rsvp = 30;  // if/how to answer
     optional ContainerType    in_reply_to = 33;
@@ -72,8 +76,10 @@ message Container {
 
     // legacy line number as conveyed on interplist
     // to be replaced by source context
-    optional int32            line_number = 67;
+    optional int32            line_number = 66;
 
+    // used with MT_MESSAGEBUS_NO_DESTINATION
+    optional string                  name = 67;  // faulty messagebus destination
     optional string                  note = 68;  // easy tack-on for debugging
     optional int32                retcode = 69;  // all purpose integer return code
 
