@@ -54,6 +54,7 @@ modclean-rtapi:
 # user threads
 XXAPI_COMMON_SRCS := \
 	rtapi_support.c \
+	rtapi_hexdump.c \
 	rtapi_common.c \
 	rtapi_task.c \
 	rtapi_shmem.c \
@@ -111,6 +112,7 @@ endif
 ULAPI_AUTOLOAD_SRCS := \
 	rtapi/ulapi_autoload.c \
 	rtapi/rtapi_compat.c \
+	rtapi/rtapi_hexdump.c \
 	rtapi/rtapi_support.c
 
 USERSRCS += $(ULAPI_AUTOLOAD_SRCS)
@@ -197,6 +199,7 @@ endif  # BUILD_SYS == kbuild
 RTAPI_APP_SRCS := \
 	rtapi/$(threads)/rtapi_app.cc \
 	rtapi/$(threads)/rtapi_compat.c \
+	rtapi/$(threads)/rtapi_hexdump.c \
 	rtapi/$(threads)/rtapi_support.c \
 	rtapi/syslog-async/syslog_async.c
 
