@@ -5,15 +5,16 @@ PROFILE = #-pg
 TALKER_SRCS :=  $(addprefix hal/haltalker/, \
 	haltalker.cc)
 
-TALKER_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
+TALKER_CXXFLAGS := $(shell pkg-config libczmq  protobuf jansson --cflags)  \
 	$(PROFILE)  -DULAPI
-TALKER_LDFLAGS := $(shell pkg-config libczmq  protobuf --libs) \
+TALKER_LDFLAGS := $(shell pkg-config libczmq  protobuf jansson --libs) \
 	-lstdc++ \
 	$(PROFILE)
 
 $(call TOOBJSDEPS, $(TALKER_SRCS)) : EXTRAFLAGS += $(TALKER_CXXFLAGS)
 
 ../bin/haltalker: $(call TOOBJS, $(TALKER_SRCS)) \
+	../lib/libjson2pb.so \
 	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnchal.so.0 \
 	../lib/liblinuxcncini.so.0

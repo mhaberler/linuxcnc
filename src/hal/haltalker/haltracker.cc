@@ -181,6 +181,7 @@ listener (void *arg)
 		    self->values[s.handle()] = v;
 		}
 	    }
+	    break;
 	case pb::MT_TICKET_UPDATE:
 	    if (update.has_ticket_update()) {
 		// track  non-closed tickets

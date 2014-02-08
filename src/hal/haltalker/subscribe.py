@@ -8,9 +8,10 @@ print "ZMQ=%s pyzmq=%s" % (zmq.zmq_version(), zmq.pyzmq_version())
 context = zmq.Context()
 
 sub = context.socket(zmq.SUB)
-sub.connect("tcp://127.0.0.1:6650")
+sub.connect("tcp://127.0.0.1:6042")
 #sub.connect("tcp://193.228.47.211:6650")
 sub.setsockopt(zmq.SUBSCRIBE, "")
+#sub.setsockopt(zmq.SUBSCRIBE, "axis-pos")
 
 class Sig:
     def __init__(self):
