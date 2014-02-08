@@ -1,0 +1,25 @@
+
+
+MBDIR := $(MWDIR)/messagebus
+
+MESSAGEBUS_SRCS :=  $(addprefix $(MBDIR)/, \
+	messagebus.cc \
+	rtproxy.cc )
+
+MESSAGEBUS_CXX_CFLAGS = -g -std=c++11  `pkg-config --cflags protobuf  libczmq` # -DPB_FIELD_32BIT
+MESSAGEBUS_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf libczmq`  -lstdc++
+
+$(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
+
+../bin/messagebus: $(call TOOBJS, $(MESSAGEBUS_SRCS)) \
+	../lib/liblinuxcncini.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/liblinuxcnc-npb.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  \
+	 $(MESSAGEBUS_CXX_LDFLAGS)
+
+USERSRCS += $(MESSAGEBUS_SRCS)
+
+TARGETS += ../bin/messagebus
