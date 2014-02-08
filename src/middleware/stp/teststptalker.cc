@@ -2,16 +2,18 @@
 #include <string>
 #include <stptalker.h>
 
-double xval;
-int fooval;
-bool flagval;
+double xval = 6.28;
+int fooval = 4711;
+bool flagval = true;
 const char *filename = "foo.txt";
 
 char blob[100];
 size_t blob_size = sizeof(blob);
 const void *blob_ptr = blob;
 
-double x,y,z;
+double x = 3.14;
+double y = 2.718;
+double z = 42.42;
 
 static zctx_t *ctx;
 
@@ -56,7 +58,7 @@ int main(int argc, const char **argv)
 
     // explicit uri, run beacon, subscribe callback, 1s timer
     //strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, subscribe);
-    strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, NULL);
+    strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, subscribe);
 
     sleep(3000);
     strack_talker_exit(t);

@@ -1,3 +1,14 @@
+TODO:
+stp_stats(tracker)
+--> log_info
+
+merge with halupdate? what was that again... haltracker. done.
+
+check_updates ;  time->startup arg - by thread?
+API need: timed wait for initial update!
+
+
+----------------
 
 
 
