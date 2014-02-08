@@ -14,6 +14,7 @@ MODULE_LICENSE("GPL");
 
 #include "pbmsgs.h"
 
+
 static int comp_id;
 static const char *name = "pbmsgs";
 
@@ -49,6 +50,7 @@ PB_MESSAGE(MotionStatus);
 PB_MESSAGE(HalUpdate);
 //PB_MESSAGE(LegacyEmcPose);
 PB_MESSAGE(RTAPI_Message);
+PB_MESSAGE(RTAPICommand);
 PB_MESSAGE(LogMessage);
 PB_MESSAGE(Test1);
 PB_MESSAGE(Test2);

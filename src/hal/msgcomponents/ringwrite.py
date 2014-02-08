@@ -13,21 +13,22 @@ import halext
 comp = halext.HalComponent("ringwrite%d" % os.getpid())
 comp.ready()
 
-# retrieve list of ring names
-rings = halext.rings()
-print "rings: ", rings
-
 
 # print properties of an attached ring
 def print_ring(r):
     print "name=%s size=%d reader=%d writer=%d scratchpad=%d" % (r.name,r.size,r.reader,r.writer,r.scratchpad_size),
     print "use_rmutex=%d use_wmutex=%d stream=%d in_halmem=%d" % (r.use_rmutex, r.use_wmutex,r.is_stream,r.in_halmem)
 
+
 halring = comp.create("halmemring%d" % os.getpid(),in_halmem=True)
 shmring = comp.create("shmsegring%d" % os.getpid(),in_halmem=False)
 
 print_ring(halring)
 print_ring(shmring)
+
+# retrieve list of ring names
+rings = halext.rings()
+print "rings: ", rings
 
 if "ring_0" in rings:
 
@@ -40,12 +41,14 @@ if "ring_0" in rings:
     # set writer to our HAL module id
     w.writer = comp.id
 
+    print "max msgsize: ", w.available()
     # push a few messages down the ring
     for i in range(10):
         msg = "message %d" % (i)
         w.write(msg,len(msg))
+
     # see what's left
-    print "available: ", w.available()
+    print "max msgsize: ", w.available()
 
     time.sleep(1)
 
