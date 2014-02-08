@@ -60,6 +60,7 @@ using namespace std;
 
 #include "czmq.h"
 
+#include <google/protobuf/text_format.h>
 #include <middleware/generated/types.pb.h>
 #include <middleware/generated/log.pb.h>
 #include <middleware/generated/message.pb.h>
@@ -68,44 +69,9 @@ using namespace google::protobuf;
 #include <middleware/json2pb/json2pb.h>
 #include <jansson.h> // just for library version tag
 
-#include <libwebsockets.h>
-
-#ifdef OLDWS
-// /* Enable libev io loop */
-// #define LWS_USE_LIBEV
-// /* Turn off external polling support */
-// #define LWS_NO_EXTERNAL_POLL
-
-
-
-typedef struct {
-    struct ev_io watcher;
-    void *socket;
-    zframe_t *current;
-    size_t already_sent;
-    struct libwebsocket *wsiref;
-    int socket_type;
-    bool text; //default to binary
-    // stats
-    int partial_writes;
-    int partial_completed;
-    int partial_rescheduled;
-    int blocked;
-} wslog_sess_t;
-
-typedef struct {
-    const char *www_dir;
-    int debug_level;
-    zctx_t *z_context;
-    const char *uri;
-    struct ev_loop* loop;
-    bool publish_json;
-} wsconfig_t;
-
-#endif
-
-
-static struct libwebsocket_context *ws_context;
+#include <zwsproxy.h>
+static void lwsl_emit_rtapilog(int level, const char *line);
+static int json_policy(zwsproxy_t *self, zws_session_t *wss, zwscb_type type);
 
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
@@ -127,12 +93,20 @@ static int signal_fd;
 // poll faster if a message was read, and decay the poll timer up to msg_poll_max
 // if no messages are pending
 // this way we retrieve bunched messages fast without much overhead in idle times
+static int msg_poll_max = 200;    // maximum msgq checking interval
+static int msg_poll_min = 20;  // minimum msgq checking interval
+static int msg_poll_inc = 10;  // increment interval if no message read up to msg_poll_max
+static int msg_poll =     20;  // current delay; startup fast
+static int polltimer_id;      // as returned by zloop_timer()
 
-static int msg_poll_max = 200; // maximum msgq checking interval, mS
-static int msg_poll_min = 1;   // minimum msgq checking interval
-static int msg_poll_inc = 2;   // increment interval if no message read up to msg_poll_max
-static int msg_poll = 1;       // current delay; startup fast
-static int msgd_exit;          // flag set by signal handler to start shutdown
+// zeroMQ related
+static zloop_t* loop;
+static void *logpub;  // zeromq log publisher socket
+static zctx_t *zctx;
+static const char *logpub_uri = "tcp://127.0.0.1:5550";
+static zwsproxy_t *zws;             // zeroMQ/websockets proxy instance
+static int wsdebug = 0;
+static bool have_json_subs;
 
 int shmdrv_loaded;
 long page_size;
@@ -914,6 +888,19 @@ int main(int argc, char **argv)
     if (strcmp(GIT_CONFIG_SHA,GIT_BUILD_SHA))
 	syslog_async(LOG_WARNING, "WARNING: git SHA's for configure and build do not match!");
 
+
+   if ((global_data->rtapi_msgd_pid != 0) &&
+	kill(global_data->rtapi_msgd_pid, 0) == 0) {
+	syslog(LOG_ERR, "%s: another rtapi_msgd is already running (pid %d), exiting\n",
+	       progname, global_data->rtapi_msgd_pid);
+	exit(EXIT_FAILURE);
+    }
+    // suppress default handling of signals in zctx_new()
+    // since we're using signalfd()
+    zsys_handler_set(NULL);
+
+
+
    if (logpub_uri) {
 
 	int major, minor, patch;
@@ -936,30 +923,17 @@ int main(int argc, char **argv)
 	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
 
-#if 0
-	    lws_set_log_level(ws_config.debug_level, lwsl_emit_syslog);
-<<<<<<< HEAD
-	    ws_config.z_context = zmq_ctx;
-	    ws_config.uri = logpub_uri;
-	    ws_config.loop = loop;
-||||||| merged common ancestors
-	    ws_config.z_context = zmq_ctx;
-	    ws_config.loop = loop;
-=======
-	    ws_config.z_context = zmq_ctx;
->>>>>>> undo ws attempts
-	    ws_config.uri = logpub_uri;
-	    ws_info.user = (void *) &ws_config;
-	    ws_info.protocols = protocols;
-	    ws_info.gid = -1;
-	    ws_info.uid = -1;
-	    ws_info.options = 0;
-	    ws_context = libwebsocket_create_context(&ws_info);
-	    if (ws_context == NULL) {
-		syslog(LOG_ERR, "libwebsocket init failed");
-	    } else
-		libwebsocket_initloop(ws_context, loop);
-#endif
+	    lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
+
+	    if ((zws = zwsproxy_new(zctx, www_dir, &info)) == NULL) {
+		syslog(LOG_ERR, "failed to start websockets proxy\n");
+		goto nows;
+	    }
+	    // add a user-defined relay policy
+	    zwsproxy_add_policy(zws, "json", json_policy);
+
+	    // start serving
+	    zwsproxy_start(zws);
 	} else {
 	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
@@ -1029,4 +1003,135 @@ int main(int argc, char **argv)
     cleanup_actions();
     closelog();
     exit(exit_code);
+}
+static void lwsl_emit_rtapilog(int level, const char *line)
+{
+	int syslog_level = LOG_DEBUG;
+
+	switch (level) {
+	case LLL_ERR:
+		syslog_level = LOG_ERR;
+		break;
+	case LLL_WARN:
+		syslog_level = LOG_WARNING;
+		break;
+	case LLL_NOTICE:
+		syslog_level = LOG_NOTICE;
+		break;
+	case LLL_INFO:
+		syslog_level = LOG_INFO;
+		break;
+	}
+	syslog(syslog_level, "%s", line);
+}
+
+#include <zwsproxy-private.h>
+
+// relay policy to convert to/from JSON as needed
+static int
+json_policy(zwsproxy_t *self,
+	    zws_session_t *wss,
+	    zwscb_type type)
+{
+    lwsl_debug("%s op=%d\n",__func__,  type);
+    zmsg_t *m;
+    zframe_t *f;
+    static pb::Container c; // fast; threadsafe???
+
+    switch (type) {
+
+    case ZWS_CONNECTING:
+	// > 1 indicates: run the default policy ZWS_CONNECTING code
+	return 1;
+	break;
+
+    case ZWS_ESTABLISHED:
+	break;
+
+    case ZWS_CLOSE:
+	break;
+
+    case ZWS_FROM_WS:
+
+	switch (wss->socket_type) {
+	case ZMQ_DEALER:
+	    {
+		try{
+		    json2pb(c, (const char *) wss->buffer, wss->length);
+		} catch (std::exception &ex) {
+		    lwsl_err("from_ws: json2pb exception: %s on '%.*s'\n",
+			     ex.what(),wss->length, wss->buffer);
+		}
+		zframe_t *z_pbframe = zframe_new(NULL, c.ByteSize());
+		assert(z_pbframe != NULL);
+		if (c.SerializeWithCachedSizesToArray(zframe_data(z_pbframe))) {
+		    assert(zframe_send(&z_pbframe, wss->socket, 0) == 0);
+		} else {
+		    lwsl_err("from_ws: cant serialize: '%.*s'\n",
+			       wss->length, wss->buffer);
+		    zframe_destroy(&z_pbframe);
+		}
+		return 0;
+	    }
+	    break;
+
+	case ZMQ_SUB:
+	case ZMQ_XSUB:
+	    lwsl_err("dropping frame '%.*s'\n",wss->length, wss->buffer);
+	    break;
+	default:
+	    break;
+	}
+	// a frame was received from the websocket client
+	f = zframe_new (wss->buffer, wss->length);
+	zframe_print (f, "user_policy FROM_WS:");
+	return zframe_send(&f, wss->socket, 0);
+
+    case ZWS_TO_WS:
+	{
+	    char *topic = NULL;
+
+	    m = zmsg_recv(wss->socket);
+	    if ((wss->socket_type == ZMQ_SUB) ||
+		(wss->socket_type == ZMQ_XSUB)) {
+		topic = zmsg_popstr (m);
+		assert(zstr_send(wss->wsq_out, "{ topic = \\\"%s\\\"}\n", topic) == 0);
+		free(topic);
+	    }
+
+	    while ((f = zmsg_pop (m)) != NULL) {
+		// zframe_print (f, "user_policy TO_WS:");
+
+		if (!c.ParseFromArray(zframe_data(f), zframe_size(f))) {
+		    char *hex = zframe_strhex(f);
+		    lwsl_err("cant protobuf parse from %s",
+			     hex);
+		    free(hex);
+		    zframe_destroy(&f);
+		    break;
+		}
+		// this breaks - probably needs some MergeFrom* pb method
+		// if (!c.has_topic() && (topic != NULL))
+		//     c.set_topic(topic); // tack on
+
+		try {
+		    std::string json = pb2json(c);
+		    zframe_t *z_jsonframe = zframe_new( json.c_str(), json.size());
+		    assert(zframe_send(&z_jsonframe, wss->wsq_out, 0) == 0);
+		} catch (std::exception &ex) {
+		    lwsl_err("to_ws: pb2json exception: %s\n",
+			     ex.what());
+		    std::string text;
+		    if (TextFormat::PrintToString(c, &text))
+			fprintf(stderr, "container: %s\n", text.c_str());
+		}
+	    }
+	    zmsg_destroy(&m);
+	}
+	break;
+
+    default:
+	break;
+    }
+    return 0;
 }
