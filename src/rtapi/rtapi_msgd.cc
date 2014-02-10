@@ -905,16 +905,14 @@ int main(int argc, char **argv)
 
 	int major, minor, patch;
 	zmq_version (&major, &minor, &patch);
-	syslog(LOG_DEBUG, "ØMQ version: %d.%d.%d", major, minor, patch);
-	syslog(LOG_DEBUG, "czmq version: %d.%d.%d",
-	       CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH);
-	major = GOOGLE_PROTOBUF_VERSION / 1000000;
-	minor = (GOOGLE_PROTOBUF_VERSION / 1000) % 1000;
-	patch = GOOGLE_PROTOBUF_VERSION % 1000;
-	syslog(LOG_DEBUG, "protobuf version: %d.%d.%d", major, minor, patch);
-	syslog(LOG_DEBUG, "jansson version: %s\n", JANSSON_VERSION);
-	syslog(LOG_DEBUG, "libwebsockets version: %s\n",  lws_get_library_version());
-
+	syslog(LOG_DEBUG,
+	       "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d jansson=%s libwebsockets=%s\n",
+	       major, minor, patch,
+	       CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
+	       GOOGLE_PROTOBUF_VERSION / 1000000,
+	       (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
+	       GOOGLE_PROTOBUF_VERSION % 1000,
+	       JANSSON_VERSION, lws_get_library_version());
 	// start the zeromq log publisher socket
 	logpub = zsocket_new(zmq_ctx, ZMQ_XPUB);
 
