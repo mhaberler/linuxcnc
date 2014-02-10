@@ -21,9 +21,7 @@ def on_close(ws):
 
 
 if __name__ == "__main__":
-    websocket.enableTrace(True)
-    ws = websocket.WebSocketApp("ws://127.0.0.1:7681",
-                                header=["Sec-WebSocket-Protocol: log"],
+    ws = websocket.WebSocketApp("ws://127.0.0.1:7681/?debug=-1&connect=tcp://127.0.0.1:5550&type=xsub&subscribe=json",
                                 on_message = on_message,
                                 on_error = on_error,
                                 on_close = on_close)
