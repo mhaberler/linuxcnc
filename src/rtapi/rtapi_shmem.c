@@ -265,7 +265,8 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 		return -EINVAL;
 	    }
 	    /* is this module already using it? */
-	    if (rtapi_test_bit(module_id, shmem->bitmap)) {
+	    // redefine size == 0 to mean 'attach only, dont create'
+	    if (rtapi_test_bit(module_id, shmem->bitmap) && (size > 0)) {
 		rtapi_mutex_give(&(rtapi_data->mutex));
 		rtapi_print_msg(RTAPI_MSG_WARN,
 				"RTAPI: Warning: shmem %d key 0x%x already mapped\n",
@@ -302,13 +303,18 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
 #ifdef RTAPI
 	    }
 #endif
+
+	    // increase refcount only if not already used
+	    if (!rtapi_test_bit(module_id, shmem->bitmap)) {
+#ifdef ULAPI
+		shmem->ulusers++;
+#else  /* RTAPI */
+		shmem->rtusers++;
+#endif  /* RTAPI */
+	    }
 	    /* update usage data */
 	    rtapi_set_bit(module_id, shmem->bitmap);
-#ifdef ULAPI
-	    shmem->ulusers++;
-#else  /* RTAPI */
-	    shmem->rtusers++;
-#endif  /* RTAPI */
+
 	    /* announce another user for this shmem */
 	    rtapi_print_msg(RTAPI_MSG_DBG,
 		"RTAPI: shmem %02d 0x%x opened by module %02d\n",
