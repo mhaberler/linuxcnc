@@ -37,8 +37,9 @@ typedef struct {
 // accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
 int hal_ring_new(const char *name, int size, int spsize, int module_id, int mode);
 
-// delete a ring buffer.
+// delete a ring buffer. Can be done only by the creating module.
 // will fail if the refcount is > 0 (meaning the ring is still attached somewhere).
+// will fail if not the creating module_id (which can be ignored).
 int hal_ring_delete(const char *name, int module_id);
 
 // make an existing ringbuffer accessible to a component
