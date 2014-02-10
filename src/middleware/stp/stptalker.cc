@@ -410,7 +410,7 @@ static void s_talker_task (void *args, zctx_t *ctx, void *pipe)
 	// setup service discovery listener
 	if ((self->beacon_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
 	    perror("socket");
-	    zstr_send (pipe, "%d", self->beacon_fd);
+	    zstr_sendf (pipe, "%d", self->beacon_fd);
 	    return;
 	}
 	struct sockaddr_in sd_addr =  {0};
@@ -444,7 +444,7 @@ static void s_talker_task (void *args, zctx_t *ctx, void *pipe)
 	n_items = 3;
     }
     if (self->port < 0) {
-	zstr_send (pipe, "%d", self->port);
+	zstr_sendf (pipe, "%d", self->port);
 	return;
     }
     // good to go

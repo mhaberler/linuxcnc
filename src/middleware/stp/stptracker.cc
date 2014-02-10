@@ -412,7 +412,7 @@ cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 	retval = -1; // exit reactor
     }
     if (!strcmp(cmd_str,"STATS")) {
-	zstr_send (item->socket, "%d",s_tracker_stats(self));
+	zstr_sendf (item->socket, "%d",s_tracker_stats(self));
     }
     zstr_free(&cmd_str);
     return retval;

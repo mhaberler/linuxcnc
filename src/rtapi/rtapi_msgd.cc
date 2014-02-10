@@ -1093,7 +1093,7 @@ json_policy(zwsproxy_t *self,
 	    if ((wss->socket_type == ZMQ_SUB) ||
 		(wss->socket_type == ZMQ_XSUB)) {
 		topic = zmsg_popstr (m);
-		assert(zstr_send(wss->wsq_out, "{ topic = \\\"%s\\\"}\n", topic) == 0);
+		assert(zstr_sendf(wss->wsq_out, "{ topic = \\\"%s\\\"}\n", topic) == 0);
 		free(topic);
 	    }
 
