@@ -12,10 +12,12 @@ $(call TOOBJSDEPS, $(TOGLMODULESRCS))  : \
 	EXTRAFLAGS += $(ULFLAGS) $(TCL_CFLAGS)
 
 $(call TOOBJSDEPS, $(EMCMODULESRCS)) : Makefile.inc
+$(call TOOBJSDEPS, $(EMCMODULESRCS)) : EXTRAFLAGS += 	$(shell pkg-config libczmq libzmq --cflags)
 
 $(EMCMODULE): $(call TOOBJS, $(EMCMODULESRCS)) ../lib/liblinuxcnc.a ../lib/libnml.so.0 ../lib/liblinuxcncini.so ../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking python module $(notdir $@)
-	$(Q)$(CXX) $(LDFLAGS) -shared -o $@ $^ -L/usr/X11R6/lib -lm -lGL $(ZMQ_CXX_LDFLAGS) $(PB_CXX_LDFLAGS)
+	$(Q)$(CXX) $(LDFLAGS) -shared -o $@ $^ -L/usr/X11R6/lib -lm -lGL \
+	$(shell pkg-config libczmq libzmq --libs)  $(PB_CXX_LDFLAGS)
 
 
 $(MINIGLMODULE): $(call TOOBJS, $(MINIGLMODULESRCS))

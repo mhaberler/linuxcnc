@@ -9,7 +9,8 @@ LIBSTPSRCS := $(addprefix  $(STPDIR)/, \
 
 USERSRCS += $(LIBSTPSRCS)
 
-$(call TOOBJSDEPS, $(LIBSTPSRCS)) : EXTRAFLAGS=-fPIC
+$(call TOOBJSDEPS, $(LIBSTPSRCS)) : EXTRAFLAGS=-fPIC \
+	$(shell pkg-config libczmq  protobuf --cflags)
 
 TARGETS += ../lib/libstp.so ../lib/libstp.so.0
 
@@ -61,6 +62,9 @@ TRSRCS := $(addprefix $(STPDIR)/, \
 	teststptracker.cc)
 
 USERSRCS += $(TRSRCS)
+
+$(call TOOBJSDEPS, $(TRSRCS)) : EXTRAFLAGS= \
+	$(shell pkg-config libczmq  protobuf --cflags)
 
 ../bin/teststptracker: $(call TOOBJS, $(TRSRCS)) \
 	../lib/libstp.so \
