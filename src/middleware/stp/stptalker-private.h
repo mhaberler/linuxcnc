@@ -14,6 +14,7 @@ struct _stvar {
     pb::ValueType type;
     stp_valueref_u value;
     stp_valuetrack_u track;
+    unsigned handle;
 };
 
 struct _stgroup {

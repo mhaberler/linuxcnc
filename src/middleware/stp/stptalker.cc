@@ -17,6 +17,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full);
 static inline int pack_and_send(sttalker_t *self, const char *topic);
 
 int stp_debug = 0;
+static unsigned next_handle = 1;
 
 stvar_t *strack_double(const char *name, double *dref)
 {
@@ -26,6 +27,7 @@ stvar_t *strack_double(const char *name, double *dref)
     self->type = pb::HAL_FLOAT;
     self->value.f = dref;
     self->track.f = *dref;
+    self->handle = next_handle++;
     return self;
 }
 
@@ -37,6 +39,7 @@ stvar_t *strack_s32(const char *name, int *sref)
     self->type = pb::HAL_S32;
     self->value.s = sref;
     self->track.s = *sref;
+    self->handle = next_handle++;
     return self;
 }
 
@@ -48,6 +51,7 @@ stvar_t *strack_u32(const char *name, int *uref)
     self->type = pb::HAL_U32;
     self->value.u = uref;
     self->track.u = *uref;
+    self->handle = next_handle++;
     return self;
 }
 
@@ -59,6 +63,7 @@ stvar_t *strack_bool(const char *name, bool *bref)
     self->type = pb::HAL_BIT;
     self->value.b = bref;
     self->track.b = *bref;
+    self->handle = next_handle++;
     return self;
 }
 
@@ -71,6 +76,7 @@ stvar_t *strack_string(const char *name, const void **sref)
     self->value.blob.bref = sref;
     self->value.blob.bsize = 0;
     self->track.changed = false;
+    self->handle = next_handle++;
     return self;
 }
 
@@ -83,6 +89,7 @@ stvar_t *strack_blob(const char *name, const void **bref, size_t *bsize)
     self->value.blob.bref = bref;
     self->value.blob.bsize = bsize;
     self->track.changed = false;
+    self->handle = next_handle++;
     return self;
 }
 
@@ -258,7 +265,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 	    }
 	    signal->set_name(v->name);
 	    signal->set_type((pb::ValueType)v->type);
-	    signal->set_handle((uint32) v);
+	    signal->set_handle(v->handle);
 	} else {
 	    switch (v->type) {
 	    default:
@@ -268,7 +275,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 		    v->track.b = *v->value.b;
 		    pb::Signal *signal = self->update->add_signal();
 		    signal->set_halbit(*v->value.b);
-		    signal->set_handle((uint32) v);
+		    signal->set_handle(v->handle);
 		}
 		break;
 	    case pb::HAL_FLOAT:
@@ -276,7 +283,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 		    v->track.f = *v->value.f;
 		    pb::Signal *signal = self->update->add_signal();
 		    signal->set_halfloat(*v->value.f);
-		    signal->set_handle((uint32) v);
+		    signal->set_handle(v->handle);
 		}
 		break;
 	    case pb::HAL_S32:
@@ -284,7 +291,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 		    v->track.s = *v->value.s;
 		    pb::Signal *signal = self->update->add_signal();
 		    signal->set_hals32(*v->value.s);
-		    signal->set_handle((uint32) v);
+		    signal->set_handle(v->handle);
 		}
 		break;
 	    case pb::HAL_U32:
@@ -292,7 +299,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 		    v->track.u = *v->value.u;
 		    pb::Signal *signal = self->update->add_signal();
 		    signal->set_halu32(*v->value.u);
-		    signal->set_handle((uint32) v);
+		    signal->set_handle(v->handle);
 		}
 		break;
 	    case pb::STRING:
@@ -300,7 +307,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 		    v->track.changed = false;
 		    pb::Signal *signal = self->update->add_signal();
 		    signal->set_strval((const char *)*v->value.blob.bref);
-		    signal->set_handle((uint32) v);
+		    signal->set_handle(v->handle);
 		}
 		break;
 	    case pb::BYTES:
@@ -309,7 +316,7 @@ static inline int report_group(sttalker_t *self, stgroup_t *g, bool full)
 		    pb::Signal *signal = self->update->add_signal();
 		    signal->set_blob(*v->value.blob.bref,
 				     *v->value.blob.bsize);
-		    signal->set_handle((uint32) v);
+		    signal->set_handle(v->handle);
 		}
 		break;
 	    }
