@@ -173,6 +173,12 @@ PYTARGETS :=
 # Submakefiles from each of these directories will be included if they exist
 #	middleware/stp
 SUBDIRS := \
+	\
+	middleware \
+	middleware/support \
+	middleware/service-discovery \
+	middleware/stp \
+	middleware/messagebus \
 	libnml/linklist \
 	libnml/cms \
 	libnml/rcs \
@@ -188,11 +194,6 @@ SUBDIRS := \
 	rtapi/syslog-async \
 	rtapi \
 	rtapi/shmdrv \
-	\
-	middleware \
-	middleware/support \
-	middleware/libwebsockets \
-	middleware/service-discovery \
 	\
 	hal/components \
 	hal/msgcomponents \
@@ -1042,13 +1043,13 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/libnml/nml \
 	-I$(BASEPWD)/libnml/buffer \
 	-I$(BASEPWD)/libnml/posemath \
+	-I$(BASEPWD)/protobuf/nanopb \
 	-I$(BASEPWD)/rtapi \
 	-I$(BASEPWD)/hal \
 	-I$(BASEPWD)/emc/nml_intf \
 	-I$(BASEPWD)/emc/kinematics \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
-	-I$(BASEPWD)/middleware/nanopb \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
@@ -1150,6 +1151,10 @@ obj-$(CONFIG_STREAMER) += streamer.o
 streamer-objs := hal/components/streamer.o $(MATHSTUB)
 obj-$(CONFIG_SAMPLER) += sampler.o
 sampler-objs := hal/components/sampler.o $(MATHSTUB)
+
+# Subdirectory: hal/msgcomponents
+obj-m += pbring.o
+pbring-objs := hal/msgcomponents/pbring.o
 
 # Subdirectory: hal/support
 ifeq ($(TARGET_PLATFORM),beaglebone)
@@ -1487,6 +1492,8 @@ $(RTLIBDIR)/streamer$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(streamer-objs))
 $(RTLIBDIR)/sampler$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(sampler-objs))
 $(RTLIBDIR)/hal_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_parport-objs))
 $(RTLIBDIR)/probe_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probe_parport-objs))
+
+$(RTLIBDIR)/pbring$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbring-objs))
 
 ifeq ($(BUILD_SYS),user-dso)
 $(RTLIBDIR)/probe_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probe_parport-objs))
