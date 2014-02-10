@@ -1,0 +1,254 @@
+= The RT Message Bus
+
+Michael Haberler, 1/2014
+
+Status: draft
+
+:ini: {basebackend@docbook:'':ini}
+:hal: {basebackend@docbook:'':hal}
+:ngc: {basebackend@docbook:'':ngc}
+:proto: {basebackend@docbook:'':proto}
+
+
+== Problem Statement
+
+The legacy version of LinuxCNC has a very limited and specialized
+method of passing commands to, and receiving responses from the
+realtime environment. There is a single special-purpose command
+channel into a single RT component, without a public API, or any
+attempt of generalisation. There are no means to address components,
+as well as no support for exchange of messages between components.
+
+The result has been severe feature bloat of the motion component, having
+reached undesirable complexity and - being monolithic - rather hard to
+change for purposes not initially contemplated. Also, due to the lack
+of an API, no other RT components have appeared with a
+command/response interface.
+
+The two key issues are:
+
+* no concept of **naming** and hence **addressing** for the purpose of sending a message to, or receiving a message from a participant
+* as a consequence, no means of **routing** messages between more than two participants
+
+In HAL, components do have names; however, traditional HAL does not support messaging and hence those names do not extend to messaging purposes. Also, the HAL component name is useful but not sufficient as it does not make sense to limit message exchange to HAL components.
+
+== Purpose
+
+The purpose of the RT Message Bus is to provide a generic, easy to
+use, generalized API for passing messages to, from, and between RT
+components, as well as arbitrary userspace agents.
+
+== Basic concepts
+
+=== Messages
+
+For the purpose of describing Message Bus, a message is a tuple
+(sender, recipient, actual message contents). Sender and Recipient are
+strings. Message contents are opaque blobs of arbitrary size, and
+passed without inspection. Message contents is out of scope for the
+purpose of this document.
+
+=== Rails
+
+Rails are the paths on which messages travel between actors. Message
+Bus has four rails: *command-in*, *command-out*, *response-in*, and *response-out*.
+
+=== Ports
+
+A Port is named entity which can receive, or send a message. A message
+emanating from a port will have the port's name set as the sender. The
+recipient name is set as needed by the intended operation. A port is
+always connected to one one of the four rails.
+
+=== Actors
+
+An actor is a named entity with at least one command and one response
+port. In the common case of a single command/response port pair, the
+name of the actor and the port name may be identical. In HAL terms,
+this might be the component, or instance name.
+
+An actor can be thought of as a process, a thread, or an HAL RT or userland
+component.
+
+==== Actor types
+
+An actor may be of the following types:
+
+- a command injector. This actor sends one or several command message to another
+  named actor, and eventually waits for the response(s) by the target
+  actor(s). A command injector must connect to the command-in and
+  response-out rails.
+
+- a responder. This actor passively waits for a command message to
+  arrive at one of its ports. It then processes the message, and
+  generates a reply. A responder must connect to the command-out and
+  response-in rails.
+
+- both a command injector, and responder. The task at hand may suggest
+  the services of another actor are required to complete the
+  command. To do so, this compound actor temporarily becomes a command
+  injector, sending commands to other actors as needed, and waits for
+  responses as needed. Once all 'subactions' are completed, the actor
+  signals completion just like a normal responder.
+
+==== Realtime Actors
+
+The rails are implemented via zeroMQ sockets, which is not suitable
+for realtime execution. A realtime actor is implemented as a RT
+component plus a matching userland proxy thread which interacts with rails
+as needed. Communication between RT component and proxy thread happens
+over ringbuffers.
+
+The nature of such a proxy thread is likely rather generic and for
+most common purposes could be a built-in function collapsed into the
+Message Bus server.
+
+==== Actor behavior
+
+All actor communication happens as message pairs:
+
+- a responder generates exactly one response for each command fetched.
+- an injector consumes one response for each command injected.
+- in case the target actor does not exist, the message bus server responds with exactly one error response on behalf of the nonexistent actor.
+
+There is no unidirectional messaging (command without response). However, there is no requirement of strictly alternating request/response pairs (lock-step); an injector may choose to inject several commands before waiting for all the response.
+
+=== Parallel invocation of actors
+
+The Message Bus scheme supports parallel invocation of actors: an injector may choose to invoke actors A, B, and C by sending commands to A,B and C in turn. It will have to eventually wait for all three responses. Note that the sequence of response arrivals is nondeterministic and cannot be relied up to be in invocation order.
+
+== Conceptual Diagram
+
+The following diagram shows the major components and the conceptual interaction:
+
+image::https://raw.github.com/mhaberler/messagebus/master/images/messagebus-arch.png[architecture]
+
+== zeroMQ sockets and flows
+
+The following diagram shows how Message Bus can be implemented with
+zeroMQ sockets and threads:
+
+image::https://raw.github.com/mhaberler/messagebus/master/images/messagebus-zeromq.png[zeroMQ flows]
+
+The two rail pairs are implemented in a message bus demon by two
+threads which proxy between ROUTER and XPUB sockets. The usage of XPUB
+permits the demon to track active actors, and generate an error
+response if a command is sent to a non-existent actor.
+
+As soon as new actor starts and subscribes to the relevant out rails,
+it becomes a possible command target. This means functionality can be
+changed by killing and restarting a process, and new functionality
+plugged in by starting a new process. As long as the actor being
+restarted was not currently executing a command, or a command is
+targeted to the actor while it was shut down, there should be no
+discernible disruption.
+
+== Mechanism vs Policy
+
+This scheme provides a new mechanism to pass message between actors (by and large 'components' in LinuxCNC terms), something which was not possible before. The scheme does not prescribe policy, i.e. the conditions under which such messages are permitted by the application logic.
+
+The scheme puts few restrictions on how actors are invoked - say sequentially or parallel; or by a single injector or multiple injectors. If it is wise to use this power to the fullest extent is a separate question; it may be prudent to limit use to a few simple and well-understood patterns.
+
+== Discussion
+
+This scheme employs a limited version of the actor model. Parallelism
+is limited to explicit parallel invocation of idle
+actors, for the simple reason that realtime components are
+conceptually single-threaded.
+
+Serial invocation of compound actors is guaranteed by the alternation of
+listening operations on the command and response rails. No special
+provisions need to be taken on the actor level to queue pending
+commands on the command port.
+
+To be deadlock-free, the invocation graph of actors must
+remain acyclic; i.e. an invocation sequence like 'A -> B -> A' is
+illegal. While a programming error, it should be possible to detect
+such a situation in the Message Bus server.
+
+
+== Q & A
+
+=== Why two rails - command and response?
+
+It simplifies actors, and gets us command queuing for free: An actor
+will - after having fetched a command from the command rail - only return to
+listening on the command rail after the execution of the current
+command completes. In particular, this makes the use of sub-actors
+much simpler: an actor injects commands to into the command rail, but
+listens *only* on the response rail until all responses are in. That
+means any commands having arrived remain queued until the actor
+returns to listening on the command rail.
+
+The distinction into separate '-in' and '-out' rails is a zeroMQ artefact: the XPUB socket used for distribution to actors is one-way in nature, and hence is complemented by a ROUTER socket for command or response injection. If XPUB were two-way, we'd need only a two rails: 'command' and 'response'.
+
+=== That's a lot of boxes and lines. Wont this be terribly slow?
+
+Nope. Most of the tasks can be achieved in a single process, where
+message switching amounts to switching pointers. Even the dead-slow
+Python threading example implementation would be fast enough for
+LinuxCNC purposes. The C implementation will be at least an order of
+magnitude faster.
+
+=== Sounds complicated - a lot of code, right?
+
+The sizes of the Python example implementation (including noise like
+argument parsing) are:
+
+- actor.py: 83 lines
+- commandsubmitter.py: 67 lines
+- msgbus.py: 125 lines.
+
+Using a powerful building block like zeroMQ starts to pay off. The
+whole feature code should be a low triple digit number of lines of
+C. This compares very favorably to the size of the comparable current
+NML code base.
+
+
+=== What about flow control in a queued scenario?
+
+The message bus demon should ascertain that it isnt overrun by an
+aggressive actor which injects batches of commands without waiting for
+responses. One way to achieve this is to employ a window mechanism
+('credit-based queue') where a submitter is permitted an amount of
+messages to inject and must pause thereafter until the credit window
+reopens.
+
+
+== Terminology: HAL objects versus Commands and Responses
+
+HAL objects like pins and signals are scalars - a single variable of
+type bool, signed, unsigned or float. They may be read or written in a
+single, non-interruptible machine instruction, guaranteeing consistency.
+
+Commands and responses are compound objects, consisting of an
+arbitrary number of variables. Such messages cannot be written with a
+single machine instruction, and need supporting code to guarantee atomic read
+and write. The rinbuffer code recently introduced in LinuxCNC supports
+such atomic reads and writes of messages in a generic way, usable in
+RT and non-RT environments, and kernel as well as userspace.
+
+== Background
+
+The message bus is based on Hewitt's actor model, and uses zeroMQ
+communication patterns to glue actors together. Also, it adopts the data
+flow port concept from the Orocos project.
+
+Messagebus bears a remote resemblance to the zeroMQ Majordomo pattern.
+
+=== Literature:
+
+Actor model:
+http://en.wikipedia.org/wiki/Actor_model
+
+zeroMQ:
+http://zeromq.org/
+http://www.aosabook.org/en/zeromq.html (design background and relation
+to actors)
+
+http://rfc.zeromq.org/spec:7 (Majordomo pattern)
+
+https://github.com/zeromq/majordomo  (Majordomo implementation)
+
+Data flow ports:
+http://www.orocos.org/wiki/rtt/rtt-20/upgrading-rtt-1x-20/rtt-20-data-flow-ports
