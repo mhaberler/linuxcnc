@@ -1,19 +1,25 @@
 // this component provides support for other RT components
-// it exports protobuf message definitions in nanopb format
+// it exports protobuf message descriptors in nanopb format
 // as automatically generated in protobuf/Submakefile
-// from protobuf/proto/*.proto definitions
+// from middleware/proto/*.proto definitions
+
+// for any message <messagename>, the descriptor is accessible
+// as symbol 'pb_<messagename>_fields'.
+
+// to make a new message descriptor available:
+// edit the Submakefile to link in the new descriptor
+//   (stanza pbmsgs-objs := ..)
+// add an PB_DESCRIPTOR(..) at the end of this file
 
 #include "config.h"		/* GIT_VERSION */
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
 #include "hal.h"		/* HAL API */
-
-MODULE_AUTHOR("Michael Haberler");
-MODULE_DESCRIPTION("Nanopb protobuf message definitions");
-MODULE_LICENSE("GPL");
-
 #include "pbmsgs.h"
 
+MODULE_AUTHOR("Michael Haberler");
+MODULE_DESCRIPTION("Nanopb protobuf message descriptors");
+MODULE_LICENSE("GPL");
 
 static int comp_id;
 static const char *name = "pbmsgs";
@@ -27,7 +33,8 @@ int rtapi_app_main(void)
 	return -1;
     }
     hal_ready(comp_id);
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s " VERSION " loaded\n", name);
+    rtapi_print_msg(RTAPI_MSG_DBG,
+		    "%s git=" GIT_VERSION " nanopb=" VERSION "\n", name);
     return 0;
 }
 
@@ -36,22 +43,19 @@ void rtapi_app_exit(void)
     hal_exit(comp_id);
 }
 
-#define PB_MESSAGE(symbol) EXPORT_SYMBOL(pb_ ## symbol ## _fields)
+#define PB_DESCRIPTOR(symbol) EXPORT_SYMBOL(pb_ ## symbol ## _fields)
 
-// FIXME many lacking - autogenerate
-
-PB_MESSAGE(Container);
-//PB_MESSAGE(Telegram);
-PB_MESSAGE(Object);
-PB_MESSAGE(MotionCommand);
-PB_MESSAGE(MotionStatus);
-//PB_MESSAGE(Pm_Cartesian);
-//PB_MESSAGE(Emc_Pose);
-PB_MESSAGE(HalUpdate);
-//PB_MESSAGE(LegacyEmcPose);
-PB_MESSAGE(RTAPI_Message);
-PB_MESSAGE(RTAPICommand);
-PB_MESSAGE(LogMessage);
-PB_MESSAGE(Test1);
-PB_MESSAGE(Test2);
-PB_MESSAGE(Test3);
+PB_DESCRIPTOR(Container);
+PB_DESCRIPTOR(Object);
+PB_DESCRIPTOR(MotionCommand);
+PB_DESCRIPTOR(MotionStatus);
+//PB_DESCRIPTOR(Pm_Cartesian);
+//PB_DESCRIPTOR(Emc_Pose);
+PB_DESCRIPTOR(HalUpdate);
+//PB_DESCRIPTOR(LegacyEmcPose);
+PB_DESCRIPTOR(RTAPI_Message);
+PB_DESCRIPTOR(RTAPICommand);
+PB_DESCRIPTOR(LogMessage);
+PB_DESCRIPTOR(Test1);
+PB_DESCRIPTOR(Test2);
+PB_DESCRIPTOR(Test3);
