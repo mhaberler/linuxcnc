@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "lws_config.h"
 #include <libwebsockets.h>
 
 #include <zwsproxy.h>
