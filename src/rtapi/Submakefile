@@ -259,7 +259,8 @@ RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
 RTAPI_MSGD_CFLAGS := $(shell pkg-config \
 	jansson libczmq libzmq  protobuf liburiparser libwebsockets --cflags)
 RTAPI_MSGD_LDFLAGS := $(shell pkg-config  \
-	jansson libczmq libzmq  protobuf liburiparser libwebsockets --libs)
+	jansson libczmq libzmq  protobuf liburiparser libwebsockets --libs) \
+	-lstdc++ -lssl -lcrypto -ldl -lz
 
 $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	EXTRAFLAGS +=  $(RTAPI_MSGD_CFLAGS)
