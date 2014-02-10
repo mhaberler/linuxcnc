@@ -314,51 +314,53 @@ int rtapi_app_main(void)
 void rtapi_app_exit(void)
 {
     int i, retval;
-    char buf[HAL_NAME_LEN + 1];
+    char ringname[HAL_NAME_LEN + 1];
 
     for (i = 0; i < count; i++) {
 	pbring_inst_t *p = &pbring_array[i];
 
-	rtapi_snprintf(buf, sizeof(buf), "%s.%d.in", name, i);
+	rtapi_snprintf(ringname, sizeof(ringname), "%s.%d.in", name, i);
 	p->to_rt_rb.header->reader = 0;
-	if ((retval = hal_ring_detach(buf, &p->to_rt_rb)) < 0)
+	if ((retval = hal_ring_detach(ringname, &p->to_rt_rb)) < 0)
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed: %d\n",
-			    name, buf, retval);
+			    name, ringname, retval);
+	// hal_ring_delete(ringname, comp_id);
 
 	p->from_rt_rb.header->writer = 0;
-	rtapi_snprintf(buf, sizeof(buf), "%s.%d.out", name, i);
-	if ((retval = hal_ring_detach(buf, &p->from_rt_rb)) < 0)
+	rtapi_snprintf(ringname, sizeof(ringname), "%s.%d.out", name, i);
+	if ((retval = hal_ring_detach(ringname, &p->from_rt_rb)) < 0)
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed: %d\n",
-			    name, buf, retval);
+			    name, ringname, retval);
+	// hal_ring_delete(ringname, comp_id);
     }
     hal_exit(comp_id);
 }
 
-static int export_pbring(const char *name, int n, pbring_inst_t *p)
+static int export_pbring(const char *comp, int n, pbring_inst_t *p)
 {
     int retval;
-    char buf[HAL_NAME_LEN + 1];
+    char name[HAL_NAME_LEN + 1];
 
     if ((retval = hal_pin_u32_newf(HAL_OUT, &(p->underrun),
-				      comp_id, "%s.%d.underrun", name, n)))
+				      comp_id, "%s.%d.underrun", comp, n)))
 	return retval;
 
     if ((retval = hal_pin_u32_newf(HAL_OUT, &(p->received),
-				      comp_id, "%s.%d.received", name, n)))
+				      comp_id, "%s.%d.received", comp, n)))
 	return retval;
 
     if ((retval = hal_pin_u32_newf(HAL_OUT, &(p->sent),
-				      comp_id, "%s.%d.sent", name, n)))
+				      comp_id, "%s.%d.sent", comp, n)))
 	return retval;
 
     if ((retval = hal_pin_u32_newf(HAL_OUT, &(p->sendfailed),
-				      comp_id, "%s.%d.sendfailed", name, n)))
+				      comp_id, "%s.%d.sendfailed", comp, n)))
 	return retval;
 
     if ((retval = hal_pin_u32_newf(HAL_OUT, &(p->decodefail),
-				      comp_id, "%s.%d.decodefail", name, n)))
+				      comp_id, "%s.%d.decodefail", comp, n)))
 	return retval;
 
     *(p->underrun) = 0;
@@ -367,22 +369,22 @@ static int export_pbring(const char *name, int n, pbring_inst_t *p)
     *(p->sendfailed) = 0;
     *(p->decodefail) = 0;
 
-    rtapi_snprintf(buf, sizeof(buf), "%s.%d.in", name, n);
-    if ((retval = create_or_attach(buf, csize, &(p->to_rt_rb))))
+    rtapi_snprintf(name, sizeof(name), "%s.%d.in", comp, n);
+    if ((retval = create_or_attach(name, csize, &(p->to_rt_rb))))
 	return retval;
 
-    rtapi_snprintf(buf, sizeof(buf), "%s.%d.out", name, n);
-    if ((retval = create_or_attach(buf, rsize, &(p->from_rt_rb))))
+    rtapi_snprintf(name, sizeof(name), "%s.%d.out", comp, n);
+    if ((retval = create_or_attach(name, rsize, &(p->from_rt_rb))))
 	return retval;
 
     p->to_rt_rb.header->reader = comp_id;
     p->from_rt_rb.header->writer = comp_id;
 
-    rtapi_snprintf(buf, sizeof(buf), "%s.%d.update", name, n);
-    if ((retval = hal_export_funct(buf, update_pbring, &(pbring_array[n]),
+    rtapi_snprintf(name, sizeof(name), "%s.%d.update", comp, n);
+    if ((retval = hal_export_funct(name, update_pbring, &(pbring_array[n]),
 				   1, 0, comp_id))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: ERROR: %s funct export failed\n", name, buf);
+			"%s: ERROR: %s funct export failed\n", comp, name);
 	hal_exit(comp_id);
 	return -1;
     }
