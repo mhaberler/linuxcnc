@@ -2634,7 +2634,7 @@ static void hal_proc_clean(void) {
     if(hal_newinst_file)
         remove_proc_entry("newinst", hal_dir);
     if(hal_threadcmd)
-        remove_proc_entry("threadcmd", rtapi_dir);
+        remove_proc_entry("threadcmd", hal_dir);
     if(hal_dir)
         remove_proc_entry("hal", rtapi_dir);
     hal_newinst_file = hal_dir = hal_threadcmd = 0;
