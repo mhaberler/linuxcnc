@@ -489,7 +489,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
     if (!pbreq.ParseFromArray(zframe_data(request_frame),
 			      zframe_size(request_frame))) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "cant decode request from %s (size %d)",
+	rtapi_print_msg(RTAPI_MSG_ERR, "cant decode request from %s (size %zu)",
 			origin ? origin : "NULL",
 			zframe_size(request_frame));
 	zmsg_destroy(&r);
@@ -637,11 +637,10 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     if (!pbreply.SerializeWithCachedSizesToArray(zframe_data (reply))) {
 	zframe_destroy(&reply);
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"cant serialize to %s (type %d size %d)",
+			"cant serialize to %s (type %d size %zu)",
 			origin ? origin : "NULL",
 			pbreply.type(),
 			reply_size);
-
     } else {
 	if (debug) {
 	    string buffer;
@@ -652,7 +651,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	assert(zstr_sendm (poller->socket, origin) == 0);
 	if (zframe_send (&reply, poller->socket, 0)) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "cant serialize to %s (type %d size %d)",
+			    "cant serialize to %s (type %d size %zu)",
 			    origin ? origin : "NULL",
 			    pbreply.type(),
 			    zframe_size(reply));
@@ -676,7 +675,7 @@ static int service_discovery_request(zloop_t *loop, zmq_pollitem_t *poller, void
 			      sizeof(buffer), 0,
 			      (struct sockaddr *)&remote_addr, &addrlen);
     rtapi_print_msg(RTAPI_MSG_DBG,
-		    "service disovery: request size %d from %s",
+		    "service disovery: request size %zu from %s",
 		    recvlen, inet_ntoa(remote_addr.sin_addr));
 
     if (rx.ParseFromArray(buffer, recvlen)) {
@@ -710,7 +709,7 @@ static int service_discovery_request(zloop_t *loop, zmq_pollitem_t *poller, void
 	}
     } else {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"sd: can parse request from %s (size %d)",
+			"sd: can parse request from %s (size %zu)",
 			inet_ntoa(remote_addr.sin_addr),recvlen);
     }
     return 0;

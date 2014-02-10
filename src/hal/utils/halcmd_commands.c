@@ -2891,7 +2891,7 @@ static void print_ring_info(char **patterns)
 /* Name           Size       Type   Own Rdr Wrt Ref Flags  */
 /* ring_0         16392      record 0   0   0   2   recmax:16376  */
 
-	    halcmd_output("%-14.14s %-10d %-6.6s %-3d %d/%d %d/%d %-3d",
+	    halcmd_output("%-14.14s %-10zu %-6.6s %-3d %d/%d %d/%d %-3d",
 			  rptr->name,
 			  rh->size,
 			  (rh->is_stream) ? "stream" : "record",
@@ -2904,13 +2904,13 @@ static void print_ring_info(char **patterns)
 	    if (rh->use_wmutex )
 		halcmd_output(" wmutex");
 	    if (rh->is_stream)
-		halcmd_output(" free:%d ",
+		halcmd_output(" free:%zu ",
 			      stream_write_space(rh));
 	    else
-		halcmd_output(" recmax:%d ",
+		halcmd_output(" recmax:%zu ",
 			      record_write_space(rh));
 	    if (ring_scratchpad_size(&ringbuffer))
-		halcmd_output(" scratchpad:%d ", ring_scratchpad_size(&ringbuffer));
+		halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
 	    halcmd_output("\n");
 	    if ((retval = hal_ring_detach(rptr->name,  &ringbuffer)) < 0) {
 		halcmd_error("%s: rtapi_ring_detach(%d) failed ",
@@ -2945,7 +2945,7 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	return -EINVAL;
     }
     if (size > rmax) {
-	halcmd_error("ring size %d: too large (max=%d)\n", size,rmax);
+	halcmd_error("ring size %d: too large (max=%zu)\n", size,rmax);
 	return -EINVAL;
     }
     for (i = 0; ((s = opt[i]) != NULL) && strlen(s); i++) {

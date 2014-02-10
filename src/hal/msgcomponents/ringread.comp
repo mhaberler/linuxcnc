@@ -37,10 +37,10 @@ FUNCTION(_) {
 	if (vec[0].rv_len) {
 	    rtapi_print_msg(RTAPI_MSG_ERR, "%s(%s): bytes=%d '%.*s",
 			    name, ring, rsize,
-			    vec[0].rv_len, (char *) vec[0].rv_base);
+			    (int) vec[0].rv_len, (char *) vec[0].rv_base);
 	    if (vec[1].rv_len) {
 		rtapi_print_msg(RTAPI_MSG_ERR, "%.*s",
-				vec[1].rv_len, (char *) vec[1].rv_base);
+				(int) vec[1].rv_len, (char *) vec[1].rv_base);
 	    }
 	    rtapi_print_msg(RTAPI_MSG_ERR, "'\n");
 
@@ -81,8 +81,8 @@ FUNCTION(_) {
 		}
 		// good to consume buffer
 		rtapi_print_msg(RTAPI_MSG_ERR,
-				"circular: %s(%s): reclen=%d '%.*s', writer=%d\n",
-				name, ring, size, size, buf,
+				"circular: %s(%s): reclen=%zu '%.*s', writer=%d\n",
+				name, ring, size, (int) size, buf,
 				rb.header->writer);
 		break;
 	    }
@@ -128,8 +128,8 @@ int rtapi_app_main(void)
     }
 
     rtapi_print_msg(RTAPI_MSG_INFO,
-		    "%s: attached ring '%s' size=%d mode=%s"
-		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%d\n",
+		    "%s: attached ring '%s' size=%zu mode=%s"
+		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%zu\n",
 		    name, ring, rb.header->size,
 		    rb.header->is_stream ? "stream" : "record",
 		    ring_use_rmutex(&rb), ring_use_wmutex(&rb),

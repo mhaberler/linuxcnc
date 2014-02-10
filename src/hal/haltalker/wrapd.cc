@@ -50,7 +50,7 @@ static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     char *src = zmsg_popstr (m_cmd);
     zframe_t *pb_cmd  = zmsg_pop (m_cmd);
 
-    printf("command: got '%s', %d\n",src, zframe_size(pb_cmd));
+    printf("command: got '%s', %zu\n",src, zframe_size(pb_cmd));
 
     pb_istream_t stream = pb_istream_from_buffer((uint8_t *) zframe_data(pb_cmd),
 						 zframe_size(pb_cmd));
@@ -84,7 +84,7 @@ static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	printf("Parsing required type field#1 failed: %s\n", PB_GET_ERROR(&stream));
 	return 0;
     }
-    printf("wiretype=%d tag=%d eof=%s type=%llu\n",
+    printf("wiretype=%d tag=%d eof=%s type=%zu\n",
 	   wiretype, tag, eof ? "TRUE":"FALSE", type);
 
 
@@ -97,7 +97,7 @@ static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	printf("Parsing required type field#1 failed: %s\n", PB_GET_ERROR(&stream));
 	return 0;
     }
-    printf("wiretype=%d tag=%d eof=%s msglen=%llu\n",
+    printf("wiretype=%d tag=%d eof=%s msglen=%zu\n",
 	   wiretype, tag, eof ? "TRUE":"FALSE", msglen);
 
 // --test1.op = 10 end=x=1.000000 y=2.000000 z=3.000000 a=3.141500
