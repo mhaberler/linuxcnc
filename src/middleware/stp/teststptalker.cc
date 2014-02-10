@@ -21,7 +21,7 @@ int subscribe(sttalker_t *self, zframe_t *msg)
 {
     unsigned char *s = zframe_data (msg);
     fprintf(stderr, "subscribe recv: %d '%.*s'\n",
-	    *s,  zframe_size (msg) - 1, s+1);
+	    *s,  (int) zframe_size (msg) - 1, s+1);
     if (*s)
 	strack_talker_update(self,NULL, true);
     return 0;
