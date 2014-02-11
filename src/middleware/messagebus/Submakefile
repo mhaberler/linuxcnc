@@ -6,8 +6,8 @@ MESSAGEBUS_SRCS :=  $(addprefix $(MBDIR)/, \
 	messagebus.cc \
 	rtproxy.cc )
 
-MESSAGEBUS_CXX_CFLAGS = -g -std=c++11  `pkg-config --cflags protobuf  libczmq` # -DPB_FIELD_32BIT
-MESSAGEBUS_CXX_LDFLAGS=  $(CXX_PROTOLIB) `pkg-config --libs protobuf libczmq`  -lstdc++
+MESSAGEBUS_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)  # -DPB_FIELD_32BIT
+MESSAGEBUS_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
 
 $(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
 
@@ -23,3 +23,32 @@ $(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
 USERSRCS += $(MESSAGEBUS_SRCS)
 
 TARGETS += ../bin/messagebus
+
+
+
+# just a test
+ifeq ($(BUILD_RFRAME),yes)
+
+
+RFRAME_SRCS :=  $(addprefix $(MBDIR)/, \
+	rframe.cc )
+
+RFRAME_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)  # -DPB_FIELD_32BIT
+RFRAME_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
+
+$(call TOOBJSDEPS, $(RFRAME_SRCS)) : EXTRAFLAGS += $(RFRAME_CXX_CFLAGS)
+
+../bin/rframe: $(call TOOBJS, $(RFRAME_SRCS)) \
+	../lib/liblinuxcncini.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/liblinuxcnc-npb.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  \
+	 $(RFRAME_CXX_LDFLAGS)
+
+USERSRCS += $(RFRAME_SRCS)
+
+TARGETS += ../bin/rframe
+
+endif

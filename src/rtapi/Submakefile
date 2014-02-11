@@ -212,7 +212,7 @@ RTAPI_APP_RPATH=-Wl,-rpath,$(LIB_DIR)
 endif
 
 $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
-	$(shell pkg-config libczmq  protobuf --cflags)
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
 ../libexec/rtapi_app_$(threads): \
 		$(call TOOBJS, $(RTAPI_APP_SRCS)) \
@@ -222,8 +222,7 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) -Wl,-rpath,$(EMC2_RTLIB_DIR) $(RTAPI_APP_RPATH) \
 	    -o $@ $^ $(RT_LDFLAGS) \
-	 $(shell pkg-config libczmq  protobuf --libs) \
-	-lstdc++ -ldl
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ -ldl
 
 modules:  ../libexec/rtapi_app_$(threads)
 
@@ -250,16 +249,22 @@ TARGETS += ../libexec/kdetect
 #                     the rtapi message demon
 ##################################################################
 
-RTAPI_MSGD_SRCS = \
-	rtapi/rtapi_msgd.c \
+INCLUDES += middleware/wsproxy
+RTAPI_MSGD_SRCS =  \
+	rtapi/rtapi_msgd.cc \
 	rtapi/rtapi_compat.c \
-	rtapi/syslog-async/syslog_async.c
+	rtapi/syslog-async/syslog_async.c \
+	middleware/wsproxy/zwsproxy.c
+
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
 
-RTAPI_MSGD_CFLAGS := $(shell pkg-config \
-	jansson libczmq libzmq  protobuf liburiparser libwebsockets --cflags)
-RTAPI_MSGD_LDFLAGS := $(shell pkg-config  \
-	jansson libczmq libzmq  protobuf liburiparser libwebsockets --libs) \
+RTAPI_MSGD_CFLAGS := \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \
+	$(JANSSON_CFLAGS) $(URIPARSER_CFLAGS) $(LWS_CFLAGS)
+
+RTAPI_MSGD_LDFLAGS := \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(JANSSON_LIBS) $(URIPARSER_LIBS) $(LWS_LIBS) \
 	-lstdc++ -lssl -lcrypto -ldl -lz
 
 $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \

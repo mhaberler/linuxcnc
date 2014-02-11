@@ -1,13 +1,15 @@
-ifeq ($(USE_PROTOBUF),yes)
-ifeq ($(USE_ZEROMQ),yes)
 
 PROFILE = #-pg
 TALKER_SRCS :=  $(addprefix hal/haltalker/, \
 	haltalker.cc)
 
-TALKER_CXXFLAGS := $(shell pkg-config libczmq  protobuf jansson --cflags)  \
-	$(PROFILE)  -DULAPI
-TALKER_LDFLAGS := $(shell pkg-config libczmq  protobuf jansson --libs) \
+TALKER_CXXFLAGS := -DULAPI \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \
+	$(JANSSON_CFLAGS)
+
+TALKER_LDFLAGS := \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(JANSSON_LIBS) \
 	-lstdc++ \
 	$(PROFILE)
 
@@ -28,9 +30,10 @@ TARGETS += ../bin/haltalker
 TRACKER_SRCS :=  $(addprefix hal/haltalker/, \
 	haltracker.cc)
 
-TRACKER_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
-	$(PROFILE)
-TRACKER_LDFLAGS := $(shell pkg-config libczmq  protobuf --libs) \
+TRACKER_CXXFLAGS := $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) $(JANSSON_CFLAGS) $(PROFILE)
+TRACKER_LDFLAGS := \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(JANSSON_LIBS) \
 	-lstdc++ \
 	$(PROFILE)
 
@@ -48,9 +51,10 @@ TARGETS += ../bin/wrapd
 WRAPD_SRCS :=  $(addprefix hal/haltalker/, \
 	wrapd.cc)
 
-WRAPD_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
-	$(PROFILE)
-WRAPD_LDFLAGS := $(shell pkg-config libczmq  protobuf --libs) \
+WRAPD_CXXFLAGS := $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) $(PROFILE)
+WRAPD_LDFLAGS := \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(JANSSON_LIBS) \
 	-lstdc++ \
 	$(PROFILE)
 
@@ -66,6 +70,3 @@ USERSRCS += $(WRAPD_SRCS)
 TARGETS += ../bin/wrapd
 
 
-
-endif # USE_ZEROMQ
-endif # USE_PROTOBUF

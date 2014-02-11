@@ -15,7 +15,7 @@ $(call TOOBJSDEPS, hal/utils/halsh.c) : EXTRAFLAGS += $(TCL_CFLAGS)
 TARGETS += ../tcl/hal.so
 
 $(call TOOBJSDEPS, $(HALCMDCCSRCS)) : EXTRAFLAGS =  \
-	$(shell pkg-config libczmq  protobuf --cflags)
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
 ../bin/halcmd: $(call TOOBJS, $(HALCMDSRCS))  $(call TOOBJS, $(HALCMDCCSRCS)) \
 	../lib/liblinuxcncini.so.0 \
@@ -23,7 +23,7 @@ $(call TOOBJSDEPS, $(HALCMDCCSRCS)) : EXTRAFLAGS =  \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(READLINE_LIBS) \
-	 $(shell pkg-config libczmq  protobuf --libs) -lstdc++
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
 TARGETS += ../bin/halcmd
 
 HALRMTSRCS := hal/utils/halrmt.c

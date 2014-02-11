@@ -15,15 +15,13 @@ endif # BUILD_EXAMPLES
 
 ifeq ($(USE_HALBIND),yes)
 
-ifeq ($(USE_PROTOBUF),yes)
-ifeq ($(USE_ZEROMQ),yes)
 
 
 HALBIND_SRCS :=  $(addprefix hal/remote/, \
 	halbind.c halops.c)
 
-HALBIND_CCFLAGS := $(shell pkg-config libczmq libzmq --cflags)  $(PROFILE)
-HALBIND_LDFLAGS := $(shell pkg-config libczmq libzmq --libs) $(PROFILE)
+HALBIND_CCFLAGS :=    $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) $(PROFILE)
+HALBIND_LDFLAGS := := $(PROTOBUF_LIBS)   (CZMQ_LIBS)    $(PROFILE)
 
 HALBIND_CCFLAGS += $(PROFILE) -DULAPI
 
@@ -41,7 +39,5 @@ $(call TOOBJSDEPS, $(HALBIND_SRCS)) : EXTRAFLAGS += $(HALBIND_CCFLAGS)
 USERSRCS += $(HALBIND_SRCS)
 TARGETS += ../bin/halbind
 
-endif # USE_ZEROMQ
-endif # USE_PROTOBUF
 
 endif # USE_HALBIND

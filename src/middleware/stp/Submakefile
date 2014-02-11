@@ -10,7 +10,7 @@ LIBSTPSRCS := $(addprefix  $(STPDIR)/, \
 USERSRCS += $(LIBSTPSRCS)
 
 $(call TOOBJSDEPS, $(LIBSTPSRCS)) : EXTRAFLAGS=-fPIC \
-	$(shell pkg-config libczmq  protobuf --cflags)
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
 TARGETS += ../lib/libstp.so ../lib/libstp.so.0
 
@@ -21,7 +21,7 @@ TARGETS += ../lib/libstp.so ../lib/libstp.so.0
 	@mkdir -p ../lib
 	@rm -f $@
 	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ \
-	 $(shell pkg-config libczmq  protobuf --libs)
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS)
 
 ../include/%.h: ./$(STPDIR)/%.h
 	cp $^ $@
@@ -48,13 +48,13 @@ TRSRCS := $(addprefix $(STPDIR)/, \
 USERSRCS += $(TRSRCS)
 
 $(call TOOBJSDEPS, $(TRSRCS)): \
-	EXTRAFLAGS += $(shell pkg-config   libczmq libzmq  protobuf --cflags)
+	EXTRAFLAGS += $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
 ../bin/teststptalker: $(call TOOBJS, $(TRSRCS)) \
 	../lib/libstp.so \
 	../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CXX) $(LDFLAGS) -o $@ $^ -lstdc++ $(shell pkg-config libczmq  protobuf --libs)
+	$(Q)$(CXX) $(LDFLAGS) -o $@ $^ $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
 
 
 TARGETS += ../bin/teststptracker
@@ -63,12 +63,12 @@ TRSRCS := $(addprefix $(STPDIR)/, \
 
 USERSRCS += $(TRSRCS)
 
-$(call TOOBJSDEPS, $(TRSRCS)) : EXTRAFLAGS= \
-	$(shell pkg-config libczmq  protobuf --cflags)
+$(call TOOBJSDEPS, $(TRSRCS)) : \
+	EXTRAFLAGS += $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
 ../bin/teststptracker: $(call TOOBJS, $(TRSRCS)) \
 	../lib/libstp.so \
 	../lib/liblinuxcnc-pb2++.so
 
 	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CXX) $(LDFLAGS) -o $@ $^ -lstdc++  $(shell pkg-config libczmq  protobuf --libs)
+	$(Q)$(CXX) $(LDFLAGS) -o $@ $^  $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++

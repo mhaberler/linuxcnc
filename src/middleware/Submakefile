@@ -26,7 +26,6 @@
 #
 # Michael Haberler 2/2013
 
-ifeq ($(USE_PROTOBUF),yes)
 
 MWDIR=middleware
 PBGEN=$(MWDIR)/generated
@@ -55,9 +54,6 @@ PROTOCXXLIB = ../lib/liblinuxcnc-pb2++.so
 
 # Nanopb C bindings library
 NANOPROTOCLIB := ../lib/liblinuxcnc-npb.so
-
-PROTOBUF_CXXFLAGS := $(shell pkg-config --cflags protobuf)
-PROTOBUF_LDFLAGS := $(shell pkg-config --libs protobuf)
 PROTOC := $(shell which protoc)
 PROTOC_C := $(shell which protoc-c)
 PROTOC_FLAGS :=
@@ -357,7 +353,4 @@ TARGETS += $(NANOPROTOCLIB) $(NANOPROTOCLIB).0 \
 	$(PROTOCXXLIB) $(PROTOCXXLIB).0 \
 	$(PB2JSONLIB) $(PB2JSONLIB).0
 
-
-
-endif # USE_PROTOBUF
 

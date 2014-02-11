@@ -37,31 +37,25 @@ MILLTASKSRCS := \
 	$(ULAPISRCS)
 USERSRCS += $(MILLTASKSRCS)
 
-
-#LDFLAGS +=
-
-ZMQ_CXX_CFLAGS := $(shell pkg-config libczmq libzmq --cflags)  $(PROFILE)
-ZMQ_CXX_LDFLAGS := $(shell pkg-config libczmq libzmq --libs) $(PROFILE)
-PB_CXX_CFLAGS = -g $(shell pkg-config --cflags protobuf) $(PROFILE)
-PB_CXX_LDFLAGS= $(shell pkg-config --libs protobuf) $(PROFILE)
-
 $(call TOOBJSDEPS, $(MILLTASKSRCS)) : EXTRAFLAGS += \
 	$(REPORT_CCFLAGS) \
-	$(ZMQ_CXX_CFLAGS) \
-	$(PB_CXX_CFLAGS)
+	$(CZMQ_CFLAGS) \
+	$(PROTOBUF_CFLAGS)
 
 
 ../bin/milltask: $(call TOOBJS, $(MILLTASKSRCS)) ../lib/librs274.so.0 ../lib/liblinuxcnc.a ../lib/libnml.so.0 ../lib/liblinuxcncini.so.0 ../lib/libposemath.so.0 ../lib/liblinuxcnchal.so.0 ../lib/libpyplugin.so.0 ../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
-	$(CXX) -o $@ $^ $(LDFLAGS) $(ZMQ_CXX_LDFLAGS) $(PB_CXX_LDFLAGS) $(BOOST_PYTHON_LIBS) -l$(LIBPYTHON)
+	$(CXX) -o $@ $^ $(LDFLAGS) $(CZMQ_LIBS) $(PROTOBUF_LIBS) \
+	$(BOOST_PYTHON_LIBS) -l$(LIBPYTHON)
 TARGETS += ../bin/milltask
 
 ZMQCMD_SRCS := emc/task/zmqcmd.cc
 USERSRCS += $(ZMQCMD_SRCS)
 $(call TOOBJSDEPS, $(ZMQCMD_SRCS)) : EXTRAFLAGS += \
 	$(REPORT_CCFLAGS) \
-	$(ZMQ_CXX_CFLAGS) \
-	$(PB_CXX_CFLAGS)
+	$(CZMQ_CFLAGS) \
+	$(PROTOBUF_CFLAGS)
+
 
 ../bin/zmqcmd: $(call TOOBJS, $(ZMQCMD_SRCS)) \
 	../lib/liblinuxcnc.a \
@@ -69,6 +63,6 @@ $(call TOOBJSDEPS, $(ZMQCMD_SRCS)) : EXTRAFLAGS += \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
-	$(CXX) -o $@ $^ $(LDFLAGS) $(ZMQ_CXX_LDFLAGS) $(PB_CXX_LDFLAGS)
+	$(CXX) -o $@ $^ $(LDFLAGS) $(CZMQ_LIBS) $(PROTOBUF_LIBS)
 
 TARGETS += ../bin/zmqcmd
