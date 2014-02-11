@@ -345,7 +345,7 @@ static void s_beacon_recv (sttalker_t * self)
     size_t recvlen = recvfrom(self->beacon_fd, buffer,
 			   sizeof(buffer), 0,
 			   (struct sockaddr *)&remaddr, &addrlen);
-    if (stp_debug) fprintf(stderr, "got %lu from %s\n",
+    if (stp_debug) fprintf(stderr, "got %zu from %s\n",
 			   recvlen, inet_ntoa(remaddr.sin_addr));
 
     if (rx.ParseFromArray(buffer, recvlen)) {
