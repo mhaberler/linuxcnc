@@ -14,10 +14,11 @@ USERSRCS += $(IOSRCS) $(IOV2SRCS) $(ZIOV2SRCS)
 	@$(CXX) $(LDFLAGS) -o $@ $^
 
 
-ZIOV2_CXXFLAGS := $(shell pkg-config libczmq  protobuf --cflags)  \
+ZIOV2_CXXFLAGS := $(CZMQ_CFLAGS) \
+	$(PROTOBUF_CFLAGS) \
 	$(PROFILE)  -DULAPI
-ZIOV2_LDFLAGS  := $(shell pkg-config libczmq  protobuf --libs) \
-	$(PROFILE)
+
+ZIOV2_LDFLAGS  := $(CZMQ_LIBS) $(PROTOBUF_LIBS) $(PROFILE)
 
 $(call TOOBJSDEPS, $(ZIOV2SRCS)) : EXTRAFLAGS += $(ZIOV2_CXXFLAGS)
 
