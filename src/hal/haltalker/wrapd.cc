@@ -84,7 +84,7 @@ static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	printf("Parsing required type field#1 failed: %s\n", PB_GET_ERROR(&stream));
 	return 0;
     }
-    printf("wiretype=%d tag=%d eof=%s type=%zu\n",
+    printf("wiretype=%d tag=%d eof=%s type=%llu\n",
 	   wiretype, tag, eof ? "TRUE":"FALSE", type);
 
 
@@ -97,7 +97,7 @@ static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	printf("Parsing required type field#1 failed: %s\n", PB_GET_ERROR(&stream));
 	return 0;
     }
-    printf("wiretype=%d tag=%d eof=%s msglen=%zu\n",
+    printf("wiretype=%d tag=%d eof=%s msglen=%llu\n",
 	   wiretype, tag, eof ? "TRUE":"FALSE", msglen);
 
 // --test1.op = 10 end=x=1.000000 y=2.000000 z=3.000000 a=3.141500
