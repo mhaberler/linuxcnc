@@ -20,6 +20,8 @@
 // HAL groups.
 // The status and changes are reported via the Status Tracking protocol.
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
