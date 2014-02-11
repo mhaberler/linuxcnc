@@ -1299,7 +1299,7 @@ static int register_service_discovery(int sd_port)
     setsockopt (sd_fd, SOL_SOCKET, SO_REUSEPORT,
 		(char *) &on, sizeof (on));
 #endif
-    if (bind(sd_fd, (struct sockaddr*)&sd_addr, sizeof(sd_addr) ) == -1) {
+    if (::bind(sd_fd, (struct sockaddr*)&sd_addr, sizeof(sd_addr) ) == -1) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"service discovery: bind() failed: %s",
 			strerror(errno));
