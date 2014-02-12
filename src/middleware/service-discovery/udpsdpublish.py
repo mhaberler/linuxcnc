@@ -55,18 +55,22 @@ while True:
             # describe all services available
             tx.type = MT_SERVICE_ANNOUNCEMENT
 
-            a = tx.service_announcement.add()
-            a.stype = ST_HAL_RCOMP
-            a.instance = instance
-            a.version = HAL_RCOMP_VERSION
-            a.cmd_port = hal_rcomp_cmd_port
-            a.update_port = hal_rcomp_update_port
+            sa = tx.service_announcement.add()
+            sa.stype = ST_HAL_RCOMP_COMMAND
+            sa.instance = instance
+            sa.version = HAL_RCOMP_VERSION
+            sa.port = hal_rcomp_cmd_port
 
-            b = tx.service_announcement.add()
-            b.stype = ST_STP
-            b.update_port = hal_status_update_port
-            b.instance = instance
-            b.version = STP_VERSION
+            sa.stype = ST_HAL_RCOMP_STATUS
+            sa.instance = instance
+            sa.version = HAL_RCOMP_VERSION
+            sa.port = hal_rcomp_update_port
+
+            sa = tx.service_announcement.add()
+            sa.stype = ST_STP
+            sa.update_port = hal_status_update_port
+            sa.instance = instance
+            sa.version = STP_VERSION
 
             pkt = tx.SerializeToString()
 

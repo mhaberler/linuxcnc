@@ -24,7 +24,7 @@ MAX_WAIT = 3.0
 # shopping list of services needed
 #required = [ST_STP]
 #required = [ST_RTAPI_COMMAND]
-required = [ST_HAL_RCOMP, ST_STP]
+required = [ST_HAL_RCOMP_COMMAND]
 #required = [ST_HAL_RCOMP]
 
 # looking for instance 0 services
