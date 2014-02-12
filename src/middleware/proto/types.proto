@@ -144,15 +144,26 @@ enum ReplyType {
 
 // services exported by various entities
 enum ServiceType {
-    ST_HAL_RCOMP  = 1;
-    ST_STP = 2;
-    ST_LOGGING = 3;
-    ST_COMMAND = 4;
-    ST_CONFIG     = 5;
-    ST_REDIS      = 6;
-    ST_HTTP      = 7;
+
+    ST_LOGGING       = 1;
+    ST_CONFIG        = 2;
+    ST_REDIS         = 3;
+    ST_HTTP          = 4;
+    ST_HTTPS         = 5;
+    ST_WEBSOCKET     = 6;
+    ST_WEBSOCKETS    = 7;
     ST_RTAPI_COMMAND = 8;
+    ST_STP           = 9;
+    ST_HAL_RCOMP_COMMAND  = 10;
+    ST_HAL_RCOMP_STATUS   = 11;
+    ST_TASK_COMMAND       = 12;
+    ST_TASK_STATUS        = 13;
+    ST_INTERP_COMMAND     = 14;
+    ST_INTERP_STATUS      = 15;
+    ST_MESSAGEBUS_COMMAND = 16;
+    ST_MESSAGEBUS_STATUS  = 17;
 }
+
 enum ServiceAPI {
     SA_ZMQ_PROTOBUF = 1;
     SA_WS_JSON      = 2;

@@ -18,13 +18,11 @@ message ServiceAnnouncement {
     required ServiceType              stype = 1;
     required fixed32                version = 2 [default = 0];
     required fixed32               instance = 3 [default = 0]; // RTAPI instance id
-    optional fixed32               cmd_port = 4;  // TCP port number
-    optional fixed32            update_port = 5;  // TCP port number
-    optional string                http_uri = 6;
-    optional string                  ws_uri = 7;
-    optional string            description  = 8;
-    optional string              ipaddress  = 9;
-    optional ServiceAPI                 api = 10;
+    optional string              ipaddress  = 4;
+    optional fixed32                   port = 5;  // TCP port number
+    optional string                     uri = 6;
+    optional string            description  = 7;
+    optional ServiceAPI                 api = 8;
 
 }
 
