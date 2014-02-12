@@ -217,6 +217,7 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 ../libexec/rtapi_app_$(threads): \
 		$(call TOOBJS, $(RTAPI_APP_SRCS)) \
 		../lib/liblinuxcncini.so.0 ../lib/liblinuxcncshm.so \
+		../lib/libsdpublish.so.0 \
 		../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
@@ -273,6 +274,7 @@ $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 ../libexec/rtapi_msgd: $(RTAPI_MSGD_OBJS) \
 	../lib/liblinuxcncshm.so \
 	../lib/liblinuxcncini.so \
+	../lib/libsdpublish.so.0 \
 	../lib/liblinuxcnc-pb2++.so \
 	../lib/libjson2pb.so
 	$(ECHO) Linking $(notdir $@)
