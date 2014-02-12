@@ -93,7 +93,7 @@ static int signal_fd;
 // poll faster if a message was read, and decay the poll timer up to msg_poll_max
 // if no messages are pending
 // this way we retrieve bunched messages fast without much overhead in idle times
-static int msg_poll_max = 200;    // maximum msgq checking interval
+static int msg_poll_max = 200; // maximum msgq checking interval, mS
 static int msg_poll_min = 20;  // minimum msgq checking interval
 static int msg_poll_inc = 10;  // increment interval if no message read up to msg_poll_max
 static int msg_poll =     20;  // current delay; startup fast
@@ -322,8 +322,15 @@ void init_global_data(global_data_t * data, int flavor,
     data->user_msg_level = user_level;
 
     // next value returned by rtapi_init (userland threads)
+<<<<<<< HEAD
     // those dont use fixed sized arrays
     // start at 1 because the meaning of zero is special
+||||||| merged common ancestors
+    // those dont use fixed sized arrays
+    // start at 1 because the meaning of zero is special
+=======
+    // those dont use fixed sized arrays
+>>>>>>> rtapi/msgd: fix rebase fallout
     data->next_module_id = 1;
 
     // tell the others what we determined as the proper flavor
@@ -400,7 +407,6 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	global_data->magic = GLOBAL_EXITED;
 	global_data->rtapi_msgd_pid = 0;
     }
-
     // no point in keeping rtapi_app running if msgd exits
     if (global_data->rtapi_app_pid > 0) {
 	kill(global_data->rtapi_app_pid, SIGTERM);
@@ -418,8 +424,17 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     switch (fdsi.ssi_signo) {
     case SIGTERM:
     case SIGINT:
+<<<<<<< HEAD
 	syslog_async(LOG_INFO, "msgd:%d: %s - shutting down\n",
 	       rtapi_instance, strsignal(sig));
+||||||| merged common ancestors
+
+	syslog(LOG_INFO, "msgd:%d: %s - shutting down\n",
+	       rtapi_instance, strsignal(sig));
+=======
+	syslog(LOG_INFO, "msgd:%d: %s - shutting down\n",
+	       rtapi_instance, strsignal(fdsi.ssi_signo));
+>>>>>>> rtapi/msgd: fix rebase fallout
 
 	// hint if error ring couldnt be served fast enough,
 	// or there was contention
@@ -431,8 +446,7 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		   rtapi_instance,
 		   global_data->error_ring_full,
 		   global_data->error_ring_locked);
-	msgd_exit++;
-    return -1; // exit reactor normally
+	return -1; // exit reactor normally
 	break;
 
     default: // pretty bad
@@ -507,6 +521,7 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
     std::string json;
     int current_interval = msg_poll;
 
+<<<<<<< HEAD
     // sigset of all the signals that we're interested in
     retval = sigemptyset(&sigset);        assert(retval == 0);
     retval = sigaddset(&sigset, SIGINT);  assert(retval == 0);
@@ -528,6 +543,29 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
     pfd[0].events = POLLIN | POLLERR | POLLHUP;
 
     global_data->magic = GLOBAL_READY;
+||||||| merged common ancestors
+    // sigset of all the signals that we're interested in
+    assert(sigemptyset(&sigset) == 0);
+    assert(sigaddset(&sigset, SIGINT) == 0);
+    assert(sigaddset(&sigset, SIGKILL) == 0);
+    assert(sigaddset(&sigset, SIGTERM) == 0);
+    assert(sigaddset(&sigset, SIGSEGV) == 0);
+    assert(sigaddset(&sigset, SIGFPE) == 0);
+
+    // block the signals in order for signalfd to receive them
+    assert(sigprocmask(SIG_BLOCK, &sigset, NULL) == 0);
+
+    assert((sigfd = signalfd(-1, &sigset, 0)) != -1);
+
+    struct pollfd pfd[1];
+    int ret;
+
+    pfd[0].fd = sigfd;
+    pfd[0].events = POLLIN | POLLERR | POLLHUP;
+
+    global_data->magic = GLOBAL_READY;
+=======
+>>>>>>> rtapi/msgd: fix rebase fallout
 
     do {
 	if (global_data->rtapi_app_pid == 0) {
@@ -609,10 +647,10 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 	default: ;
 	    // whine
 	}
-
 	record_shift(&rtapi_msg_buffer);
 	msg_poll = msg_poll_min;
     }
+<<<<<<< HEAD
 	ret = poll(pfd, 1, msg_poll);
 	if (ret < 0) {
 	    syslog_async(LOG_ERR, "msgd:%d: poll(): %s - shutting down\n",
@@ -628,6 +666,27 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 	msg_poll += msg_poll_inc;
 	if (msg_poll > msg_poll_max)
 	    msg_poll = msg_poll_max;
+||||||| merged common ancestors
+	ret = poll(pfd, 1, msg_poll);
+	if (ret < 0) {
+	    syslog(LOG_ERR, "msgd:%d: poll(): %s - shutting down\n",
+		   rtapi_instance, strerror(errno));
+	    msgd_exit++;
+	} else if (pfd[0].revents & POLLIN) { // signal received
+	    struct signalfd_siginfo info;
+	    size_t bytes = read(sigfd, &info, sizeof(info));
+	    assert(bytes == sizeof(info));
+	    signal_handler(info.ssi_signo);
+	}
+
+	msg_poll += msg_poll_inc;
+	if (msg_poll > msg_poll_max)
+	    msg_poll = msg_poll_max;
+=======
+    msg_poll += msg_poll_inc;
+    if (msg_poll > msg_poll_max)
+	msg_poll = msg_poll_max;
+>>>>>>> rtapi/msgd: fix rebase fallout
 
     if (current_interval != msg_poll) {
 	zloop_timer_end(loop, polltimer_id);
@@ -676,7 +735,6 @@ int main(int argc, char **argv)
 
     memset(&ws_info, 0, sizeof ws_info);
     ws_info.port = 7681;
-
 
     // Verify that the version of the library that we linked against is
     // compatible with the version of the headers we compiled against.
@@ -1002,6 +1060,7 @@ int main(int argc, char **argv)
     closelog();
     exit(exit_code);
 }
+
 static void lwsl_emit_rtapilog(int level, const char *line)
 {
 	int syslog_level = LOG_DEBUG;
