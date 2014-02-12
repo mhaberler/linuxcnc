@@ -55,8 +55,9 @@
 using namespace std;
 
 #include <rtapi.h>
-#include "rtapi/shmdrv/shmdrv.h"
-#include "ring.h"
+#include <rtapi/shmdrv/shmdrv.h>
+#include <ring.h>
+#include <sdpublish.h>  // for UDP service discovery
 
 #include "czmq.h"
 
@@ -88,6 +89,8 @@ static int halsize = HAL_SIZE;
 static const char *instance_name;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static int signal_fd;
+static int sd_port = SERVICE_DISCOVERY_PORT;
+static spub_t *sd_publisher;
 
 // messages tend to come bunched together, e.g during startup and shutdown
 // poll faster if a message was read, and decay the poll timer up to msg_poll_max
@@ -957,9 +960,14 @@ int main(int argc, char **argv)
     // since we're using signalfd()
     zsys_handler_set(NULL);
 
+    zctx  = zctx_new();
 
+    // start the service announcement responder
+    sd_publisher = sp_new( zctx, sd_port, rtapi_instance);
+    assert(sd_publisher);
+    sp_log(sd_publisher, getenv("SDDEBUG") != NULL);
 
-   if (logpub_uri) {
+    if (logpub_uri) {
 
 	int major, minor, patch;
 	zmq_version (&major, &minor, &patch);
@@ -978,6 +986,11 @@ int main(int argc, char **argv)
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
 	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
+	    retval = sp_add(sd_publisher, (int) pb::ST_LOGGING,
+		1, NULL, 0, logpub_uri,
+		(int) pb::SA_ZMQ_PROTOBUF,
+		"zmq/protobuf log socket");
+	    assert(retval == 0);
 
 	    lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
 
@@ -990,32 +1003,30 @@ int main(int argc, char **argv)
 
 	    // start serving
 	    zwsproxy_start(zws);
+
+	    retval = sp_add(sd_publisher, (int) pb::ST_WEBSOCKET,
+		1, NULL, info.port, "fixme",
+		(int) pb::SA_WS_JSON,
+		"ws/JSON log socket");
+	    assert(retval == 0);
+
 	} else {
 	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
 	    logpub = NULL;
 	}
     }
-
-    if ((global_data->rtapi_msgd_pid != 0) &&
-	kill(global_data->rtapi_msgd_pid, 0) == 0) {
-	fprintf(stderr,"%s: another rtapi_msgd is already running (pid %d), exiting\n",
-		progname, global_data->rtapi_msgd_pid);
-	exit(EXIT_FAILURE);
-    } else {
-	global_data->rtapi_msgd_pid = getpid();
-    }
-
-    // workaround bug: https://github.com/warmcat/libwebsockets/issues/10
-#if 0
+ nows:
     close(STDIN_FILENO);
 #endif
     close(STDOUT_FILENO);
     if (!log_stderr)
 	close(STDERR_FILENO);
 
-   loop = zloop_new();
-   assert (loop);
+    loop = zloop_new();
+    assert (loop);
+
+    sigemptyset(&sigmask);
 
    sigemptyset(&sigmask);
 
@@ -1041,21 +1052,26 @@ int main(int argc, char **argv)
    zmq_pollitem_t signal_poller =  { 0, signal_fd,   ZMQ_POLLIN };
    zloop_poller (loop, &signal_poller, s_handle_signal, NULL);
 
-   zmq_pollitem_t logpub_poller = { logpub, 0, ZMQ_POLLIN };
-   zloop_poller (loop, &logpub_poller, logpub_readable_cb, NULL);
+    zmq_pollitem_t logpub_poller = { logpub, 0, ZMQ_POLLIN };
+    zloop_poller (loop, &logpub_poller, logpub_readable_cb, NULL);
+
+    polltimer_id = zloop_timer (loop, msg_poll, 0, message_poll_cb, NULL);
 
    polltimer_id = zloop_timer (loop, msg_poll, 0, message_poll_cb, NULL);
 
-   global_data->magic = GLOBAL_READY;
+    assert(sp_start(sd_publisher) == 0);
 
-   do {
+    do {
 	retval = zloop_start(loop);
     } while (!(retval || zctx_interrupted));
 
-#ifdef OLDWS
-    if (ws_context)
-	libwebsocket_context_destroy(ws_context);
-#endif
+    zwsproxy_exit(&zws);
+
+    // stop  the service announcement responder
+    sp_destroy(&sd_publisher);
+
+    // shutdown zmq context
+    zctx_destroy(&zctx);
     cleanup_actions();
     closelog();
     exit(exit_code);
