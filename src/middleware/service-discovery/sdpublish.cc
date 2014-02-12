@@ -124,14 +124,21 @@ static int retcode(void *pipe)
 }
 static void s_publisher_task (void *args, zctx_t *ctx, void *pipe)
 {
+    int retval;
+
     _spub_t *self = (_spub_t *) args;
     int fd;
+    if (self->trace)
+	fprintf(stderr, "s_publisher_task: startup\n");
 
     zloop_t *loop =  zloop_new();
     assert(loop != NULL);
+    zloop_set_verbose (loop, self->trace);
 
     if ((fd = s_register_service_discovery(self->port)) < 0) {
 	// fail sp_start()
+	if (self->trace)
+	    fprintf(stderr, "s_publisher_task: s_register_service_discovery FAIL\n");
 	zstr_sendf (pipe, "%d", fd);
 	return;
     }
@@ -146,10 +153,17 @@ static void s_publisher_task (void *args, zctx_t *ctx, void *pipe)
     // good to go
     zstr_send (pipe, "0"); // makes sp_start() return 0
 
-    zloop_start (loop);
+    if (self->trace)
+	fprintf(stderr, "s_publisher_task: loop start\n");
+    do {
+        retval = zloop_start(loop);
+    } while (!(retval || zctx_interrupted));
 
+    if (self->trace)
+	fprintf(stderr, "s_publisher_task: loop exit\n");
+
+    shutdown(fd, SHUT_RDWR);
     zstr_send (pipe, "0"); // makes sp_destroy() return 0
-
 }
 
 
