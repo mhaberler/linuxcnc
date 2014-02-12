@@ -45,8 +45,11 @@ $(call TOOBJSDEPS, $(TRACKER_SRCS)) : EXTRAFLAGS += $(TRACKER_CXXFLAGS)
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(TRACKER_LDFLAGS)
 
-USERSRCS += $(WRAPD_SRCS)
-TARGETS += ../bin/wrapd
+
+USERSRCS += $(TRACKER_SRCS)
+TARGETS += ../bin/haltracker
+
+
 
 WRAPD_SRCS :=  $(addprefix hal/haltalker/, \
 	wrapd.cc)

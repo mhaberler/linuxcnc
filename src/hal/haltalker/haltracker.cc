@@ -21,7 +21,7 @@
 #include <rcs.hh>  // RCS_DONE etc
 
 #include <google/protobuf/text_format.h>
-#include <protobuf/generated/message.pb.h>
+#include <middleware/generated/message.pb.h>
 
 typedef std::vector<std::string> string_array;
 
@@ -62,7 +62,7 @@ typedef struct htself {
 using namespace google::protobuf;
 using namespace std;
 
-static const char *option_string = "hI:S:d";
+static const char *option_string = "hI:S:d:";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
