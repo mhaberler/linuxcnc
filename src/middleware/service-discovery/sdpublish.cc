@@ -12,6 +12,9 @@
 
 namespace gpb = google::protobuf;
 
+static void s_publisher_task (void *args, zctx_t *ctx, void *pipe);
+static int retcode(void *pipe);
+
 typedef struct _spub {
     int instance;
     int port;
@@ -54,7 +57,8 @@ int sp_add(spub_t *self,
     sa->set_version(version);
     if (ipaddr)
 	sa->set_ipaddress(ipaddr);
-    sa->set_port(port);
+    if (port > 0)
+	sa->set_port(port);
     if (uri)
 	sa->set_uri(uri);
     sa->set_api((pb::ServiceAPI)api);
@@ -63,21 +67,9 @@ int sp_add(spub_t *self,
     return 0;
 }
 
-static void s_publisher_task (void *args, zctx_t *ctx, void *pipe);
-static int s_register_service_discovery(int sd_port);
-static int s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
-
-static int retcode(void *pipe)
-{
-    char *retval = zstr_recv (pipe);
-    int rc = atoi(retval);
-    zstr_free(&retval);
-    return rc;
-}
-
+// start the service publisher
 int sp_start(spub_t *self)
 {
-
     assert(self);
 
     //  Start background agent
@@ -88,17 +80,14 @@ int sp_start(spub_t *self)
     return retcode(self->pipe);
 }
 
-
-// log service requests
-// returns 0 on sucess, -1 on error
+// turn on/off logging for service requests
 void sp_log(spub_t *self, int trace)
 {
     assert(self);
     self->trace = trace;
 }
 
-
-// start the service publisher
+// terminate the service publisher
 int sp_destroy(_spub_t **arg)
 {
     int retval = -ENOENT;
@@ -112,6 +101,8 @@ int sp_destroy(_spub_t **arg)
 	if (self->trace)
 	    fprintf(stderr, "sp_destroy: got %d\n", retval);
     }
+    if (self->tx)
+	delete  self->tx;
     free(self);
     *arg = NULL;
     return retval;
@@ -121,7 +112,16 @@ int sp_destroy(_spub_t **arg)
 
 static int
 s_cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg);
+static int s_register_service_discovery(int sd_port);
+static int s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 
+static int retcode(void *pipe)
+{
+    char *retval = zstr_recv (pipe);
+    int rc = atoi(retval);
+    zstr_free(&retval);
+    return rc;
+}
 static void s_publisher_task (void *args, zctx_t *ctx, void *pipe)
 {
     _spub_t *self = (_spub_t *) args;
@@ -274,20 +274,20 @@ int main(int argc, char **argv)
 		(int) pb::ST_HAL_RCOMP_COMMAND,
 		2,
 		NULL,
-		64711,
+		0,
 		"tcp://nowhere.com:64711",
 		(int) pb::SA_ZMQ_PROTOBUF,
-		" test command channel");
+		"test command socket");
     assert(rc == 0);
 
    rc = sp_add(sp,
 	       (int) pb::ST_HAL_RCOMP_STATUS,
 		2,
 		NULL,
-		64712,
+		0,
 		"tcp://nowhere.com:64712",
 		(int) pb::SA_ZMQ_PROTOBUF,
-		" test status channel");
+		"test status socket");
 
     assert(rc == 0);
     sp_log(sp, argc - 1);
