@@ -69,9 +69,7 @@
 using namespace google::protobuf;
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
-#include <discovery.h>  // for UDP service discovery
-#include<arpa/inet.h>
-#include<sys/socket.h>
+#include <sdpublish.h>  // for UDP service discovery
 
 #include "rtapi.h"
 #include "rtapi_global.h"
@@ -117,7 +115,7 @@ static const char *z_uri = "tcp://127.0.0.1:10043";
 static int z_port;
 static pb::Container command, reply;
 static int sd_port = SERVICE_DISCOVERY_PORT;
-static int register_service_discovery(int sd_port);
+static spub_t *sd_publisher;
 
 // the following two variables, despite extern, are in fact private to rtapi_app
 // in the sense that they are not visible in the RT space (the namespace 
@@ -664,56 +662,6 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     return 0;
 }
 
-static int service_discovery_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
-{
-    char buffer[8192];
-    pb::Container rx, tx;
-    struct sockaddr_in remote_addr = {0};
-    socklen_t addrlen = sizeof(remote_addr);
-
-    size_t recvlen = recvfrom(poller->fd, buffer,
-			      sizeof(buffer), 0,
-			      (struct sockaddr *)&remote_addr, &addrlen);
-    rtapi_print_msg(RTAPI_MSG_DBG,
-		    "service disovery: request size %zu from %s",
-		    recvlen, inet_ntoa(remote_addr.sin_addr));
-
-    if (rx.ParseFromArray(buffer, recvlen)) {
-	std::string text;
-	if (rx.type() ==  pb::MT_SERVICE_PROBE) {
-	    pb::ServiceAnnouncement *sa;
-
-	    tx.set_type(pb::MT_SERVICE_ANNOUNCEMENT);
-	    sa = tx.add_service_announcement();
-	    sa->set_instance(instance_id);
-	    sa->set_stype(pb::ST_RTAPI_COMMAND);
-	    sa->set_version(1);
-	    sa->set_cmd_port(z_port);
-
-	    size_t txlen = tx.ByteSize();
-	    assert(txlen < sizeof(buffer));
-	    tx.SerializeWithCachedSizesToArray((uint8 *)buffer);
-
-	    struct sockaddr_in destaddr = {0};
-	    destaddr.sin_port = htons(sd_port);
-	    destaddr.sin_family = AF_INET;
-	    destaddr.sin_addr = remote_addr.sin_addr;
-
-	    if (sendto(poller->fd, buffer, txlen, 0,
-		       (struct sockaddr *)&destaddr, sizeof(destaddr)) < 0) {
-		rtapi_print_msg(RTAPI_MSG_ERR,
-				"sd: sendto(%s) failed: %s",
-				inet_ntoa(remote_addr.sin_addr),
-				strerror(errno));
-	    }
-	}
-    } else {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"sd: can parse request from %s (size %zu)",
-			inet_ntoa(remote_addr.sin_addr),recvlen);
-    }
-    return 0;
-}
 
 static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
@@ -888,7 +836,7 @@ static int mainloop(size_t  argc, char **argv)
 
     zloop_t *z_loop = zloop_new();
     assert(z_loop);
-    zloop_set_verbose (z_loop, debug);
+    zloop_set_verbose(z_loop, debug);
 
     zmq_pollitem_t signal_poller = { 0, signal_fd, ZMQ_POLLIN };
     zloop_poller (z_loop, &signal_poller, s_handle_signal, NULL);
@@ -898,14 +846,17 @@ static int mainloop(size_t  argc, char **argv)
 
     zloop_timer (z_loop, BACKGROUND_TIMER, 0, s_handle_timer, NULL);
 
-    int sd_socket = -1;
-    if (sd_port) {
-	sd_socket = register_service_discovery(sd_port);
-	if (sd_socket > -1) {
-	    zmq_pollitem_t sd_poller = { NULL, sd_socket, ZMQ_POLLIN, 0 };
-	    zloop_poller(z_loop, &sd_poller, service_discovery_request, NULL);
-	}
-    }
+    // start the service announcement responder
+    sd_publisher = sp_new( z_context, sd_port, instance_id);
+    assert(sd_publisher);
+    sp_log(sd_publisher, getenv("SDDEBUG") != NULL);
+
+    retval = sp_add(sd_publisher, (int) pb::ST_RTAPI_COMMAND,
+		1, NULL, 0, z_uri,
+		(int) pb::SA_ZMQ_PROTOBUF,
+		"RTAPI command socket");
+    assert(retval == 0);
+    assert(sp_start(sd_publisher) == 0);
 
     // report success
     rtapi_print_msg(RTAPI_MSG_INFO, "rtapi_app:%d ready flavor=%s gcc=%s git=%s",
@@ -928,6 +879,12 @@ static int mainloop(size_t  argc, char **argv)
     rtapi_print_msg(RTAPI_MSG_INFO,
 		    "exiting mainloop (%s)\n",
 		    interrupted ? "interrupted": "by remote command");
+
+    // stop  the service announcement responder
+    sp_destroy(&sd_publisher);
+
+    // shutdown zmq context
+    zctx_destroy(&z_context);
 
     // exiting, so deregister our pid, which will make rtapi_msgd exit too
     global_data->rtapi_app_pid = 0;
@@ -1269,44 +1226,6 @@ int main(int argc, char **argv)
     exit(mainloop(argc, argv));
 }
 
-static int register_service_discovery(int sd_port)
-{
-    int sd_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sd_fd == -1) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"service discovery: socket() failed: %s",
-			strerror(errno));
-	return -1;
-    }
-    struct sockaddr_in sd_addr =  {0};
-    sd_addr.sin_family = AF_INET;
-    sd_addr.sin_port = htons(sd_port);
-    sd_addr.sin_addr.s_addr = INADDR_ANY;
-    int on = 1;
-    //  since there might be several servers on a host,
-    //  allow multiple owners to bind to socket; incoming
-    //  messages will replicate to each owner
-    if (setsockopt (sd_fd, SOL_SOCKET, SO_REUSEADDR,
-		    (char *) &on, sizeof (on)) == -1) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"service discovery: setsockopt (SO_REUSEADDR) failed: %s",
-			strerror(errno));
-	return -1;
-    }
-#if defined (SO_REUSEPORT)
-    // On some platforms we have to ask to reuse the port
-    // as of linux 3.9 - ignore failure for earlier kernels
-    setsockopt (sd_fd, SOL_SOCKET, SO_REUSEPORT,
-		(char *) &on, sizeof (on));
-#endif
-    if (::bind(sd_fd, (struct sockaddr*)&sd_addr, sizeof(sd_addr) ) == -1) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"service discovery: bind() failed: %s",
-			strerror(errno));
-	return -1;
-    }
-    return sd_fd;
-}
 
 // normally rtapi_app will log through the message ringbuffer in the
 // global data segment. This isnt available initially, and during shutdown,
