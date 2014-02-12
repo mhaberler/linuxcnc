@@ -13,18 +13,6 @@ message Instance {
     optional sfixed32        id       = 40;
 }
 
-message ServiceDescription {
-    repeated ServiceType       stype = 1;
-    required fixed32     min_version = 2   [default = 0];
-}
-
-// a starting client requests a shopping list of services it needs:
-message ServiceRequest {
-    optional fixed32            instance = 1 ; // RTAPI instance id
-    required ServiceAPI              api = 2  [default =  SA_ZMQ_PROTOBUF ];
-    repeated ServiceDescription service  = 3; // the shopping list
-}
-
 // a service, for announcement/response to ServiceRequest via zbeacon(7)
 message ServiceAnnouncement {
     required ServiceType              stype = 1;
@@ -36,15 +24,9 @@ message ServiceAnnouncement {
     optional string                  ws_uri = 7;
     optional string            description  = 8;
     optional string              ipaddress  = 9;
+    optional ServiceAPI                 api = 10;
+
 }
-
-// // command messages between halcmd and rtapi_app
-// // submessage of Container
-// message RtapiCommand {
-
-// }
-
-
 
 // describes an entity which may cause a message:
 // a process, a component, a thread, a group,

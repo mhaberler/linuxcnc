@@ -73,7 +73,6 @@ message Container {
     optional int32               sequence = 62;  // running count used by producero
     optional int32                 credit = 65;  // updated by consumer
 
-
     // legacy line number as conveyed on interplist
     // to be replaced by source context
     optional int32            line_number = 66;
@@ -87,6 +86,8 @@ message Container {
     optional AnError                error = 70;
 
     optional bool                   trace = 75;  // log from intermediaries
+
+    optional int32               instance = 77;  // RTAPI instance if nonzero
 
     // where is this coming from:
     optional Originator            origin = 80;
@@ -134,8 +135,6 @@ message Container {
     optional bytes         postscript     = 111;
     optional bytes         svg            = 112;
 
-    // announcements (typically sent/received via zbeacon(7):
-    optional ServiceRequest  service_request = 115;
     // a reply may carry several service announcements:
     repeated ServiceAnnouncement  service_announcement = 116;
 
