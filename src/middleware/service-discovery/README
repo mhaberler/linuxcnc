@@ -1,5 +1,12 @@
-this code show how the czmq zbeacon can used for
-DHCP-style service discovery
+Service Discovery:
 
-eventually this might get replaced by the zmq UDP transport
-once that gets implemented, but the pattern will remain the same
+A client requires a set of services: protocol, version, instance etc
+
+To obtain those at runtime, a UDP broadcast request/unicast reply scheme is
+DHCP-style. Eventually this might get replaced by the zmq UDP transport
+once that gets implemented, but the pattern will remain the same.
+
+The files udpsdpublish.py and udpsdlookup.py are the 'living protocol specs'
+since it's so trivial.
+
+
