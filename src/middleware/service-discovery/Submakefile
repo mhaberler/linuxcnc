@@ -1,8 +1,44 @@
-SD_DIR :=  $(MWDIR)/service-discovery
+SDDIR :=  $(MWDIR)/service-discovery
 
-INCLUDES += $(SD_DIR)
+INCLUDES += $(SDDIR)
 
 
-../include/%.h: ./$(SD_DIR)/%.h
+LIBSPUBSRCS := $(addprefix  $(SDDIR)/, \
+	sdpublish.cc )
+
+USERSRCS += $(LIBSPUBSRCS)
+
+$(call TOOBJSDEPS, $(LIBSPUBSRCS)) : EXTRAFLAGS=-fPIC \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+
+TARGETS += ../lib/libsdpublish.so ../lib/libsdpublish.so.0
+
+../lib/libsdpublish.so.0:  $(call TOOBJS, $(LIBSPUBSRCS)) \
+	../lib/liblinuxcnc-pb2++.so
+
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS)
+
+
+
+TESTSDPUB_SRCS := $(addprefix  $(SDDIR)/, \
+	sdpublish.cc )
+
+
+$(call TOOBJSDEPS, $(TESTSDPUB_SRCS)) : EXTRAFLAGS += -DTEST -g
+
+../bin/testsdpub: $(call TOOBJS, $(TESTSDPUB_SRCS)) \
+	../lib/liblinuxcnc-pb2++.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -g -o $@ $^  \
+	 $(MESSAGEBUS_CXX_LDFLAGS)
+
+TARGETS += ../bin/testsdpub
+
+
+../include/%.h: ./$(SDDIR)/%.h
 	@mkdir -p $(dir $@)
 	cp $^ $@

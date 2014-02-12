@@ -10,3 +10,76 @@ The files udpsdpublish.py and udpsdlookup.py are the 'living protocol specs'
 since it's so trivial.
 
 
+
+
+C discovery API
+---------------
+#include "sdiscover.h"
+
+// init service discovery for a particular instance id
+sdreq_t *req = sd_new(instance);
+
+// add a service (stype, version, api) to wishlist
+// returns 0 on sucess, -1 on error
+int sd_add(req, protocol, version, api)
+
+// run the query on the wishlist
+// returns 0 on sucess (all services found)
+// -ETIMEDOUT on timeout, -ENOENT on some missing services
+int sd_runquery(req, timeout);
+
+// print the result
+sd_fprint(const char *tag, req)
+
+// result accessors
+const char *sd_ipaddress(req, stype)
+int sd_port(req, stype)
+int sd_version(req, stype)
+const char *sd_uri(req, stype)
+const char *sd_description(req, stype)
+
+// get a service instance
+service_t * sd_find(sd,  protocol)
+
+// destroy discovery
+sd_destroy(sdreq_t **)
+
+
+C publisher API
+---------------
+#include "sdpublish.h"
+
+// init service discovery for a particular instance id
+spub_t *req = sp_new(instance);
+
+// export a service (protocol, version, api) to wishlist
+// returns 0 on sucess, -1 on error
+int sd_add(req, stype, version, ipaddr, port, uri, api, description);
+
+// start the service publisher
+// returns 0 on sucess, -1 on error
+int sd_start(req)
+
+// log service requests
+// returns 0 on sucess, -1 on error
+int sd_log(req, int log)
+
+// start the service publisher
+int sd_destroy(spub_t **)
+
+
+
+
+
+// a service, for announcement/response to ServiceRequest via zbeacon(7)
+message ServiceAnnouncement {
+    required ServiceType              stype = 1;
+    required fixed32                version = 2 [default = 0];
+    required fixed32               instance = 3 [default = 0]; // RTAPI instance id
+    optional string              ipaddress  = 4;
+    optional fixed32                   port = 5;  // TCP port number
+    optional string                     uri = 6;
+    optional string            description  = 7;
+    optional ServiceAPI                 api = 8;
+
+}
