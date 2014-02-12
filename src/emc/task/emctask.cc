@@ -31,6 +31,7 @@
 #include "inifile.hh"
 #include "rcs_print.hh"
 #include "main.hh"		// emcTaskCommand etc
+#include "task.hh"		// emcTaskCommand etc
 #include "python_plugin.hh"
 #include "taskclass.hh"
 #include "readahead.hh"		// emcTaskQueueCommand

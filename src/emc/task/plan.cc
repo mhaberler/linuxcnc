@@ -306,20 +306,24 @@ int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus)
 		    break;
 
 		case EMC_TASK_PLAN_STEP_TYPE:
-		    // handles case where first action is to step the program
-		    taskPlanRunCmd.line = 1;	// run from start
-		    /*! \todo FIXME-- can have GUI set this; send a run instead of a
-		       step */
-		    emcTaskQueueRunCmd(1);	// run from start
+		    {
+			EMC_TASK_PLAN_RUN taskPlanRunCmd;
 
-		    if(retval != 0) break;
-		    emcTrajPause();
-		    if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
-			set_interpResumeState(emcStatus->task.interpState);
+			// handles case where first action is to step the program
+			taskPlanRunCmd.line = 1;	// run from start
+			/*! \todo FIXME-- can have GUI set this; send a run instead of a
+			  step */
+			retval = emcTaskIssueCommand(&taskPlanRunCmd);
+
+			if(retval != 0) break;
+			emcTrajPause();
+			if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
+			    set_interpResumeState(emcStatus->task.interpState);
+			}
+			emcStatus->task.interpState = EMC_TASK_INTERP_PAUSED;
+			emcStatus->task.task_paused = 1;
+			retval = 0;
 		    }
-		    emcStatus->task.interpState = EMC_TASK_INTERP_PAUSED;
-		    emcStatus->task.task_paused = 1;
-		    retval = 0;
 		    break;
 
 		case EMC_TOOL_LOAD_TOOL_TABLE_TYPE:

@@ -5,6 +5,7 @@
 #include "rcs_print.hh"
 #include "timer.hh"
 #include "main.hh"		// emcTaskCommand etc
+#include "task.hh"
 #include "taskclass.hh"
 
 #include "issue.hh"
@@ -14,6 +15,7 @@
 
 #include "nmlsetup.hh"    // emcCommandBuffer
 #include "zmqcmds.hh"
+extern EMC_STAT *emcStatus;
 
 // config
 extern int no_force_homing;

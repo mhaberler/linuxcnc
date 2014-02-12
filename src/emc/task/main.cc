@@ -196,7 +196,6 @@ int emcAuxInputWaitIndex = -1;
 double taskExecDelayTimeout = 0.0;
 
 // commands we compose here
-static EMC_TASK_PLAN_RUN taskPlanRunCmd;	// 16-Aug-1999 FMP
 //static EMC_TASK_PLAN_INIT taskPlanInitCmd;
 
 int programStartLine = 0;	// which line to run program from
@@ -320,7 +319,7 @@ int main(int argc, char *argv[])
     RCS_CMD_MSG *emcCommand  = emcCommandBuffer->get_address();
 
     while (!done) {
- check_ini_hal_items();
+
 	if (zsocket_poll (completion, 0)) {
             zmsg_t *msg = zmsg_recv (completion);
 	    char *s = zmsg_popstr (msg);

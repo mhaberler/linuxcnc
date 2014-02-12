@@ -21,9 +21,31 @@
 
 // emctask.cc
 extern int emcTaskUpdate(EMC_TASK_STAT * stat); // use: emctaskmain.cc
+extern int emcTaskInit(void);
+
+extern int emcTaskPlanInit(void);
+extern int emcTaskPlanOpen(const char *file);
+extern int emcTaskPlanCommand(char *cmd);
+extern int emcTaskPlanRead(void);
+extern int emcTaskPlanReset(void);
+extern int emcTaskPlanLine(void);
 extern int emcTaskPlanSetWait(void);
 extern int emcTaskPlanIsWait(void);
 extern int emcTaskPlanClearWait(void);
+extern int emcTaskPlanClose(void);
+extern int emcTaskPlanSynch(void);
+extern int emcTaskHalt(void);
+extern void emcTaskPlanExit(void);
+
+extern int emcTaskAbort(void);
+extern int emcTaskSetState(int state);
+extern int emcTaskSetMode(int mode);
+extern int emcTaskPlanLevel(void);
+extern int emcTaskPlanExecute(const char *command);
+extern int emcTaskPlanExecute(const char *command, int line_number);
+extern int emcTaskPlanSetOptionalStop(bool state);
+extern int emcTaskPlanSetBlockDelete(bool state);
+
 
 // exported by emctaskplan.cc
 extern int emcTaskPlan(RCS_CMD_MSG *emcCommand, EMC_STAT *emcStatus);
