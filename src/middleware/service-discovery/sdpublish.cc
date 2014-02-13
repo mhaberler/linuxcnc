@@ -13,7 +13,7 @@
 namespace gpb = google::protobuf;
 
 static void s_publisher_task (void *args, zctx_t *ctx, void *pipe);
-static int retcode(void *pipe);
+static int s_retcode(void *pipe);
 
 typedef struct _spub {
     int instance;
@@ -25,7 +25,8 @@ typedef struct _spub {
 } _spub_t;
 
 
-spub_t *sp_new(zctx_t *ctx, int port, int instance)
+spub_t *
+sp_new(zctx_t *ctx, int port, int instance)
 {
     _spub_t *self = (_spub_t *) zmalloc(sizeof(_spub_t));
     assert (self);
@@ -39,14 +40,15 @@ spub_t *sp_new(zctx_t *ctx, int port, int instance)
     return self;
 }
 
-int sp_add(spub_t *self,
-	   int stype,
-	   int version,
-	   const char *ipaddr,
-	   int port,
-	   const char *uri,
-	   int api,
-	   const char *description)
+int
+sp_add(spub_t *self,
+       int stype,
+       int version,
+       const char *ipaddr,
+       int port,
+       const char *uri,
+       int api,
+       const char *description)
 {
     pb::ServiceAnnouncement *sa;
 
@@ -68,7 +70,8 @@ int sp_add(spub_t *self,
 }
 
 // start the service publisher
-int sp_start(spub_t *self)
+int
+sp_start(spub_t *self)
 {
     assert(self);
 
@@ -77,18 +80,20 @@ int sp_start(spub_t *self)
     assert(self->pipe);
 
     //  and wait for it to initialize
-    return retcode(self->pipe);
+    return s_retcode(self->pipe);
 }
 
 // turn on/off logging for service requests
-void sp_log(spub_t *self, int trace)
+void
+sp_log(spub_t *self, int trace)
 {
     assert(self);
     self->trace = trace;
 }
 
 // terminate the service publisher
-int sp_destroy(_spub_t **arg)
+int
+sp_destroy(_spub_t **arg)
 {
     int retval = -ENOENT;
     assert(arg);
@@ -97,7 +102,7 @@ int sp_destroy(_spub_t **arg)
 	if (self->trace)
 	    fprintf(stderr, "sp_destroy: send EXIT\n");
 	zstr_send (self->pipe, "EXIT");
-	retval =  retcode(self->pipe);
+	retval =  s_retcode(self->pipe);
 	if (self->trace)
 	    fprintf(stderr, "sp_destroy: got %d\n", retval);
     }
@@ -110,19 +115,21 @@ int sp_destroy(_spub_t **arg)
 
 // --- end of public API ---
 
-static int
-s_cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg);
+static int s_cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg);
 static int s_register_service_discovery(int sd_port);
 static int s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 
-static int retcode(void *pipe)
+static int
+s_retcode(void *pipe)
 {
     char *retval = zstr_recv (pipe);
     int rc = atoi(retval);
     zstr_free(&retval);
     return rc;
 }
-static void s_publisher_task (void *args, zctx_t *ctx, void *pipe)
+
+static void
+s_publisher_task (void *args, zctx_t *ctx, void *pipe)
 {
     int retval;
 
@@ -166,7 +173,6 @@ static void s_publisher_task (void *args, zctx_t *ctx, void *pipe)
     zstr_send (pipe, "0"); // makes sp_destroy() return 0
 }
 
-
 static int
 s_cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg)
 {
@@ -183,7 +189,8 @@ s_cmdpipe_readable(zloop_t *loop, zmq_pollitem_t *item, void *arg)
     return retval;
 }
 
-static int s_register_service_discovery(int sd_port)
+static int
+s_register_service_discovery(int sd_port)
 {
     int sd_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sd_fd == -1) {
@@ -220,7 +227,8 @@ static int s_register_service_discovery(int sd_port)
     return sd_fd;
 }
 
-static int s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+static int
+s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
     _spub_t *self = (_spub_t *) arg;
     unsigned char buffer[8192];
