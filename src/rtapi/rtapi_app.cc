@@ -139,6 +139,7 @@ static void exit_actions(int instance);
 static int harden_rt(void);
 static void rtapi_app_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
+static void setup_signals(void);
 
 // raise/drop privilege support
 void save_uid(void);
@@ -775,7 +776,6 @@ static int mainloop(size_t  argc, char **argv)
 	exit(EXIT_FAILURE);
     }
 
-
     // make sure we're setuid root when we need to
     if (use_drivers || (flavor->flags & FLAVOR_DOES_IO)) {
 	if (geteuid() != 0)
@@ -809,13 +809,16 @@ static int mainloop(size_t  argc, char **argv)
 	exit(1);
     }
 
-    // zmq & service discovery incantations
-
-    zctx_t *z_context = zctx_new ();
+    // block all signal delivery through signal handler
+    // since we're using signalfd()
+    // do this here so child threads inherit the sigmask
+    setup_signals();
 
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()
     zsys_handler_set(NULL);
+
+    zctx_t *z_context = zctx_new ();
 
     void *z_command = zsocket_new (z_context, ZMQ_ROUTER);
     {
@@ -1036,8 +1039,6 @@ static int harden_rt()
 			    errno,strerror(errno));
 	}
     }
-
-    setup_signals();
 
     if (flavor->id == RTAPI_XENOMAI_ID) {
 	int retval = user_in_xenomai_group();
