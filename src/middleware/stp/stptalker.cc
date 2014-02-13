@@ -361,7 +361,7 @@ static void s_beacon_recv (sttalker_t * self)
 	    sa->set_instance(0);
 	    sa->set_stype(pb::ST_STP);
 	    sa->set_version(1);
-	    sa->set_update_port(self->port);
+	    sa->set_port(self->port);
 
 	    size_t txlen = self->update->ByteSize();
 	    assert(txlen < sizeof(buffer));
