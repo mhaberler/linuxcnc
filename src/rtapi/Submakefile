@@ -255,6 +255,7 @@ RTAPI_MSGD_SRCS =  \
 	rtapi/rtapi_msgd.cc \
 	rtapi/rtapi_compat.c \
 	rtapi/syslog-async/syslog_async.c \
+	rtapi/redirect_log.c \
 	middleware/wsproxy/zwsproxy.c
 
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))

@@ -70,6 +70,8 @@ using namespace google::protobuf;
 #include <middleware/json2pb/json2pb.h>
 #include <jansson.h> // just for library version tag
 
+extern "C" void to_syslog(const char *tag, FILE **pfp); // redirect_log.c
+
 #include <zwsproxy.h>
 static void lwsl_emit_rtapilog(int level, const char *line);
 static int json_policy(zwsproxy_t *self, zws_session_t *wss, zwscb_type type);
@@ -107,8 +109,9 @@ static zloop_t* loop;
 static void *logpub;  // zeromq log publisher socket
 static zctx_t *zctx;
 static const char *logpub_uri = "tcp://127.0.0.1:5550";
-static zwsproxy_t *zws;             // zeroMQ/websockets proxy instance
-static int wsdebug = 0;
+static zwsproxy_t *zws;    // zeroMQ/websockets proxy instance
+static int wsdebug = 0;    // websockets
+static int sddebug = 0;    // service discover
 static bool have_json_subs;
 
 int shmdrv_loaded;
@@ -708,21 +711,23 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 
 
 static struct option long_options[] = {
-    {"help",  no_argument,          0, 'h'},
-    {"stderr",  no_argument,        0, 's'},
-    {"foreground",  no_argument,    0, 'F'},
-    {"usrmsglevel", required_argument, 0, 'u'},
-    {"rtmsglevel", required_argument, 0, 'r'},
-    {"instance", required_argument, 0, 'I'},
-    {"instance_name", required_argument, 0, 'i'},
-    {"flavor",   required_argument, 0, 'f'},
-    {"halsize",  required_argument, 0, 'H'},
-    {"halstacksize",  required_argument, 0, 'R'},
-    {"shmdrv",  no_argument,        0, 'S'},
+    { "help",  no_argument,          0, 'h'},
+    { "extensions",	no_argument,	NULL, 'e' },
+    { "stderr",  no_argument,        0, 's'},
+    { "foreground",  no_argument,    0, 'F'},
+    { "usrmsglevel", required_argument, 0, 'u'},
+    { "rtmsglevel", required_argument, 0, 'r'},
+    { "instance", required_argument, 0, 'I'},
+    { "instance_name", required_argument, 0, 'i'},
+    { "flavor",   required_argument, 0, 'f'},
+    { "halsize",  required_argument, 0, 'H'},
+    { "halstacksize",  required_argument, 0, 'R'},
+    { "shmdrv",  no_argument,        0, 'S'},
     { "uri", required_argument,	 NULL, 'U' },
     { "wwwdir", required_argument,      NULL, 'w' },
     { "port",	required_argument,	NULL, 'p' },
     { "wsdebug",required_argument,	NULL, 'W' },
+    { "sddebug",no_argument,	NULL, 'D' },
     {0, 0, 0, 0}
 };
 
@@ -749,11 +754,17 @@ int main(int argc, char **argv)
     while (1) {
 	int option_index = 0;
 	int curind = optind;
-	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W:",
+	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W:eu:r:D",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
 	switch (c)	{
+	case 'e':
+	    info.extensions = libwebsocket_get_internal_extensions();
+	    break;
+	case 'D':
+	    sddebug++;
+	    break;
 	case 'F':
 	    foreground++;
 	    break;
@@ -956,16 +967,52 @@ int main(int argc, char **argv)
 	       progname, global_data->rtapi_msgd_pid);
 	exit(EXIT_FAILURE);
     }
+    int fd = open("/dev/null", O_RDONLY);
+    dup2(fd, STDIN_FILENO);
+    close(fd);
+
+    // redirect stdout to syslog
+    // NB: this works for FILE *, not the underlying STDOUT_FILENO
+    to_syslog("> ", &stdout);
+
+    if (!log_stderr)
+	to_syslog(">> ", &stderr);  // redirect stderr to syslog
+
+    // signal handling
+    sigemptyset(&sigmask);
+
+    // block all signal delivery through signal handler
+    // since we're using signalfd()
+    // do this here so child threads inherit the sigmask
+
+    sigfillset(&sigmask);
+    if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
+	perror("sigprocmask");
+
+    sigemptyset(&sigmask);
+
+    // these we want delivered via signalfd()
+    sigaddset(&sigmask, SIGINT);
+    sigaddset(&sigmask, SIGQUIT);
+    sigaddset(&sigmask, SIGKILL);
+    sigaddset(&sigmask, SIGTERM);
+    sigaddset(&sigmask, SIGSEGV);
+    sigaddset(&sigmask, SIGFPE);
+    sigaddset(&sigmask, SIGABRT);
+
+    if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0)
+	perror("signalfd");
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()
     zsys_handler_set(NULL);
 
+    // zeroMQ context
     zctx  = zctx_new();
 
     // start the service announcement responder
     sd_publisher = sp_new( zctx, sd_port, rtapi_instance);
     assert(sd_publisher);
-    sp_log(sd_publisher, getenv("SDDEBUG") != NULL);
+    sp_log(sd_publisher, sddebug);
 
     if (logpub_uri) {
 
@@ -986,10 +1033,14 @@ int main(int argc, char **argv)
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
 	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
-	    retval = sp_add(sd_publisher, (int) pb::ST_LOGGING,
-		1, NULL, 0, logpub_uri,
-		(int) pb::SA_ZMQ_PROTOBUF,
-		"zmq/protobuf log socket");
+	    retval = sp_add(sd_publisher,
+			    (int) pb::ST_LOGGING, //type
+			    1, // version
+			    NULL, // ip
+			    0, // port
+			    logpub_uri, // uri
+			    (int) pb::SA_ZMQ_PROTOBUF, // api
+			    "zmq/protobuf log socket");  // descr
 	    assert(retval == 0);
 
 	    lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
@@ -1017,40 +1068,12 @@ int main(int argc, char **argv)
 	}
     }
  nows:
-    close(STDIN_FILENO);
-#endif
-    close(STDOUT_FILENO);
-    if (!log_stderr)
-	close(STDERR_FILENO);
 
     loop = zloop_new();
     assert (loop);
 
-    sigemptyset(&sigmask);
-
-   sigemptyset(&sigmask);
-
-   // block all signal delivery through signal handler
-   // since we're using signalfd()
-   sigfillset(&sigmask);
-   if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
-       perror("sigprocmask");
-
-   sigemptyset(&sigmask);
-
-   // these we want delivered via signalfd()
-   sigaddset(&sigmask, SIGINT);
-   sigaddset(&sigmask, SIGQUIT);
-   sigaddset(&sigmask, SIGKILL);
-   sigaddset(&sigmask, SIGTERM);
-   sigaddset(&sigmask, SIGSEGV);
-   sigaddset(&sigmask, SIGFPE);
-
-   if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0)
-	perror("signalfd");
-
-   zmq_pollitem_t signal_poller =  { 0, signal_fd,   ZMQ_POLLIN };
-   zloop_poller (loop, &signal_poller, s_handle_signal, NULL);
+    zmq_pollitem_t signal_poller =  { 0, signal_fd,   ZMQ_POLLIN };
+    zloop_poller (loop, &signal_poller, s_handle_signal, NULL);
 
     zmq_pollitem_t logpub_poller = { logpub, 0, ZMQ_POLLIN };
     zloop_poller (loop, &logpub_poller, logpub_readable_cb, NULL);
@@ -1059,7 +1082,9 @@ int main(int argc, char **argv)
 
    polltimer_id = zloop_timer (loop, msg_poll, 0, message_poll_cb, NULL);
 
-    assert(sp_start(sd_publisher) == 0);
+    if ((retval = sp_start(sd_publisher))) {
+	syslog(LOG_ERR, "failed to start service publisher: %d\n", retval);
+    }
 
     do {
 	retval = zloop_start(loop);
