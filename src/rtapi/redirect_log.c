@@ -2,13 +2,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
-
+#include <stdlib.h>
 
 static size_t writer(void *cookie, char const *data, size_t leng)
 {
+    int level= LOG_ERR;
     const char *tag = cookie;
-    int     p = LOG_ERR;
-    syslog(p, "%s%.*s", tag, leng, data);
+    char *l, *lines = strndup(data, leng);
+
+    if (lines == NULL)
+	return  leng; // fail silently
+
+    l = strtok(lines, "\n");
+    while (l != NULL) {
+	syslog(level, "%s%s", tag, l);
+	l = strtok(NULL, "\n");
+    }
+    free(lines);
     return  leng;
 }
 
@@ -21,7 +31,7 @@ static cookie_io_functions_t log_fns = {
     (void*) noop
 };
 
-void to_syslog(const char *tag, FILE **pfp)
+void to_syslog(char *tag, FILE **pfp)
 {
     setvbuf(*pfp = fopencookie(tag, "w", log_fns), NULL, _IOLBF, 0);
 }
