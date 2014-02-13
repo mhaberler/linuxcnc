@@ -191,6 +191,7 @@ static int s_register_service_discovery(int sd_port)
 			strerror(errno));
 	return -1;
     }
+
     struct sockaddr_in sd_addr =  {0};
     sd_addr.sin_family = AF_INET;
     sd_addr.sin_port = htons(sd_port);
