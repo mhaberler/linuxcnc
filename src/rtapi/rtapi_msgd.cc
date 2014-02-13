@@ -79,6 +79,7 @@ static int json_policy(zwsproxy_t *self, zws_session_t *wss, zwscb_type type);
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
 #endif
+#define GRACE_PERIOD 2000 // ms to wait after rtapi_app exit detected
 
 int rtapi_instance;
 static int log_stderr;
@@ -103,6 +104,7 @@ static int msg_poll_min = 20;  // minimum msgq checking interval
 static int msg_poll_inc = 10;  // increment interval if no message read up to msg_poll_max
 static int msg_poll =     20;  // current delay; startup fast
 static int polltimer_id;      // as returned by zloop_timer()
+static int shutdowntimer_id;
 
 // zeroMQ related
 static zloop_t* loop;
@@ -514,6 +516,13 @@ static int logpub_readable_cb(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 }
 
 static int
+s_start_shutdown_cb(zloop_t *loop, int  timer_id, void *args)
+{
+    syslog(LOG_ERR, "msgd shutting down");
+    return -1; // exit reactor
+}
+
+static int
 message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 {
     rtapi_msgheader_t *msg;
@@ -700,11 +709,12 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
     }
 
     // check for rtapi_app exit only after all pending messages are logged:
-    if (global_data->rtapi_app_pid == 0) {
-	syslog(LOG_ERR,
-	       "msgd:%d: rtapi_app exit detected - shutting down",
-	       rtapi_instance);
-	return -1; // exit reactor
+    if ((global_data->rtapi_app_pid == 0) &&
+	(shutdowntimer_id ==  0)) {
+	// schedule a loop shutdown but keep reading messages for a while
+	// so we dont loose messages
+	syslog(LOG_ERR, "msgd: rtapi_app exit detected - scheduled shutdown");
+	shutdowntimer_id = zloop_timer (loop, GRACE_PERIOD, 1, s_start_shutdown_cb, NULL);
     }
     return 0;
 }
@@ -998,7 +1008,7 @@ int main(int argc, char **argv)
     sigaddset(&sigmask, SIGTERM);
     sigaddset(&sigmask, SIGSEGV);
     sigaddset(&sigmask, SIGFPE);
-    sigaddset(&sigmask, SIGABRT);
+    // sigaddset(&sigmask, SIGABRT);
 
     if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0)
 	perror("signalfd");
