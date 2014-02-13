@@ -23,20 +23,59 @@ TARGETS += ../lib/libsdpublish.so ../lib/libsdpublish.so.0
 	$(PROTOBUF_LIBS) $(CZMQ_LIBS)
 
 
+LIBSDSRCS := $(addprefix  $(SDDIR)/, \
+	sdiscover.cc )
 
+USERSRCS += $(LIBSDSRCS)
+
+$(call TOOBJSDEPS, $(LIBSDSRCS)) : EXTRAFLAGS=-fPIC \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+
+TARGETS += ../lib/libsdiscover.so ../lib/libsdiscover.so.0
+
+../lib/libsdiscover.so.0:  $(call TOOBJS, $(LIBSDSRCS)) \
+	../lib/liblinuxcnc-pb2++.so
+
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS)
+
+
+
+# selftest
 TESTSDPUB_SRCS := $(addprefix  $(SDDIR)/, \
 	sdpublish.cc )
 
+$(call TOOBJSDEPS, $(TESTSDPUB_SRCS)) : EXTRAFLAGS += -DTEST -g \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
-$(call TOOBJSDEPS, $(TESTSDPUB_SRCS)) : EXTRAFLAGS += -DTEST -g
 
 ../bin/testsdpub: $(call TOOBJS, $(TESTSDPUB_SRCS)) \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -g -o $@ $^  \
-	 $(MESSAGEBUS_CXX_LDFLAGS)
+	 $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
 
 TARGETS += ../bin/testsdpub
+
+
+# selftest
+TESTSD_SRCS := $(addprefix  $(SDDIR)/, \
+	sdiscover.cc )
+
+$(call TOOBJSDEPS, $(TESTSD_SRCS)) : EXTRAFLAGS += -DTEST -g \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+
+
+../bin/testsdiscover: $(call TOOBJS, $(TESTSD_SRCS)) \
+	../lib/liblinuxcnc-pb2++.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -g -o $@ $^  \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
+
+TARGETS += ../bin/testsdiscover
 
 
 ../include/%.h: ./$(SDDIR)/%.h

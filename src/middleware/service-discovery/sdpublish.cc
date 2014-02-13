@@ -226,14 +226,14 @@ static int s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     pb::Container rx;
     struct sockaddr_in remote_addr = {0};
     socklen_t addrlen = sizeof(remote_addr);
-
+    int retval;
 
     size_t recvlen = recvfrom(poller->fd, buffer,
 			      sizeof(buffer), 0,
 			      (struct sockaddr *)&remote_addr, &addrlen);
     if (self->trace)
-	fprintf(stderr, "s_socket_readable: request size %zu from %s:\n",
-		recvlen, inet_ntoa(remote_addr.sin_addr));
+	fprintf(stderr, "s_socket_readable: request size %zu from %s:%d\n",
+		recvlen, inet_ntoa(remote_addr.sin_addr), ntohs(remote_addr.sin_port));
 
     if (rx.ParseFromArray(buffer, recvlen)) {
 	std::string text;
@@ -254,16 +254,20 @@ static int s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		}
 	    }
 	    struct sockaddr_in destaddr = {0};
-	    destaddr.sin_port = htons(self->port);
+	    destaddr.sin_port = remote_addr.sin_port; // htons(self->port);
 	    destaddr.sin_family = AF_INET;
-	    destaddr.sin_addr = remote_addr.sin_addr;
+	    destaddr.sin_addr = remote_addr.sin_addr; //.s_addr
 
-	    if (sendto(poller->fd, buffer, txlen, 0,
-		       (struct sockaddr *)&destaddr, sizeof(destaddr)) < 0) {
+	    if ((retval = sendto(poller->fd, buffer, txlen, 0,
+				 (struct sockaddr *)&destaddr, sizeof(destaddr))) < 0) {
 		fprintf(stderr, "s_socket_readable: sendto(%s) failed: %s\n",
 				inet_ntoa(remote_addr.sin_addr),
 				strerror(errno));
-	    }
+	    } else
+		if (self->trace)
+		    fprintf(stderr, "s_socket_readable: sent size %zu to %s:%d:\n",
+			    txlen, inet_ntoa(remote_addr.sin_addr),
+			    ntohs(destaddr.sin_port));
 	}
     } else {
 	fprintf(stderr,
@@ -307,7 +311,7 @@ int main(int argc, char **argv)
     sp_log(sp, argc - 1);
 
     assert(sp_start(sp) == 0);
-    sleep(20);
+    sleep(60);
     assert(sp_destroy(&sp) == 0);
     return 0;
 }

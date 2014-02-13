@@ -10,6 +10,13 @@ The files udpsdpublish.py and udpsdlookup.py are the 'living protocol specs'
 since it's so trivial.
 
 
+Q & A:
+------
+why isnt this using mDNS/DNS-SD (avahi)? Because the avahi API is really complex
+and management is non-trivial.
+
+Anything better downstream?  The zeroMQ ZYRE might work for this, once its a
+tad more stable.
 
 
 C discovery API
@@ -17,11 +24,11 @@ C discovery API
 #include "sdiscover.h"
 
 // init service discovery for a particular instance id
-sdreq_t *req = sd_new(instance);
+sdreq_t *req = sd_new(zctx_t *ctx, int port, int instance);
 
 // add a service (stype, version, api) to wishlist
 // returns 0 on sucess, -1 on error
-int sd_add(req, protocol, version, api)
+int sd_add(req, stype, version, api)
 
 // run the query on the wishlist
 // returns 0 on sucess (all services found)
@@ -37,9 +44,6 @@ int sd_port(req, stype)
 int sd_version(req, stype)
 const char *sd_uri(req, stype)
 const char *sd_description(req, stype)
-
-// get a service instance
-service_t * sd_find(sd,  protocol)
 
 // destroy discovery
 sd_destroy(sdreq_t **)

@@ -22,25 +22,22 @@ hal_rcomp_cmd_port = 62110
 hal_rcomp_update_port = 62111
 hal_status_update_port = 64123
 
-instance = 1
+instance = 0
 
 rx = Container()
 tx = Container()
 
 # listen for broadcasts
-rxsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 # allow multiple listeners
-rxsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-if hasattr(rxsock, "SO_REUSEPORT"):
-    rxsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-rxsock.bind((BROADCAST_IP, SERVICE_DISCOVERY_PORT))
-
-# unicast reply socket
-txsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+if hasattr(sock, "SO_REUSEPORT"):
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+sock.bind((BROADCAST_IP, SERVICE_DISCOVERY_PORT))
 
 while True:
-    content, source = rxsock.recvfrom(1024)
+    content, source = sock.recvfrom(1024)
     if source is None:
         # interrupted - ^C
         break
@@ -60,22 +57,26 @@ while True:
             sa.instance = instance
             sa.version = HAL_RCOMP_VERSION
             sa.port = hal_rcomp_cmd_port
+            sa.api = SA_ZMQ_PROTOBUF
 
+            sa = tx.service_announcement.add()
             sa.stype = ST_HAL_RCOMP_STATUS
             sa.instance = instance
             sa.version = HAL_RCOMP_VERSION
             sa.port = hal_rcomp_update_port
+            sa.api = SA_ZMQ_PROTOBUF
 
             sa = tx.service_announcement.add()
             sa.stype = ST_STP
-            sa.update_port = hal_status_update_port
+            sa.port = hal_status_update_port
             sa.instance = instance
             sa.version = STP_VERSION
+            sa.api = SA_ZMQ_PROTOBUF
 
             pkt = tx.SerializeToString()
 
             # reply by unicast to originator
             print "reply to=%s size=%d %s" % (str(source), len(pkt), str(tx))
-            txsock.sendto(pkt, (source[0], SERVICE_DISCOVERY_PORT))
+            sock.sendto(pkt, (source[0],source[1]))
 
         rx.Clear()

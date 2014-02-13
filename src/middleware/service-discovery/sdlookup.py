@@ -22,10 +22,7 @@ RETRY = 500
 MAX_WAIT = 3.0
 
 # shopping list of services needed
-#required = [ST_STP]
-#required = [ST_RTAPI_COMMAND]
-required = [ST_HAL_RCOMP_COMMAND]
-#required = [ST_HAL_RCOMP]
+required = [ST_HAL_RCOMP_COMMAND,ST_HAL_RCOMP_STATUS]
 
 # looking for instance 0 services
 instance = 0
@@ -40,27 +37,20 @@ probe = tx.SerializeToString()
 
 
 # socket to broadcast service discovery request on
-txsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-txsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-if hasattr(txsock, "SO_REUSEPORT"):
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+if hasattr(sock, "SO_REUSEPORT"):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 # enable broadcast tx
 # else 'permission denied'
-txsock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-rxsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-rxsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-if hasattr(rxsock, "SO_REUSEPORT"):
-    rxsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-rxsock.bind((UDP_ANY, SERVICE_DISCOVERY_PORT))
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
 start = time.time()
 poller = select.poll()
-poller.register(rxsock.fileno(),select.POLLIN)
+poller.register(sock.fileno(),select.POLLIN)
 
 # initial probe request
-txsock.sendto(probe, (BROADCAST_IP, SERVICE_DISCOVERY_PORT))
+sock.sendto(probe, (BROADCAST_IP, SERVICE_DISCOVERY_PORT))
 
 while required:
     if (time.time() - start) > MAX_WAIT:
@@ -70,7 +60,7 @@ while required:
     if ready:
         for fd,event in ready:
             if event and select.POLLIN:
-                content, source  = rxsock.recvfrom(1024)
+                content, source  = sock.recvfrom(1024)
 
                 if source is None:
                     continue
@@ -95,7 +85,7 @@ while required:
                                 print "service %d instance: %d" %(a.stype, a.instance)
     else:
         print "resending probe:"
-        txsock.sendto(probe, (BROADCAST_IP, SERVICE_DISCOVERY_PORT))
+        sock.sendto(probe, (BROADCAST_IP, SERVICE_DISCOVERY_PORT))
 
 if not required:
     print "all services aquired:"
