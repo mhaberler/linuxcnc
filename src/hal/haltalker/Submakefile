@@ -19,6 +19,7 @@ $(call TOOBJSDEPS, $(TALKER_SRCS)) : EXTRAFLAGS += $(TALKER_CXXFLAGS)
 	../lib/libjson2pb.so \
 	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnchal.so.0 \
+	../lib/libsdpublish.so.0 \
 	../lib/liblinuxcncini.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(TALKER_LDFLAGS)

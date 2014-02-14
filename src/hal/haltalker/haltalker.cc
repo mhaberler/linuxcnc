@@ -43,10 +43,14 @@
 #include <hal_priv.h>
 #include <hal_group.h>
 #include <inifile.h>
+#include <sdpublish.h>  // for UDP service discovery
+
 #include <czmq.h>
 
 #include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
+
+#define STP_VERSION 1 // announced protocol version
 
 #if JSON_TIMING
 #include <middleware/json2pb/json2pb.h>
@@ -60,12 +64,13 @@ typedef enum {
 typedef  std::unordered_map<std::string, hal_compiled_group_t *> groupmap_t;
 typedef groupmap_t::iterator groupmap_iterator;
 
-static const char *option_string = "hI:S:dt:";
+static const char *option_string = "hI:S:dt:D";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
     {"debug", required_argument, 0, 'd'},
+    {"sddebug", required_argument, 0, 'D'},
     {"timer", required_argument, 0, 't'},
     {0,0,0,0}
 };
@@ -78,8 +83,10 @@ typedef struct htconf {
     const char *status;
     //const char *command;
     int debug;
+    int sddebug;
     int pid;
     int default_group_timer; // msec
+    int sd_port;
 } htconf_t;
 
 htconf_t conf = {
@@ -104,6 +111,7 @@ typedef struct htself {
     zloop_t *z_loop;
     pb::Container update;
     int serial;
+    spub_t *sd_publisher;
 } htself_t;
 
 // static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -389,6 +397,32 @@ static int zmq_init(htself_t *self)
     return 0;
 }
 
+static int sd_init(htself_t *self)
+{
+    int retval;
+
+    if (!self->cfg->sd_port)
+	return 0;  // service discovery disabled
+
+    // start the service announcement responder
+    self->sd_publisher = sp_new(self->z_context, self->cfg->sd_port,
+				rtapi_instance);
+
+    assert(self->sd_publisher != NULL);
+    sp_log(self->sd_publisher, self->cfg->sddebug);
+    retval = sp_add(self->sd_publisher,
+		    (int) pb::ST_STP, //type
+			    STP_VERSION, // version
+			    NULL, // ip
+			    0, // port
+			    self->cfg->status, // uri
+			    (int) pb::SA_ZMQ_PROTOBUF, // api
+			    "HAL status tracking socket");  // descr
+    assert(retval == 0);
+    assert(sp_start(self->sd_publisher) == 0);
+    return 0;
+}
+
 static int group_cb(hal_group_t *g, void *cb_data)
 {
     htself_t *self = (htself_t *)cb_data;
@@ -460,6 +494,8 @@ static int read_config(htconf_t *conf)
     if ((s = iniFind(inifp, "STATUS", conf->section)))
 	conf->status = strdup(s);
     iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
+    iniFindInt(inifp, "SDDEBUG", conf->section, &conf->sddebug);
+    iniFindInt(inifp, "SDPORT", conf->section, &conf->sd_port);
     iniFindInt(inifp, "GROUPTIMER", conf->section, &conf->default_group_timer);
     fclose(inifp);
     return 0;
@@ -496,6 +532,9 @@ int main (int argc, char *argv[])
 	case 'd':
 	    conf.debug = 1;
 	    break;
+	case 'D':
+	    conf.sddebug = 1;
+	    break;
 	case 'S':
 	    conf.section = optarg;
 	    break;
@@ -512,6 +551,7 @@ int main (int argc, char *argv[])
 	}
     }
     conf.pid = getpid();
+    conf.sd_port = SERVICE_DISCOVERY_PORT;
 
     if (read_config(&conf))
 	exit(1);
@@ -521,11 +561,19 @@ int main (int argc, char *argv[])
     self.serial = 0;
 
     if (!(setup_hal(&self) ||
-	  zmq_init(&self))) {
+	  zmq_init(&self) ||
+	  sd_init(&self))) {
 	mainloop(&self);
     }
 
+    // stop  the service announcement responder
+    sp_destroy(&self.sd_publisher);
+
     if (self.comp_id)
 	hal_exit(self.comp_id);
+
+    // shutdown zmq context
+    zctx_destroy(&self.z_context);
+
     exit(0);
 }
