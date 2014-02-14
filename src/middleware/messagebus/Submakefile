@@ -14,6 +14,7 @@ $(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
 ../bin/messagebus: $(call TOOBJS, $(MESSAGEBUS_SRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
+	../lib/libsdpublish.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnc-npb.so.0
 	$(ECHO) Linking $(notdir $@)

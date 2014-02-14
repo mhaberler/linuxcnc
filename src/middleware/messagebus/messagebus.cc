@@ -40,6 +40,7 @@
 #include <hal.h>
 #include <hal_priv.h>
 #include <hal_ring.h>
+#include <sdpublish.h>  // for UDP service discovery
 
 #include <inifile.h>
 
@@ -49,16 +50,19 @@ using namespace google::protobuf;
 #include "messagebus.hh"
 #include "rtproxy.hh"
 
+#define MESSAGEBUS_VERSION 1 // protocol version
 
 typedef std::unordered_set<std::string> actormap_t;
 typedef actormap_t::iterator actormap_iterator;
 
-static const char *option_string = "hI:S:dr:R:c:C:tp:";
+static const char *option_string = "hI:S:dr:R:c:C:tp:DP:";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
     {"debug", no_argument, 0, 'd'},
+    {"sddebug", no_argument, 0, 'D'},
+    {"sdport", required_argument, 0, 'P'},
     {"textreply", no_argument, 0, 't'},
     {"responsein", required_argument, 0, 'r'},
     {"responseout", required_argument, 0, 'R'},
@@ -67,6 +71,9 @@ static struct option long_options[] = {
     {"rtproxy", required_argument, 0, 'p'},
     {0,0,0,0}
 };
+
+
+static int sd_port = SERVICE_DISCOVERY_PORT;
 
 const char *progname = "messagebus";
 static const char *inifile;
@@ -83,6 +90,7 @@ static const char *proxy_response_in_uri = "inproc://response-in";
 static const char *proxy_response_out_uri = "inproc://response-out";
 
 static int debug;
+static int sddebug;
 int comp_id;
 // return error messages in strings instead of  protobuf Containers:
 static int textreplies;
@@ -98,6 +106,7 @@ typedef struct {
     int comp_id;
     zctx_t *context;
     zloop_t *loop;
+    spub_t *sd_publisher;
 } msgbusd_self_t;
 
 
@@ -303,6 +312,31 @@ static int zmq_setup(msgbusd_self_t *self)
     return 0;
 }
 
+static int sd_init(msgbusd_self_t *self, int port)
+{
+    int retval;
+
+    if (!port)
+	return 0;  // service discovery disabled
+
+    // start the service announcement responder
+    self->sd_publisher = sp_new(self->context, port,
+				rtapi_instance);
+
+    assert(self->sd_publisher != NULL);
+    sp_log(self->sd_publisher, sddebug);
+    retval = sp_add(self->sd_publisher,
+		    (int) pb::ST_MESSAGEBUS_COMMAND_IN, //type
+		    MESSAGEBUS_VERSION, // version
+		    NULL, // ip
+		    0, // port
+		    proxy_cmd_in_uri,
+		    (int) pb::SA_ZMQ_PROTOBUF, // api
+		    "messagebus command input socket");  // descr
+    assert(retval == 0);
+    assert(sp_start(self->sd_publisher) == 0);
+    return 0;
+}
 
 static rtproxy_t echo, demo, too;
 
@@ -415,11 +449,17 @@ int main (int argc, char *argv[])
 	case 'd':
 	    debug++;
 	    break;
+	case 'D':
+	    sddebug++;
+	    break;
 	case 't':
 	    textreplies++;
 	    break;
 	case 'S':
 	    section = optarg;
+	    break;
+	case 'P':
+	    sd_port = atoi(optarg);
 	    break;
 	case 'I':
 	    inifile = optarg;
@@ -454,11 +494,16 @@ int main (int argc, char *argv[])
     if (!zmq_setup(&self) &&
 	!hal_setup() &&
 	!signal_setup() &&
+	!sd_init(&self, sd_port) &&
 	!rtproxy_setup(&self)) {
+
 	mainloop(&self);
     }
-    // zstr_send(echo.pipe, "EXIT");
-    // sleep(0.3);
+
+    // stop  the service announcement responder
+    sp_destroy(&self.sd_publisher);
+
+    // shutdown zmq context
     zctx_destroy (&self.context);
 
     if (comp_id)
