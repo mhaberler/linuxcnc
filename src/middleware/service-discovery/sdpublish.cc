@@ -252,11 +252,12 @@ s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		fprintf(stderr, "%s\n",s.c_str());
 	}
 	if (rx.type() ==  pb::MT_SERVICE_PROBE) {
+	    bool trace = rx.has_trace() && rx.trace();
 
 	    size_t txlen = self->tx->ByteSize();
 	    assert(sizeof buffer >= txlen);
 	    self->tx->SerializeWithCachedSizesToArray(buffer);
-	    if (self->trace) {
+	    if (self->trace || trace) {
 		std::string s;
 		if (gpb::TextFormat::PrintToString(*self->tx, &s)) {
 		    fprintf(stderr, "response:\n%s\n",s.c_str());
