@@ -2,27 +2,29 @@
 #  service discovery example - UDP version
 #
 # broadcast the probe request
-# collect directed answers
+# collect and display directed answers
 #
 import time
 import socket
 import select
+from optparse import OptionParser
 
 from message_pb2 import Container
 from types_pb2 import *
 
+parser = OptionParser()
+parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
+                  help="print answers as they come in")
+(options, args) = parser.parse_args()
+
 SERVICE_DISCOVERY_PORT  = 10042
 BROADCAST_IP = "255.255.255.255"
-UDP_ANY = "0.0.0.0"
 
 # probe retry interval, msec
 RETRY = 500
 
-# give up if not all services aquired after max_wait
-MAX_WAIT = 3.0
-
-# shopping list of services needed
-required = [ST_HAL_RCOMP_COMMAND,ST_HAL_RCOMP_STATUS]
+# look for MAX_WAIT seconds for all responders
+MAX_WAIT = 2.0
 
 # looking for instance 0 services
 instance = 0
@@ -33,8 +35,8 @@ known = dict()
 # prepare the probe frame
 tx = Container()
 tx.type = MT_SERVICE_PROBE
+tx.trace = True # make responders log this request
 probe = tx.SerializeToString()
-
 
 # socket to broadcast service discovery request on
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -45,14 +47,14 @@ if hasattr(sock, "SO_REUSEPORT"):
 # else 'permission denied'
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-start = time.time()
 poller = select.poll()
 poller.register(sock.fileno(),select.POLLIN)
 
 # initial probe request
 sock.sendto(probe, (BROADCAST_IP, SERVICE_DISCOVERY_PORT))
 
-while required:
+start = time.time()
+while True:
     if (time.time() - start) > MAX_WAIT:
         break
 
@@ -61,7 +63,6 @@ while required:
         for fd,event in ready:
             if event and select.POLLIN:
                 content, source  = sock.recvfrom(1024)
-
                 if source is None:
                     continue
 
@@ -69,28 +70,20 @@ while required:
                 rx.ParseFromString(content)
 
                 if rx.type == MT_SERVICE_PROBE:
-                    # skip requests
+                    # skip our requests
                     continue
 
-                print "got reply=%s msg=%s" % (source, str(rx))
+                if options.verbose:
+                    print "got reply=%s msg=%s" % (source, str(rx))
 
                 if rx.type == MT_SERVICE_ANNOUNCEMENT:
                     for a in rx.service_announcement:
-                        if a.stype in required:
-                            if a.instance == instance:
-                                print "aquiring:", a.stype
-                                known[a.stype] = a
-                                required.remove(a.stype)
-                            else:
-                                print "service %d instance: %d" %(a.stype, a.instance)
+                        known[a.stype] = a # last responder wins
+
     else:
-        print "resending probe:"
+        if options.verbose: print "resending probe:"
         sock.sendto(probe, (BROADCAST_IP, SERVICE_DISCOVERY_PORT))
 
-if not required:
-    print "all services aquired:"
-
-    for k,v in known.iteritems():
-        print "service %d : %s" % (k, str(v))
-else:
-    print "timeout - some services missing:", required
+print "--------- services found:"
+for k,v in known.iteritems():
+    print "service %d : %s" % (k, str(v))
