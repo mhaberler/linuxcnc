@@ -70,7 +70,7 @@ sdreq_t *sd_new(int port, int instance)
 void sd_log(sdreq_t *self, int trace)
 {
     assert (self);
-    self->trace = trace;
+    self->trace = (trace != 0);
 }
 
 int sd_add(sdreq_t *self,

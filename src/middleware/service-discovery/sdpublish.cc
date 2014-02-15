@@ -88,7 +88,7 @@ void
 sp_log(spub_t *self, int trace)
 {
     assert(self);
-    self->trace = trace;
+    self->trace = (trace != 0);
 }
 
 // terminate the service publisher
@@ -264,9 +264,9 @@ s_socket_readable(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		}
 	    }
 	    struct sockaddr_in destaddr = {0};
-	    destaddr.sin_port = remote_addr.sin_port; // htons(self->port);
+	    destaddr.sin_port = remote_addr.sin_port;
 	    destaddr.sin_family = AF_INET;
-	    destaddr.sin_addr = remote_addr.sin_addr; //.s_addr
+	    destaddr.sin_addr = remote_addr.sin_addr;
 
 	    if ((retval = sendto(poller->fd, buffer, txlen, 0,
 				 (struct sockaddr *)&destaddr, sizeof(destaddr))) < 0) {
