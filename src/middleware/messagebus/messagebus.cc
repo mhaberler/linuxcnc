@@ -108,6 +108,7 @@ typedef struct {
     zctx_t *context;
     zloop_t *loop;
     spub_t *sd_publisher;
+    bool interrupted;
 } msgbusd_self_t;
 
 
@@ -198,6 +199,7 @@ static int handle_xpub_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 static int handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
+    msgbusd_self_t *self = (msgbusd_self_t *)arg;
     struct signalfd_siginfo fdsi;
     ssize_t s;
 
@@ -207,6 +209,7 @@ static int handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     }
     rtapi_print_msg(RTAPI_MSG_ERR, "%s: signal %d - '%s' received\n",
 			progname, fdsi.ssi_signo, strsignal(fdsi.ssi_signo));
+    self->interrupted = true;
     return -1; // exit reactor with -1
 }
 
@@ -245,7 +248,7 @@ static int signal_setup(void)
 
 static int mainloop(msgbusd_self_t *self)
 {
-
+    int retval;
 
     self->loop = zloop_new();
     assert(self->loop);
@@ -263,17 +266,15 @@ static int mainloop(msgbusd_self_t *self)
     zloop_poller(self->loop, &response_in_poller, handle_router_in, self);
     zloop_poller(self->loop, &response_out_poller, handle_xpub_in, self);
 
-    {
-	int zmajor, zminor, zpatch, pbmajor, pbminor, pbpatch;
-	zmq_version (&zmajor, &zminor, &zpatch);
-	pbmajor = GOOGLE_PROTOBUF_VERSION / 1000000;
-	pbminor = (GOOGLE_PROTOBUF_VERSION / 1000) % 1000;
-	pbpatch = GOOGLE_PROTOBUF_VERSION % 1000;
+    do {
+	retval = zloop_start(self->loop);
+    } while  (!(retval || self->interrupted));
 
-	rtapi_print_msg(RTAPI_MSG_DBG, "%s: startup ØMQ=%d.%d.%d protobuf=%d.%d.%d",
-			progname, zmajor, zminor, zpatch, pbmajor, pbminor, pbpatch);
-    }
-    zloop_start(self->loop);
+    rtapi_print_msg(RTAPI_MSG_INFO,
+		    "%s: exiting mainloop (%s)\n",
+		    progname,
+		    self->interrupted ? "interrupted": "reactor exited");
+
     return 0;
 }
 
