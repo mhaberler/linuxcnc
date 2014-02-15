@@ -113,6 +113,7 @@ typedef struct htself {
     pb::Container update;
     int serial;
     spub_t *sd_publisher;
+    bool interrupted;
 } htself_t;
 
 // static int handle_command(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -131,13 +132,11 @@ static int handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	perror("read");
     }
     switch (fdsi.ssi_signo) {
-    case SIGINT:
-    case SIGQUIT:
-	break;
     default:
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signal %d - '%s' received\n",
 			self->cfg->progname, fdsi.ssi_signo, strsignal(fdsi.ssi_signo));
     }
+    self->interrupted = true;
     return -1; // exit reactor with -1
 }
 
@@ -308,37 +307,10 @@ static int handle_subscribe(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 static int mainloop( htself_t *self)
 {
     int retval;
-    sigset_t sigmask;
     size_t msec;
 
-    // suppress default handling of signals in zctx_new()
-    // since we're using signalfd()
-    // must happen after zctx_new()
-    zsys_handler_set(NULL);
-
-    sigemptyset(&sigmask);
-
-    // block all signal delivery through default signal handlers
-    // since we're using signalfd()
-    sigfillset(&sigmask);
-    assert(sigprocmask(SIG_SETMASK, &sigmask, NULL) == 0);
-
-    // explicitly enable signals we want delivered via signalfd()
-    sigemptyset(&sigmask);
-    sigaddset(&sigmask, SIGINT);
-    sigaddset(&sigmask, SIGQUIT);
-    sigaddset(&sigmask, SIGTERM);
-    sigaddset(&sigmask, SIGSEGV);
-    sigaddset(&sigmask, SIGFPE);
-
-    if ((self->signal_fd = signalfd(-1, &sigmask, 0)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signaldfd() failed: %s\n",
-			self->cfg->progname,  strerror(errno));
-	return -1;
-    }
-
     // zmq_pollitem_t command_poller = { self->z_command, 0, ZMQ_POLLIN };
-    zmq_pollitem_t signal_poller =  { 0, self->signal_fd, ZMQ_POLLIN };
+    zmq_pollitem_t signal_poller =     { 0, self->signal_fd, ZMQ_POLLIN };
     zmq_pollitem_t subscribe_poller =  { self->z_status, 0, ZMQ_POLLIN };
 
     self->z_loop = zloop_new();
@@ -361,7 +333,12 @@ static int mainloop( htself_t *self)
 
     do {
 	retval = zloop_start(self->z_loop);
-    } while  (!retval);
+    } while  (!(retval || self->interrupted));
+
+    rtapi_print_msg(RTAPI_MSG_INFO,
+		    "%s: exiting mainloop (%s)\n",
+		    self->cfg->progname,
+		    self->interrupted ? "interrupted": "reactor exited");
 
     // drop group refcount on exit
     for (groupmap_iterator g = self->groups.begin(); g != self->groups.end(); g++)
@@ -372,6 +349,34 @@ static int mainloop( htself_t *self)
 static int zmq_init(htself_t *self)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    sigset_t sigmask;
+
+    sigemptyset(&sigmask);
+
+    // block all signal delivery through default signal handlers
+    // since we're using signalfd()
+    sigfillset(&sigmask);
+    assert(sigprocmask(SIG_SETMASK, &sigmask, NULL) == 0);
+
+    // explicitly enable signals we want delivered via signalfd()
+    sigemptyset(&sigmask);
+    sigaddset(&sigmask, SIGINT);
+    sigaddset(&sigmask, SIGQUIT);
+    sigaddset(&sigmask, SIGTERM);
+    sigaddset(&sigmask, SIGSEGV);
+    sigaddset(&sigmask, SIGFPE);
+
+    if ((self->signal_fd = signalfd(-1, &sigmask, 0)) < 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signaldfd() failed: %s\n",
+			self->cfg->progname,  strerror(errno));
+	return -1;
+    }
+
+    // suppress default handling of signals in zctx_new()
+    // since we're using signalfd()
+    // must happen after zctx_new()
+    zsys_handler_set(NULL);
 
     self->z_context = zctx_new ();
     assert(self->z_context);
@@ -449,21 +454,20 @@ static int setup_hal(htself_t *self)
     }
     hal_ready(self->comp_id);
 
+    int major, minor, patch;
+    zmq_version (&major, &minor, &patch);
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d\n",
+		    conf.progname, major, minor, patch,
+		    CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
+		    GOOGLE_PROTOBUF_VERSION / 1000000,
+		    (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
+		    GOOGLE_PROTOBUF_VERSION % 1000);
+
     // rtapi logging now available
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: publishing STP on %s",
 		    conf.progname, conf.status);
-    int major, minor, patch;
-    zmq_version (&major, &minor, &patch);
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: ØMQ version: %d.%d.%d",
-		    conf.progname, major, minor, patch);
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: czmq version: %d.%d.%d",
-		    conf.progname,
-		    CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH);
-    major = GOOGLE_PROTOBUF_VERSION / 1000000;
-    minor = (GOOGLE_PROTOBUF_VERSION / 1000) % 1000;
-    patch = GOOGLE_PROTOBUF_VERSION % 1000;
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: protobuf version: %d.%d.%d",
-		    conf.progname, major, minor, patch);
+
     {   // scoped lock
 	int retval __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
@@ -573,11 +577,12 @@ int main (int argc, char *argv[])
     // stop  the service announcement responder
     sp_destroy(&self.sd_publisher);
 
+    // shutdown zmq context
+    zctx_destroy(&self.z_context);
+
     if (self.comp_id)
 	hal_exit(self.comp_id);
 
-    // shutdown zmq context
-    zctx_destroy(&self.z_context);
 
     exit(0);
 }
