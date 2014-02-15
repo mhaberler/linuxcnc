@@ -44,6 +44,7 @@
 #include <hal_group.h>
 #include <inifile.h>
 #include <sdpublish.h>  // for UDP service discovery
+#include <redirect_log.h>
 
 #include <czmq.h>
 
@@ -552,6 +553,9 @@ int main (int argc, char *argv[])
     }
     conf.pid = getpid();
     conf.sd_port = SERVICE_DISCOVERY_PORT;
+
+    to_syslog("haltalker> ", &stdout); // redirect stdout to syslog
+    to_syslog("haltalker>> ", &stderr);  // redirect stderr to syslog
 
     if (read_config(&conf))
 	exit(1);

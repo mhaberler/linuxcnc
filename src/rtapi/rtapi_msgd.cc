@@ -58,6 +58,7 @@ using namespace std;
 #include <rtapi/shmdrv/shmdrv.h>
 #include <ring.h>
 #include <sdpublish.h>  // for UDP service discovery
+#include <redirect_log.h>
 
 #include "czmq.h"
 
@@ -69,8 +70,6 @@ using namespace google::protobuf;
 
 #include <middleware/json2pb/json2pb.h>
 #include <jansson.h> // just for library version tag
-
-extern "C" void to_syslog(const char *tag, FILE **pfp); // redirect_log.c
 
 #include <zwsproxy.h>
 static void lwsl_emit_rtapilog(int level, const char *line);

@@ -41,6 +41,7 @@
 #include <hal_priv.h>
 #include <hal_ring.h>
 #include <sdpublish.h>  // for UDP service discovery
+#include <redirect_log.h>
 
 #include <inifile.h>
 
@@ -486,6 +487,10 @@ int main (int argc, char *argv[])
 	    exit(0);
 	}
     }
+
+    to_syslog("messagebus> ", &stdout); // redirect stdout to syslog
+    to_syslog("messagebus>> ", &stderr);  // redirect stderr to syslog
+
 
     if (read_config())
 	exit(1);

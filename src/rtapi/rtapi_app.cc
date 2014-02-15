@@ -70,6 +70,7 @@ using namespace google::protobuf;
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
 #include <sdpublish.h>  // for UDP service discovery
+#include <redirect_log.h>
 
 #include "rtapi.h"
 #include "rtapi_global.h"
