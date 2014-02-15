@@ -27,6 +27,7 @@
 #include <sys/signalfd.h>
 #include <errno.h>
 #include <getopt.h>
+#include <syslog.h>
 #include <czmq.h>
 
 #include <string>
@@ -316,26 +317,52 @@ static int zmq_setup(msgbusd_self_t *self)
 
 static int sd_init(msgbusd_self_t *self, int port)
 {
-    int retval;
-
     if (!port)
 	return 0;  // service discovery disabled
 
-    // start the service announcement responder
     self->sd_publisher = sp_new(self->context, port,
 				rtapi_instance);
 
     assert(self->sd_publisher != NULL);
     sp_log(self->sd_publisher, sddebug);
-    retval = sp_add(self->sd_publisher,
+
+    assert(sp_add(self->sd_publisher,
 		    (int) pb::ST_MESSAGEBUS_COMMAND_IN, //type
 		    MESSAGEBUS_VERSION, // version
 		    NULL, // ip
 		    0, // port
-		    proxy_cmd_in_uri,
+		    cmd_in_uri,
 		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		    "messagebus command input socket");  // descr
-    assert(retval == 0);
+		  "messagebus command input") == 0);  // descr
+
+    assert(sp_add(self->sd_publisher,
+		    (int) pb::ST_MESSAGEBUS_COMMAND_OUT, //type
+		    MESSAGEBUS_VERSION, // version
+		    NULL, // ip
+		    0, // port
+		    cmd_out_uri,
+		    (int) pb::SA_ZMQ_PROTOBUF, // api
+		  "messagebus command output") == 0);  // descr
+
+    assert(sp_add(self->sd_publisher,
+		    (int) pb::ST_MESSAGEBUS_RESPONSE_IN, //type
+		    MESSAGEBUS_VERSION, // version
+		    NULL, // ip
+		    0, // port
+		    response_in_uri,
+		    (int) pb::SA_ZMQ_PROTOBUF, // api
+		  "messagebus status input") == 0);  // descr
+
+    assert(sp_add(self->sd_publisher,
+		  (int) pb::ST_MESSAGEBUS_RESPONSE_OUT, //type
+		    MESSAGEBUS_VERSION, // version
+		    NULL, // ip
+		    0, // port
+		    response_out_uri,
+		    (int) pb::SA_ZMQ_PROTOBUF, // api
+		  "messagebus status output") == 0);  // descr
+
+    // start the service announcement responder thread
     assert(sp_start(self->sd_publisher) == 0);
     return 0;
 }
@@ -382,6 +409,17 @@ static int hal_setup(void)
 	return -1;
     }
     hal_ready(comp_id);
+
+    {
+	int zmajor, zminor, zpatch, pbmajor, pbminor, pbpatch;
+	zmq_version (&zmajor, &zminor, &zpatch);
+	pbmajor = GOOGLE_PROTOBUF_VERSION / 1000000;
+	pbminor = (GOOGLE_PROTOBUF_VERSION / 1000) % 1000;
+	pbpatch = GOOGLE_PROTOBUF_VERSION % 1000;
+	rtapi_print_msg(RTAPI_MSG_DBG,
+	       "%s: startup ØMQ=%d.%d.%d protobuf=%d.%d.%d",
+	       progname, zmajor, zminor, zpatch, pbmajor, pbminor, pbpatch);
+    }
     return 0;
 }
 

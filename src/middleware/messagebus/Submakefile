@@ -4,7 +4,9 @@ MBDIR := $(MWDIR)/messagebus
 
 MESSAGEBUS_SRCS :=  $(addprefix $(MBDIR)/, \
 	messagebus.cc \
-	rtproxy.cc )
+	rtproxy.cc ) \
+	rtapi/redirect_log.c
+
 
 MESSAGEBUS_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)  # -DPB_FIELD_32BIT
 MESSAGEBUS_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
