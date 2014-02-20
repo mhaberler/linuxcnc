@@ -57,7 +57,7 @@ using namespace google::protobuf;
 typedef std::unordered_set<std::string> actormap_t;
 typedef actormap_t::iterator actormap_iterator;
 
-static const char *option_string = "hI:S:dr:R:c:C:tp:DP:";
+static const char *option_string = "hI:S:dr:c:tp:DP:";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
@@ -66,10 +66,8 @@ static struct option long_options[] = {
     {"sddebug", no_argument, 0, 'D'},
     {"sdport", required_argument, 0, 'P'},
     {"textreply", no_argument, 0, 't'},
-    {"responsein", required_argument, 0, 'r'},
-    {"responseout", required_argument, 0, 'R'},
-    {"cmdin", required_argument, 0, 'c'},
-    {"cmdout", required_argument, 0, 'C'},
+    {"response", required_argument, 0, 'r'},
+    {"cmd", required_argument, 0, 'c'},
     {"rtproxy", required_argument, 0, 'p'},
     {0,0,0,0}
 };
@@ -80,29 +78,23 @@ static int sd_port = SERVICE_DISCOVERY_PORT;
 const char *progname = "messagebus";
 static const char *inifile;
 static const char *section = "MSGBUS";
-static const char *cmd_in_uri = "tcp://127.0.0.1:5570";
-static const char *cmd_out_uri = "tcp://127.0.0.1:5571";
-static const char *response_in_uri = "tcp://127.0.0.1:5572";
-static const char *response_out_uri = "tcp://127.0.0.1:5573";
+static const char *cmd_uri = "tcp://127.0.0.1:5571";
+static const char *response_uri = "tcp://127.0.0.1:5573";
 
 // inproc variant for comms with RT proxy threads
-static const char *proxy_cmd_in_uri = "inproc://cmd-in";
-static const char *proxy_cmd_out_uri = "inproc://cmd-out";
-static const char *proxy_response_in_uri = "inproc://response-in";
-static const char *proxy_response_out_uri = "inproc://response-out";
+const char *proxy_cmd_uri = "inproc://messagebus.cmd";
+const char *proxy_response_uri = "inproc://messagebus.response";
 
 static int debug;
 static int sddebug;
 int comp_id;
-// return error messages in strings instead of  protobuf Containers:
-static int textreplies;
+
+static int textreplies; // return error messages in strings instead of protobuf Containers
 static int signal_fd;
 
 typedef struct {
-    void *response_in;
-    void *response_out;
-    void *cmd_in;
-    void *cmd_out;
+    void *response;
+    void *cmd;
     actormap_t *cmd_subscribers;
     actormap_t *response_subscribers;
     int comp_id;
@@ -113,87 +105,97 @@ typedef struct {
 } msgbusd_self_t;
 
 
-static int handle_router_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
-{
-    msgbusd_self_t *self = (msgbusd_self_t *) arg;
-    actormap_t *map;
-    void *forward;
-    const char *rail;
-
-    char *from  = zstr_recv(poller->socket);
-    char *to    = zstr_recv(poller->socket);
-    zframe_t *payload = zframe_recv(poller->socket);
-
-    if (poller->socket == self->cmd_in) {
-	map = self->cmd_subscribers;
-	forward = self->cmd_out;
-	rail = "cmd-in";
-    } else {
-	map = self->response_subscribers;
-	forward = self->response_out;
-	rail = "response-in";
-    }
-
-    if (map->find(to) == map->end()) {
-	char errmsg[100];
-	snprintf(errmsg, sizeof(errmsg), "rail %s: no such destination: %s", rail, to);
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: %s\n", progname,errmsg);
-
-	// we wont get a reply from a non-existent actor
-	// so send error message instead:
-
-	assert(zstr_sendm(self->response_out, from) == 0);  // originator
-	if (textreplies) {
-	    assert(zstr_send(self->response_out, errmsg) == 0);
-	} else {
-	    pb::Container c;
-	    c.set_type(pb::MT_MESSAGEBUS_NO_DESTINATION);
-	    c.set_name(to);
-	    c.set_note(errmsg);
-	    zframe_t *errorframe = zframe_new(NULL, c.ByteSize());
-	    assert(c.SerializeWithCachedSizesToArray(zframe_data(errorframe)));
-	    assert(zframe_send(&errorframe, self->response_out, 0) == 0);
-	}
-	zframe_destroy(&payload);
-    } else {
-	// forward
-	zstr_sendm(forward, to);          // topic
-	zstr_sendm(forward, from);        // destination
-	zframe_send(&payload, forward, 0);
-    }
-    free(from);
-    free(to);
-    return 0;
-}
-
 static int handle_xpub_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
     msgbusd_self_t *self = (msgbusd_self_t *) arg;
     actormap_t *map;
-    bool subscribe;
-    char *data, *topic;
     const char *rail;
+    char *data, *topic;
 
-    zframe_t *f = zframe_recv(poller->socket);
-    data = (char *) zframe_data(f);
-    assert(data);
-    subscribe = (*data == '\001');
-    topic = data + 1;
-
-    if (poller->socket == self->cmd_out) {
+    if (poller->socket == self->cmd) {
 	map = self->cmd_subscribers;
-	rail = "cmd-out";
+	rail = "cmd";
     } else {
 	map = self->response_subscribers;
-	rail = "response-out";
+	rail = "response";
     }
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: rail %s: %s %ssubscribed\n",
-		    progname, rail, topic,
-		    subscribe ? "" : "un");
-    if (subscribe)
-	map->insert(topic);
-    else
-	map->erase(topic);
+
+    zmsg_t *msg = zmsg_recv(poller->socket);
+    size_t nframes = zmsg_size( msg);
+
+    if (nframes == 1) {
+	// likely a subscribe/unsubscribe message
+	// a proper message needs at least three parts: src, dest, contents
+	    zframe_t *f = zmsg_pop(msg);
+	data = (char *) zframe_data(f);
+	assert(data);
+	topic = data + 1;
+
+	switch (*data) {
+	case '\001':
+	    map->insert(topic);
+	    rtapi_print_msg(RTAPI_MSG_DBG, "%s: rail %s: %s subscribed\n",
+			    progname, rail, topic);
+	    break;
+
+	case '\000':
+	    map->erase(topic);
+	    rtapi_print_msg(RTAPI_MSG_DBG, "%s: rail %s: %s unsubscribed\n",
+			    progname, rail, topic);
+	    break;
+
+	default:
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: rail %s: invalid frame (tag=%d topic=%s)",
+			    progname, rail, *data, topic);
+	}
+	zframe_destroy(&f);
+	return 0;
+    }
+    if (nframes > 2) {
+	// forward
+	char *from  = zmsg_popstr(msg);
+	char *to  = zmsg_popstr(msg);
+
+	if (map->find(to) == map->end()) {
+	    char errmsg[100];
+	    snprintf(errmsg, sizeof(errmsg), "rail %s: no such destination: %s", rail, to);
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: %s\n", progname,errmsg);
+
+	    if (poller->socket == self->cmd) {
+		// command was directed to non-existent actor
+		// we wont get a reply from a non-existent actor
+		// so send error message on response rail instead:
+
+		assert(zstr_sendm(self->response, from) == 0);  // originator
+		assert(zstr_sendm(self->response, to) == 0);    // destination
+		if (textreplies) {
+		    assert(zstr_send(self->response, errmsg) == 0);
+		} else {
+		    pb::Container c;
+		    c.set_type(pb::MT_MESSAGEBUS_NO_DESTINATION);
+		    c.set_name(to);
+		    c.set_note(errmsg);
+		    zframe_t *errorframe = zframe_new(NULL, c.ByteSize());
+		    assert(c.SerializeWithCachedSizesToArray(zframe_data(errorframe)));
+		    assert(zframe_send(&errorframe, self->response, 0) == 0);
+		}
+		zmsg_destroy(&msg);
+	    } // else: response to non-existent actor is dropped
+	} else {
+	    // forward
+	    zstr_sendm(poller->socket, to);          // topic
+	    zstr_sendm(poller->socket, from);        // destination
+	    zmsg_send(&msg, poller->socket);
+	}
+	free(from);
+	free(to);
+
+    } else {
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rail %s: short message (%d frames)",
+			progname, rail, nframes);
+	zmsg_dump_to_stream(msg, stderr);
+	zmsg_destroy(&msg);
+    }
     return 0;
 }
 
@@ -218,10 +220,6 @@ static int signal_setup(void)
 {
     sigset_t sigmask;
 
-    // suppress default handling of signals in zctx_new()
-    // since we're using signalfd()
-    // must happen after zctx_new()
-    zsys_handler_set(NULL);
 
     sigemptyset(&sigmask);
 
@@ -256,16 +254,12 @@ static int mainloop(msgbusd_self_t *self)
     zloop_set_verbose (self->loop, debug);
 
     zmq_pollitem_t signal_poller =        { 0, signal_fd, ZMQ_POLLIN };
-    zmq_pollitem_t cmd_in_poller =        { self->cmd_in, 0, ZMQ_POLLIN };
-    zmq_pollitem_t cmd_out_poller =       { self->cmd_out, 0, ZMQ_POLLIN };
-    zmq_pollitem_t response_in_poller =   { self->response_in, 0, ZMQ_POLLIN };
-    zmq_pollitem_t response_out_poller =  { self->response_out, 0, ZMQ_POLLIN };
+    zmq_pollitem_t cmd_poller =           { self->cmd, 0, ZMQ_POLLIN };
+    zmq_pollitem_t response_poller =      { self->response, 0, ZMQ_POLLIN };
 
-    zloop_poller(self->loop, &signal_poller, handle_signal, self);
-    zloop_poller(self->loop, &cmd_in_poller,  handle_router_in, self);
-    zloop_poller(self->loop, &cmd_out_poller, handle_xpub_in, self);
-    zloop_poller(self->loop, &response_in_poller, handle_router_in, self);
-    zloop_poller(self->loop, &response_out_poller, handle_xpub_in, self);
+    zloop_poller(self->loop, &signal_poller,   handle_signal,  self);
+    zloop_poller(self->loop, &cmd_poller,      handle_xpub_in, self);
+    zloop_poller(self->loop, &response_poller, handle_xpub_in, self);
 
     do {
 	retval = zloop_start(self->loop);
@@ -283,33 +277,26 @@ static int zmq_setup(msgbusd_self_t *self)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+    // suppress default handling of signals in zctx_new()
+    // since we're using signalfd()
+    zsys_handler_set(NULL);
+
     self->context = zctx_new ();
     assert(self->context);
+
     zctx_set_linger (self->context, 0);
 
-    self->cmd_in = zsocket_new (self->context, ZMQ_ROUTER);
-    zsocket_set_identity(self->cmd_in, "cmd-in");
-    assert(zsocket_bind(self->cmd_in, cmd_in_uri));
-    assert(zsocket_bind(self->cmd_in, proxy_cmd_in_uri) > -1);
+    self->cmd = zsocket_new (self->context, ZMQ_XPUB);
+    assert(self->cmd);
+    zsocket_set_xpub_verbose (self->cmd, 1);
+    assert(zsocket_bind(self->cmd, cmd_uri));
+    assert(zsocket_bind(self->cmd, proxy_cmd_uri) > -1);
 
-    self->cmd_out = zsocket_new (self->context, ZMQ_XPUB);
-    assert(self->cmd_out);
-    zsocket_set_xpub_verbose (self->cmd_out, 1);
-    assert(zsocket_bind(self->cmd_out, cmd_out_uri));
-    assert(zsocket_bind(self->cmd_out, proxy_cmd_out_uri) > -1);
-
-    usleep(200 *1000); // avoid slow joiner syndrome
-
-    self->response_in = zsocket_new (self->context, ZMQ_ROUTER);
-    zsocket_set_identity(self->response_in, "response-in");
-    assert(zsocket_bind(self->response_in, response_in_uri));
-    assert(zsocket_bind(self->response_in, proxy_response_in_uri) > -1);
-
-    self->response_out = zsocket_new (self->context, ZMQ_XPUB);
-    assert(self->response_out);
-    zsocket_set_xpub_verbose (self->response_out, 1);
-    assert(zsocket_bind(self->response_out, response_out_uri));
-    assert(zsocket_bind(self->response_out, proxy_response_out_uri) > -1);
+    self->response = zsocket_new (self->context, ZMQ_XPUB);
+    assert(self->response);
+    zsocket_set_xpub_verbose (self->response, 1);
+    assert(zsocket_bind(self->response, response_uri));
+    assert(zsocket_bind(self->response, proxy_response_uri) > -1);
 
     usleep(200 *1000); // avoid slow joiner syndrome
 
@@ -331,40 +318,22 @@ static int sd_init(msgbusd_self_t *self, int port)
     sp_log(self->sd_publisher, sddebug);
 
     assert(sp_add(self->sd_publisher,
-		    (int) pb::ST_MESSAGEBUS_COMMAND_IN, //type
+		    (int) pb::ST_MESSAGEBUS_COMMAND, //type
 		    MESSAGEBUS_VERSION, // version
 		    NULL, // ip
 		    0, // port
-		    cmd_in_uri,
+		    cmd_uri,
 		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "messagebus command input") == 0);  // descr
+		  "messagebus command") == 0);  // descr
 
     assert(sp_add(self->sd_publisher,
-		    (int) pb::ST_MESSAGEBUS_COMMAND_OUT, //type
+		    (int) pb::ST_MESSAGEBUS_RESPONSE, //type
 		    MESSAGEBUS_VERSION, // version
 		    NULL, // ip
 		    0, // port
-		    cmd_out_uri,
+		    response_uri,
 		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "messagebus command output") == 0);  // descr
-
-    assert(sp_add(self->sd_publisher,
-		    (int) pb::ST_MESSAGEBUS_RESPONSE_IN, //type
-		    MESSAGEBUS_VERSION, // version
-		    NULL, // ip
-		    0, // port
-		    response_in_uri,
-		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "messagebus status input") == 0);  // descr
-
-    assert(sp_add(self->sd_publisher,
-		  (int) pb::ST_MESSAGEBUS_RESPONSE_OUT, //type
-		    MESSAGEBUS_VERSION, // version
-		    NULL, // ip
-		    0, // port
-		    response_out_uri,
-		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "messagebus status output") == 0);  // descr
+		  "messagebus response") == 0);  // descr
 
     // start the service announcement responder thread
     assert(sp_start(self->sd_publisher) == 0);
@@ -441,14 +410,12 @@ static int read_config(void )
 	return -1;
     }
 
-    if ((s = iniFind(inifp, "CMD_IN", section)))
-	cmd_in_uri = strdup(s);
-    if ((s = iniFind(inifp, "CMD_OUT", section)))
-	cmd_out_uri = strdup(s);
-    if ((s = iniFind(inifp, "RESPONSE_IN", section)))
-	response_in_uri = strdup(s);
-    if ((s = iniFind(inifp, "RESPONSE_OUT", section)))
-	response_out_uri = strdup(s);
+    if ((s = iniFind(inifp, "CMD", section)))
+	cmd_uri = strdup(s);
+
+    if ((s = iniFind(inifp, "RESPONSE", section)))
+	response_uri = strdup(s);
+
     iniFindInt(inifp, "DEBUG", section, &debug);
     iniFindInt(inifp, "TEXTREPLIES", section, &textreplies);
     fclose(inifp);
@@ -509,16 +476,10 @@ int main (int argc, char *argv[])
 	    inifile = optarg;
 	    break;
 	case 'r':
-	    response_in_uri = optarg;
-	    break;
-	case 'R':
-	    response_out_uri = optarg;
+	    response_uri = optarg;
 	    break;
 	case 'c':
-	    cmd_in_uri = optarg;
-	    break;
-	case 'C':
-	    cmd_out_uri = optarg;
+	    cmd_uri = optarg;
 	    break;
 	case 'p':
 	    parse_proxy(optarg);

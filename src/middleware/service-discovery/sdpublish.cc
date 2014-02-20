@@ -96,7 +96,10 @@ int
 sp_destroy(_spub_t **arg)
 {
     int retval = -ENOENT;
-    assert(arg);
+
+    if (arg == NULL) return 0;
+    if (*arg == NULL) return 0;
+
     _spub_t *self = *arg;
     if (self->pipe) {
 	if (self->trace)

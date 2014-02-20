@@ -25,13 +25,25 @@
 #include "rtproxy.hh"
 
 // inproc variant for comms with RT proxy threads
-static const char *proxy_cmd_in_uri = "inproc://cmd-in";
-static const char *proxy_cmd_out_uri = "inproc://cmd-out";
-static const char *proxy_response_in_uri = "inproc://response-in";
-static const char *proxy_response_out_uri = "inproc://response-out";
+// defined in messagbus.cc
+extern const char *proxy_cmd_uri;
+extern const char *proxy_response_uri;
 
 static int test_decode(zframe_t *f, const pb_field_t *fields);
 static zframe_t *test_encode(const void *msg, const pb_field_t *fields);
+
+int
+send_subscribe(void *socket, const char *topic)
+{
+    size_t topiclen = strlen(topic);
+    zframe_t *f = zframe_new (NULL, topiclen + 1 );
+    assert(f);
+
+    unsigned char *data = zframe_data(f);
+    *data++ = '\001';
+    memcpy(data, topic, topiclen);
+    return zframe_send (&f, socket, 0);
+}
 
 void
 rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
@@ -39,24 +51,21 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
     rtproxy_t *self = (rtproxy_t *) arg;
     int retval;
 
-    if (self->flags & (ACTOR_RESPONDER|ACTOR_ECHO)) {
-	self->proxy_cmd_in = zsocket_new (ctx, ZMQ_SUB);
-	assert(zsocket_connect(self->proxy_cmd_in, proxy_cmd_out_uri) == 0);
-	zsocket_set_subscribe (self->proxy_cmd_in, self->name);
+    self->proxy_cmd = zsocket_new (ctx, ZMQ_XSUB);
+    retval = zsocket_connect(self->proxy_cmd, proxy_cmd_uri);
+    assert(retval == 0);
 
-	self->proxy_response_out = zsocket_new (ctx, ZMQ_DEALER);
-	zsocket_set_identity (self->proxy_response_out, self->name);
-	assert(zsocket_connect(self->proxy_response_out, proxy_response_in_uri) == 0);
+    self->proxy_response = zsocket_new (ctx, ZMQ_XSUB);
+    assert(zsocket_connect(self->proxy_response, proxy_response_uri) == 0);
+
+    if (self->flags & (ACTOR_RESPONDER|ACTOR_ECHO)) {
+	retval = send_subscribe(self->proxy_cmd, self->name);
+	assert(retval == 0);
     }
 
     if (self->flags & ACTOR_INJECTOR) {
-	self->proxy_response_in = zsocket_new (ctx, ZMQ_SUB);
-	assert(zsocket_connect(self->proxy_response_in, proxy_response_out_uri) == 0);
-	zsocket_set_subscribe (self->proxy_response_in, self->name);
-
-	self->proxy_cmd_out = zsocket_new (ctx, ZMQ_DEALER);
-	zsocket_set_identity (self->proxy_cmd_out, self->name);
-	assert(zsocket_connect(self->proxy_cmd_out, proxy_cmd_in_uri) == 0);
+	retval = send_subscribe(self->proxy_response, self->name);
+	assert(retval == 0);
     }
 
     if (self->to_rt_name) {
@@ -88,23 +97,18 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 
     if (self->flags & ACTOR_ECHO) {
 	while (1) {
-	    zmsg_t *msg = zmsg_recv(self->proxy_cmd_in);
+	    zmsg_t *msg = zmsg_recv(self->proxy_cmd);
 	    if (msg == NULL)
 		break;
 	    if (self->flags & ACTOR_TRACE)
-		zmsg_dump(msg);
-	    char *me = zmsg_popstr (msg);
-	    char *from = zmsg_popstr (msg);
-	    zmsg_pushstr (msg, from);
-	    zmsg_send(&msg, self->proxy_response_out);
-	    free(me);
-	    free(from);
+		zmsg_dump_to_stream (msg, stderr);
+	    zmsg_send(&msg, self->proxy_response);
 	}
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s exit", progname, self->name);
     }
 
     if (self->flags & ACTOR_RESPONDER) {
-	zpoller_t *cmdpoller = zpoller_new (self->proxy_cmd_in, NULL);
+	zpoller_t *cmdpoller = zpoller_new (self->proxy_cmd, NULL);
 	zpoller_t *delay = zpoller_new(NULL);
 
 	while (1) {
@@ -173,8 +177,9 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 				     16,1, zframe_data(r), zframe_size(r),1,
 				     "%s->%s: ", self->from_rt_name,self->name);
 	    }
-	    zstr_sendm(self->proxy_response_out, from);
-	    zframe_send (&r, self->proxy_response_out, 0);
+	    zstr_sendm(self->proxy_response, me);
+	    zstr_sendm(self->proxy_response, from);
+	    zframe_send (&r, self->proxy_response, 0);
 	    record_shift(&self->from_rt);
 	    free(me);
 	    free(from);
@@ -185,7 +190,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
     }
 
 #if 0
-    zpoller_t *poller = zpoller_new (pipe, self->proxy_cmd_in, NULL);
+    zpoller_t *poller = zpoller_new (pipe, self->proxy_cmd, NULL);
     assert (poller);
 	void *which = zpoller_wait (poller, -1);
 	if (which == pipe) {
@@ -197,7 +202,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 		break;
 	    }
 	} else {
-	    zmsg_t *msg = zmsg_recv(self->proxy_cmd_in);
+	    zmsg_t *msg = zmsg_recv(self->proxy_cmd);
 	    if (msg == NULL) {
 		rtapi_print_msg(RTAPI_MSG_ERR, "%s: %s - context terminated\n",
 				progname, self->name);
@@ -208,7 +213,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	    char *me = zmsg_popstr (msg);
 	    char *from = zmsg_popstr (msg);
 	    zmsg_pushstr (msg, from);
-	    zmsg_send(&msg, self->proxy_response_out);
+	    zmsg_send(&msg, self->proxy_response);
 	    free(me);
 	    free(from);
 	}

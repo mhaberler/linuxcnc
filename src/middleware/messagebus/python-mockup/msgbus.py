@@ -13,12 +13,9 @@ parser.add_option("-v","--verbose", action="store_true", dest="verbose",
 
 me = "msgbus"
 
-# XPUB only
-
-# the command bus:
+# the command rail:
 cmduri   = 'tcp://127.0.0.1:5571'
-
-# the response bus:
+# the response rail:
 responseuri = 'tcp://127.0.0.1:5573'
 
 
@@ -26,6 +23,36 @@ class MsgbusTask(threading.Thread):
     def __init__(self):
         threading.Thread.__init__ (self)
         self.kill_received = False
+
+    def handle(self, socket, error, sname, presence):
+        msg = socket.recv_multipart()
+        if options.verbose: print "---%s %s recv: %s" % (me,sname,msg)
+        if len(msg) == 1:
+            frame = msg[0]
+            sub = ord(frame[0])
+            topic = frame[1:]
+
+            if sub == 1:
+                presence[topic] = True
+                if options.verbose: print "--- %s %s subscribe: %s" % (me,sname,topic)
+            elif sub == 0:
+                if options.verbose: print "--- %s %s unsubscribe: %s" % (me,sname,topic)
+                del presence[topic]
+            else:
+                if options.verbose: print "---%s %s recv: invalid frame: %s" % (me,sname,msg)
+
+        else:
+            dest = msg[1]
+            if dest in presence:
+                msg[0], msg[1] = msg[1], msg[0]
+                socket.send_multipart(msg)
+            else:
+                # bad command destination only: reply with an error message
+                # an unroutable response will be logged and dropped
+                if error:
+                    error.send_multipart([msg[0], "--- no destination: " + dest])
+                if options.verbose: print "no %s destination: %s" % (sname,dest)
+
 
     def run(self):
         print('Msbus started')
@@ -50,51 +77,11 @@ class MsgbusTask(threading.Thread):
         while not self.kill_received:
             s = dict(poll.poll(1000))
             if cmd in s:
-                msg = cmd.recv_multipart()
-                if options.verbose: print "---%s cmd recv: %s" % (me,msg)
-                if len(msg) == 1:
-                    frame = msg[0]
-                    sub = ord(frame[0])
-                    topic = frame[1:]
-
-                    if sub:
-                        cmdsubs[topic] = True
-                        if options.verbose: print "--- %s command subscribe: %s" % (me,topic)
-                    else:
-                        if options.verbose: print "--- %s command unsubscribe: %s" % (me,topic)
-                        del cmdsubs[topic]
-                else:
-                    # assert(len(msg) == 3)
-                    dest = msg[1]
-                    if dest in cmdsubs:
-                        msg[0], msg[1] = msg[1], msg[0]
-                        cmd.send_multipart(msg)
-                    else:
-                        response.send_multipart([msg[0], "--- no destination: " + dest])
-                        if options.verbose: print "no command destination:", dest
-
-            if response in s:
-                msg = response.recv_multipart()
-                if options.verbose: print "--- %s response recv: %s" % (me, msg)
-                if len(msg) == 1:
-                    frame = msg[0]
-                    sub = ord(frame[0])
-                    topic = frame[1:]
-
-                    if sub:
-                        responsesubs[topic] = True
-                        if options.verbose: print "--- %s response subscribe: %s" % (me,topic)
-                    else:
-                        if options.verbose: print "--- %s response unsubscribe: %s" % (me, topic)
-                        del responsesubs[topic]
-                else:
-                    dest = msg[1]
-                    if dest in responsesubs:
-                        msg[0], msg[1] = msg[1], msg[0]
-                        response.send_multipart(msg)
-                    else:
-                        response.send_multipart([msg[0], "no destination: " + dest])
-                        if options.verbose: print "no destination:", dest
+                self.handle(cmd, response, "cmd", cmdsubs)
+            elif response in s:
+                self.handle(response, None, "response", responsesubs)
+            else:
+                continue
 
         context.destroy(linger=0)
         print('Msbus exited')

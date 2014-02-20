@@ -13,10 +13,8 @@ typedef struct {
     unsigned flags;
     rtproxystate_t state;
     void *pipe;
-    void *proxy_response_in;
-    void *proxy_response_out;
-    void *proxy_cmd_in;
-    void *proxy_cmd_out;
+    void *proxy_response;
+    void *proxy_cmd;
     ringbuffer_t to_rt;
     ringbuffer_t from_rt;
     const char *to_rt_name;
