@@ -212,7 +212,7 @@ SUBDIRS := \
 	hal/simdrivers \
 	hal/cython \
 	hal/remote \
-	hal/haltalker \
+	hal/haltalk \
 	\
 	emc/usr_intf/axis \
 	emc/usr_intf/touchy \
