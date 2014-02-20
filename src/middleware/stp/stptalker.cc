@@ -413,6 +413,8 @@ static void s_talker_task (void *args, zctx_t *ctx, void *pipe)
     zsocket_set_xpub_verbose (self->update_socket, 1);
     self->port = zsocket_bind(self->update_socket, self->uri);
 
+    usleep(200 *1000); // avoid slow joiner syndrome
+
     if (self->beacon_port) {
 	// setup service discovery listener
 	if ((self->beacon_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {

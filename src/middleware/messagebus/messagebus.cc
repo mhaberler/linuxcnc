@@ -298,6 +298,8 @@ static int zmq_setup(msgbusd_self_t *self)
     assert(zsocket_bind(self->cmd_out, cmd_out_uri));
     assert(zsocket_bind(self->cmd_out, proxy_cmd_out_uri) > -1);
 
+    usleep(200 *1000); // avoid slow joiner syndrome
+
     self->response_in = zsocket_new (self->context, ZMQ_ROUTER);
     zsocket_set_identity(self->response_in, "response-in");
     assert(zsocket_bind(self->response_in, response_in_uri));
@@ -308,6 +310,8 @@ static int zmq_setup(msgbusd_self_t *self)
     zsocket_set_xpub_verbose (self->response_out, 1);
     assert(zsocket_bind(self->response_out, response_out_uri));
     assert(zsocket_bind(self->response_out, proxy_response_out_uri) > -1);
+
+    usleep(200 *1000); // avoid slow joiner syndrome
 
     self->cmd_subscribers = new actormap_t();
     self->response_subscribers = new actormap_t();

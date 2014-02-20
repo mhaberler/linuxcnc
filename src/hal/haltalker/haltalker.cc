@@ -389,6 +389,8 @@ static int zmq_init(htself_t *self)
     int rc = zsocket_bind(self->z_status, self->cfg->status);
     assert (rc != 0);
 
+    usleep(200 *1000); // avoid slow joiner syndrome
+
     // self->z_command = zsocket_new (self->z_context, ZMQ_ROUTER);
     // assert(self->z_command);
 
