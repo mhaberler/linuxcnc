@@ -9,12 +9,12 @@ import google.protobuf.text_format
 
 parser = OptionParser()
 
-parser.add_option("-C", "--cmdout", dest="cmdoutput", default="tcp://127.0.0.1:5570",
-                  help="URI to submit commands to")
+parser.add_option("-c", "--cmd", dest="cmduri", default="tcp://127.0.0.1:5571",
+                  help="command URI")
 
-parser.add_option("-r", "--responsein", dest="responseinput",
+parser.add_option("-r", "--response", dest="responseuri",
                   default="tcp://127.0.0.1:5573",
-                  help="URI to fetch responses from")
+                  help="response URI")
 
 parser.add_option("-n", "--name", dest="actor", default="task",
                   help="use this as actor name")
@@ -39,14 +39,14 @@ parser.add_option("-F", "--fast", action="store_true", dest="fast",
 me = options.actor
 
 context = zmq.Context()
+cmd = context.socket(zmq.XSUB)
+cmd.connect(options.cmduri)
+# subscribe XSUB-style by sending a message  \001<topic>
+cmd.send("\001%s" % (me))
 
-cmdout = context.socket(zmq.DEALER)
-cmdout.setsockopt(zmq.IDENTITY, me)
-cmdout.connect(options.cmdoutput)
-
-responsein = context.socket(zmq.SUB)
-responsein.connect(options.responseinput)
-responsein.setsockopt(zmq.SUBSCRIBE, me)
+response = context.socket(zmq.XSUB)
+response.connect(options.responseuri)
+response.send("\001%s" % (me))
 
 i = 0
 
@@ -71,12 +71,12 @@ for j in range(options.iter):
         i += 1
         if options.verbose:
             print "---%s send command to %s: %s" % (me,options.destination, pbmsg)
-        cmdout.send_multipart([options.destination,pbmsg])
+        cmd.send_multipart([me,options.destination,pbmsg])
 
     for n in range(options.batch):
-        response = responsein.recv_multipart()
+        msg = response.recv_multipart()
         reply = Container()
-        reply.ParseFromString(response[2])
+        reply.ParseFromString(msg[2])
         if options.verbose:
             print "---%s receive response: %s" %(me, str(reply))
     if not options.fast:

@@ -9,19 +9,12 @@ from optparse import OptionParser
 
 parser = OptionParser()
 
-parser.add_option("-C", "--cmdout", dest="cmdoutput", default="tcp://127.0.0.1:5570",
-                  help="URI to submit commands to")
+parser.add_option("-c", "--cmd", dest="cmduri", default="tcp://127.0.0.1:5571",
+                  help="command URI")
 
-parser.add_option("-c", "--cmdin", dest="cmdinput", default="tcp://127.0.0.1:5571",
-                  help="URI to fetch commands from")
-
-parser.add_option("-r", "--responsein", dest="responseinput",
+parser.add_option("-r", "--response", dest="responseuri",
                   default="tcp://127.0.0.1:5573",
-                  help="URI to fetch responses from")
-
-parser.add_option("-R", "--responseout", dest="responseoutput",
-                  default="tcp://127.0.0.1:5572",
-                  help="URI to submit responses to")
+                  help="response URI")
 
 parser.add_option("-n", "--name", dest="actor", default="actor",
                   help="use this as actor name")
@@ -39,21 +32,15 @@ me = options.actor
 
 context = zmq.Context()
 
-cmdin = context.socket(zmq.SUB)
-cmdin.connect(options.cmdinput)
-cmdin.setsockopt(zmq.SUBSCRIBE, me)
+cmd = context.socket(zmq.XSUB)
+cmd.connect(options.cmduri)
+# subscribe XSUB-style by sending a message  \001<topic>
+cmd.send("\001%s" % (me))
 
-cmdout = context.socket(zmq.DEALER)
-cmdout.setsockopt(zmq.IDENTITY, me)
-cmdout.connect(options.cmdoutput)
+response = context.socket(zmq.XSUB)
+response.connect(options.responseuri)
+response.send("\001%s" % (me))
 
-responsein = context.socket(zmq.SUB)
-responsein.connect(options.responseinput)
-responsein.setsockopt(zmq.SUBSCRIBE, me)
-
-responseout = context.socket(zmq.DEALER)
-responseout.setsockopt(zmq.IDENTITY, me)
-responseout.connect(options.responseoutput)
 
 comp = halext.HalComponent(me + ".proxy")
 comp.ready()
@@ -72,7 +59,7 @@ except NameError,e:
 i = 0
 while True:
 
-   msg = cmdin.recv_multipart()
+   msg = cmd.recv_multipart()
    # asser(msg[0] == me)
    sender = msg[1]
    payload = str(msg[2:])
@@ -85,15 +72,15 @@ while True:
    # wait for tx ringbuffer non-empty and fetch result
    try:
       while True:
-         response = from_rt.next_buffer()
-         if response is None:
+         reply = from_rt.next_buffer()
+         if reply is None:
             time.sleep(0.01)
             continue
          from_rt.shift()
          i += 1
-         print "--RT recv on %s.in: " % me, response
-         response += " processed by %s.proxy count=%d" % (me, i)
-         responseout.send_multipart([sender, response])
+         print "--RT recv on %s.in: " % me, reply
+         reply += " processed by %s.proxy count=%d" % (me, i)
+         response.send_multipart([me, sender, reply])
          break
 
    except KeyboardInterrupt:
