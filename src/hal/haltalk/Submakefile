@@ -1,0 +1,59 @@
+
+PROFILE = #-pg
+TALKER_SRCS :=  $(addprefix hal/haltalk/, \
+	haltalk.cc) \
+	rtapi/redirect_log.c
+
+TALKER_CXXFLAGS := -DULAPI \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \
+	$(JANSSON_CFLAGS)
+
+TALKER_LDFLAGS := \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(JANSSON_LIBS) \
+	-lstdc++ \
+	$(PROFILE)
+
+$(call TOOBJSDEPS, $(TALKER_SRCS)) : EXTRAFLAGS += $(TALKER_CXXFLAGS)
+
+../bin/haltalk: $(call TOOBJS, $(TALKER_SRCS)) \
+	../lib/libjson2pb.so \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/libsdpublish.so.0 \
+	../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(TALKER_LDFLAGS)
+
+USERSRCS += $(TALKER_SRCS)
+TARGETS += ../bin/haltalk
+
+
+
+HALRCOMP_SRCS :=  $(addprefix hal/haltalk/, \
+	halrcomp.cc) \
+	rtapi/redirect_log.c
+
+HALRCOMP_CXXFLAGS := -DULAPI \
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \
+	$(JANSSON_CFLAGS)
+
+HALRCOMP_LDFLAGS := \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(JANSSON_LIBS) \
+	-lstdc++ \
+	$(PROFILE)
+
+$(call TOOBJSDEPS, $(HALRCOMP_SRCS)) : EXTRAFLAGS += $(HALRCOMP_CXXFLAGS)
+
+../bin/halrcomp: $(call TOOBJS, $(HALRCOMP_SRCS)) \
+	../lib/libjson2pb.so \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/libsdpublish.so.0 \
+	../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(HALRCOMP_LDFLAGS)
+
+USERSRCS += $(HALRCOMP_SRCS)
+TARGETS += ../bin/halrcomp
