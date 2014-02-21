@@ -300,6 +300,51 @@ static int s_register_sockets(sdreq_t *self)
     return 0;
 }
 
+static sdquery_t *find_service(sdreq_t *self, unsigned stype)
+{
+    if (self == NULL) return NULL;
+    for (int i = 0; i < MAX_SERVICES; i++) {
+	sdquery_t *sq = &self->query[i];
+	if (sq->found &&  (sq->stype == stype))
+	    return sq;
+    }
+    return NULL;
+}
+
+const char *sd_ipaddress(sdreq_t *self, int stype)
+{
+    sdquery_t *s = find_service(self, stype);
+    if (s == NULL) return NULL;
+    return s->ipaddress;
+}
+
+int sd_port(sdreq_t *self, int stype)
+{
+    sdquery_t *s = find_service(self, stype);
+    if (s == NULL) return -1;
+    return s->port;
+}
+
+int sd_version(sdreq_t *self, int stype)
+{
+    sdquery_t *s = find_service(self, stype);
+    if (s == NULL) return -1;
+    return s->version;
+}
+
+const char *sd_uri(sdreq_t *self, int stype)
+{
+    sdquery_t *s = find_service(self, stype);
+    if (s == NULL) return NULL;
+    return s->uri;
+}
+
+const char *sd_description(sdreq_t *self, int stype)
+{
+    sdquery_t *s = find_service(self, stype);
+    if (s == NULL) return NULL;
+    return s->description;
+}
 
 #ifdef TEST
 int main(int argc, char **argv)
