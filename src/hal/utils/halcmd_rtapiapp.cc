@@ -1,8 +1,8 @@
-#include "discovery.h"		/* zmq service discovery */
 #include "halcmd_rtapiapp.h"
 
 #include <czmq.h>
 #include <string.h>
+#include <sdiscover.h>
 
 
 #include <middleware/generated/message.pb.h>
@@ -10,11 +10,10 @@ using namespace google::protobuf;
 
 static pb::Container command, reply;
 
-static int sd_port = SERVICE_DISCOVERY_PORT;
 static zctx_t *z_context;
 static void *z_command;
 static int timeout = 1000;
-
+static  sdreq_t *sd;
 static std::string errormsg;
 
 int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
@@ -140,7 +139,32 @@ const char *rtapi_rpcerror(void)
 
 int rtapi_connect(int instance, const char *uri)
 {
+    int retval;
+
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    if (uri == NULL) {
+	// use service discovery to retrieve rtapi_app command URI
+	sd = sd_new(0, instance);
+	assert(sd);
+	retval = sd_add(sd,  pb::ST_RTAPI_COMMAND,
+			0,   pb::SA_ZMQ_PROTOBUF);
+	assert(retval == 0);
+	retval = sd_query(sd, 3000);
+
+	if (retval) {
+	    fprintf(stderr,
+		    "halcmd: service discovery failed - cant retrieve rtapi_app command uri: %d\n",
+		    retval );
+	    return retval;
+	}
+	uri = sd_uri(sd, pb::ST_RTAPI_COMMAND);
+	if (uri == NULL) {
+	    fprintf(stderr, "halcmd: BUG - service discovery retrieved invalid URI\n");
+	    sd_dump("after query: ", sd);
+	    return -ENOENT;
+	}
+    }
 
     z_context = zctx_new ();
     assert(z_context);

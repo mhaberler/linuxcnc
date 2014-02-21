@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     char raw_buf[MAX_CMD_LEN+1];
     int linenumber = 1;
     char *cf=NULL, *cw=NULL, *cl=NULL;
-    const char *uri = "tcp://127.0.0.1:10043" ;// NULL;
+    const char *uri = NULL; // NULL - use service discovery
 
     if (argc < 2) {
 	/* no args specified, print help */
