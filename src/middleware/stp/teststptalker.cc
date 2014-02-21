@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string>
 #include <stptalker.h>
+#include <middleware/generated/message.pb.h>
 
 double xval = 6.28;
 int fooval = 4711;
@@ -58,7 +59,8 @@ int main(int argc, const char **argv)
 
     // explicit uri, run beacon, subscribe callback, 1s timer
     //strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, subscribe);
-    strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042, subscribe);
+    strack_talker_run(t, ctx, "tcp://127.0.0.1:6042", 1000, 10042,
+		      pb::ST_STP_HALGROUP, subscribe);
 
     sleep(3000);
     strack_talker_exit(t);

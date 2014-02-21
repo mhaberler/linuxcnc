@@ -45,6 +45,7 @@ extern "C" {
     int strack_talker_run(sttalker_t *self,
 			  zctx_t *ctx, const char *uri,
 			  int interval, int beacon_port,
+			  int stp_service,
 			  subscribe_cb callback);
 
     int strack_talker_update(sttalker_t *self, const char *groupname, bool full);

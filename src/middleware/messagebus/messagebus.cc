@@ -78,10 +78,13 @@ static int sd_port = SERVICE_DISCOVERY_PORT;
 const char *progname = "messagebus";
 static const char *inifile;
 static const char *section = "MSGBUS";
-static const char *cmd_uri = "tcp://127.0.0.1:5571";
-static const char *response_uri = "tcp://127.0.0.1:5573";
 
-// inproc variant for comms with RT proxy threads
+// default to local operation only, ephemeral TCP port numbers
+// announced via service discovery
+static const char *cmd_uri = "tcp://127.0.0.1:*";
+static const char *response_uri = "tcp://127.0.0.1:*";
+
+// inproc variant for comms with RT proxy threads (not announced)
 const char *proxy_cmd_uri = "inproc://messagebus.cmd";
 const char *proxy_response_uri = "inproc://messagebus.response";
 
@@ -95,6 +98,7 @@ static int signal_fd;
 typedef struct {
     void *response;
     void *cmd;
+    const char *command_dsn, *response_dsn;
     actormap_t *cmd_subscribers;
     actormap_t *response_subscribers;
     int comp_id;
@@ -111,6 +115,7 @@ static int handle_xpub_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     actormap_t *map;
     const char *rail;
     char *data, *topic;
+    int retval;
 
     if (poller->socket == self->cmd) {
 	map = self->cmd_subscribers;
@@ -166,18 +171,23 @@ static int handle_xpub_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		// we wont get a reply from a non-existent actor
 		// so send error message on response rail instead:
 
-		assert(zstr_sendm(self->response, from) == 0);  // originator
-		assert(zstr_sendm(self->response, to) == 0);    // destination
+		retval = zstr_sendm(self->response, from);  // originator
+		assert(retval == 0);
+		retval = zstr_sendm(self->response, to);    // destination
+		assert(retval == 0);
+
 		if (textreplies) {
 		    assert(zstr_send(self->response, errmsg) == 0);
+		    assert(retval == 0);
 		} else {
 		    pb::Container c;
 		    c.set_type(pb::MT_MESSAGEBUS_NO_DESTINATION);
 		    c.set_name(to);
 		    c.set_note(errmsg);
 		    zframe_t *errorframe = zframe_new(NULL, c.ByteSize());
-		    assert(c.SerializeWithCachedSizesToArray(zframe_data(errorframe)));
-		    assert(zframe_send(&errorframe, self->response, 0) == 0);
+		    c.SerializeWithCachedSizesToArray(zframe_data(errorframe));
+		    retval = zframe_send(&errorframe, self->response, 0);
+		    assert(retval == 0);
 		}
 		zmsg_destroy(&msg);
 	    } // else: response to non-existent actor is dropped
@@ -220,13 +230,12 @@ static int signal_setup(void)
 {
     sigset_t sigmask;
 
-
     sigemptyset(&sigmask);
 
     // block all signal delivery through default signal handlers
     // since we're using signalfd()
     sigfillset(&sigmask);
-    assert(sigprocmask(SIG_SETMASK, &sigmask, NULL) == 0);
+    sigprocmask(SIG_SETMASK, &sigmask, NULL);
 
     // explicitly enable signals we want delivered via signalfd()
     sigemptyset(&sigmask);
@@ -290,12 +299,16 @@ static int zmq_setup(msgbusd_self_t *self)
     assert(self->cmd);
     zsocket_set_xpub_verbose (self->cmd, 1);
     assert(zsocket_bind(self->cmd, cmd_uri));
+    self->command_dsn = zsocket_last_endpoint (self->cmd);
+
     assert(zsocket_bind(self->cmd, proxy_cmd_uri) > -1);
 
     self->response = zsocket_new (self->context, ZMQ_XPUB);
     assert(self->response);
     zsocket_set_xpub_verbose (self->response, 1);
     assert(zsocket_bind(self->response, response_uri));
+    self->response_dsn = zsocket_last_endpoint (self->response);
+
     assert(zsocket_bind(self->response, proxy_response_uri) > -1);
 
     usleep(200 *1000); // avoid slow joiner syndrome
@@ -318,22 +331,22 @@ static int sd_init(msgbusd_self_t *self, int port)
     sp_log(self->sd_publisher, sddebug);
 
     assert(sp_add(self->sd_publisher,
-		    (int) pb::ST_MESSAGEBUS_COMMAND, //type
-		    MESSAGEBUS_VERSION, // version
-		    NULL, // ip
-		    0, // port
-		    cmd_uri,
-		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "messagebus command") == 0);  // descr
+		  (int) pb::ST_MESSAGEBUS_COMMAND, //type
+		  MESSAGEBUS_VERSION, // version
+		  NULL, // ip
+		  0, // port
+		  self->command_dsn,
+		  (int) pb::SA_ZMQ_PROTOBUF, // api
+		  "Messagebus command") == 0);  // descr
 
     assert(sp_add(self->sd_publisher,
-		    (int) pb::ST_MESSAGEBUS_RESPONSE, //type
-		    MESSAGEBUS_VERSION, // version
-		    NULL, // ip
-		    0, // port
-		    response_uri,
-		    (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "messagebus response") == 0);  // descr
+		  (int) pb::ST_MESSAGEBUS_RESPONSE, //type
+		  MESSAGEBUS_VERSION, // version
+		  NULL, // ip
+		  0, // port
+		  self->response_dsn,
+		  (int) pb::SA_ZMQ_PROTOBUF, // api
+		  "Messagebus response") == 0);  // descr
 
     // start the service announcement responder thread
     assert(sp_start(self->sd_publisher) == 0);
@@ -374,7 +387,7 @@ static int rtproxy_setup(msgbusd_self_t *self)
     return 0;
 }
 
-static int hal_setup(void)
+static int hal_setup(msgbusd_self_t *self)
 {
     if ((comp_id = hal_init(progname)) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: hal_init(%s) failed: HAL error code=%d\n",
@@ -392,6 +405,10 @@ static int hal_setup(void)
 	rtapi_print_msg(RTAPI_MSG_DBG,
 	       "%s: startup ØMQ=%d.%d.%d protobuf=%d.%d.%d",
 	       progname, zmajor, zminor, zpatch, pbmajor, pbminor, pbpatch);
+
+	rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking Messagebus on cmd='%s' response='%s'",
+			progname, self->command_dsn, self->response_dsn);
+
     }
     return 0;
 }
@@ -451,6 +468,7 @@ static void usage(void) {
 int main (int argc, char *argv[])
 {
     int opt;
+    int logopt = LOG_LOCAL1;
 
     inifile = getenv("INI_FILE_NAME");
 
@@ -491,17 +509,19 @@ int main (int argc, char *argv[])
 	    exit(0);
 	}
     }
+    openlog("", LOG_NDELAY , logopt);
 
     to_syslog("messagebus> ", &stdout); // redirect stdout to syslog
     to_syslog("messagebus>> ", &stderr);  // redirect stderr to syslog
-
+    // printf("hi stdout from messagebus\n"); fflush(stdout);
+    // fprintf(stderr, "hi stderr from messagebus\n"); fflush(stderr);
 
     if (read_config())
 	exit(1);
 
     msgbusd_self_t self = {0};
     if (!zmq_setup(&self) &&
-	!hal_setup() &&
+	!hal_setup(&self) &&
 	!signal_setup() &&
 	!sd_init(&self, sd_port) &&
 	!rtproxy_setup(&self)) {

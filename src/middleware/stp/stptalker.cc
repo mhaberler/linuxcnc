@@ -164,13 +164,16 @@ int strack_talker_add(sttalker_t *self, stgroup_t *g)
 
 int strack_talker_run(sttalker_t *self,
 		      zctx_t *ctx, const char *uri,
-		      int interval, int beacon_port,
+		      int interval,
+		      int beacon_port,
+		      int stp_service,
 		      subscribe_cb *callback)
 {
     assert (ctx);
     self->interval = interval;
     self->uri = uri;
     self->beacon_port = beacon_port;
+    self->stp_service = stp_service;
     self->subscribe_callback = callback;
 
     //  Start background agent
@@ -359,7 +362,7 @@ static void s_beacon_recv (sttalker_t * self)
 	    self->update->set_type(pb::MT_SERVICE_ANNOUNCEMENT);
 	    sa = self->update->add_service_announcement();
 	    sa->set_instance(0);
-	    sa->set_stype(pb::ST_STP);
+	    sa->set_stype((pb::ServiceType)self->stp_service);
 	    sa->set_version(1);
 	    sa->set_port(self->port);
 

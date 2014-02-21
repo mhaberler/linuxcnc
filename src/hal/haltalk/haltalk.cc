@@ -65,7 +65,7 @@ typedef enum {
 typedef  std::unordered_map<std::string, hal_compiled_group_t *> groupmap_t;
 typedef groupmap_t::iterator groupmap_iterator;
 
-static const char *option_string = "hI:S:dt:D";
+static const char *option_string = "hI:S:dt:Du:";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
@@ -73,6 +73,7 @@ static struct option long_options[] = {
     {"debug", required_argument, 0, 'd'},
     {"sddebug", required_argument, 0, 'D'},
     {"timer", required_argument, 0, 't'},
+    {"uri", required_argument, 0, 'u'},
     {0,0,0,0}
 };
 
@@ -82,7 +83,6 @@ typedef struct htconf {
     const char *section;
     const char *modname;
     const char *status;
-    //const char *command;
     int debug;
     int sddebug;
     int pid;
@@ -95,8 +95,7 @@ static htconf_t conf = {
     NULL,
     "HALTALK",
     "haltalk",
-    "tcp://127.0.0.1:6042",
-    // "tcp://127.0.0.1:6651",
+    "tcp://127.0.0.1:*", // localhost, use ephemeral port
     0,
     0,
     100,
@@ -107,7 +106,8 @@ typedef struct htself {
     int comp_id;
     groupmap_t groups;
     zctx_t *z_context;
-    void *z_command, *z_status;
+    void *z_status;
+    const char *z_status_dsn;
     int signal_fd;
     zloop_t *z_loop;
     pb::Container update;
@@ -391,6 +391,11 @@ zmq_init(htself_t *self)
     zsocket_set_xpub_verbose (self->z_status, 1);
     int rc = zsocket_bind(self->z_status, self->cfg->status);
     assert (rc != 0);
+    self->z_status_dsn = zsocket_last_endpoint (self->z_status);
+
+    // rtapi logging now available
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking STP on '%s'",
+		    conf.progname, self->z_status_dsn);
 
     usleep(200 *1000); // avoid slow joiner syndrome
 
@@ -412,13 +417,13 @@ service_discovery_init(htself_t *self)
     assert(self->sd_publisher != NULL);
     sp_log(self->sd_publisher, self->cfg->sddebug);
     retval = sp_add(self->sd_publisher,
-		    (int) pb::ST_STP, //type
-			    STP_VERSION, // version
-			    NULL, // ip
-			    0, // port
-			    self->cfg->status, // uri
-			    (int) pb::SA_ZMQ_PROTOBUF, // api
-			    "HAL status tracking socket");  // descr
+		    (int) pb::ST_STP_HALGROUP, //type
+		    STP_VERSION, // version
+		    NULL, // ip
+		    0, // port
+		    self->z_status_dsn, // uri
+		    (int) pb::SA_ZMQ_PROTOBUF, // api
+		    "HAL group STP");  // descr
     assert(retval == 0);
     retval = sp_start(self->sd_publisher);
     assert(retval == 0);
@@ -462,10 +467,6 @@ setup_hal(htself_t *self)
 		    GOOGLE_PROTOBUF_VERSION / 1000000,
 		    (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
 		    GOOGLE_PROTOBUF_VERSION % 1000);
-
-    // rtapi logging now available
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: publishing STP on %s",
-		    conf.progname, conf.status);
 
     {   // scoped lock
 	int retval __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -516,7 +517,9 @@ usage(void)
 	   "    Use <inifile> (default: take ini filename from environment"
 	   " variable INI_FILE_NAME)\n"
 	   "-S or --section <section-name> (default 8)\n"
-	   "    Read parameters from <section_name> (default 'VFS11')\n"
+	   "    Read parameters from <section_name> (default 'HALTALK')\n"
+	   "-u or --uri <uri>\n"
+	   "    zeroMQ URI for status reporting socket\n"
 	   "-m or --rtapi-msg-level <level>\n"
 	   "    set the RTAPI message level.\n"
 	   "-t or --timer <msec>\n"
@@ -546,6 +549,9 @@ int main (int argc, char *argv[])
 	case 'I':
 	    conf.inifile = optarg;
 	    break;
+	case 'u':
+	    conf.status = optarg;
+	    break;
 	case 't':
 	    conf.default_group_timer = atoi(optarg);
 	    break;
@@ -558,8 +564,8 @@ int main (int argc, char *argv[])
     conf.pid = getpid();
     conf.sd_port = SERVICE_DISCOVERY_PORT;
 
-    to_syslog("haltalk> ", &stdout); // redirect stdout to syslog
-    to_syslog("haltalk>> ", &stderr);  // redirect stderr to syslog
+    // to_syslog("haltalk> ", &stdout); // redirect stdout to syslog
+    // to_syslog("haltalk>> ", &stderr);  // redirect stderr to syslog
 
     if (read_config(&conf))
 	exit(1);

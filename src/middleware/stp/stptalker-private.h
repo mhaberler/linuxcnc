@@ -29,6 +29,7 @@ struct _sttalker {
     int interval;
     int port;
     int beacon_port;
+    int stp_service;
     int beacon_fd;
     bool empty_updates;
     subscribe_cb *subscribe_callback;
