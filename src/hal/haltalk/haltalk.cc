@@ -364,12 +364,12 @@ zmq_init(htself_t *self)
     assert(retval == 0);
 
     // explicitly enable signals we want delivered via signalfd()
-    sigemptyset(&sigmask);
-    sigaddset(&sigmask, SIGINT);
-    sigaddset(&sigmask, SIGQUIT);
-    sigaddset(&sigmask, SIGTERM);
-    sigaddset(&sigmask, SIGSEGV);
-    sigaddset(&sigmask, SIGFPE);
+    retval = sigemptyset(&sigmask); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGINT);  assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGQUIT); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGTERM); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGSEGV); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGFPE);  assert(retval == 0);
 
     if ((self->signal_fd = signalfd(-1, &sigmask, 0)) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signaldfd() failed: %s\n",
@@ -393,7 +393,6 @@ zmq_init(htself_t *self)
     assert (rc != 0);
     self->z_status_dsn = zsocket_last_endpoint (self->z_status);
 
-    // rtapi logging now available
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking STP on '%s'",
 		    conf.progname, self->z_status_dsn);
 
