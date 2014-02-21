@@ -111,8 +111,8 @@ static bool interrupted;
 int shmdrv_loaded;
 long page_size;
 static const char *progname;
-//static const char *z_uri = "tcp://127.0.0.1:*";
-static const char *z_uri = "tcp://127.0.0.1:10043";
+static const char *z_uri = "tcp://127.0.0.1:*";
+static const char *z_uri_dsn;
 static int z_port;
 static pb::Container command, reply;
 static int sd_port = SERVICE_DISCOVERY_PORT;
@@ -834,8 +834,9 @@ static int mainloop(size_t  argc, char **argv)
 	global_data->rtapi_app_pid = 0;
 	exit(EXIT_FAILURE);
     } else {
-	rtapi_print_msg(RTAPI_MSG_DBG,  "command socket bound to port %d\n",
-			z_port);
+	z_uri_dsn = zsocket_last_endpoint(z_command);
+	rtapi_print_msg(RTAPI_MSG_DBG,  "rtapi_app: command RPC socket on '%s'\n",
+			z_uri_dsn);
     }
 
     zloop_t *z_loop = zloop_new();
@@ -856,7 +857,7 @@ static int mainloop(size_t  argc, char **argv)
     sp_log(sd_publisher, getenv("SDDEBUG") != NULL);
 
     retval = sp_add(sd_publisher, (int) pb::ST_RTAPI_COMMAND,
-		1, NULL, 0, z_uri,
+		1, NULL, 0, z_uri_dsn,
 		(int) pb::SA_ZMQ_PROTOBUF,
 		"RTAPI command socket");
     assert(retval == 0);
