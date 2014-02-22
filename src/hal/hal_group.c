@@ -470,8 +470,8 @@ int hal_member_new(const char *group, const char *member,
 	return -EPERM;
     }
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating member '%s'\n",
-		    rtapi_instance, member);
+    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating member '%s' arg1=%d epsilon=%f\n",
+		    rtapi_instance, member, arg1, epsilon);
 
     {
 	hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
