@@ -243,8 +243,8 @@ int hal_retrieve_compstate(const char *comp_name,
 	    /* no match, try the next one */
 	    next = comp->next_ptr;
 	}
-	rtapi_print_msg(RTAPI_MSG_DBG,
-			"HAL: hal_retrieve_compstate: visited %d comps\n", nvisited);
+	// rtapi_print_msg(RTAPI_MSG_DBG,
+	//		"HAL: hal_retrieve_compstate: visited %d comps\n", nvisited);
 	/* if we get here, we ran through all the comps, so return count */
 	return nvisited;
     }
@@ -530,7 +530,7 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 		     void *cb_data, int report_all)
 {
     int retval, i;
-    void *data_ptr;
+    hal_data_u *data_ptr;
     hal_pin_t *pin;
     hal_sig_t *sig;
 
@@ -544,9 +544,9 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 	    pin = cc->pin[i];
 	    if (pin->signal != 0) {
 		sig = SHMPTR(pin->signal);
-		data_ptr = SHMPTR(sig->data_ptr);
+		data_ptr = (hal_data_u *)SHMPTR(sig->data_ptr);
 	    } else {
-		data_ptr = hal_shmem_base + SHMOFF(&(pin->dummysig));
+		data_ptr = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
 	    }
 	    if ((retval = report_cb(REPORT_PIN, cc, pin, i,
 				    data_ptr, cb_data)) < 0)
@@ -568,6 +568,17 @@ int hal_ccomp_free(hal_compiled_comp_t *cc)
     if (cc->pin)
 	free(cc->pin);
     free(cc);
+    return 0;
+}
+
+int hal_ccomp_args(hal_compiled_comp_t *cc, int *arg1, int *arg2)
+{
+    if (cc == NULL)
+	return 0;
+    assert(cc->magic ==  CCOMP_MAGIC);
+    assert(cc->comp != NULL);
+    if (arg1) *arg1 = cc->comp->userarg1;
+    if (arg2) *arg2 = cc->comp->userarg2;
     return 0;
 }
 #endif

@@ -14,13 +14,15 @@ typedef struct {
     hal_pin_t  **pin;           // all members (nesting resolved)
     unsigned long *changed;     // bitmap
     hal_data_u    *tracking;    // tracking values of monitored pins
+    void *user_data;             // uninterpreted by HAL code
+    unsigned long user_flags;    // uninterpreted by HAL code
 } hal_compiled_comp_t;
 
 
 typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
 				     hal_pin_t *pin,
 				     int handle,
-				     void *data,
+				     hal_data_u *value,
 				     void *cb_data);
 
 extern int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp);
@@ -29,6 +31,8 @@ extern int hal_ccomp_report(hal_compiled_comp_t *ccomp,
 			    comp_report_callback_t report_cb,
 			    void *cb_data, int report_all);
 extern int hal_ccomp_free(hal_compiled_comp_t *ccomp);
+extern int hal_ccomp_args(hal_compiled_comp_t *ccomp, int *arg1, int *arg2);
+
 
 RTAPI_END_DECLS
 
