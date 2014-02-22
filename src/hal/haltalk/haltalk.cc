@@ -69,10 +69,26 @@ typedef enum {
     RCOMP_REPORT_FULL = 1,
 } rcomp_flags_t;
 
-typedef std::unordered_map<std::string, hal_compiled_group_t *> groupmap_t;
+typedef struct htself htself_t;
+
+typedef struct {
+    hal_compiled_group_t *cg;
+    int serial; // must be unique per active group
+    unsigned flags;
+    htself_t *self;
+} group_t;
+
+typedef struct {
+    hal_compiled_comp_t *cc;
+    int serial; // must be unique per active group
+    unsigned flags;
+    htself_t *self;
+} rcomp_t;
+
+typedef std::unordered_map<std::string, group_t *> groupmap_t;
 typedef groupmap_t::iterator groupmap_iterator;
 
-typedef std::unordered_map<std::string, hal_compiled_comp_t *> compmap_t;
+typedef std::unordered_map<std::string, rcomp_t *> compmap_t;
 typedef compmap_t::iterator compmap_iterator;
 
 
@@ -127,14 +143,12 @@ typedef struct htself {
     int signal_fd;
     zloop_t *z_loop;
     pb::Container update;
-    int stp_serial;
     spub_t *sd_publisher;
     bool interrupted;
 
     void *z_rcomp_status;
     const char *z_rcomp_status_dsn;
     compmap_t rcomps;
-    int rcomp_serial;
 } htself_t;
 
 static int
@@ -162,7 +176,8 @@ static int
 group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 		hal_sig_t *sig, void *cb_data)
 {
-    htself_t *self = (htself_t *) cb_data;
+    group_t *grp = (group_t *) cb_data;
+    htself_t *self = grp->self;
     hal_data_u *vp;
     pb::Signal *signal;
     zmsg_t *msg;
@@ -173,11 +188,16 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
     case REPORT_BEGIN:	// report initialisation
 	// this enables a new subscriber to easily detect she's receiving
 	// a full status snapshot, not just a change tracking update
-	if (cgroup->user_flags & GROUP_REPORT_FULL)
+	if (grp->flags & GROUP_REPORT_FULL)
 	    self->update.set_type(pb::MT_STP_UPDATE_FULL);
 	else
 	    self->update.set_type(pb::MT_STP_UPDATE);
-	self->update.set_serial(self->stp_serial++);
+
+	// the serial enables detection of lost updates
+	// for a client to recover from a lost update:
+	// unsubscribe + re-subscribe which will cause
+	// a full state dump to be sent
+	self->update.set_serial(grp->serial++);
 	break;
 
     case REPORT_SIGNAL: // per-reported-signal action
@@ -199,9 +219,10 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	    signal->set_halu32(vp->u);
 	    break;
 	}
-	if (cgroup->user_flags & GROUP_REPORT_FULL)
+	if (grp->flags & GROUP_REPORT_FULL) {
 	    signal->set_name(sig->name);
-	signal->set_type((pb::ValueType)sig->type);
+	    signal->set_type((pb::ValueType)sig->type);
+	}
 	signal->set_handle(sig->data_ptr);
 	break;
 
@@ -214,7 +235,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	retval = zmsg_send (&msg, self->z_status);
 	assert(retval == 0);
 	assert(msg == NULL);
-	cgroup->user_flags &= ~GROUP_REPORT_FULL;
+	grp->flags &= ~GROUP_REPORT_FULL;
 
 #if JSON_TIMING
 	// timing test:
@@ -241,12 +262,11 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 static int
 handle_group_timer(zloop_t *loop, int timer_id, void *arg)
 {
-    hal_compiled_group_t *cg = (hal_compiled_group_t *) arg;
-    htself_t *self = (htself_t *) cg->user_data;
+    group_t *g = (group_t *) arg;
 
-    if (hal_cgroup_match(cg) ||  (cg->user_flags & GROUP_REPORT_FULL)) {
-	hal_cgroup_report(cg, group_report_cb, self,
-			  (cg->user_flags & GROUP_REPORT_FULL));
+    if (hal_cgroup_match(g->cg) ||  (g->flags & GROUP_REPORT_FULL)) {
+	hal_cgroup_report(g->cg, group_report_cb, g,
+			  (g->flags & GROUP_REPORT_FULL));
     }
     return 0;
 }
@@ -257,7 +277,8 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 		   hal_data_u *vp,
 		   void *cb_data)
 {
-    htself_t *self = (htself_t *) cb_data;
+    rcomp_t *rc = (rcomp_t *) cb_data;
+    htself_t *self =  rc->self;
     pb::Pin *p;
     zmsg_t *msg;
     int retval;
@@ -267,11 +288,12 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     case REPORT_BEGIN:	// report initialisation
 	// this enables a new subscriber to easily detect she's receiving
 	// a full status snapshot, not just a change tracking update
-	if (cc->user_flags & RCOMP_REPORT_FULL)
+	if (rc->flags & RCOMP_REPORT_FULL)
 	    self->update.set_type(pb::MT_HALRCOMP_STATUS);
 	else
 	    self->update.set_type(pb::MT_HALRCOMP_PIN_CHANGE);
-	self->update.set_serial(self->rcomp_serial++);
+
+	self->update.set_serial(rc->serial++);
 	break;
 
     case REPORT_PIN: // per-reported-pin action
@@ -292,9 +314,10 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	    p->set_halu32(vp->u);
 	    break;
 	}
-	if (cc->user_flags & GROUP_REPORT_FULL)
+	if (rc->flags & RCOMP_REPORT_FULL) {
 	    p->set_name(pin->name);
-	p->set_type((pb::ValueType)pin->type);
+	    p->set_type((pb::ValueType)pin->type);
+	}
 	p->set_handle(handle);
 	break;
 
@@ -307,7 +330,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	retval = zmsg_send (&msg, self->z_rcomp_status);
 	assert(retval == 0);
 	assert(msg == NULL);
-	cc->user_flags &= ~GROUP_REPORT_FULL;
+	rc->flags &= ~GROUP_REPORT_FULL;
 	self->update.Clear();
 	break;
     }
@@ -317,12 +340,11 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 static int
 handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg)
 {
-    hal_compiled_comp_t *cc = (hal_compiled_comp_t *) arg;
-    htself_t *self = (htself_t *) cc->user_data;
+    rcomp_t *rc = (rcomp_t *) arg;
 
-    if (hal_ccomp_match(cc) ||  (cc->user_flags & RCOMP_REPORT_FULL)) {
-	hal_ccomp_report(cc, comp_report_cb, self,
-			  (cc->user_flags & RCOMP_REPORT_FULL));
+    if (hal_ccomp_match(rc->cc) ||  (rc->flags & RCOMP_REPORT_FULL)) {
+	hal_ccomp_report(rc->cc, comp_report_cb, rc,
+			 (rc->flags & RCOMP_REPORT_FULL));
     }
     return 0;
 }
@@ -367,16 +389,17 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		self->update.Clear();
 	    } else {
 		// found, schedule a full update
-		hal_compiled_comp_t *cc = self->rcomps[topic];
-		cc->user_flags |= RCOMP_REPORT_FULL;
+		rcomp_t *g = self->rcomps[topic];
+		hal_compiled_comp_t *cc = g->cc;
+		g->flags |= RCOMP_REPORT_FULL;
 		if (cc->comp->state == COMP_UNBOUND) {
 		    // once only by first subscriber
 		    hal_bind(topic);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s bound\n",
-				    self->cfg->progname, topic);
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s bound, serial=%d",
+				    self->cfg->progname, topic, g->serial);
 		} else
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s subscribed\n",
-				    self->cfg->progname, topic);
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s subscribed, serial=%d",
+				    self->cfg->progname, topic, g->serial);
 	    }
 	    break;
 
@@ -384,7 +407,7 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    // last subscriber went away - unbind the component
 	    if (self->rcomps.find(topic) != self->rcomps.end()) {
 		hal_unbind(topic);
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s unbound\n",
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s unbound",
 				self->cfg->progname, topic);
 	    }
 	    break;
@@ -424,27 +447,27 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     const char *topic = s+1;
 
     if (s && *s) { // non-zero: subscribe event
-	rtapi_print_msg(RTAPI_MSG_DBG, "%s: subscribe event topic='%s'",
-			self->cfg->progname, topic);
 	if (strlen(topic) == 0) {
 	    // this was a subscribe("") - all topics
 	    // mark all groups as requiring a full report on next poll
 	    for (groupmap_iterator gi = self->groups.begin();
 		 gi != self->groups.end(); gi++) {
-		hal_compiled_group_t *cg = gi->second;
-		// rtapi_print_msg(RTAPI_MSG_DBG,
-		// 		"schedule full update for %s (\"\")\n", gi->first.c_str());
-		cg->user_flags |= GROUP_REPORT_FULL;
+
+		group_t *g = gi->second;
+		g->flags |= GROUP_REPORT_FULL;
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s: wildcard subscribe topic='%s' serial=%d",
+				self->cfg->progname,
+				gi->first.c_str(), gi->second->serial);
 	    }
 	} else {
 	    // a selective subscribe
 	    groupmap_iterator gi = self->groups.find(topic);
 	    if (gi != self->groups.end()) {
-		hal_compiled_group_t *cg = gi->second;
-		// rtapi_print_msg(RTAPI_MSG_DBG,
-		// 		"schedule full update for %s (%s)\n",
-		//              gi->first.c_str(), topic);
-		cg->user_flags |= GROUP_REPORT_FULL;
+		group_t *g = gi->second;
+		g->flags |= GROUP_REPORT_FULL;
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s: subscribe topic='%s' serial=%d",
+				self->cfg->progname,
+				gi->first.c_str(), gi->second->serial);
 	    } else {
 		// non-existant topic, complain.
 		std::string note = "no such group: " + std::string(topic)
@@ -499,7 +522,7 @@ prepare_comps(htself_t *self)
     int nfail = 0;
 
     // this needs to be done in two steps due to HAL locking:
-    // 1. collect remote component names
+    // 1. collect remote component names and populate dict keys
     // 2. acquire and compile remote components
     hal_retrieve_compstate(NULL, collect_unbound_comps, self);
 
@@ -528,17 +551,23 @@ prepare_comps(htself_t *self)
 	    self->rcomps.erase(c);
 	    continue;
 	}
-	cc->user_data = (void *) self;
-	self->rcomps[name] = cc;
 
 	int arg1, arg2;
 	hal_ccomp_args(cc, &arg1, &arg2);
 	int msec = arg1 ? arg1 : self->cfg->default_rcomp_timer;
 
+	rcomp_t *rc = new rcomp_t();
+	rc->flags = 0;
+	rc->self = self;
+	rc->cc = cc;
+	rc->serial = 0;
+
+	self->rcomps[name] = rc;
+
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: component '%s' - using %d mS poll interval",
 			self->cfg->progname, name, msec);
 
-	zloop_timer(self->z_loop, msec, 0, handle_rcomp_timer, (void *)cc);
+	zloop_timer(self->z_loop, msec, 0, handle_rcomp_timer, (void *)rc);
     }
     return nfail;
 }
@@ -549,16 +578,15 @@ prepare_groups(htself_t *self)
     size_t msec;
     for (groupmap_iterator g = self->groups.begin();
 	 g != self->groups.end(); g++) {
-	hal_compiled_group_t *cg = g->second;
-	cg->user_data = self;
-	msec =  hal_cgroup_timer(cg);
+	group_t *grp = g->second;
+	msec =  hal_cgroup_timer(grp->cg);
 	if (msec == 0)
 	    msec = self->cfg->default_group_timer;
 
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: group '%s' - using %d mS poll interval",
 			self->cfg->progname, g->first.c_str(), msec);
 
-	zloop_timer(self->z_loop, msec, 0, handle_group_timer, (void *)cg);
+	zloop_timer(self->z_loop, msec, 0, handle_group_timer, (void *)grp);
     }
     return 0;
 }
@@ -717,7 +745,12 @@ group_cb(hal_group_t *g, void *cb_data)
 			g->name, retval);
 	return 0;
     }
-    self->groups[g->name] = cgroup;
+    group_t *grp = new group_t();
+    grp->cg = cgroup;
+    grp->serial = 0;
+    grp->self = self;
+    grp->flags = 0;
+    self->groups[g->name] = grp;
     return 0;
 }
 
@@ -765,8 +798,8 @@ hal_cleanup(htself_t *self)
 	 c != self->rcomps.end(); c++) {
 
 	const char *name = c->first.c_str();
-	hal_compiled_comp_t *cc = c->second;
-	hal_comp_t *comp = cc->comp;
+	rcomp_t *rc = c->second;
+	hal_comp_t *comp = rc->cc->comp;
 
 	// unbind all comps owned by us:
 	if (comp->state == COMP_BOUND) {
