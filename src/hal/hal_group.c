@@ -42,8 +42,8 @@ int hal_group_new(const char *name, int arg1, int arg2)
 	return -EPERM;
     }
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating group '%s'\n",
-		    rtapi_instance, name);
+    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating group '%s' arg1=%d arg2=%d/0x%x\n",
+		    rtapi_instance, name, arg1, arg2, arg2);
 
     {
 	hal_group_t *new, *chan;
