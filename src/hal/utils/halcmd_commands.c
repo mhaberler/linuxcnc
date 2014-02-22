@@ -1724,6 +1724,7 @@ static void print_comp_info(char **patterns)
 		    } else
 			halcmd_output(", unbound:never");
 		}
+		halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
             }
             halcmd_output("\n");
 	}
@@ -2631,42 +2632,56 @@ int do_save_cmd(char *type, char *filename)
 
 int do_newg_cmd(char *group,char **opt)
 {
-    int arg1 = 0, arg2 = 0, optind;
-    char *s , *cp;
+    int arg1 = 0, arg2 = 0;
 
-    s = opt[0];
-    if (s && strlen(s)) {
-	cp = s;
-	arg1 = strtol(s, &cp, 0);
-	if ((*cp != '\0') && (!isspace(*cp))) {
-	    halcmd_error("value '%s' invalid for userarg1 (integer required)\n", s);
-	    return -EINVAL;
-	}
-    }
-    optind = 1;
+    char *cp;
+    int optind = 0;
     while (opt[optind] && strlen(opt[optind])) {
-	s = opt[optind];
-	if (s && strlen(s)) {
-	    if (!strcmp(s, "onchange")) {
-		arg2 |= GROUP_REPORT_ON_CHANGE;
-	    } else if (!strcmp(s, "always")) {
-		arg2 &= ~GROUP_REPORT_ON_CHANGE;
-	    } else if (!strcmp(s, "monitorall")) {
-		arg2 |= GROUP_MONITOR_ALL_MEMBERS;
-	    } else if (!strcmp(s, "reportchanged")) {
-		arg2 |= GROUP_REPORT_CHANGED_MEMBERS;
-	    } else if (!strcmp(s, "reportall")) {
-		arg2 &= ~GROUP_REPORT_CHANGED_MEMBERS;
-	    } else {
-		cp = s;
-		arg2 = strtol(s, &cp, 0);
-		if ((*cp != '\0') && (!isspace(*cp))) {
-		    halcmd_error("value '%s' invalid for userarg2 (integer required)\n", s);
-		    return -EINVAL;
+	char *current  = opt[optind++];
+	char *saveptr;
+	char *s1 = NULL, *s2 = NULL;
+	s1 = strtok_r(current, "=", &saveptr);
+	if (s1) {
+	    s2 = strtok_r(NULL, "=", &saveptr);
+	    if (s1 && strlen(s1)) {
+
+		if (s2 && strlen(s2)) {
+		    // args of the form key=value
+		    if (!strcmp(s1, "timer")) {
+			cp = s2;
+			arg1 = 	strtol(s2, &cp, 0);
+			if ((*cp != '\0') && (!isspace(*cp))) {
+			    halcmd_error("value '%s' invalid for timer=<int> (integer required)\n", s2);
+			    return -EINVAL;
+			}
+		    } else {
+			halcmd_error("unrecognized parameter '%s'\n", current);
+			return -EINVAL;
+		    }
+		} else {
+		    // keyword-only arguments
+		    if (!strcmp(s1, "onchange")) {
+			arg2 |= GROUP_REPORT_ON_CHANGE;
+		    } else if (!strcmp(s1, "always")) {
+			arg2 &= ~GROUP_REPORT_ON_CHANGE;
+		    } else if (!strcmp(s1, "monitorall")) {
+			arg2 |= GROUP_MONITOR_ALL_MEMBERS;
+		    } else if (!strcmp(s1, "reportchanged")) {
+			arg2 |= GROUP_REPORT_CHANGED_MEMBERS;
+		    } else if (!strcmp(s1, "reportall")) {
+			arg2 &= ~GROUP_REPORT_CHANGED_MEMBERS;
+		    } else {
+			// try to convert from integer
+			arg2 = 	strtol(s1, &cp, 0);
+			if ((*cp != '\0') && (!isspace(*cp))) {
+			    halcmd_error("not a keyword and integer value '%s' invalid\n",
+					 s1);
+			    return -EINVAL;
+			}
+		    }
 		}
 	    }
 	}
-	optind++;
     }
     return hal_group_new(group, arg1, arg2);
 }
@@ -2679,9 +2694,8 @@ int do_delg_cmd(char *group)
 
 int do_newm_cmd(char *group, char *member, char **opt)
 {
-    int arg1 = 0, retval;
-    char *cp = member;
-    char *s,*r;
+    int arg1 = MEMBER_MONITOR_CHANGE, retval;
+    char *cp;
     double epsilon = CHANGE_DETECT_EPSILON;
     hal_sig_t *sig;
     hal_group_t *grp;
@@ -2696,37 +2710,51 @@ int do_newm_cmd(char *group, char *member, char **opt)
 		return -EINVAL;
     }
 
-    s = opt[0];
-    if (s && strlen(s)) {
-	if (!strcmp(s, "monitor")) {
-	    arg1 = MEMBER_MONITOR_CHANGE;
-	} else {
-	    cp = s;
-	    arg1 = strtol(s, &cp, 0);
-	    if ((*cp != '\0') && (!isspace(*cp))) {
-		halcmd_error("value '%s' invalid for arg1 (integer required)\n", s);
-		return -EINVAL;
+    int optind = 0;
+
+    while (opt[optind] && strlen(opt[optind])) {
+	char *current  = opt[optind++];
+	char *saveptr;
+	char *s1 = NULL, *s2 = NULL;
+	s1 = strtok_r(current, "=", &saveptr);
+	if (s1) {
+	    s2 = strtok_r(NULL, "=", &saveptr);
+	    if (s1 && strlen(s1)) {
+
+		if (s2 && strlen(s2)) {
+		    // args of the form key=value
+		    if (!strcmp(s1, "epsilon")) {
+			cp = s2;
+			epsilon = strtod(s2, &cp);
+			if ((*cp != '\0') && (!isspace(*cp))) {
+			    halcmd_error("value '%s' invalid for epsilon=<float> (float required)\n", s2);
+			    return -EINVAL;
+			}
+			if (sig && (sig->type != HAL_FLOAT)) {
+			    halcmd_error("epsilon=<float> only makes sense for float signals\n");
+			    return -EINVAL;
+			}
+
+		    } else {
+			halcmd_error("unrecognized parameter '%s'\n", current);
+			return -EINVAL;
+		    }
+		} else {
+		    // keyword-only arguments
+		    if (!strcmp(s1, "nomonitor")) {
+			arg1 &= ~MEMBER_MONITOR_CHANGE;
+		    } else {
+			// try to convert from integer
+			arg1 = 	strtol(s1, &cp, 0);
+			if ((*cp != '\0') && (!isspace(*cp))) {
+			    halcmd_error("not a keyword and integer value '%s' invalid\n",
+					 s1);
+			    return -EINVAL;
+			}
+		    }
+		}
 	    }
 	}
-    }
-    if (opt[1] && strlen(opt[1])) {
-	epsilon = strtod(opt[1], &r);
-	if ((*r != '\0') && (!isspace(*r))) {
-	    halcmd_error("value '%s' invalid for epsilon (float required)\n", r);
-	    return -EINVAL;
-	}
-	if (grp) {
-	    halcmd_error("member '%s': epsilon parameter invalid for a group member\n", member);
-	    return -EINVAL;
-	}
-	if (sig && (sig->type != HAL_FLOAT)) {
-	    halcmd_error("member '%s': epsilon parameter makes sense only for float signals\n", member);
-	    return -EINVAL;
-	}
-    }
-    if (opt[2] && strlen(opt[2])) {
-	halcmd_error("maximum number of arguments for 'newm' is 4\n");
-	return -1;
     }
     retval = hal_member_new(group, member, arg1, epsilon);
     if (retval)
@@ -3010,10 +3038,62 @@ int do_ringread_cmd(char *ring, char *tokens[])
 
 // --- remote comp support
 
-int do_newcomp_cmd(char *comp, char *args[])
+int do_newcomp_cmd(char *comp, char *opt[])
 {
+    //   char *s , *cp;
+
     int type = TYPE_REMOTE;
-    int comp_id = hal_init_mode(comp, type);
+    int arg1 = 0;
+    int arg2 = 0;
+    char *cp;
+    int optind = 0;
+
+    while (opt[optind] && strlen(opt[optind])) {
+	char *current  = opt[optind++];
+	char *saveptr;
+	char *s1 = NULL, *s2 = NULL;
+	s1 = strtok_r(current, "=", &saveptr);
+	if (s1) {
+	    s2 = strtok_r(NULL, "=", &saveptr);
+	    if (s1 && strlen(s1)) {
+
+		if (s2 && strlen(s2)) {
+		    // args of the form key=value
+		    if (!strcmp(s1, "timer")) {
+			cp = s2;
+			arg1 = 	strtol(s2, &cp, 0);
+			if ((*cp != '\0') && (!isspace(*cp))) {
+			    halcmd_error("value '%s' invalid for timer=<int> (integer required)\n", s2);
+			    return -EINVAL;
+			}
+		    } else {
+			halcmd_error("unrecognized parameter '%s'\n", current);
+			return -EINVAL;
+		    }
+		} else {
+#if 0
+		    // example code for handling keyword-only arguments
+		    if (!strcmp(s1, "thiskeyword")) {
+			arg2 |= RCOMP_THISFLAG;
+		    } else if (!strcmp(s1, "thatflag")) {
+			arg2 |= RCOMP_THATFLAG;
+		    } else {
+#endif
+			// try to convert from integer
+			arg2 = 	strtol(s1, &cp, 0);
+			if ((*cp != '\0') && (!isspace(*cp))) {
+			    halcmd_error("not a keyword and integer value '%s' invalid\n",
+					 s1);
+			    return -EINVAL;
+			}
+#if 0
+		    }
+#endif
+		}
+	    }
+	}
+    }
+    int comp_id = hal_init_mode(comp, type, arg1, arg2);
 
     if (comp_id < 1) {
 	halcmd_error("newcomp: cant create component '%s' type %d: %s\n",
