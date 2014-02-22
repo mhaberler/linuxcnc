@@ -191,7 +191,8 @@ private:
 public:
     itemmap *items;
     HalComponent(hal_comp_t *c);
-    HalComponent(char *name, int type =  TYPE_USER, char *prefix = NULL);
+    HalComponent(char *name, int type =  TYPE_USER,
+		 char *prefix = NULL, int arg1 = 0, int arg2 = 0);
     ~HalComponent();
     void newpin(const char *name, int type, int dir);
     void newparam(const char *name, int type, int dir);
@@ -209,6 +210,8 @@ public:
     int  get_type();
     int get_state();
     int get_pid();
+    int get_arg1();
+    int get_arg2();
     int get_last_bound();
     int get_last_unbound();
     int get_last_update();
@@ -476,10 +479,10 @@ HalComponent::HalComponent(hal_comp_t *c) : comp(c),ccomp(NULL),prefix(NULL) {
     }
 }
 
-HalComponent::HalComponent(char *name, int type, char *prefix) :
+HalComponent::HalComponent(char *name, int type, char *prefix, int arg1, int arg2) :
     ccomp(NULL), prefix(prefix)  {
     items = new itemmap();
-    int comp_id = hal_init_mode(name, type);
+    int comp_id = hal_init_mode(name, type, arg1, arg2);
     if (comp_id < 0) {
 	PyErr_Format(PyExc_RuntimeError,
 		     "hal_init(%s, %d) failed: %s",
@@ -679,6 +682,8 @@ bp::list HalComponent::changed_pins() {
 const char *HalComponent::get_name() { return comp->name; }
 int HalComponent::get_state()        { return comp->state; }
 int HalComponent::get_pid()          { return comp->pid; }
+int HalComponent::get_arg1()          { return comp->userarg1; }
+int HalComponent::get_arg2()          { return comp->userarg2; }
 int HalComponent::get_last_bound()   { return comp->last_bound; }
 int HalComponent::get_last_unbound() { return comp->last_unbound; }
 int HalComponent::get_last_update()  { return comp->last_update; }
@@ -1169,9 +1174,11 @@ BOOST_PYTHON_MODULE(halext) {
 	.def("next", &RingIter::next);
 	;
 
-    class_<HalComponent>("HalComponent", init<char *, optional<int, char *> >())
+	class_<HalComponent>("HalComponent", init<char *, optional<int, char *, int, int> >())
 	.add_property("state", &HalComponent::get_state)
 	.add_property("pid", &HalComponent::get_pid)
+	.add_property("arg1", &HalComponent::get_arg1)
+	.add_property("arg2", &HalComponent::get_arg2)
 	.add_property("name", &HalComponent::get_name)
 	.add_property("id", &HalComponent::get_id)
 	.add_property("type", &HalComponent::get_type)

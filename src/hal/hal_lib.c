@@ -184,7 +184,7 @@ static void thread_task(void *arg);
 /***********************************************************************
 *                  PUBLIC (API) FUNCTION CODE                          *
 ************************************************************************/
-int hal_init_mode(const char *name, int type)
+int hal_init_mode(const char *name, int type, int userarg1, int userarg2)
 {
     int comp_id;
     char rtapi_name[RTAPI_NAME_LEN + 1];
@@ -204,8 +204,9 @@ int hal_init_mode(const char *name, int type)
     }
     // rtapi initialisation already done
     // since this happens through the constructor
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL: initializing component '%s'\n",
-		    name);
+    rtapi_print_msg(RTAPI_MSG_DBG,
+		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x\n",
+		    name, type, userarg1, userarg2, userarg2);
     /* copy name to local vars, truncating if needed */
     rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", name);
     rtapi_snprintf(hal_name, sizeof(hal_name), "%s", name);
@@ -245,7 +246,8 @@ int hal_init_mode(const char *name, int type)
 	}
 
 	/* initialize the comp structure */
-
+	comp->userarg1 = userarg1;
+	comp->userarg2 = userarg2;
 	comp->comp_id = comp_id;
 	comp->type = type;
 #ifdef RTAPI

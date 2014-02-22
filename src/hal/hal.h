@@ -176,8 +176,8 @@ RTAPI_BEGIN_DECLS
  * hal_ready() will transition the state to COMP_READY
  *
  * hal_init(comp) is a way of specifying:
- *   hal_init_mode(comp, TYPE_RT) (RTAPI)
- *   hal_init_mode(comp, TYPE_USER) (ULAPI)
+ *   hal_init_mode(comp, TYPE_RT, 0, 0) (RTAPI)
+ *   hal_init_mode(comp, TYPE_USER, 0, 0) (ULAPI)
  * to assure backwards compatibility.
  *
  * hal_bind() and hal_unbind() are undefined for MODE_LOCAL
@@ -185,7 +185,7 @@ RTAPI_BEGIN_DECLS
  *
  * a remote component differs as follows:
  *
- * hal_init_mode(comp, TYPE_REMOTE) sets state to COMP_INITIALIZING
+ * hal_init_mode(comp, TYPE_REMOTE,..) sets state to COMP_INITIALIZING
  * hal_ready() will transition the state to COMP_UNBOUND
  * hal_bind(comp)   will transition state to  COMP_BOUND
  * hal_unbind(comp) will transition state back to COMP_UNBOUND
@@ -220,14 +220,14 @@ enum comp_state {
     COMP_READY
 };
 
-extern int hal_init_mode(const char *name, int mode);
+extern int hal_init_mode(const char *name, int mode, int userarg1, int userarg2);
 
 // backwards compatibility:
 static inline int hal_init(const char *name) {
 #ifdef RTAPI
-    return hal_init_mode(name, TYPE_RT);
+    return hal_init_mode(name, TYPE_RT, 0, 0);
 #else
-    return hal_init_mode(name, TYPE_USER);
+    return hal_init_mode(name, TYPE_USER, 0, 0);
 #endif
 }
 

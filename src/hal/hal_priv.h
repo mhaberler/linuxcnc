@@ -258,6 +258,8 @@ typedef struct {
     char name[HAL_NAME_LEN + 1];     /* component name */
     constructor make;
     int insmod_args;		/* args passed to insmod when loaded */
+    int userarg1;	        /* interpreted by using layer */
+    int userarg2;	        /* interpreted by using layer */
 } hal_comp_t;
 
 /** HAL 'pin' data structure.
