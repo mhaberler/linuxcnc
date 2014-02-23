@@ -111,7 +111,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
 		self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
 		zmsg_add(msg, update_frame);
-		int retval = zmsg_send (&msg, self->z_status);
+		int retval = zmsg_send (&msg, self->z_group_status);
 		assert(retval == 0);
 		assert(msg == NULL);
 		self->tx.Clear();
@@ -286,7 +286,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
 	self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
 	zmsg_add(msg, update_frame);
-	retval = zmsg_send (&msg, self->z_status);
+	retval = zmsg_send (&msg, self->z_group_status);
 	assert(retval == 0);
 	assert(msg == NULL);
 	grp->flags &= ~GROUP_REPORT_FULL;

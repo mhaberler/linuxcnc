@@ -39,7 +39,7 @@ service_discovery_start(htself_t *self)
 		    HAL_GROUP_STATUS_VERSION, // version
 		    NULL, // ip
 		    0, // port
-		    self->z_status_dsn, // uri
+		    self->z_group_status_dsn, // uri
 		    (int) pb::SA_ZMQ_PROTOBUF, // api
 		    "HAL group STP");  // descr
     assert(retval == 0);

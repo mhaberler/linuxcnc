@@ -124,8 +124,8 @@ typedef struct htself {
     zloop_t *z_loop;
 
     groupmap_t groups;
-    void *z_status;
-    const char *z_status_dsn;
+    void *z_group_status;
+    const char *z_group_status_dsn;
 
     spub_t *sd_publisher;
 
@@ -153,3 +153,6 @@ int handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg);
 // haltalk_sdiscover.cc:
 int service_discovery_start(htself_t *self);
 int service_discovery_stop(htself_t *self);
+
+// haltalk_command.cc:
+int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);

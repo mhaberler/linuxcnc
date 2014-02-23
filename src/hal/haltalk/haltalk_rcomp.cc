@@ -355,6 +355,7 @@ handle_rcomp_command(htself_t *self, zmsg_t *msg)
 			self->cfg->progname, cname, s);
 	free(s);
 	free(cname);
+	zframe_destroy(&f);
 	return -1;
     }
     switch (self->rx.type()) {

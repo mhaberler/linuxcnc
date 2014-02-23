@@ -77,24 +77,25 @@ handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     return -1; // exit reactor with -1
 }
 
-
-
 static int
 mainloop( htself_t *self)
 {
     int retval;
 
     zmq_pollitem_t signal_poller = { 0, self->signal_fd, ZMQ_POLLIN };
-    zmq_pollitem_t stp_poller =    { self->z_status, 0, ZMQ_POLLIN };
+    zmq_pollitem_t group_poller =  { self->z_group_status, 0, ZMQ_POLLIN };
     zmq_pollitem_t rcomp_poller =  { self->z_rcomp_status, 0, ZMQ_POLLIN };
+    zmq_pollitem_t cmd_poller   =  { self->z_command,      0, ZMQ_POLLIN };
 
     self->z_loop = zloop_new();
     assert (self->z_loop);
 
     zloop_set_verbose (self->z_loop, self->cfg->debug);
+
     zloop_poller(self->z_loop, &signal_poller, handle_signal, self);
-    zloop_poller(self->z_loop, &stp_poller, handle_group_input, self);
-    zloop_poller(self->z_loop, &rcomp_poller, handle_rcomp_input, self);
+    zloop_poller(self->z_loop, &group_poller,  handle_group_input, self);
+    zloop_poller(self->z_loop, &rcomp_poller,  handle_rcomp_input, self);
+    zloop_poller(self->z_loop, &cmd_poller,    handle_command_input, self);
 
     do {
 	retval = zloop_start(self->z_loop);
@@ -146,16 +147,16 @@ zmq_init(htself_t *self)
     self->z_context = zctx_new ();
     assert(self->z_context);
 
-    self->z_status = zsocket_new (self->z_context, ZMQ_XPUB);
-    assert(self->z_status);
-    zsocket_set_linger (self->z_status, 0);
-    zsocket_set_xpub_verbose (self->z_status, 1);
-    int rc = zsocket_bind(self->z_status, self->cfg->group_status);
+    self->z_group_status = zsocket_new (self->z_context, ZMQ_XPUB);
+    assert(self->z_group_status);
+    zsocket_set_linger (self->z_group_status, 0);
+    zsocket_set_xpub_verbose (self->z_group_status, 1);
+    int rc = zsocket_bind(self->z_group_status, self->cfg->group_status);
     assert (rc != 0);
-    self->z_status_dsn = zsocket_last_endpoint (self->z_status);
+    self->z_group_status_dsn = zsocket_last_endpoint (self->z_group_status);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking STP on '%s'",
-		    conf.progname, self->z_status_dsn);
+		    conf.progname, self->z_group_status_dsn);
 
     self->z_rcomp_status = zsocket_new (self->z_context, ZMQ_XPUB);
     assert(self->z_rcomp_status);
@@ -181,17 +182,9 @@ zmq_init(htself_t *self)
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALComannd on '%s'",
 		    conf.progname, self->z_command_dsn);
 
-
-
-
-
     usleep(200 *1000); // avoid slow joiner syndrome
-
     return 0;
 }
-
-
-
 
 static int
 hal_setup(htself_t *self)
