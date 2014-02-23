@@ -16,9 +16,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-// haltalk reports the status of HAL signals aggregated into
-// HAL groups.
-// The status and changes are reported via the Status Tracking protocol.
+// haltalk:
+//   1. reports the status of HAL signals aggregated into
+//      HAL groups via the Status Tracking protocol.
+//
+//   2. implements the HALRcomp protocol for remote HAL components.
 
 #include "config.h"
 
@@ -31,6 +33,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <uuid/uuid.h>
+#include <czmq.h>
 
 #include <string>
 #include <unordered_map>
@@ -48,7 +51,6 @@
 #include <sdpublish.h>  // for UDP service discovery
 #include <redirect_log.h>
 
-#include <czmq.h>
 
 #include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
@@ -995,13 +997,16 @@ read_config(htconf_t *conf)
 		conf->progname, conf->inifile);
 	return -1;
     }
-    if ((s = iniFind(inifp, "STATUS", conf->section)))
+    if ((s = iniFind(inifp, "GROUP_STATUS_URI", conf->section)))
 	conf->status = strdup(s);
+    if ((s = iniFind(inifp, "RCOMP_STATUS_URI", conf->section)))
+	conf->rcomp_status = strdup(s);
+
+    iniFindInt(inifp, "GROUPTIMER", conf->section, &conf->default_group_timer);
+    iniFindInt(inifp, "RCOMPTIMER", conf->section, &conf->default_rcomp_timer);
     iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
     iniFindInt(inifp, "SDDEBUG", conf->section, &conf->sddebug);
     iniFindInt(inifp, "SDPORT", conf->section, &conf->sd_port);
-    iniFindInt(inifp, "GROUPTIMER", conf->section, &conf->default_group_timer);
-    iniFindInt(inifp, "RCOMPTIMER", conf->section, &conf->default_rcomp_timer);
     fclose(inifp);
     return 0;
 }
