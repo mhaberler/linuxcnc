@@ -3572,9 +3572,6 @@ int hal_rtapi_attach()
 	    rtapi_exit(lib_module_id);
 	    return -EINVAL;
 	}
-
-	rtapi_print_msg(RTAPI_MSG_DBG,
-		"HAL: hal_rtapi_attach(): HAL shm segment attached\n");
     }
     return 0;
 }
@@ -3591,9 +3588,6 @@ int hal_rtapi_detach()
 	lib_module_id = -1;
 	hal_shmem_base = NULL;
 	hal_data = NULL;
-
-	rtapi_print_msg(RTAPI_MSG_DBG,
-			"HAL: hal_rtapi_detach(): HAL shm segment detached\n");
     }
     return 0;
 }
