@@ -199,6 +199,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	// a full status snapshot, not just a change tracking update
 	if (grp->flags & GROUP_REPORT_FULL) {
 	    self->tx.set_type(pb::MT_STP_UPDATE_FULL);
+	    // enable clients to detect a restart
 	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
 	} else
 	    self->tx.set_type(pb::MT_STP_UPDATE);
@@ -300,6 +301,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	// a full status snapshot, not just a change tracking update
 	if (rc->flags & RCOMP_REPORT_FULL) {
 	    self->tx.set_type(pb::MT_HALRCOMP_STATUS);
+	    // enable clients to detect a restart
 	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
 	} else
 	    self->tx.set_type(pb::MT_HALRCOMP_PIN_CHANGE);
@@ -1037,7 +1039,7 @@ usage(void)
 
 int main (int argc, char *argv[])
 {
-    int opt;
+    int opt, retval;
 
     conf.progname = argv[0];
     conf.inifile = getenv("INI_FILE_NAME");
@@ -1087,11 +1089,16 @@ int main (int argc, char *argv[])
     self.cfg = &conf;
     uuid_generate_time(self.instance_uuid);
 
-    if (!(hal_setup(&self) ||
-	  zmq_init(&self) ||
-	  service_discovery_init(&self))) {
-	mainloop(&self);
-    }
+    retval = hal_setup(&self);
+    if (retval) exit(retval);
+
+    retval = zmq_init(&self);
+    if (retval) exit(retval);
+
+    retval = service_discovery_init(&self);
+    if (retval) exit(retval);
+
+    mainloop(&self);
 
     // stop  the service announcement responder
     sp_destroy(&self.sd_publisher);
