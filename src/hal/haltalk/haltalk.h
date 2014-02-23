@@ -41,8 +41,8 @@
 #include <hal_priv.h>
 #include <hal_group.h>
 #include <hal_rcomp.h>
+#include <sdpublish.h>
 #include <inifile.h>
-#include <sdpublish.h>  // for UDP service discovery
 #include <redirect_log.h>
 
 
@@ -50,8 +50,9 @@
 using namespace google::protobuf;
 
 // announced protocol versions
-#define STP_VERSION 1
-#define HAL_RCOMP_VERSION 1
+#define HAL_GROUP_STATUS_VERSION 1
+#define HAL_RCOMP_STATUS_VERSION 1
+#define HAL_RCOMMAND_VERSION     1
 
 #if JSON_TIMING
 #include <middleware/json2pb/json2pb.h>
@@ -97,8 +98,10 @@ typedef struct htconf {
     const char *inifile;
     const char *section;
     const char *modname;
-    const char *status;
+    const char *group_status;
     const char *rcomp_status;
+    const char *command;
+
     int debug;
     int sddebug;
     int default_group_timer; // msec
@@ -110,19 +113,43 @@ typedef struct htself {
     htconf_t *cfg;
     uuid_t instance_uuid;
     int comp_id;
-    groupmap_t groups;
-    zctx_t *z_context;
-    void *z_status;
-    const char *z_status_dsn;
     int signal_fd;
-    zloop_t *z_loop;
-    pb::Container rx; // any ParseFrom.. function does a Clear() first
-    pb::Container tx; // tx must be Clear()'d after or before use
-    spub_t *sd_publisher;
     bool interrupted;
     pid_t pid;
+
+    pb::Container rx; // any ParseFrom.. function does a Clear() first
+    pb::Container tx; // tx must be Clear()'d after or before use
+
+    zctx_t *z_context;
+    zloop_t *z_loop;
+
+    groupmap_t groups;
+    void *z_status;
+    const char *z_status_dsn;
+
+    spub_t *sd_publisher;
 
     void *z_rcomp_status;
     const char *z_rcomp_status_dsn;
     compmap_t rcomps;
+
+    void *z_command;
+    const char *z_command_dsn;
 } htself_t;
+
+
+// haltalk_group.cc:
+int scan_groups(htself_t *self);
+int release_groups(htself_t *self);
+int handle_group_timer(zloop_t *loop, int timer_id, void *arg);
+int handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+
+// haltalk_rcomp.cc:
+int scan_comps(htself_t *self);
+int release_comps(htself_t *self);
+int handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg);
+
+// haltalk_sdiscover.cc:
+int service_discovery_start(htself_t *self);
+int service_discovery_stop(htself_t *self);
