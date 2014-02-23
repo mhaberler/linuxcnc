@@ -660,6 +660,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;
+	new->handle = rtapi_next_handle();
 	memset(&new->dummysig, 0, sizeof(hal_data_u));
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* make 'data_ptr' point to dummy signal */
@@ -912,6 +913,7 @@ int hal_signal_new(const char *name, hal_type_t type)
 	new->readers = 0;
 	new->writers = 0;
 	new->bidirs = 0;
+	new->handle = rtapi_next_handle();
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* search list for 'name' and insert new structure */
 	prev = &(hal_data->sig_list_ptr);

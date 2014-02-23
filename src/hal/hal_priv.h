@@ -274,11 +274,12 @@ typedef struct {
     int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_pin_dir_t dir;		/* pin direction */
-    char name[HAL_NAME_LEN + 1];	/* pin name */
+    int handle;                 // unique ID
 #ifdef USE_PIN_USER_ATTRIBUTES
-    double epsilon;
     int flags;
+    double epsilon;
 #endif
+    char name[HAL_NAME_LEN + 1];	/* pin name */
 } hal_pin_t;
 
 /** HAL 'signal' data structure.
@@ -291,6 +292,7 @@ typedef struct {
     int readers;		/* number of input pins linked */
     int writers;		/* number of output pins linked */
     int bidirs;			/* number of I/O pins linked */
+    int handle;                // unique ID
     char name[HAL_NAME_LEN + 1];	/* signal name */
 } hal_sig_t;
 
