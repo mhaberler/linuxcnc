@@ -77,6 +77,8 @@ typedef struct {
     int serial; // must be unique per active group
     unsigned flags;
     htself_t *self;
+    int timer_id; // > -1: scan timer active - subscribers present
+    int msec;
 } group_t;
 
 typedef struct {
@@ -84,6 +86,8 @@ typedef struct {
     int serial; // must be unique per active group
     unsigned flags;
     htself_t *self;
+    int timer_id;
+    int msec;
 } rcomp_t;
 
 typedef std::unordered_map<std::string, group_t *> groupmap_t;
@@ -457,11 +461,20 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		assert(retval == 0);
 		self->tx.Clear();
 	    } else {
-		// found, schedule a full update
+		// compiled component found, schedule a full update
 		rcomp_t *g = self->rcomps[topic];
-		hal_compiled_comp_t *cc = g->cc;
 		g->flags |= RCOMP_REPORT_FULL;
-		if (cc->comp->state == COMP_UNBOUND) {
+
+		// first subscriber - activate scanning
+		if (g->timer_id < 0) { // not scanning
+		    g->timer_id = zloop_timer(self->z_loop, g->msec,
+					      0, handle_rcomp_timer, (void *)g);
+		    assert(g->timer_id > -1);
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: comp %s scanning, tid=%d %d mS",
+				    self->cfg->progname, topic, g->timer_id, g->msec);
+		}
+
+		if (g->cc->comp->state == COMP_UNBOUND) {
 		    // once only by first subscriber
 		    hal_bind(topic);
 		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s bound, serial=%d",
@@ -475,6 +488,16 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	case '\000':
 	    // last subscriber went away - unbind the component
 	    if (self->rcomps.count(topic) > 0) {
+		rcomp_t *g = self->rcomps[topic];
+
+		// stop the scanning timer
+		if (g->timer_id > -1) {  // currently scanning
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: comp %s stop scanning, tid=%d",
+				    self->cfg->progname, topic, g->timer_id);
+		    retval = zloop_timer_end (self->z_loop, g->timer_id);
+		    assert(retval == 0);
+		    g->timer_id = -1;
+		}
 		hal_unbind(topic);
 		rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s unbound",
 				self->cfg->progname, topic);
@@ -513,10 +536,10 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	zframe_destroy(&f_subscribe);
 	return 0;
     }
-    // bool subscribe = (*s == '\001');
     const char *topic = s+1;
 
-    if (s && *s) { // non-zero: subscribe event
+    switch (*s) {
+    case '\001':   // non-zero: subscribe event
 	if (strlen(topic) == 0) {
 	    // this was a subscribe("") - all topics
 	    // mark all groups as requiring a full report on next poll
@@ -525,6 +548,15 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		group_t *g = gi->second;
 		g->flags |= GROUP_REPORT_FULL;
+
+		// if first subscriber: activate scanning
+		if (g->timer_id < 0) { // not scanning
+		    g->timer_id = zloop_timer(self->z_loop, g->msec,
+					      0, handle_group_timer, (void *)g);
+		    assert(g->timer_id > -1);
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: group %s scanning, tid=%d %d mS",
+				    self->cfg->progname, topic, g->timer_id, g->msec);
+		}
 		rtapi_print_msg(RTAPI_MSG_DBG, "%s: wildcard subscribe group='%s' serial=%d",
 				self->cfg->progname,
 				gi->first.c_str(), gi->second->serial);
@@ -538,6 +570,15 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		rtapi_print_msg(RTAPI_MSG_DBG, "%s: subscribe group='%s' serial=%d",
 				self->cfg->progname,
 				gi->first.c_str(), gi->second->serial);
+
+		// if first subscriber: activate scanning
+		if (g->timer_id < 0) { // not scanning
+		    g->timer_id = zloop_timer(self->z_loop, g->msec,
+					      0, handle_group_timer, (void *)g);
+		    assert(g->timer_id > -1);
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: group %s scanning, tid=%d %d mS",
+				    self->cfg->progname, topic, g->timer_id, g->msec);
+		}
 	    } else {
 		// non-existant topic, complain.
 		std::string note = "no such group: " + std::string(topic)
@@ -564,6 +605,24 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		self->tx.Clear();
 	    }
 	}
+	break;
+
+    case '\000':   // last unsubscribe
+	if (self->groups.count(topic) > 0) {
+	    group_t *g = self->groups[topic];
+	    // stop the scanning timer
+	    if (g->timer_id > -1) {  // currently scanning
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s: group %s stop scanning, tid=%d",
+				self->cfg->progname, topic, g->timer_id);
+		int retval = zloop_timer_end (self->z_loop, g->timer_id);
+		assert(retval == 0);
+		g->timer_id = -1;
+	    }
+	}
+	break;
+
+    default:
+	break;
     }
     zframe_destroy(&f_subscribe);
     return 0;
@@ -631,13 +690,13 @@ prepare_comps(htself_t *self)
 	rc->self = self;
 	rc->cc = cc;
 	rc->serial = 0;
+	rc->msec = msec;
+	rc->timer_id = -1; // invalid
 
-	self->rcomps[name] = rc;
+	self->rcomps[name] = rc; // all prepared, timer not yet started
 
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: component '%s' - using %d mS poll interval",
 			self->cfg->progname, name, msec);
-
-	zloop_timer(self->z_loop, msec, 0, handle_rcomp_timer, (void *)rc);
     }
     return nfail;
 }
@@ -653,10 +712,13 @@ prepare_groups(htself_t *self)
 	if (msec == 0)
 	    msec = self->cfg->default_group_timer;
 
+	grp->msec = msec;
+	grp->timer_id = -1; // not yet scanning
+
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: group '%s' - using %d mS poll interval",
 			self->cfg->progname, g->first.c_str(), msec);
 
-	zloop_timer(self->z_loop, msec, 0, handle_group_timer, (void *)grp);
+	//	zloop_timer(self->z_loop, msec, 0, handle_group_timer, (void *)grp);
     }
     return 0;
 }
