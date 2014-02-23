@@ -30,6 +30,7 @@
 #include <sys/signalfd.h>
 #include <errno.h>
 #include <getopt.h>
+#include <uuid/uuid.h>
 
 #include <string>
 #include <unordered_map>
@@ -135,6 +136,7 @@ static htconf_t conf = {
 
 typedef struct htself {
     htconf_t *cfg;
+    uuid_t instance_uuid;
     int comp_id;
     groupmap_t groups;
     zctx_t *z_context;
@@ -142,7 +144,8 @@ typedef struct htself {
     const char *z_status_dsn;
     int signal_fd;
     zloop_t *z_loop;
-    pb::Container update;
+    pb::Container rx; // any ParseFrom.. function does a Clear() first
+    pb::Container tx; // tx must be Clear()'d after or before use
     spub_t *sd_publisher;
     bool interrupted;
 
@@ -188,20 +191,21 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
     case REPORT_BEGIN:	// report initialisation
 	// this enables a new subscriber to easily detect she's receiving
 	// a full status snapshot, not just a change tracking update
-	if (grp->flags & GROUP_REPORT_FULL)
-	    self->update.set_type(pb::MT_STP_UPDATE_FULL);
-	else
-	    self->update.set_type(pb::MT_STP_UPDATE);
+	if (grp->flags & GROUP_REPORT_FULL) {
+	    self->tx.set_type(pb::MT_STP_UPDATE_FULL);
+	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+	} else
+	    self->tx.set_type(pb::MT_STP_UPDATE);
 
 	// the serial enables detection of lost updates
 	// for a client to recover from a lost update:
 	// unsubscribe + re-subscribe which will cause
 	// a full state dump to be sent
-	self->update.set_serial(grp->serial++);
+	self->tx.set_serial(grp->serial++);
 	break;
 
     case REPORT_SIGNAL: // per-reported-signal action
-	signal = self->update.add_signal();
+	signal = self->tx.add_signal();
 	vp = (hal_data_u *) SHMPTR(sig->data_ptr);
 	switch (sig->type) {
 	default:
@@ -229,8 +233,8 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
     case REPORT_END: // finalize & send
 	msg = zmsg_new();
 	zmsg_pushstr(msg, cgroup->group->name);
-	zframe_t *update_frame = zframe_new(NULL, self->update.ByteSize());
-	self->update.SerializeWithCachedSizesToArray(zframe_data(update_frame));
+	zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
+	self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
 	zmsg_add(msg, update_frame);
 	retval = zmsg_send (&msg, self->z_status);
 	assert(retval == 0);
@@ -240,7 +244,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 #if JSON_TIMING
 	// timing test:
 	try {
-	    std::string json = pb2json(self->update);
+	    std::string json = pb2json(self->tx);
 	    zframe_t *z_jsonframe = zframe_new( json.c_str(), json.size());
 	    //assert(zframe_send(&z_jsonframe, self->z_status, 0) == 0);
 	    zframe_destroy(&z_jsonframe);
@@ -253,7 +257,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	}
 #endif // JSON_TIMING
 
-	self->update.Clear();
+	self->tx.Clear();
 	break;
     }
     return 0;
@@ -288,16 +292,17 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     case REPORT_BEGIN:	// report initialisation
 	// this enables a new subscriber to easily detect she's receiving
 	// a full status snapshot, not just a change tracking update
-	if (rc->flags & RCOMP_REPORT_FULL)
-	    self->update.set_type(pb::MT_HALRCOMP_STATUS);
-	else
-	    self->update.set_type(pb::MT_HALRCOMP_PIN_CHANGE);
+	if (rc->flags & RCOMP_REPORT_FULL) {
+	    self->tx.set_type(pb::MT_HALRCOMP_STATUS);
+	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+	} else
+	    self->tx.set_type(pb::MT_HALRCOMP_PIN_CHANGE);
 
-	self->update.set_serial(rc->serial++);
+	self->tx.set_serial(rc->serial++);
 	break;
 
     case REPORT_PIN: // per-reported-pin action
-	p = self->update.add_pin();
+	p = self->tx.add_pin();
 	switch (pin->type) {
 	default:
 	    assert("invalid signal type" == NULL);
@@ -324,14 +329,14 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     case REPORT_END: // finalize & send
 	msg = zmsg_new();
 	zmsg_pushstr(msg, cc->comp->name);
-	zframe_t *update_frame = zframe_new(NULL, self->update.ByteSize());
-	self->update.SerializeWithCachedSizesToArray(zframe_data(update_frame));
+	zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
+	self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
 	zmsg_add(msg, update_frame);
 	retval = zmsg_send (&msg, self->z_rcomp_status);
 	assert(retval == 0);
 	assert(msg == NULL);
 	rc->flags &= ~GROUP_REPORT_FULL;
-	self->update.Clear();
+	self->tx.Clear();
 	break;
     }
     return 0;
@@ -350,6 +355,74 @@ handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg)
 }
 
 static int
+handle_rcomp_command(htself_t *self, zmsg_t *msg)
+{
+    int retval;
+    zframe_t *reply_frame;
+    size_t nframes = zmsg_size(msg);
+
+    if (nframes != 2)
+	return -1;
+    char *cname = zmsg_popstr(msg);
+    zframe_t *f = zmsg_pop(msg);
+
+    if (!self->rx.ParseFromArray(zframe_data(f), zframe_size(f))) {
+	char *s = zframe_strhex(f);
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rcomp %s command: cant parse %s",
+			self->cfg->progname, cname, s);
+	free(s);
+	free(cname);
+	return -1;
+    }
+    switch (self->rx.type()) {
+
+    case pb::MT_PING:
+	self->tx.set_type(pb::MT_PING_ACKNOWLEDGE);
+	reply_frame = zframe_new(NULL, self->tx.ByteSize());
+	self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
+	zstr_sendm (self->z_rcomp_status, cname);
+	retval = zframe_send (&reply_frame, self->z_rcomp_status, 0);
+	assert(retval == 0);
+	self->tx.Clear();
+	break;
+
+    case pb::MT_HALRCOMP_BIND:
+
+	// if (comp exists in rcomp dict) {
+	//     if (!validate()) {
+	// 	send  MT_HALRCOMP_BIND_REJECT;
+	//     } else
+	// 	send  MT_HALRCOMP_BIND_CONFIRM;
+	// } else {
+	//     create comp as per pinlist;
+	//     ready the comp;
+	//     compile it;
+	//     add to self->rcomps[name];
+	//     register timer in loop;
+	// }
+	break;
+
+    case pb::MT_HALRCOMP_SET_PINS:
+	// forall (pins) {
+	//     lookup pin in handle2pin dict;
+	//     set value;
+	//     on failure {
+	// 	send  MT_HALRCOMP_SET_PINS_REJECT;
+	//     }
+	// }
+	// extension: reply if rsvp is set
+	break;
+
+    default:
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rcomp %s command: unhandled type %d",
+			self->cfg->progname, cname, (int) self->rx.type());
+    }
+    zframe_destroy(&f);
+    free(cname);
+    return 0;
+}
+
+static int
 handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
     htself_t *self = (htself_t *) arg;
@@ -357,14 +430,10 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     zmsg_t *msg = zmsg_recv(poller->socket);
     size_t nframes = zmsg_size( msg);
 
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  received size %d\n",
-				    self->cfg->progname, nframes);
-    // zmsg_dump(msg);
-
     if (nframes == 1) {
 	// likely a subscribe/unsubscribe message
-	zframe_t *f = zmsg_pop(msg);
+
+	zframe_t *f = zmsg_first(msg); // leaves message intact
 	char *data = (char *) zframe_data(f);
 	assert(data);
 	char *topic = data + 1;
@@ -372,21 +441,21 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	switch (*data) {
 
 	case '\001':
-	    if (self->rcomps.find(topic) == self->rcomps.end()) {
+	    if (self->rcomps.count(topic) == 0) {
 		rtapi_print_msg(RTAPI_MSG_ERR, "%s: subscribe - no comp '%s'",
 				    self->cfg->progname, topic);
 
 		// not found, publish an error message on this topic
-		self->update.set_type(pb::MT_HALRCOMP_SUBSCRIBE_ERROR);
+		self->tx.set_type(pb::MT_HALRCOMP_SUBSCRIBE_ERROR);
 		std::string error = "component " + std::string(topic) + " does not exist";
-		self->update.set_note(error);
-		zframe_t *reply_frame = zframe_new(NULL, self->update.ByteSize());
-		self->update.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
+		self->tx.set_note(error);
+		zframe_t *reply_frame = zframe_new(NULL, self->tx.ByteSize());
+		self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
 
 		zstr_sendm (self->z_rcomp_status, topic);
 		retval = zframe_send (&reply_frame, self->z_rcomp_status, 0);
 		assert(retval == 0);
-		self->update.Clear();
+		self->tx.Clear();
 	    } else {
 		// found, schedule a full update
 		rcomp_t *g = self->rcomps[topic];
@@ -395,31 +464,32 @@ handle_rcomp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		if (cc->comp->state == COMP_UNBOUND) {
 		    // once only by first subscriber
 		    hal_bind(topic);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s bound, serial=%d",
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s bound, serial=%d",
 				    self->cfg->progname, topic, g->serial);
 		} else
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s subscribed, serial=%d",
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s subscribed, serial=%d",
 				    self->cfg->progname, topic, g->serial);
 	    }
 	    break;
 
 	case '\000':
 	    // last subscriber went away - unbind the component
-	    if (self->rcomps.find(topic) != self->rcomps.end()) {
+	    if (self->rcomps.count(topic) > 0) {
 		hal_unbind(topic);
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s:  %s unbound",
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s unbound",
 				self->cfg->progname, topic);
 	    }
 	    break;
 
 	default:
-	    rtapi_print_msg(RTAPI_MSG_ERR, "%s:  invalid frame (tag=%d topic=%s)",
-			    self->cfg->progname, *data, topic);
+	    handle_rcomp_command(self, msg);
+	    zmsg_destroy(&msg);
 	}
-	zframe_destroy(&f);
 	return 0;
+    } else {
+	handle_rcomp_command(self, msg);
+	zmsg_destroy(&msg);
     }
-
     return 0;
 }
 
@@ -455,7 +525,7 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		group_t *g = gi->second;
 		g->flags |= GROUP_REPORT_FULL;
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s: wildcard subscribe topic='%s' serial=%d",
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s: wildcard subscribe group='%s' serial=%d",
 				self->cfg->progname,
 				gi->first.c_str(), gi->second->serial);
 	    }
@@ -465,7 +535,7 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    if (gi != self->groups.end()) {
 		group_t *g = gi->second;
 		g->flags |= GROUP_REPORT_FULL;
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s: subscribe topic='%s' serial=%d",
+		rtapi_print_msg(RTAPI_MSG_DBG, "%s: subscribe group='%s' serial=%d",
 				self->cfg->progname,
 				gi->first.c_str(), gi->second->serial);
 	    } else {
@@ -481,17 +551,17 @@ handle_stp(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 				"%s: subscribe error: %s\n",
 				self->cfg->progname, note.c_str());
 
-		self->update.set_type(pb::MT_STP_NOGROUP);
-		self->update.set_note(note);
+		self->tx.set_type(pb::MT_STP_NOGROUP);
+		self->tx.set_note(note);
 		zmsg_t *msg = zmsg_new();
 		zmsg_pushstr(msg, topic);
-		zframe_t *update_frame = zframe_new(NULL, self->update.ByteSize());
-		self->update.SerializeWithCachedSizesToArray(zframe_data(update_frame));
+		zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
+		self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
 		zmsg_add(msg, update_frame);
 		int retval = zmsg_send (&msg, self->z_status);
 		assert(retval == 0);
 		assert(msg == NULL);
-		self->update.Clear();
+		self->tx.Clear();
 	    }
 	}
     }
@@ -767,13 +837,17 @@ hal_setup(htself_t *self)
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
 
+    char buf[40];
+    uuid_unparse(self->instance_uuid, buf);
+
     rtapi_print_msg(RTAPI_MSG_DBG,
-		    "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d\n",
+		    "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d uuid=%s\n",
 		    conf.progname, major, minor, patch,
 		    CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
 		    GOOGLE_PROTOBUF_VERSION / 1000000,
 		    (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
-		    GOOGLE_PROTOBUF_VERSION % 1000);
+		    GOOGLE_PROTOBUF_VERSION % 1000,
+		    buf);
 
     {   // scoped lock
 	int retval __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -943,6 +1017,7 @@ int main (int argc, char *argv[])
 
     htself_t self = {0};
     self.cfg = &conf;
+    uuid_generate_time(self.instance_uuid);
 
     if (!(hal_setup(&self) ||
 	  zmq_init(&self) ||

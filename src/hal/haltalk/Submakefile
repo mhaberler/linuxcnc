@@ -12,6 +12,7 @@ TALKER_LDFLAGS := \
 	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
 	$(JANSSON_LIBS) \
 	-lstdc++ \
+	-luuid \
 	$(PROFILE)
 
 $(call TOOBJSDEPS, $(TALKER_SRCS)) : EXTRAFLAGS += $(TALKER_CXXFLAGS)
