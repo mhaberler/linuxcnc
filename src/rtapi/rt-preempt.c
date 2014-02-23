@@ -84,7 +84,7 @@ long long int _rtapi_get_clocks_hook(void)
 #ifdef ULAPI
 
 int _rtapi_init(const char *modname) {
-    return _rtapi_next_module_id();
+    return _rtapi_next_handle();
 }
 
 int _rtapi_exit(int module_id) {

@@ -328,17 +328,11 @@ void init_global_data(global_data_t * data, int flavor,
     data->rt_msg_level = rt_level;
     data->user_msg_level = user_level;
 
-    // next value returned by rtapi_init (userland threads)
-<<<<<<< HEAD
-    // those dont use fixed sized arrays
-    // start at 1 because the meaning of zero is special
-||||||| merged common ancestors
-    // those dont use fixed sized arrays
-    // start at 1 because the meaning of zero is special
-=======
-    // those dont use fixed sized arrays
->>>>>>> rtapi/msgd: fix rebase fallout
-    data->next_module_id = 1;
+    // counter for unique handles within an RTAPI instance
+    // guaranteed not to collide with a any module ID, so start at
+    // RTAPI_MAX_MODULES + 1 (relevant for khreads)
+    // uthreads use arbitrary ints since those dont use fixed-size arrays
+    data->next_handle = RTAPI_MAX_MODULES + 1;
 
     // tell the others what we determined as the proper flavor
     data->rtapi_thread_flavor = flavor;
