@@ -11,7 +11,8 @@ typedef struct {
     int sig_member_ptr;          /* offset of hal_signal_t  */
     int group_member_ptr;        /* offset of hal_group_t (nested) */
     int userarg1;                /* interpreted by using layer */
-    double epsilon;
+    double epsilon;             // delta for float change detection
+    int handle;                 // unique ID
 } hal_member_t;
 
 typedef struct {

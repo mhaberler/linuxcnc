@@ -521,6 +521,7 @@ int hal_member_new(const char *group, const char *member,
 	/* initialize the structure */
 	new->userarg1 = arg1;
 	new->epsilon = epsilon;
+	new->handle = rtapi_next_handle();
 	if (sig) {
 	    new->sig_member_ptr =  SHMOFF(sig);
 	    new->group_member_ptr = 0;
