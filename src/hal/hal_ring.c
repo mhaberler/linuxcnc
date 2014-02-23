@@ -66,6 +66,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 	    return -ENOMEM;
 	}
 
+	rbdesc->handle = rtapi_next_handle();
 	rbdesc->flags = flags;
 	rbdesc->ring_id = ring_id;
 

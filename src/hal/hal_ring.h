@@ -20,6 +20,7 @@ typedef struct {
     int owner;                   // creating HAL module
     unsigned ring_offset;        // if created in HAL shared memory
     unsigned flags;
+    int handle;                  // unique ID
 } hal_ring_t;
 
 // some components use a fifo and a scratchpad shared memory area,

@@ -1316,6 +1316,7 @@ int hal_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, void *
 	new->data_ptr = SHMOFF(data_addr);
 	new->type = type;
 	new->dir = dir;
+	new->handle = rtapi_next_handle();
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* search list for 'name' and insert new structure */
 	prev = &(hal_data->param_list_ptr);
@@ -1643,6 +1644,7 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 	new->owner_ptr = SHMOFF(comp);
 	new->reentrant = reentrant;
 	new->users = 0;
+	new->handle = rtapi_next_handle();
 	new->arg = arg;
 	new->funct = funct;
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
@@ -1764,6 +1766,7 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
 	/* initialize the structure */
 	new->uses_fp = uses_fp;
 	new->cpu_id = cpu_id;
+	new->handle = rtapi_next_handle();
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* have to create and start a task to run the thread */
 	if (hal_data->thread_list_ptr == 0) {

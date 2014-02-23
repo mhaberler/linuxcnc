@@ -306,6 +306,7 @@ typedef struct {
     int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
+    int handle;                // unique ID
     char name[HAL_NAME_LEN + 1];	/* parameter name */
 } hal_param_t;
 
@@ -335,6 +336,7 @@ typedef struct {
     void (*funct) (void *, long);	/* ptr to function code */
     hal_s32_t runtime;		/* duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
+    int handle;                 // unique ID
     char name[HAL_NAME_LEN + 1];	/* function name */
 } hal_funct_t;
 
@@ -354,8 +356,9 @@ typedef struct {
     hal_s32_t runtime;		/* duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
     hal_list_t funct_list;	/* list of functions to run */
-    char name[HAL_NAME_LEN + 1];	/* thread name */
     int cpu_id;                 /* cpu to bind on, or -1 */
+    int handle;                 // unique ID
+    char name[HAL_NAME_LEN + 1];	/* thread name */
 } hal_thread_t;
 
 /* IMPORTANT:  If any of the structures in this file are changed, the
