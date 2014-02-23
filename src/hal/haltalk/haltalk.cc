@@ -22,81 +22,7 @@
 //
 //   2. implements the HALRcomp protocol for remote HAL components.
 
-#include "config.h"
-
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <assert.h>
-#include <sys/signalfd.h>
-#include <errno.h>
-#include <getopt.h>
-#include <uuid/uuid.h>
-#include <czmq.h>
-
-#include <string>
-#include <unordered_map>
-
-#ifndef ULAPI
-#error This is intended as a userspace component only.
-#endif
-
-#include <rtapi.h>
-#include <hal.h>
-#include <hal_priv.h>
-#include <hal_group.h>
-#include <hal_rcomp.h>
-#include <inifile.h>
-#include <sdpublish.h>  // for UDP service discovery
-#include <redirect_log.h>
-
-
-#include <middleware/generated/message.pb.h>
-using namespace google::protobuf;
-
-// announced protocol versions
-#define STP_VERSION 1
-#define HAL_RCOMP_VERSION 1
-
-#if JSON_TIMING
-#include <middleware/json2pb/json2pb.h>
-#include <jansson.h>
-#endif
-
-typedef enum {
-    GROUP_REPORT_FULL = 1,
-} group_flags_t;
-
-typedef enum {
-    RCOMP_REPORT_FULL = 1,
-} rcomp_flags_t;
-
-typedef struct htself htself_t;
-
-typedef struct {
-    hal_compiled_group_t *cg;
-    int serial; // must be unique per active group
-    unsigned flags;
-    htself_t *self;
-    int timer_id; // > -1: scan timer active - subscribers present
-    int msec;
-} group_t;
-
-typedef struct {
-    hal_compiled_comp_t *cc;
-    int serial; // must be unique per active group
-    unsigned flags;
-    htself_t *self;
-    int timer_id;
-    int msec;
-} rcomp_t;
-
-typedef std::unordered_map<std::string, group_t *> groupmap_t;
-typedef groupmap_t::iterator groupmap_iterator;
-
-typedef std::unordered_map<std::string, rcomp_t *> compmap_t;
-typedef compmap_t::iterator compmap_iterator;
+#include "haltalk.h"
 
 
 static const char *option_string = "hI:S:dt:Du:r:T:";
@@ -113,21 +39,7 @@ static struct option long_options[] = {
     {0,0,0,0}
 };
 
-typedef struct htconf {
-    const char *progname;
-    const char *inifile;
-    const char *section;
-    const char *modname;
-    const char *status;
-    const char *rcomp_status;
-    int debug;
-    int sddebug;
-    int pid;
-    int default_group_timer; // msec
-    int default_rcomp_timer; // msec
-    int sd_port;
-} htconf_t;
-
+// configuration defaults
 static htconf_t conf = {
     "",
     NULL,
@@ -138,27 +50,10 @@ static htconf_t conf = {
     0,
     0,
     100,
+    100,
+    0
 };
 
-typedef struct htself {
-    htconf_t *cfg;
-    uuid_t instance_uuid;
-    int comp_id;
-    groupmap_t groups;
-    zctx_t *z_context;
-    void *z_status;
-    const char *z_status_dsn;
-    int signal_fd;
-    zloop_t *z_loop;
-    pb::Container rx; // any ParseFrom.. function does a Clear() first
-    pb::Container tx; // tx must be Clear()'d after or before use
-    spub_t *sd_publisher;
-    bool interrupted;
-
-    void *z_rcomp_status;
-    const char *z_rcomp_status_dsn;
-    compmap_t rcomps;
-} htself_t;
 
 static int
 handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -664,7 +559,7 @@ prepare_comps(htself_t *self)
 	 c != self->rcomps.end(); c++) {
 
 	const char *name = c->first.c_str();
-	if ((retval = hal_acquire(name, getpid())) < 0) {
+	if ((retval = hal_acquire(name, self->pid)) < 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_acquire(%s) failed: %s",
 			    self->cfg->progname,
@@ -932,7 +827,6 @@ static int
 hal_cleanup(htself_t *self)
 {
     int retval;
-    pid_t mypid = getpid();
 
     // release rcomps
     for (compmap_iterator c = self->rcomps.begin();
@@ -944,7 +838,7 @@ hal_cleanup(htself_t *self)
 
 	// unbind all comps owned by us:
 	if (comp->state == COMP_BOUND) {
-	    if (comp->pid == mypid) {
+	    if (comp->pid == self->pid) {
 		retval = hal_unbind(name);
 		if (retval < 0)
 		    rtapi_print_msg(RTAPI_MSG_ERR,
@@ -958,7 +852,7 @@ hal_cleanup(htself_t *self)
 	    } else {
 		rtapi_print_msg(RTAPI_MSG_ERR,
 				"%s: BUG - comp %s bound but not by haltalk: %d/%d",
-				self->cfg->progname, name, mypid, comp->pid);
+				self->cfg->progname, name, self->pid, comp->pid);
 
 	    }
 	}
@@ -1076,7 +970,6 @@ int main (int argc, char *argv[])
 	    exit(0);
 	}
     }
-    conf.pid = getpid();
     conf.sd_port = SERVICE_DISCOVERY_PORT;
 
     // to_syslog("haltalk> ", &stdout); // redirect stdout to syslog
@@ -1087,6 +980,7 @@ int main (int argc, char *argv[])
 
     htself_t self = {0};
     self.cfg = &conf;
+    self.pid = getpid();
     uuid_generate_time(self.instance_uuid);
 
     retval = hal_setup(&self);
