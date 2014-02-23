@@ -153,16 +153,18 @@ enum ServiceType {
     ST_WEBSOCKET     = 6;
     ST_WEBSOCKETS    = 7;
     ST_RTAPI_COMMAND = 8;
+
     ST_STP_HALGROUP       = 9;
-    ST_STP_INTERP         = 10;
-    ST_STP_TASK           = 11;
+    ST_STP_HALRCOMP       = 10;
+    ST_STP_INTERP         = 11;
+    ST_STP_TASK           = 12;
 
-    ST_HAL_RCOMP          = 12;
-    ST_TASK_COMMAND       = 13;
-    ST_INTERP_COMMAND     = 14;
+    ST_HAL_RCOMMAND       = 13;
+    ST_TASK_COMMAND       = 14;
+    ST_INTERP_COMMAND     = 15;
 
-    ST_MESSAGEBUS_COMMAND = 15;
-    ST_MESSAGEBUS_RESPONSE  = 16;
+    ST_MESSAGEBUS_COMMAND = 16;
+    ST_MESSAGEBUS_RESPONSE  = 17;
 }
 
 enum ServiceAPI {
