@@ -74,12 +74,12 @@ void rtapi_hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
  * "line size" chunks to format and print.
  *
  * E.g.:
- *   rtapi_print_hex_dump(RTAPI_MSG_ALL, "raw data: ", DUMP_PREFIX_ADDRESS,
- *		    16, 1, frame->data, frame->len, true);
- *
- * Example output using %DUMP_PREFIX_OFFSET and 1-byte mode:
+ *    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+ *                         16, 1, frame->data, frame->len, true,
+ *                         "cant parse command from %s:", origin);
+ * Example output using %RTAPI_DUMP_PREFIX_OFFSET and 1-byte mode:
  * 0009ab42: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f  @ABCDEFGHIJKLMNO
- * Example output using %DUMP_PREFIX_ADDRESS and 4-byte mode:
+ * Example output using %RTAPI_DUMP_PREFIX_ADDRESS and 4-byte mode:
  * ffffffff88089af0: 73727170 77767574 7b7a7978 7f7e7d7c  pqrstuvwxyz{|}~.
  */
 void rtapi_print_hex_dump(int level, int prefix_type,
