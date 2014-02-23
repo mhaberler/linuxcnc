@@ -328,6 +328,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	if (rc->flags & RCOMP_REPORT_FULL) {
 	    p->set_name(pin->name);
 	    p->set_type((pb::ValueType)pin->type);
+	    p->set_linked(pin->signal != 0);
 	}
 	p->set_handle(pin->handle);
 	break;
