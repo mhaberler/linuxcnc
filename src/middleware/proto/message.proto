@@ -85,6 +85,9 @@ message Container {
     // generalized error descriptor
     optional AnError                error = 70;
 
+    // uuid helps distinguish server instances
+    optional bytes                  uuid  = 72;
+
     optional bool                   trace = 75;  // log from intermediaries
 
     optional int32               instance = 77;  // RTAPI instance if nonzero
