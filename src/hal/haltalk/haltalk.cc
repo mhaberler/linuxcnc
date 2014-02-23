@@ -227,7 +227,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	    signal->set_name(sig->name);
 	    signal->set_type((pb::ValueType)sig->type);
 	}
-	signal->set_handle(sig->data_ptr);
+	signal->set_handle(sig->handle);
 	break;
 
     case REPORT_END: // finalize & send
@@ -323,7 +323,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	    p->set_name(pin->name);
 	    p->set_type((pb::ValueType)pin->type);
 	}
-	p->set_handle(handle);
+	p->set_handle(pin->handle);
 	break;
 
     case REPORT_END: // finalize & send
