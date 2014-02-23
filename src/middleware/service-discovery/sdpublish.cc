@@ -302,7 +302,7 @@ int main(int argc, char **argv)
     assert(sp);
 
     rc = sp_add(sp,
-		(int) pb::ST_HAL_RCOMP,
+		(int) pb::ST_HAL_RCOMMAND,
 		2,
 		NULL,
 		0,

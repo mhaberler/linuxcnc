@@ -354,7 +354,7 @@ int main(int argc, char **argv)
     sdreq_t *sd = sd_new(0, 0);
     assert(sd);
 
-    rc = sd_add(sd,  pb::ST_HAL_RCOMP,
+    rc = sd_add(sd,  pb::ST_HAL_RCOMMAND,
 		0,  pb::SA_ZMQ_PROTOBUF);
     assert(rc == 0);
     rc = sd_add(sd,  (int) pb::ST_STP_HALGROUP,
