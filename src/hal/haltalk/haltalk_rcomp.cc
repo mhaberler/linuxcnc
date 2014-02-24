@@ -64,12 +64,15 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	switch (*data) {
 
 	case '\001':
+	    // adopt any recently created rcomps
+	    scan_comps(self);
+
 	    if (self->rcomps.count(topic) == 0) {
 		rtapi_print_msg(RTAPI_MSG_ERR, "%s: subscribe - no comp '%s'",
 				    self->cfg->progname, topic);
 
 		// not found, publish an error message on this topic
-		self->tx.set_type(pb::MT_HALRCOMP_SUBSCRIBE_ERROR);
+		self->tx.set_type(pb::MT_HALRCOMP_ERROR);
 		std::string error = "component " + std::string(topic) + " does not exist";
 		self->tx.set_note(error);
 		zframe_t *reply_frame = zframe_new(NULL, self->tx.ByteSize());
@@ -286,11 +289,11 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	// this enables a new subscriber to easily detect she's receiving
 	// a full status snapshot, not just a change tracking update
 	if (rc->flags & RCOMP_REPORT_FULL) {
-	    self->tx.set_type(pb::MT_HALRCOMP_STATUS);
+	    self->tx.set_type(pb::MT_HALRCOMP_FULL_UPDATE);
 	    // enable clients to detect a restart
 	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
 	} else
-	    self->tx.set_type(pb::MT_HALRCOMP_PIN_CHANGE);
+	    self->tx.set_type(pb::MT_HALRCOMP_INCREMENTAL_UPDATE);
 
 	self->tx.set_serial(rc->serial++);
 	break;
@@ -386,7 +389,7 @@ handle_rcomp_command(htself_t *self, zmsg_t *msg)
 	// }
 	break;
 
-    case pb::MT_HALRCOMP_SET_PINS:
+    case pb::MT_HALRCOMMAND_SET:
 	// forall (pins) {
 	//     lookup pin in handle2pin dict;
 	//     set value;

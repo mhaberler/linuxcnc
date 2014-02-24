@@ -241,11 +241,11 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
 	// this enables a new subscriber to easily detect she's receiving
 	// a full status snapshot, not just a change tracking update
 	if (grp->flags & GROUP_REPORT_FULL) {
-	    self->tx.set_type(pb::MT_STP_UPDATE_FULL);
+	    self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
 	    // enable clients to detect a restart
 	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
 	} else
-	    self->tx.set_type(pb::MT_STP_UPDATE);
+	    self->tx.set_type(pb::MT_HALGROUP_INCREMENTAL_UPDATE);
 
 	// the serial enables detection of lost updates
 	// for a client to recover from a lost update:
