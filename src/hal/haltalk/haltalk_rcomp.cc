@@ -64,7 +64,9 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	switch (*data) {
 
 	case '\001':
-	    // adopt any recently created rcomps
+
+	    // scan for, and adopt any recently created rcomps
+	    // so subscribe to them works (after haltalk was started)
 	    scan_comps(self);
 
 	    if (self->rcomps.count(topic) == 0) {
@@ -92,7 +94,7 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		    g->timer_id = zloop_timer(self->z_loop, g->msec,
 					      0, handle_rcomp_timer, (void *)g);
 		    assert(g->timer_id > -1);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: comp %s scanning, tid=%d %d mS",
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: start scanning comp %s, tid=%d %d mS",
 				    self->cfg->progname, topic, g->timer_id, g->msec);
 		}
 
@@ -114,7 +116,7 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		// stop the scanning timer
 		if (g->timer_id > -1) {  // currently scanning
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: comp %s stop scanning, tid=%d",
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: stop scanning comp %s, tid=%d",
 				    self->cfg->progname, topic, g->timer_id);
 		    retval = zloop_timer_end (self->z_loop, g->timer_id);
 		    assert(retval == 0);

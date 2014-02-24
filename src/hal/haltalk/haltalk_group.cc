@@ -18,9 +18,8 @@
 
 #include "haltalk.h"
 
-static int group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
+static int group_report_cb(int phase, hal_compiled_group_t *cgroup,
 			   hal_sig_t *sig, void *cb_data);
-
 static int scan_group_cb(hal_group_t *g, void *cb_data);
 
 
@@ -66,7 +65,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		    g->timer_id = zloop_timer(self->z_loop, g->msec,
 					      0, handle_group_timer, (void *)g);
 		    assert(g->timer_id > -1);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: group %s scanning, tid=%d %d mS",
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: start scanning group %s, tid=%d %d mS",
 				    self->cfg->progname, topic, g->timer_id, g->msec);
 		}
 		rtapi_print_msg(RTAPI_MSG_DBG, "%s: wildcard subscribe group='%s' serial=%d",
@@ -88,7 +87,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		    g->timer_id = zloop_timer(self->z_loop, g->msec,
 					      0, handle_group_timer, (void *)g);
 		    assert(g->timer_id > -1);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: group %s scanning, tid=%d %d mS",
+		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: start scanning group %s, tid=%d %d mS",
 				    self->cfg->progname, topic, g->timer_id, g->msec);
 		}
 	    } else {
@@ -209,11 +208,10 @@ scan_group_cb(hal_group_t *g, void *cb_data)
     return 0;
 }
 
-
+// drop group reference counts
 int release_groups(htself_t *self)
 {
     int nfail = 0;
-    // drop group refcount on exit
     for (groupmap_iterator g = self->groups.begin(); g != self->groups.end(); g++) {
 	if (hal_unref_group(g->first.c_str()) < 0)
 	    nfail++;
@@ -225,7 +223,7 @@ int release_groups(htself_t *self)
 }
 
 static int
-group_report_cb(int phase, hal_compiled_group_t *cgroup, int handle,
+group_report_cb(int phase, hal_compiled_group_t *cgroup,
 		hal_sig_t *sig, void *cb_data)
 {
     group_t *grp = (group_t *) cb_data;
