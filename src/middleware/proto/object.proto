@@ -131,10 +131,13 @@ message Component {
     optional fixed32     pid            = 10;
     repeated string      args           = 11; //   [(nanopb).max_count = 20,
                                               //   (nanopb).max_size = 41];
-    optional sfixed32    scancycle      = 12;
+    optional sfixed32    timer          = 12;
     optional sfixed32    flags          = 13;
     optional sfixed32    userarg1       = 14;
     optional sfixed32    userarg2       = 15;
+
+    repeated Pin         pin            = 16;
+    repeated Param       param          = 17;
 }
 
 message Ring {
