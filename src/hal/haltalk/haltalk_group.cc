@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "haltalk.h"
+#include "haltalk.hh"
 
 static int group_report_cb(int phase, hal_compiled_group_t *cgroup,
 			   hal_sig_t *sig, void *cb_data);
@@ -174,6 +174,30 @@ scan_groups(htself_t *self)
 // ----- end of public functions ----
 
 static int
+add_sig_to_items(int level, hal_group_t **groups,
+		 hal_member_t *member, void *cb_data)
+{
+    hal_sig_t *sig = (hal_sig_t *) SHMPTR(member->sig_member_ptr);
+    htself_t *self = (htself_t *)cb_data;
+    if (self->items.count(sig->handle) == 0) {
+	halitem_t *hi = new halitem_t();
+	hi->type = HAL_SIGNAL;
+	hi->o.signal = sig;
+	hi->ptr = SHMPTR(sig->data_ptr);
+	self->items[sig->handle] = hi;
+    }
+    return 0;
+}
+
+// walk the signals of a group, and add them to the items sparse map
+// for lookup-by-handle if not yet present - idempotent
+static int
+add_signals_from_group(htself_t *self, const char *name)
+{
+    return halpr_foreach_member(name, add_sig_to_items, self, RESOLVE_NESTED_GROUPS);
+}
+
+static int
 scan_group_cb(hal_group_t *g, void *cb_data)
 {
     htself_t *self = (htself_t *)cb_data;
@@ -189,6 +213,8 @@ scan_group_cb(hal_group_t *g, void *cb_data)
 			g->name, retval);
 	return 0;
     }
+
+    add_signals_from_group(self, g->name);
 
     group_t *grp = new group_t();
     grp->cg = cgroup;

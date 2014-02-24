@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "haltalk.h"
+#include "haltalk.hh"
 
 static int collect_unbound_comps(hal_compstate_t *cs,  void *cb_data);
 static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,

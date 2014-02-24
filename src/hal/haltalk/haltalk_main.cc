@@ -22,7 +22,7 @@
 //
 //   2. implements the HALRcomp protocol for remote HAL components.
 
-#include "haltalk.h"
+#include "haltalk.hh"
 
 
 static const char *option_string = "hI:S:dt:Du:r:T:c:";

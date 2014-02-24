@@ -45,6 +45,7 @@
 #include <inifile.h>
 #include <redirect_log.h>
 
+#include "halitem.h"
 
 #include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
@@ -80,18 +81,24 @@ typedef struct {
 
 typedef struct {
     hal_compiled_comp_t *cc;
-    int serial; // must be unique per active group
+    int serial; // must be unique per active comp
     unsigned flags;
     htself_t *self;
     int timer_id;
     int msec;
 } rcomp_t;
 
+// groups indexed by group name
 typedef std::unordered_map<std::string, group_t *> groupmap_t;
 typedef groupmap_t::iterator groupmap_iterator;
 
+// remote components indexed by component name
 typedef std::unordered_map<std::string, rcomp_t *> compmap_t;
 typedef compmap_t::iterator compmap_iterator;
+
+// HAL items indexed by handle
+typedef std::unordered_map<int, halitem_t *> itemmap_t;
+typedef itemmap_t::iterator itemmap_iterator;
 
 typedef struct htconf {
     const char *progname;
@@ -135,6 +142,8 @@ typedef struct htself {
 
     void *z_command;
     const char *z_command_dsn;
+
+    itemmap_t items;
 } htself_t;
 
 

@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "haltalk.h"
+#include "haltalk.hh"
 
 // start the SDP listener thread
 int

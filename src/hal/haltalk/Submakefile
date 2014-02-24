@@ -1,6 +1,7 @@
 
 PROFILE = #-pg
 HALTALK_SRCS :=  $(addprefix hal/haltalk/, \
+	pbutil.cc \
 	haltalk_group.cc \
 	haltalk_rcomp.cc \
 	haltalk_command.cc \
