@@ -1,5 +1,11 @@
 SDDIR :=  $(MWDIR)/service-discovery
 
+../lib/python/sdiscover.py: $(SDDIR)/sdiscover.py
+	cp $^ $@
+
+PYTARGETS += ../lib/python/sdiscover.py
+
+
 INCLUDES += $(SDDIR)
 
 
