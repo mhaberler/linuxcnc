@@ -40,7 +40,7 @@ typedef struct {
     void *user_data;             // uninterpreted by HAL code
 } hal_compiled_group_t;
 
-typedef int (*group_report_callback_t)(int,  hal_compiled_group_t *, int handle,
+typedef int (*group_report_callback_t)(int,  hal_compiled_group_t *,
 				      hal_sig_t *sig, void *cb_data);
 
 typedef int (*hal_group_callback_t)(hal_group_t *group,  void *cb_data);
@@ -132,7 +132,7 @@ enum report_phase {
 #if 0
 // a sample report callback would have the following structure:
 int demo_report(int phase, hal_compiled_group_t *cgroup, hal_sig_t *sig,
-		int handle, void *cb_data)
+		void *cb_data)
 {
     switch (phase) {
     case REPORT_BEGIN:

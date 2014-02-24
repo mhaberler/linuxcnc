@@ -892,7 +892,7 @@ int hal_cgroup_report(hal_compiled_group_t *cg, group_report_callback_t report_c
 
     if (!report_cb)
 	return 0;
-    if ((retval = report_cb(REPORT_BEGIN, cg,-1, NULL,  cb_data)) < 0)
+    if ((retval = report_cb(REPORT_BEGIN, cg, NULL,  cb_data)) < 0)
 	return retval;
 
     // report all members if forced, there are no members with change detect in the group,
@@ -902,11 +902,11 @@ int hal_cgroup_report(hal_compiled_group_t *cg, group_report_callback_t report_c
 
     for (i = 0; i < cg->n_members; i++) {
 	if (reportall || RTAPI_BIT_TEST(cg->changed, i))
-	    if ((retval = report_cb(REPORT_SIGNAL, cg,i,
+	    if ((retval = report_cb(REPORT_SIGNAL, cg,
 				    SHMPTR(cg->member[i]->sig_member_ptr), cb_data)) < 0)
 		return retval;
     }
-    return report_cb(REPORT_END, cg, -1, NULL,  cb_data);
+    return report_cb(REPORT_END, cg, NULL,  cb_data);
 }
 
 int hal_cgroup_free(hal_compiled_group_t *cgroup)
