@@ -1576,6 +1576,7 @@ tags:
 	find . -type f -name '*.[ch]' | grep -v './objects/*' | xargs  etags -l c --append
 	find . -type f -name '*.cc'   | grep -v './objects/*' | xargs  etags -l c++ --append
 	find . -type f -name '*.hh'   | grep -v './objects/*' | xargs  etags -l c++ --append
+	find . -type f -name '*.proto'  | grep -v './objects/*' | xargs  etags -l c++ --append
 
 etags:
 	etags	--extra=+fq \
@@ -1588,6 +1589,7 @@ etags:
 	find . -type f -name '*.[ch]' | grep -v './objects/*'|xargs etags --language-force=C --append
 	find . -type f -name '*.cc' | grep -v './objects/*'|xargs etags --language-force=C++ --append
 	find . -type f -name '*.hh' | grep -v './objects/*'|xargs etags --language-force=C++ --append
+	find . -type f -name '*.proto' | grep -v './objects/*'|xargs etags --language-force=C++ --append
 
 .PHONY: swish
 swish:
