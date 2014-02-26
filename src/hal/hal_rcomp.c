@@ -536,7 +536,7 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 
     if (!report_cb)
 	return 0;
-    if ((retval = report_cb(REPORT_BEGIN, cc, NULL,  -1, NULL, cb_data)) < 0)
+    if ((retval = report_cb(REPORT_BEGIN, cc, NULL, NULL, cb_data)) < 0)
 	return retval;
 
     for (i = 0; i < cc->n_pins; i++) {
@@ -548,12 +548,12 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 	    } else {
 		data_ptr = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
 	    }
-	    if ((retval = report_cb(REPORT_PIN, cc, pin, i,
+	    if ((retval = report_cb(REPORT_PIN, cc, pin,
 				    data_ptr, cb_data)) < 0)
 		return retval;
 	}
     }
-    return report_cb(REPORT_END, cc, NULL, -1, NULL, cb_data);
+    return report_cb(REPORT_END, cc, NULL, NULL, cb_data);
 }
 
 int hal_ccomp_free(hal_compiled_comp_t *cc)
@@ -564,7 +564,7 @@ int hal_ccomp_free(hal_compiled_comp_t *cc)
     if (cc->tracking)
 	free(cc->tracking);
     if (cc->changed)
-	free(cc->changed);  // BAD
+	free(cc->changed);
     if (cc->pin)
 	free(cc->pin);
     free(cc);

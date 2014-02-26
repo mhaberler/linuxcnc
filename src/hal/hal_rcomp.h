@@ -21,7 +21,6 @@ typedef struct {
 
 typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
 				     hal_pin_t *pin,
-				     int handle,
 				     hal_data_u *value,
 				     void *cb_data);
 
