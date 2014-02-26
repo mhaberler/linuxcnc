@@ -121,7 +121,6 @@ message Thread {
 message Component {
     optional string      name           = 1; //   [(nanopb).max_size = 41];
     optional fixed32     ninst          = 2;
-    optional fixed32     handle         = 3;
     optional sfixed32    comp_id        = 4;
     optional fixed32     type           = 5;
     optional fixed32     state          = 6;
@@ -129,10 +128,9 @@ message Component {
     optional fixed32     last_bound     = 8;
     optional fixed32     last_unbound   = 9;
     optional fixed32     pid            = 10;
-    repeated string      args           = 11; //   [(nanopb).max_count = 20,
+    optional string      args           = 11; //   [(nanopb).max_count = 20,
                                               //   (nanopb).max_size = 41];
-    optional sfixed32    timer          = 12;
-    optional sfixed32    flags          = 13;
+    optional sfixed32    timer          = 12; // using layer information; not in HAL
     optional sfixed32    userarg1       = 14;
     optional sfixed32    userarg2       = 15;
 
