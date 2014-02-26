@@ -26,7 +26,8 @@ send_pbcontainer(const char *dest, pb::Container &c, void *socket)
     zframe_t *f;
 
     f = zframe_new(NULL, c.ByteSize());
-    assert(f != 0);
+    if (f == NULL)
+	return -ENOMEM;
 
     c.SerializeWithCachedSizesToArray(zframe_data(f));
     if (dest) {

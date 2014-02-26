@@ -79,7 +79,7 @@ process_ping(const char *from,  htself_t *self, void *socket)
 }
 
 
-// transfrom a component into a Component protobuf.
+// transfrom a HAL component into a Component protobuf.
 // Aquires the HAL mutex.
 int hal_describe_component(const char *name, pb::Component *c)
 {
@@ -114,6 +114,7 @@ int hal_describe_component(const char *name, pb::Component *c)
 	    p->set_type((pb::ValueType) pin->type);
 	    p->set_dir((pb::HalPinDirection) pin->dir);
 	    p->set_handle(pin->handle);
+	    p->set_name(pin->name);
 	    p->set_linked(pin->signal != 0);
 	    assert(hal_pin2pb(pin, p) == 0);
 #ifdef USE_PIN_USER_ATTRIBUTES
@@ -124,7 +125,20 @@ int hal_describe_component(const char *name, pb::Component *c)
 	}
 	next = pin->next_ptr;
     }
-    //PARAMS!!
+    next = hal_data->param_list_ptr;
+    while (next != 0) {
+	hal_param_t *param = (hal_param_t *)SHMPTR(next);
+	owner = (hal_comp_t *) SHMPTR(param->owner_ptr);
+	if (owner->comp_id == comp->comp_id) {
+	    pb::Param *p = c->add_param();
+	    p->set_name(param->name);
+	    p->set_type((pb::ValueType) param->type);
+	    p->set_pdir((pb::HalParamDirection) param->dir);
+	    p->set_handle(param->handle);
+	    assert(hal_param2pb(param, p) == 0);
+	}
+	next = param->next_ptr;
+    }
     return 0;
 }
 
@@ -243,7 +257,6 @@ process_rcomp_bind(const char *from,  htself_t *self, void *socket)
     pb::Container err;
     err.set_type( pb::MT_HALRCOMP_ERROR);
     err.set_uuid(&self->instance_uuid, sizeof(uuid_t));
-    err.add_note(text);
 
     // extract component name
     // fail if comp not present
@@ -304,23 +317,8 @@ process_rcomp_bind(const char *from,  htself_t *self, void *socket)
 	return send_pbcontainer(from, self->tx, socket);
 
     } else {
-
-
+	return send_pbcontainer(from, err, socket);
     }
-
-
-
-
-
-    // reply_frame = zframe_new(NULL, self->tx.ByteSize());
-    // assert(reply_frame != 0);
-    // self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
-    // retval = zstr_sendm (socket, from);
-    // assert(retval == 0);
-    // retval = zframe_send(&reply_frame, socket, 0);
-    // assert(retval == 0);
-    // self->tx.Clear();
-    return 0;
 }
 
     // def validate(self, comp, pins):
