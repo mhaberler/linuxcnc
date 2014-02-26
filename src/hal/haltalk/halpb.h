@@ -1,9 +1,9 @@
-static inline hal_data_u *hal_sig2u(const hal_sig_t *sig)
+static inline const hal_data_u *hal_sig2u(const hal_sig_t *sig)
 {
     return (hal_data_u *)SHMPTR(sig->data_ptr);
 }
 
-static inline hal_data_u *hal_pin2u(const hal_pin_t *pin)
+static inline const hal_data_u *hal_pin2u(const hal_pin_t *pin)
 {
     const hal_sig_t *sig;
     if (pin->signal != 0) {
@@ -13,9 +13,14 @@ static inline hal_data_u *hal_pin2u(const hal_pin_t *pin)
 	return (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
 }
 
+static inline const hal_data_u *hal_param2u(const hal_param_t *param)
+{
+    return (hal_data_u *)SHMPTR(param->data_ptr);
+}
+
 static inline int hal_pin2pb(const hal_pin_t *hp, pb::Pin *p)
 {
-    hal_data_u *vp = hal_pin2u(hp);
+    const hal_data_u *vp  = hal_pin2u(hp);
     switch (hp->type) {
     default:
 	return -1;
@@ -37,7 +42,7 @@ static inline int hal_pin2pb(const hal_pin_t *hp, pb::Pin *p)
 
 static inline int hal_sig2pb(const hal_sig_t *sp, pb::Signal *s)
 {
-    hal_data_u *vp = hal_sig2u(sp);
+    const hal_data_u *vp = hal_sig2u(sp);
     switch (sp->type) {
     default:
 	return -1;
@@ -52,6 +57,29 @@ static inline int hal_sig2pb(const hal_sig_t *sp, pb::Signal *s)
 	break;
     case HAL_U32:
 	s->set_halu32(vp->u);
+	break;
+    }
+    return 0;
+}
+
+static inline int hal_param2pb(const hal_param_t *pp, pb::Param *p)
+{
+    const hal_data_u *vp = hal_param2u(pp);
+
+    switch (pp->type) {
+    default:
+	return -1;
+    case HAL_BIT:
+	p->set_halbit(vp->b);
+	break;
+    case HAL_FLOAT:
+	p->set_halfloat(vp->f);
+	break;
+    case HAL_S32:
+	p->set_hals32(vp->s);
+	break;
+    case HAL_U32:
+	p->set_halu32(vp->u);
 	break;
     }
     return 0;
