@@ -195,7 +195,7 @@ int strack_talker_update(sttalker_t *self, const char *groupname, bool full)
 	if (g == NULL) {
 	    // no such group - reply with error message on topic
 	    self->update->set_type(pb::MT_STP_NOGROUP);
-	    self->update->set_note("no such group: " + std::string(groupname));
+	    self->update->add_note("no such group: " + std::string(groupname));
 	    return pack_and_send(self, groupname);
 	}
 	return report_group(self, g, full);

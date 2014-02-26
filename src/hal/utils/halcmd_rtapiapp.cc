@@ -32,8 +32,8 @@ int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
 				    zframe_size (reply)) ? 0 : -1;
     //    assert(retval == 0);
     zframe_destroy(&reply);
-    if (rx.has_note())
-	errormsg = rx.note();
+    if (rx.note_size())
+	errormsg = rx.note(0); // simplify - one line only
     else
 	errormsg = "";
     return retval;

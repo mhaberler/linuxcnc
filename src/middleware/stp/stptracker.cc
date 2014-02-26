@@ -358,8 +358,11 @@ static inline int apply_update(pb::Container &rx, zframe_t *f, _mgroup_t *grp)
 	break;
 
     case pb::MT_STP_NOGROUP: // note set
-	assert(rx.has_note());
-	stp_err("group %s subscribe error: %s\n", grp->name, rx.note().c_str());
+	stp_err("group %s subscribe error:\n", grp->name);
+	for (int i = 0; i < rx.note_size(); i++)
+	    stp_err("group %s subscribe error: %s\n",
+		    grp->name,
+		    rx.note(i).c_str());
 	break;
 
     default:

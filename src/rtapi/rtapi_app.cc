@@ -510,7 +510,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	snprintf(buffer, sizeof(buffer),
 		 "pid=%d flavor=%s gcc=%s git=%s",
 		 getpid(),flavor->name,  __VERSION__, GIT_VERSION);
-	pbreply.set_note(buffer);
+	pbreply.add_note(buffer);
 	pbreply.set_retcode(0);
 	break;
 
@@ -575,7 +575,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	} else {
 	    void *w = modules["hal_lib"];
 	    if (w == NULL) {
-		pbreply.set_note("hal_lib not loaded");
+		pbreply.add_note("hal_lib not loaded");
 		pbreply.set_retcode(-1);
 		break;
 	    }
@@ -583,7 +583,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		DLSYM<int(*)(const char *, unsigned long,int, int)>(w,
 								    "hal_create_thread");
 	    if (create_thread == NULL) {
-		pbreply.set_note("symbol 'hal_create_thread' not found in hal_lib");
+		pbreply.add_note("symbol 'hal_create_thread' not found in hal_lib");
 		pbreply.set_retcode(-1);
 		break;
 	    }
@@ -607,14 +607,14 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	} else {
 	    void *w = modules["hal_lib"];
 	    if (w == NULL) {
-		pbreply.set_note("hal_lib not loaded");
+		pbreply.add_note("hal_lib not loaded");
 		pbreply.set_retcode(-1);
 		break;
 	    }
 	    int (*delete_thread)(const char *) =
 		DLSYM<int(*)(const char *)>(w,"hal_thread_delete");
 	    if (delete_thread == NULL) {
-		pbreply.set_note("symbol 'hal_thread_delete' not found in hal_lib");
+		pbreply.add_note("symbol 'hal_thread_delete' not found in hal_lib");
 		pbreply.set_retcode(-1);
 		break;
 	    }

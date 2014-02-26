@@ -183,7 +183,7 @@ static int handle_xpub_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		    pb::Container c;
 		    c.set_type(pb::MT_MESSAGEBUS_NO_DESTINATION);
 		    c.set_name(to);
-		    c.set_note(errmsg);
+		    c.add_note(errmsg);
 		    zframe_t *errorframe = zframe_new(NULL, c.ByteSize());
 		    c.SerializeWithCachedSizesToArray(zframe_data(errorframe));
 		    retval = zframe_send(&errorframe, self->response, 0);
