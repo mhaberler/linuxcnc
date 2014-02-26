@@ -79,7 +79,7 @@ message Container {
 
     // used with MT_MESSAGEBUS_NO_DESTINATION
     optional string                  name = 67;  // faulty messagebus destination
-    optional string                  note = 68;  // easy tack-on for debugging
+    repeated string                  note = 68;  // easy tack-on for debugging
     optional int32                retcode = 69;  // all purpose integer return code
 
     // generalized error descriptor
