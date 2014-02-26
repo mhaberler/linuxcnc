@@ -155,7 +155,7 @@ zmq_init(htself_t *self)
     assert (rc != 0);
     self->z_group_status_dsn = zsocket_last_endpoint (self->z_group_status);
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking STP on '%s'",
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALGroup on '%s'",
 		    conf.progname, self->z_group_status_dsn);
 
     self->z_rcomp_status = zsocket_new (self->z_context, ZMQ_XPUB);

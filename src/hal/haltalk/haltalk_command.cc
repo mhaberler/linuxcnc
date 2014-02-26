@@ -17,11 +17,11 @@
  */
 
 #include "haltalk.hh"
+#include "halpb.h"
 #include "pbutil.hh"
 #include "rtapi_hexdump.h"
 
 #include <google/protobuf/text_format.h>
-using namespace google::protobuf;
 
 static int dispatch_request(const char *from,  htself_t *self, void *socket);
 
@@ -73,26 +73,88 @@ find_pin_by_name(const char *name)
 static int
 process_ping(const char *from,  htself_t *self, void *socket)
 {
-    return send_reply(from, self->tx, pb::MT_PING_ACKNOWLEDGE, socket,
-		      NULL, &self->instance_uuid);
+    self->tx.set_type( pb::MT_PING_ACKNOWLEDGE);
+    self->tx.set_uuid(&self->instance_uuid, sizeof(uuid_t));
+    return send_pbcontainer(from, self->tx, socket);
 }
 
+
+// transfrom a component into a Component protobuf.
+// Aquires the HAL mutex.
+int hal_describe_component(const char *name, pb::Component *c)
+{
+    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+    hal_comp_t *owner;
+    hal_pin_t *pin;
+
+    rtapi_mutex_get(&(hal_data->mutex));
+    comp = halpr_find_comp_by_name(name);
+    if (comp == 0)
+	return -ENOENT;
+
+    c->set_name(comp->name);
+    c->set_comp_id(comp->comp_id);
+    c->set_type(comp->type);
+    c->set_state(comp->state);
+    c->set_last_update(comp->last_update);
+    c->set_last_bound(comp->last_bound);
+    c->set_last_unbound(comp->last_unbound);
+    c->set_pid(comp->pid);
+    if (comp->insmod_args)
+	c->set_args((const char *)SHMPTR(comp->insmod_args));
+    c->set_userarg1(comp->userarg1);
+    c->set_userarg2(comp->userarg2);
+
+    int next = hal_data->pin_list_ptr;
+    while (next != 0) {
+	pin = (hal_pin_t *)SHMPTR(next);
+	owner = (hal_comp_t *) SHMPTR(pin->owner_ptr);
+	if (owner->comp_id == comp->comp_id) {
+	    pb::Pin *p = c->add_pin();
+	    p->set_type((pb::ValueType) pin->type);
+	    p->set_dir((pb::HalPinDirection) pin->dir);
+	    p->set_handle(pin->handle);
+	    p->set_linked(pin->signal != 0);
+	    assert(hal_pin2pb(pin, p) == 0);
+#ifdef USE_PIN_USER_ATTRIBUTES
+	    p->set_flags(pin->flags);
+	    if (pin->type == HAL_FLOAT)
+		p->set_epsilon(pin->epsilon);
+#endif
+	}
+	next = pin->next_ptr;
+    }
+    //PARAMS!!
+    return 0;
+}
+
+
+// create a remote comp as per MT_HALRCOMP_BIND request message contents
+// compile and return a handle to the rcomp descriptor
+// the rcomp will be taken into service once its name is subscribed to.
 static rcomp_t *
 create_rcomp(htself_t *self, const char *from, const char *cname, void *socket)
 {
     int arg1 = 0, arg2 = 0, retval;
     rcomp_t *rc = new rcomp_t();
-    int comp_id;
+    int comp_id = 0;
     char text[100];
-    halitem_t *hi;
+    halitem_t *hi = NULL;
+    std::string errmsg;
+    pb::Container err;
 
+    rc->self = self;
     rc->timer_id = -1;
+    rc->serial = 0;
+    rc->flags = 0;
+    rc->cc = NULL;
 
-    // extract scan timer
+    // extract timer and userargs if set
     if (self->rx.comp().has_timer())
 	rc->msec = self->rx.comp().timer();
     else
 	rc->msec = self->cfg->default_rcomp_timer;
+
     if (self->rx.comp().has_userarg1()) arg1 = self->rx.comp().userarg1();
     if (self->rx.comp().has_userarg2()) arg2 = self->rx.comp().userarg2();
 
@@ -101,109 +163,104 @@ create_rcomp(htself_t *self, const char *from, const char *cname, void *socket)
     if (comp_id < 0) {
 	snprintf(text, sizeof(text),"hal_init_mode(%s): %s",
 		 cname, strerror(-comp_id));
-
-	send_reply(from, self->tx, pb::MT_HALRCOMP_ERROR, socket,
-		   text, &self->instance_uuid);
-	return NULL;
+	err.add_note(text);
+	goto ERROR_REPLY;
     }
 
     // create the pins
     for (int i = 0; i < self->rx.comp().pin_size(); i++) {
 	const pb::Pin &p = self->rx.comp().pin(i);
 	hi = new halitem_t();
-	assert(hi != NULL);
+
+	if (hi == NULL) {
+	    err.add_note("new halitem_t() failed");
+	    goto EXIT_COMP;
+	}
 	hi->ptr =  hal_malloc(sizeof(void *));
-	assert(hi->ptr != NULL);
+	if (hi->ptr == NULL) {
+	    err.add_note("hal_malloc() failed");
+	    goto EXIT_COMP;
+	}
 	hi->type = HAL_PIN;
-	const char *pname = p.name().c_str();
-	retval = hal_pin_new(pname,
+	retval = hal_pin_new(p.name().c_str(),
 			     (hal_type_t) p.type(),
 			     (hal_pin_dir_t) p.dir(),
 			     (void **) hi->ptr,
 			     comp_id);
-	// FIXME fail on retval < 0
-	hi->o.pin = find_pin_by_name(pname);
-	assert(hi->o.pin != NULL);
-
-	// extract handle, insert into handlemap
-	// (*items)[name] = pinitem;
-	// hi->hal_type = p.type();
-	// hi->dir.pin_dir = p.dir();
-
+	if (retval < 0) {
+	    err.add_note("hal_pin_new() failed");
+	    goto EXIT_COMP;
+	}
+	hi->o.pin = find_pin_by_name(p.name().c_str());
+	if (hi->o.pin == NULL) {
+	    err.add_note("hal_find_pin_by_name() failed");
+	    goto EXIT_COMP;
+	}
+	// add to items sparse array
+	self->items[hi->o.pin->handle] = hi;
     }
+    hal_ready(comp_id);
 
-    // halitem pinitem;
-
-    // if (type < HAL_BIT || type > HAL_U32) {
-    // 	PyErr_Format(PyExc_RuntimeError,
-    // 		     "Invalid pin type %d", type);
-    // 	throw boost::python::error_already_set();
-    // }
-
-    // pinitem.is_pin = true;
-    // pinitem.ptr =  hal_malloc(sizeof(void *));
-    // if (!pinitem.ptr)
-    // 	throw std::runtime_error("hal_malloc failed");
-
-    // result = hal_pin_new(name, (hal_type_t) type, (hal_pin_dir_t) dir,
-    // 			 (void **) pinitem.ptr, comp->comp_id);
-    // if (result < 0) {
-    // 	PyErr_Format(PyExc_RuntimeError,
-    // 		     "hal_pin_new(%s, %d) failed: %s",
-    // 		     name, type, strerror(-result));
-    // 	throw boost::python::error_already_set();
-    // }
-
-    // pinitem.pp.pin = halpr_find_pin_by_name(name);
-    // assert(pinitem.pp.pin != NULL);
-    // (*items)[name] = pinitem;
-
-                // for s in self.rx.pin:
-                //    rcomp.newpin(str(s.name), s.type, s.dir)
-                // rcomp.ready()
-                // rcomp.acquire()
-                // rcomp.bind()
-                // print >> self.rtapi, "%s created remote comp: %s" % (client,name)
     // compile the component
-             //    rcomp.ready()
-             //    rcomp.acquire()
-             //    rcomp.bind()
-             //    print >> self.rtapi, "%s created remote comp: %s" % (client,name)
-
-             //    # add to in-service dict
-             //    self.rcomp[name] = rcomp
-             //    self.tx.type = MT_HALRCOMP_BIND_CONFIRM
-             // except Exception,s:
-             //    print >> self.rtapi, "%s: %s create failed: %s" % (client,str(self.rx.comp.name), str(s))
-             //    self.tx.type = MT_HALRCOMP_BIND_REJECT
-             //    self.tx.note = str(s)
-
+    hal_compiled_comp_t *cc;
+    if ((retval = hal_compile_comp(cname, &cc))) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: create_rcomp:hal_compile_comp(%s)"
+			" failed - skipping component: %s",
+			self->cfg->progname,
+			cname, strerror(-retval));
+	err.add_note("hal_compile_comp() failed");
+	goto EXIT_COMP;
+    }
+    rc->cc = cc;
     return rc;
+
+ EXIT_COMP:
+
+    if (hi) delete hi;
+    if (rc->cc)
+	hal_ccomp_free(cc);
+    if (rc) delete rc;
+    if (comp_id > 0)
+	hal_exit(comp_id);
+ ERROR_REPLY:
+    err.set_type( pb::MT_HALRCOMP_ERROR);
+    err.set_uuid(&self->instance_uuid, sizeof(uuid_t));
+    err.add_note(errmsg);
+    send_pbcontainer(from, err, socket);
+    return NULL;
 }
 
 static int
 process_rcomp_bind(const char *from,  htself_t *self, void *socket)
 {
     int retval = 0;
-    zframe_t *reply_frame;
     char text[100];
     const char *cname = NULL;
     rcomp_t *rc;
 
+    // once - in case we need it later
+    pb::Container err;
+    err.set_type( pb::MT_HALRCOMP_ERROR);
+    err.set_uuid(&self->instance_uuid, sizeof(uuid_t));
+    err.add_note(text);
+
     // extract component name
     // fail if comp not present
     if (!self->rx.has_comp()) {
-	snprintf(text,sizeof(text),"request %d from %s: no Component submessage",
+
+	snprintf(text, sizeof(text),
+		 "request %d from %s: no Component submessage",
 		 self->rx.type(), from ? from : "NULL");
-	return send_reply(from, self->tx, pb::MT_HALRCOMP_ERROR,
-			  socket, text);
+	err.add_note(text);
+	return send_pbcontainer(from, err, socket);
     }
     // fail if comp.name not present
-    if (self->rx.comp().has_name()) {
+    if (!self->rx.comp().has_name()) {
 	snprintf(text,sizeof(text),"request %d from %s: no name in Component submessage",
 		 self->rx.type(), from ? from : "NULL");
-	return send_reply(from, self->tx, pb::MT_HALRCOMP_ERROR,
-			  socket, text);
+	err.add_note(text);
+	return send_pbcontainer(from, err, socket);
     }
     cname = self->rx.comp().name().c_str();
 
@@ -214,37 +271,55 @@ process_rcomp_bind(const char *from,  htself_t *self, void *socket)
 	if (!(p.has_name() && p.has_type() && p.has_dir())) {
 	    // TODO if (type < HAL_BIT || type > HAL_U32)
 	    std::string s;
-	    TextFormat::PrintToString(p, &s);
-	    std::string err = "request from " + std::string(cname) + ": invalid pin: " + s;
-	    return send_reply(from, self->tx, pb::MT_HALRCOMP_ERROR,
-			      socket, text);
+	    gpb::TextFormat::PrintToString(p, &s);
+	    std::string errormsg = "request from " + std::string(cname) + ": invalid pin: " + s;
+	    err.add_note(errormsg);
 	}
     }
+    // reply if any bad news
+    if (err.note_size() > 0)
+	return send_pbcontainer(from, err, socket);
 
     // see if component already exists
     if (self->rcomps.count(cname) == 0) {
 	// no, new component being created remotely
 	rc = create_rcomp(self, from, cname, socket);
-
-
+	if (rc) {
+	    self->rcomps[cname] = rc;
+	    // acquire and bind happens during subscribe
+	}
     } else {
 	// component exists
 	rc = self->rcomps[cname];
-	// validate request against existing comp
+	// TBD: validate request against existing comp
+    }
+
+    if (rc) {
+	// a valid component, either existing or new.
+	self->tx.set_type(pb::MT_HALRCOMP_BIND_CONFIRM);
+	self->tx.set_uuid(&self->instance_uuid, sizeof(uuid_t));
+	pb::Component *c = self->tx.mutable_comp();
+	retval = hal_describe_component(cname, c);
+	assert(retval == 0);
+	return send_pbcontainer(from, self->tx, socket);
+
+    } else {
+
 
     }
 
 
 
-    self->tx.set_type(pb::MT_PING_ACKNOWLEDGE);
-    reply_frame = zframe_new(NULL, self->tx.ByteSize());
-    assert(reply_frame != 0);
-    self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
-    retval = zstr_sendm (socket, from);
-    assert(retval == 0);
-    retval = zframe_send(&reply_frame, socket, 0);
-    assert(retval == 0);
-    self->tx.Clear();
+
+
+    // reply_frame = zframe_new(NULL, self->tx.ByteSize());
+    // assert(reply_frame != 0);
+    // self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
+    // retval = zstr_sendm (socket, from);
+    // assert(retval == 0);
+    // retval = zframe_send(&reply_frame, socket, 0);
+    // assert(retval == 0);
+    // self->tx.Clear();
     return 0;
 }
 

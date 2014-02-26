@@ -17,6 +17,7 @@
  */
 
 #include "haltalk.hh"
+#include "halpb.h"
 
 static int group_report_cb(int phase, hal_compiled_group_t *cgroup,
 			   hal_sig_t *sig, void *cb_data);
@@ -104,7 +105,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 				self->cfg->progname, note.c_str());
 
 		self->tx.set_type(pb::MT_STP_NOGROUP);
-		self->tx.set_note(note);
+		self->tx.add_note(note);
 		zmsg_t *msg = zmsg_new();
 		zmsg_pushstr(msg, topic);
 		zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
@@ -254,7 +255,6 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 {
     group_t *grp = (group_t *) cb_data;
     htself_t *self = grp->self;
-    hal_data_u *vp;
     pb::Signal *signal;
     zmsg_t *msg;
     int retval;
@@ -280,23 +280,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 
     case REPORT_SIGNAL: // per-reported-signal action
 	signal = self->tx.add_signal();
-	vp = (hal_data_u *) SHMPTR(sig->data_ptr);
-	switch (sig->type) {
-	default:
-	    assert("invalid signal type" == NULL);
-	case HAL_BIT:
-	    signal->set_halbit(vp->b);
-	    break;
-	case HAL_FLOAT:
-	    signal->set_halfloat(vp->f);
-	    break;
-	case HAL_S32:
-	    signal->set_hals32(vp->s);
-	    break;
-	case HAL_U32:
-	    signal->set_halu32(vp->u);
-	    break;
-	}
+	assert(hal_sig2pb(sig, signal) == 0);
 	if (grp->flags & GROUP_REPORT_FULL) {
 	    signal->set_name(sig->name);
 	    signal->set_type((pb::ValueType)sig->type);

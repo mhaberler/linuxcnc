@@ -48,7 +48,7 @@
 #include "halitem.h"
 
 #include <middleware/generated/message.pb.h>
-using namespace google::protobuf;
+namespace gpb = google::protobuf;
 
 // announced protocol versions
 #define HAL_GROUP_STATUS_VERSION 1
@@ -165,3 +165,4 @@ int service_discovery_stop(htself_t *self);
 
 // haltalk_command.cc:
 int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int describe_component(const char *name, pb::Component *c);

@@ -21,11 +21,11 @@
 static int collect_unbound_comps(hal_compstate_t *cs,  void *cb_data);
 static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 			  hal_pin_t *pin,
-			  int handle,
 			  hal_data_u *vp,
 			  void *cb_data);
 static int handle_rcomp_command(htself_t *self, zmsg_t *msg);
-
+static int add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
+			     hal_pin_t *pin, hal_data_u *vp, void *cb_data);
 
 // handle timer event for a rcomp
 // report if one is due
@@ -76,7 +76,7 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		// not found, publish an error message on this topic
 		self->tx.set_type(pb::MT_HALRCOMP_ERROR);
 		std::string error = "component " + std::string(topic) + " does not exist";
-		self->tx.set_note(error);
+		self->tx.add_note(error);
 		zframe_t *reply_frame = zframe_new(NULL, self->tx.ByteSize());
 		self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
 
@@ -174,13 +174,15 @@ scan_comps(htself_t *self)
 	hal_compiled_comp_t *cc;
 	if ((retval = hal_compile_comp(name, &cc))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: hal_compile_comp(%s) failed - skipping component: %s",
+			    "%s: scan_comps:hal_compile_comp(%s) failed - skipping component: %s",
 			    self->cfg->progname,
 			    name, strerror(-retval));
 	    nfail++;
 	    self->rcomps.erase(c);
 	    continue;
 	}
+	// add pins to items dict
+	hal_ccomp_report(cc, add_pins_to_items, self, true);
 
 	int arg1, arg2;
 	hal_ccomp_args(cc, &arg1, &arg2);
@@ -211,6 +213,10 @@ int release_comps(htself_t *self)
 
 	const char *name = c->first.c_str();
 	rcomp_t *rc = c->second;
+	if (rc->cc == NULL)
+	    // remote created, but never bound and hence
+	    // not compiled, bound and aquired
+	    continue;
 	hal_comp_t *comp = rc->cc->comp;
 
 	// unbind all comps owned by us:
@@ -234,17 +240,19 @@ int release_comps(htself_t *self)
 		nfail++;
 	    }
 	}
-	int retval = hal_release(name);
-	if (retval < 0) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: hal_release(%s) failed: %s",
-			    self->cfg->progname,
-			    name, strerror(-retval));
-	    nfail++;
-	} else
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: released component '%s'",
-			    self->cfg->progname, name);
+	if (comp->pid != 0) {
+	    int retval = hal_release(name);
+	    if (retval < 0) {
+		rtapi_print_msg(RTAPI_MSG_ERR,
+				"%s: hal_release(%s) failed: %s",
+				self->cfg->progname,
+				name, strerror(-retval));
+		nfail++;
+	    } else
+		rtapi_print_msg(RTAPI_MSG_ERR,
+				"%s: released component '%s'",
+				self->cfg->progname, name);
+	}
     }
     return -nfail;
 }
@@ -275,7 +283,6 @@ collect_unbound_comps(hal_compstate_t *cs,  void *cb_data)
 static
 int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 		   hal_pin_t *pin,
-		   int handle,
 		   hal_data_u *vp,
 		   void *cb_data)
 {
@@ -408,5 +415,26 @@ handle_rcomp_command(htself_t *self, zmsg_t *msg)
     }
     zframe_destroy(&f);
     free(cname);
+    return 0;
+}
+
+
+static int
+add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
+		  hal_pin_t *pin,
+		  hal_data_u *vp,
+		  void *cb_data)
+{
+    htself_t *self = (htself_t *) cb_data;;
+    if (phase != REPORT_PIN) return 0;
+
+    if (self->items.count(pin->handle) == 0) {
+	halitem_t *hi = new halitem_t();
+	hi->type = HAL_PIN;
+	hi->o.pin = pin;
+	hi->ptr = SHMPTR(pin->data_ptr_addr);
+	self->items[pin->handle] = hi;
+	// printf("add pin %s\n", pin->name);
+    }
     return 0;
 }
