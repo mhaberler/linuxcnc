@@ -7,6 +7,7 @@ INCLUDES += hal
 HALLIBSRCS := hal/hal_lib.c \
 	hal/hal_group.c \
 	hal/hal_ring.c \
+	hal/hal_iter.c \
 	hal/hal_rcomp.c \
 	$(MWDIR)/support/nanopb.c \
 	$(MWDIR)/nanopb/pb_decode.c \
