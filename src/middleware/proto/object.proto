@@ -95,7 +95,7 @@ message Param {
     optional string       strval     = 9;
     optional bytes        blob       = 10;
 
-    optional HalParamDirection  pdir = 11;
+    optional HalParamDirection  dir = 11;
     optional string       oldname    = 12; //   [(nanopb).max_size = 41];
     optional sfixed32     owner      = 13;
     optional sfixed32     runtime    = 14;
@@ -105,6 +105,11 @@ message Param {
 message Function {
     optional string      name       = 1; //   [(nanopb).max_size = 41];
     optional fixed32     handle     = 2;
+    optional fixed32     owner_id   = 3;
+    optional fixed32     users      = 4;
+    optional fixed32     runtime    = 5;
+    optional fixed32     maxtime    = 6;
+    optional bool        reentrant  = 7;
 }
 
 message Thread {
@@ -112,10 +117,10 @@ message Thread {
     optional fixed32     handle     = 2;
     optional bool        uses_fp    = 3;
     optional fixed32     period     = 4;
-    optional sfixed32    prioritiy  = 5;
+    optional sfixed32    priority   = 5;
     optional fixed32     task_id    = 6;
     optional fixed32     cpu_id     = 7;
-    repeated Function    functions  = 8; //   [(nanopb).max_count = 100];
+    repeated string      function   = 8; //   [(nanopb).max_count = 100];
 }
 
 message Component {
@@ -178,33 +183,34 @@ message Group {
     repeated Member       member        = 7;
 }
 
-message Object {
+// retire
+// message Object {
 
-    required ObjectType       type = 10;
+//     required ObjectType       type = 10;
 
-    // an object identity is uniquely defined by a name, or a handle
-    optional string           name = 20; //  [(nanopb).max_size = 41];
-    optional fixed32         handle = 25;
-    optional bool          changed = 30;  // relative to last use
+//     // an object identity is uniquely defined by a name, or a handle
+//     optional string           name = 20; //  [(nanopb).max_size = 41];
+//     optional fixed32         handle = 25;
+//     optional bool          changed = 30;  // relative to last use
 
-    // scalars and compound values
-    optional Value       value     = 50;
+//     // scalars and compound values
+//     optional Value       value     = 50;
 
-    // HAL objects
-    // these are named objects which doubles up on Object.name
-    // HAL object name has precedence over the Object name which should
-    // not be used in in this case. The handle remains optional.
+//     // HAL objects
+//     // these are named objects which doubles up on Object.name
+//     // HAL object name has precedence over the Object name which should
+//     // not be used in in this case. The handle remains optional.
 
-    // this is unfortunate but Protobuf doesnt support type inheritance
-    // into submessages.
-    optional Pin         pin       = 100;
-    optional Signal      signal    = 110;
-    optional Param       param     = 120;
-    optional Thread      thread    = 130;
-    optional Component   comp      = 140;
-    optional Ring        ring      = 150;
-    optional Group       group     = 160;
-    optional Member      member    = 170;
-    optional Function    function  = 180;
-    optional AnError     error     = 190;
-}
+//     // this is unfortunate but Protobuf doesnt support type inheritance
+//     // into submessages.
+//     optional Pin         pin       = 100;
+//     optional Signal      signal    = 110;
+//     optional Param       param     = 120;
+//     optional Thread      thread    = 130;
+//     optional Component   comp      = 140;
+//     optional Ring        ring      = 150;
+//     optional Group       group     = 160;
+//     optional Member      member    = 170;
+//     optional Function    function  = 180;
+//     optional AnError     error     = 190;
+// }

@@ -229,6 +229,7 @@ $(PBGEN)/%.npb.c $(PBGEN)/%.npb.h: %.proto $(NANOPB_SUPPORT)
 # generate Python modules from proto files
 ../lib/python/%_pb2.py: %.proto
 	$(ECHO) "protoc create $@ from $<"
+	@mkdir -p ../lib/python
 	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
 	--proto_path=$(PROTODIR)/ \
 	--proto_path=$(NPBPROTODIR)/ \

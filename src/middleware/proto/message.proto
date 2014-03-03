@@ -38,7 +38,7 @@ message Container {
     optional TicketUpdate  ticket_update  = 11;
     optional LogMessage    log_message    = 12;
     // simplified argument list for hal_rcomp/stp  updates
-    repeated Signal                signal = 13;  //  [(nanopb).max_count = 20];
+    // retire repeated Signal                signal = 13;  //  [(nanopb).max_count = 20];
 
     // tags in the range 16 through 2047 take two bytes.
     // various blobs and less frequently used messages
@@ -55,6 +55,8 @@ message Container {
     // this is for messages going over pub/sub streams and wind up in JSON frames
     // duplicating the topic here allows us to drop the topic frame
     optional string                 topic = 23;
+
+    optional bool            reply_required = 24; // force a response even if OK
 
     // this is an or of bits in ReplyType:
     optional int32                   rsvp = 30;  // if/how to answer
@@ -96,60 +98,50 @@ message Container {
     optional Originator            origin = 80;
 
     // generalized polymorphic argument list
-    repeated Object                arg   = 85;  //  [(nanopb).max_count = 20];
+    // retire: repeated Object                arg   = 85;  //  [(nanopb).max_count = 20];
 
     optional RTAPICommand           rtapicmd = 86;
+
+    // a reply may carry several service announcements:
+    repeated ServiceAnnouncement  service_announcement = 88;
 
    //  // string argv-type vector; used in MT_RTAPI_APP_* and possibly others
    //  repeated string                 argv =  86;  //  [(nanopb).max_count = 20];
 
-   // // MT_RTAPI_APP_LOG_*, loglevels
-   //  optional int32              loglevel = 87;
-
-   //  // MT_RTAPI_APP_REPLY, possibly with 'note' tacked on:
-   //  optional int32               retcode = 88;
-
-   //  // used in MT_RTAPI_APP_LOADRT
-   //  optional string              modname = 89;
-
-   //  // used in MT_RTAPI_APP_LOADRT
-   //  optional int32              instance = 90;
-
     // remote comp description for MT_HALCOMP_CREATE: [comp, pins*]
-    optional Component              comp = 93;
-
-    // simplified argument list for HAL UI remote comps
-    // used in MT_HALCOMP_CREATE, MT_HALCOMP_SET_PINS, MT_HALCOMP_PIN_CHANGE
-    repeated Pin                  pin = 95;
-
+    repeated Component   comp      = 100;
+    repeated Pin         pin       = 101;
+    repeated Signal      signal    = 102;
+    repeated Param       param     = 103;
+    repeated Thread      thread    = 104;
+    repeated Ring        ring      = 105;
+    repeated Group       group     = 106;
+    repeated Member      member    = 107;
+    repeated Function    function  = 108;
 
     // miscellanous
-    optional string        ascii          = 100;
-    optional bytes         unicode        = 101;
-    optional string        gcode          = 102;
-    optional string        python         = 103;
-    optional bytes         pickle         = 104;
-    optional string        tcl            = 105;
-    optional string        xml            = 106;
-    optional string        json           = 107;
-    optional bytes         jpeg           = 108;
-    optional bytes         png            = 109;
-    optional bytes         tiff           = 110;
-    optional bytes         postscript     = 111;
-    optional bytes         svg            = 112;
-
-    // a reply may carry several service announcements:
-    repeated ServiceAnnouncement  service_announcement = 116;
-
+    optional string        ascii          = 140;
+    optional bytes         unicode        = 141;
+    optional string        gcode          = 142;
+    optional string        python         = 143;
+    optional bytes         pickle         = 144;
+    optional string        tcl            = 145;
+    optional string        xml            = 146;
+    optional string        json           = 147;
+    optional bytes         jpeg           = 148;
+    optional bytes         png            = 149;
+    optional bytes         tiff           = 150;
+    optional bytes         postscript     = 151;
+    optional bytes         svg            = 152;
 
     // infrequent compound messages
 
-    //  messages of the halupdate protocol:
-    optional Offer                  offer = 150;
-    optional ConfirmOffer         confirm = 155;
-    optional DisplayMessage    displaymsg = 160;
-    optional Shutdown            shutdown = 165;
-    optional ConfirmShutdown  confirm_shutdown = 170;
+    // //  messages of the halupdate protocol:
+    // optional Offer                  offer = 150;
+    // optional ConfirmOffer         confirm = 155;
+    // optional DisplayMessage    displaymsg = 160;
+    // optional Shutdown            shutdown = 165;
+    // optional ConfirmShutdown  confirm_shutdown = 170;
 
 
     // taskplan (interpreter command) messages
