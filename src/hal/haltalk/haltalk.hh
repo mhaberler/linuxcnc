@@ -109,6 +109,7 @@ typedef struct htconf {
     const char *rcomp_status;
     const char *command;
 
+    int paranoid; // extensive runtime checks - may be costly
     int debug;
     int sddebug;
     int default_group_timer; // msec
@@ -166,3 +167,6 @@ int service_discovery_stop(htself_t *self);
 // haltalk_command.cc:
 int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 int describe_component(const char *name, pb::Component *c);
+
+// haltalk_introspect.cc:
+int process_describe(htself_t *self, const char *from,  void *socket);

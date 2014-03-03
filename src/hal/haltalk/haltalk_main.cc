@@ -25,9 +25,10 @@
 #include "haltalk.hh"
 
 
-static const char *option_string = "hI:S:dt:Du:r:T:c:";
+static const char *option_string = "hI:S:dt:Du:r:T:c:p";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
+    {"paranoid", no_argument, 0, 'p'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
     {"debug", required_argument, 0, 'd'},
@@ -49,6 +50,7 @@ static htconf_t conf = {
     "tcp://127.0.0.1:*", // localhost, use ephemeral port
     "tcp://127.0.0.1:*",
     "tcp://127.0.0.1:*",
+    0,
     0,
     0,
     100,
@@ -243,7 +245,7 @@ read_config(htconf_t *conf)
 
     if ((inifp = fopen(conf->inifile,"r")) == NULL) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: cant open inifile '%s'\n",
-		conf->progname, conf->inifile);
+			conf->progname, conf->inifile);
 	return -1;
     }
     if ((s = iniFind(inifp, "GROUP_STATUS_URI", conf->section)))
@@ -258,6 +260,7 @@ read_config(htconf_t *conf)
     iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
     iniFindInt(inifp, "SDDEBUG", conf->section, &conf->sddebug);
     iniFindInt(inifp, "SDPORT", conf->section, &conf->sd_port);
+    iniFindInt(inifp, "PARANOID", conf->section, &conf->paranoid);
     fclose(inifp);
     return 0;
 }
@@ -281,6 +284,8 @@ usage(void)
 	   "    set the RTAPI message level.\n"
 	   "-t or --timer <msec>\n"
 	   "    set the default group scan timer (100mS).\n"
+	   "-p or --paranoid <msec>\n"
+	   "    turn on extensive runtime checks (may be costly).\n"
 	   "-d or --debug\n"
 	   "    Turn on event debugging messages.\n");
 }
@@ -320,6 +325,9 @@ int main (int argc, char *argv[])
 	    break;
 	case 'T':
 	    conf.default_rcomp_timer = atoi(optarg);
+	    break;
+	case 'p':
+	    conf.paranoid = 1;
 	    break;
 	case 'h':
 	default:

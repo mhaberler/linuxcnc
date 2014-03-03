@@ -40,3 +40,32 @@ send_pbcontainer(const char *dest, pb::Container &c, void *socket)
     c.Clear();
     return retval;
 }
+
+
+int
+note_printf(pb::Container &c, const char *fmt, ...)
+{
+    va_list ap;
+    int n;
+    char buf[MAX_NOTESIZE];
+
+    va_start(ap, fmt);
+    strcpy(&buf[MAX_NOTESIZE] - 4, "...");
+
+    n = vsnprintf(buf, MAX_NOTESIZE-4, fmt, ap);
+    if (n > MAX_NOTESIZE-4)
+	n = MAX_NOTESIZE;
+    va_end(ap);
+    c.add_note(buf, n);
+
+    // split into lines to keep rtapi_print_msg happy
+    char *save, *token, *s = buf;
+    while (1) {
+	token = strtok_r(s, "\n", &save);
+	if (token == NULL)
+	    break;
+	rtapi_print_msg(RTAPI_MSG_ERR, token);
+	s = NULL;
+    }
+    return n;
+}

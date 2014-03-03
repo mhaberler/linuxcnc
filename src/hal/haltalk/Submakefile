@@ -2,9 +2,12 @@
 PROFILE = #-pg
 HALTALK_SRCS :=  $(addprefix hal/haltalk/, \
 	pbutil.cc \
+	halpb.cc \
+	halutil.cc \
 	haltalk_group.cc \
 	haltalk_rcomp.cc \
 	haltalk_command.cc \
+	haltalk_introspect.cc \
 	haltalk_sdiscover.cc \
 	haltalk_main.cc) \
 	rtapi/redirect_log.c

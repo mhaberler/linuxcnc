@@ -1,3 +1,17 @@
+#include <rtapi.h>
+#include <hal.h>
+#include <hal_priv.h>
+#include <hal_group.h>
+#include <hal_rcomp.h>
+#include <hal_ring.h>
+#include <middleware/generated/message.pb.h>
+
+int halpr_describe_signal(hal_sig_t *sig, pb::Signal *pbsig);
+int halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring);
+int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct);
+int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread);
+int halpr_describe_component(hal_comp_t *comp, pb::Component *c);
+
 static inline const hal_data_u *hal_sig2u(const hal_sig_t *sig)
 {
     return (hal_data_u *)SHMPTR(sig->data_ptr);

@@ -43,3 +43,31 @@ typedef struct  {
     union halobject_union o;
     void *ptr;
 } halitem_t;
+
+/* static inline const char *item_name(halitem_t *hi) */
+/* { */
+/*     if (hi == NULL) return "NULL"; */
+/*     switch (hi-> type) { */
+/*      HAL_PIN           = 1, */
+/*     HAL_SIGNAL        = 2, */
+/*     HAL_PARAM         = 3, */
+/*     HAL_THREAD        = 4, */
+/*     HAL_FUNCT         = 5, */
+/*     HAL_ALIAS         = 6, */
+/*     HAL_COMP_RT       = 7, */
+/*     HAL_COMP_USER     = 8, */
+/*     HAL_COMP_REMOTE   = 9, */
+/*     HAL_RING          = 10, */
+/*     HAL_GROUP         = 11, */
+/*     HAL_MEMBER_SIGNAL = 12, */
+/*     HAL_MEMBER_GROUP  = 13, */
+/*     HAL_MEMBER_PIN    = 14, */
+
+/*     RING_RECORD       = 15, */
+/*     RING_STREAM       = 16, */
+/* 	case  */
+/*     default: */
+/* 	return "invalid item type"; */
+/*     } */
+
+/* } */

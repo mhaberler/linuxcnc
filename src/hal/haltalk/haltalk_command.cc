@@ -17,14 +17,16 @@
  */
 
 #include "haltalk.hh"
+#include "halutil.hh"
 #include "halpb.h"
 #include "pbutil.hh"
 #include "rtapi_hexdump.h"
 
 #include <google/protobuf/text_format.h>
 
-static int dispatch_request(const char *from,  htself_t *self, void *socket);
-
+static int dispatch_request(htself_t *self, const char *from, void *socket);
+static int process_rcmd_get(htself_t *self, const char *from, void *socket);
+static int process_rcmd_set(htself_t *self, const char *from, void *socket);
 
 int
 handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -49,7 +51,7 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 				 "%s: invalid pb ", origin);
 	} else {
 	    // a valid protobuf. Interpret and reply as needed.
-	    dispatch_request(origin, self, poller->socket);
+	    dispatch_request(self, origin, poller->socket);
 	}
 	zframe_destroy(&f);
     }
@@ -71,91 +73,141 @@ find_pin_by_name(const char *name)
 }
 
 static int
-process_ping(const char *from,  htself_t *self, void *socket)
+process_ping(htself_t *self, const char *from,  void *socket)
 {
     self->tx.set_type( pb::MT_PING_ACKNOWLEDGE);
     self->tx.set_uuid(&self->instance_uuid, sizeof(uuid_t));
     return send_pbcontainer(from, self->tx, socket);
 }
 
-
-// transfrom a HAL component into a Component protobuf.
-// Aquires the HAL mutex.
-int hal_describe_component(const char *name, pb::Component *c)
+// validate name, number, type and direction of pins and params
+// of the existing HAL component 'name' against the component described in
+// pb::Component c.
+// any errors are added as c.note strings.
+// Returns the number of notes added (= errors).
+// Acquires the HAL mutex.
+int
+validate_component(const char *name, const pb::Component *pbcomp, pb::Container &e)
 {
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
-    hal_comp_t *owner;
-    hal_pin_t *pin;
-
+    hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
     rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(name);
-    if (comp == 0)
-	return -ENOENT;
 
-    c->set_name(comp->name);
-    c->set_comp_id(comp->comp_id);
-    c->set_type(comp->type);
-    c->set_state(comp->state);
-    c->set_last_update(comp->last_update);
-    c->set_last_bound(comp->last_bound);
-    c->set_last_unbound(comp->last_unbound);
-    c->set_pid(comp->pid);
-    if (comp->insmod_args)
-	c->set_args((const char *)SHMPTR(comp->insmod_args));
-    c->set_userarg1(comp->userarg1);
-    c->set_userarg2(comp->userarg2);
+    hal_comp_t *hc = halpr_find_comp_by_name(name);
+    if (hc == NULL) {
+	note_printf(e, "HAL component '%s' does not exist", name);
+	return e.note_size();
+    }
 
-    int next = hal_data->pin_list_ptr;
-    while (next != 0) {
-	pin = (hal_pin_t *)SHMPTR(next);
-	owner = (hal_comp_t *) SHMPTR(pin->owner_ptr);
-	if (owner->comp_id == comp->comp_id) {
-	    pb::Pin *p = c->add_pin();
-	    p->set_type((pb::ValueType) pin->type);
-	    p->set_dir((pb::HalPinDirection) pin->dir);
-	    p->set_handle(pin->handle);
-	    p->set_name(pin->name);
-	    p->set_linked(pin->signal != 0);
-	    assert(hal_pin2pb(pin, p) == 0);
-#ifdef USE_PIN_USER_ATTRIBUTES
-	    p->set_flags(pin->flags);
-	    if (pin->type == HAL_FLOAT)
-		p->set_epsilon(pin->epsilon);
-#endif
+    int npins = halpr_pin_count(name);
+    int nparams  = halpr_param_count(name);
+    int npbpins = pbcomp->pin_size();
+    int npbparams = pbcomp->param_size();
+    std::string s;
+
+    if (!pbcomp->has_name())
+	note_printf(e, "pb component has no name");
+
+    if (npbpins != npins)
+	note_printf(e, "pin count mismatch:pb comp=%d hal comp=%d",
+		    npbpins, npins);
+
+    if (npbparams != nparams)
+	note_printf(e, "param count mismatch:pb comp=%d hal comp=%d",
+		    npbparams, nparams);
+
+    for (int i = 0; i < npbpins; i++) {
+
+	const pb::Pin &p = pbcomp->pin().Get(i);;
+
+	// basic syntax - required attributes
+	if (!p.has_name()) {
+	    gpb::TextFormat::PrintToString(p, &s);
+	    note_printf(e, "pin withtout name: %s", s.c_str());
+	    continue;
 	}
-	next = pin->next_ptr;
-    }
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	hal_param_t *param = (hal_param_t *)SHMPTR(next);
-	owner = (hal_comp_t *) SHMPTR(param->owner_ptr);
-	if (owner->comp_id == comp->comp_id) {
-	    pb::Param *p = c->add_param();
-	    p->set_name(param->name);
-	    p->set_type((pb::ValueType) param->type);
-	    p->set_pdir((pb::HalParamDirection) param->dir);
-	    p->set_handle(param->handle);
-	    assert(hal_param2pb(param, p) == 0);
+	if (!p.has_type()) {
+	    gpb::TextFormat::PrintToString(p, &s);
+	    note_printf(e, "pin withtout type: %s", s.c_str());
+	    continue;
 	}
-	next = param->next_ptr;
+	if (!p.has_dir()) {
+	    gpb::TextFormat::PrintToString(p, &s);
+	    note_printf(e, "pin withtout dir: %s", s.c_str());
+	    continue;
+	}
+
+	// each pb pin must match an existing HAL pin
+	hal_pin_t *hp = halpr_find_pin_by_name(p.name().c_str());
+	if (hp == NULL) {
+	    note_printf(e, "HAL pin '%s' does not exist", p.name().c_str());
+	} else {
+	    // HAL pin name exists, match attributes
+	    if (hp->type != (hal_type_t) p.type())
+		note_printf(e, "HAL pin '%s' type mismatch: hal=%d pb=%d",
+			    hp->type, p.type());
+
+	    if (hp->dir != (hal_pin_dir_t) p.dir())
+		note_printf(e, "HAL pin '%s' direction mismatch: hal=%d pb=%d",
+			    hp->dir, p.dir());
+	}
     }
-    return 0;
+    // same for params:
+    for (int i = 0; i < npbparams; i++) {
+
+	const pb::Param &p = pbcomp->param().Get(i);;
+
+	// basic syntax - required attributes
+	if (!p.has_name()) {
+	    gpb::TextFormat::PrintToString(p, &s);
+	    note_printf(e, "param withtout name: %s", s.c_str());
+	    continue;
+	}
+	if (!p.has_type()) {
+	    gpb::TextFormat::PrintToString(p, &s);
+	    note_printf(e, "param withtout type: %s", s.c_str());
+	    continue;
+	}
+	if (!p.has_dir()) {
+	    gpb::TextFormat::PrintToString(p, &s);
+	    note_printf(e, "param withtout direction: %s", s.c_str());
+	    continue;
+	}
+
+	// each pb param must match an existing HAL param
+	hal_param_t *hp = halpr_find_param_by_name(p.name().c_str());
+	if (hp == NULL) {
+	    note_printf(e, "HAL param '%s' does not exist", p.name().c_str());
+	} else {
+	    // HAL param name exists, match attributes
+	    if (hp->type != (hal_type_t) p.type())
+		note_printf(e, "HAL param '%s' type mismatch: hal=%d pb=%d",
+			    hp->type, p.type());
+
+	    if (hp->dir != (hal_param_dir_t) p.dir())
+		note_printf(e, "HAL param '%s' direction mismatch: hal=%d pb=%d",
+			    hp->dir, p.dir());
+	}
+    }
+    // this matching on pb objects only will not explicitly
+    // enumerate HAL pins and params which are not in the pb request,
+    // but the balance mismatch will have already been recorded
+    return e.note_size();
 }
 
-
 // create a remote comp as per MT_HALRCOMP_BIND request message contents
+// The Component submessage is assumed to exist and carry all required fields.
 // compile and return a handle to the rcomp descriptor
 // the rcomp will be taken into service once its name is subscribed to.
+// accumulate any errors in self->tx.note.
 static rcomp_t *
-create_rcomp(htself_t *self, const char *from, const char *cname, void *socket)
+create_rcomp(htself_t *self,  const pb::Component *pbcomp,
+	     const char *from, void *socket)
 {
     int arg1 = 0, arg2 = 0, retval;
     rcomp_t *rc = new rcomp_t();
     int comp_id = 0;
-    char text[100];
     halitem_t *hi = NULL;
-    std::string errmsg;
-    pb::Container err;
+    const char *cname = pbcomp->name().c_str();
 
     rc->self = self;
     rc->timer_id = -1;
@@ -164,35 +216,34 @@ create_rcomp(htself_t *self, const char *from, const char *cname, void *socket)
     rc->cc = NULL;
 
     // extract timer and userargs if set
-    if (self->rx.comp().has_timer())
-	rc->msec = self->rx.comp().timer();
+    if (pbcomp->has_timer())
+	rc->msec = pbcomp->timer();
     else
 	rc->msec = self->cfg->default_rcomp_timer;
 
-    if (self->rx.comp().has_userarg1()) arg1 = self->rx.comp().userarg1();
-    if (self->rx.comp().has_userarg2()) arg2 = self->rx.comp().userarg2();
+    if (pbcomp->has_userarg1()) arg1 = pbcomp->userarg1();
+    if (pbcomp->has_userarg2()) arg2 = pbcomp->userarg2();
 
     // create the remote component
     comp_id = hal_init_mode(cname, TYPE_REMOTE, arg1, arg2);
     if (comp_id < 0) {
-	snprintf(text, sizeof(text),"hal_init_mode(%s): %s",
-		 cname, strerror(-comp_id));
-	err.add_note(text);
-	goto ERROR_REPLY;
+	note_printf(self->tx, "hal_init_mode(%s): %s",
+		    cname, strerror(-comp_id));
+	goto ERROR;
     }
 
     // create the pins
-    for (int i = 0; i < self->rx.comp().pin_size(); i++) {
-	const pb::Pin &p = self->rx.comp().pin(i);
+    for (int i = 0; i < pbcomp->pin_size(); i++) {
+	const pb::Pin &p = pbcomp->pin(i);
 	hi = new halitem_t();
 
 	if (hi == NULL) {
-	    err.add_note("new halitem_t() failed");
+	    note_printf(self->tx, "new halitem_t() failed");
 	    goto EXIT_COMP;
 	}
-	hi->ptr =  hal_malloc(sizeof(void *));
+	hi->ptr = hal_malloc(sizeof(void *));
 	if (hi->ptr == NULL) {
-	    err.add_note("hal_malloc() failed");
+	    note_printf(self->tx,"hal_malloc() failed");
 	    goto EXIT_COMP;
 	}
 	hi->type = HAL_PIN;
@@ -202,18 +253,19 @@ create_rcomp(htself_t *self, const char *from, const char *cname, void *socket)
 			     (void **) hi->ptr,
 			     comp_id);
 	if (retval < 0) {
-	    err.add_note("hal_pin_new() failed");
+	    note_printf(self->tx, "hal_pin_new() failed");
 	    goto EXIT_COMP;
 	}
 	hi->o.pin = find_pin_by_name(p.name().c_str());
 	if (hi->o.pin == NULL) {
-	    err.add_note("hal_find_pin_by_name() failed");
+	    note_printf(self->tx, "hal_find_pin_by_name() failed");
 	    goto EXIT_COMP;
 	}
-	// add to items sparse array
+	// add to items sparse array - needed for quick
+	// lookup when updates by handle are received
 	self->items[hi->o.pin->handle] = hi;
     }
-    hal_ready(comp_id);
+    hal_ready(comp_id); // XXX check return value
 
     // compile the component
     hal_compiled_comp_t *cc;
@@ -223,80 +275,68 @@ create_rcomp(htself_t *self, const char *from, const char *cname, void *socket)
 			" failed - skipping component: %s",
 			self->cfg->progname,
 			cname, strerror(-retval));
-	err.add_note("hal_compile_comp() failed");
+	note_printf(self->tx, "hal_compile_comp() failed");
 	goto EXIT_COMP;
     }
     rc->cc = cc;
     return rc;
 
  EXIT_COMP:
-
     if (hi) delete hi;
     if (rc->cc)
 	hal_ccomp_free(cc);
     if (rc) delete rc;
     if (comp_id > 0)
 	hal_exit(comp_id);
- ERROR_REPLY:
-    err.set_type( pb::MT_HALRCOMP_ERROR);
-    err.set_uuid(&self->instance_uuid, sizeof(uuid_t));
-    err.add_note(errmsg);
-    send_pbcontainer(from, err, socket);
+ ERROR:
     return NULL;
 }
 
 static int
-process_rcomp_bind(const char *from,  htself_t *self, void *socket)
+process_rcomp_bind(htself_t *self, const char *from,
+		   const pb::Component *pbcomp, void *socket)
 {
     int retval = 0;
-    char text[100];
     const char *cname = NULL;
     rcomp_t *rc;
+    std::string s;
 
-    // once - in case we need it later
-    pb::Container err;
-    err.set_type( pb::MT_HALRCOMP_ERROR);
-    err.set_uuid(&self->instance_uuid, sizeof(uuid_t));
+    // assume failure until proven otherwise
+    self->tx.set_type( pb::MT_HALRCOMP_BIND_REJECT);
+    self->tx.set_uuid(&self->instance_uuid, sizeof(uuid_t));
 
-    // extract component name
-    // fail if comp not present
-    if (!self->rx.has_comp()) {
-
-	snprintf(text, sizeof(text),
-		 "request %d from %s: no Component submessage",
-		 self->rx.type(), from ? from : "NULL");
-	err.add_note(text);
-	return send_pbcontainer(from, err, socket);
-    }
     // fail if comp.name not present
-    if (!self->rx.comp().has_name()) {
-	snprintf(text,sizeof(text),"request %d from %s: no name in Component submessage",
-		 self->rx.type(), from ? from : "NULL");
-	err.add_note(text);
-	return send_pbcontainer(from, err, socket);
+    if (!pbcomp->has_name()) {
+	note_printf(self->tx, "request %d from %s: no name in Component submessage",
+		    self->rx.type(), from ? from : "NULL");
+	return send_pbcontainer(from, self->tx, socket);
     }
-    cname = self->rx.comp().name().c_str();
+    cname = pbcomp->name().c_str();
 
     // validate pinlist attributes if pins are present -
     // to create a pin, it must have, name, type, direction
-    for (int i = 0; i < self->rx.comp().pin_size(); i++) {
-	const pb::Pin &p = self->rx.comp().pin(i);
-	if (!(p.has_name() && p.has_type() && p.has_dir())) {
+    for (int i = 0; i < pbcomp->pin_size(); i++) {
+	const pb::Pin &p = pbcomp->pin(i);
+	if (!(p.has_name() &&
+	      p.has_type() &&
+	      p.has_dir())) {
+
 	    // TODO if (type < HAL_BIT || type > HAL_U32)
-	    std::string s;
 	    gpb::TextFormat::PrintToString(p, &s);
-	    std::string errormsg = "request from " + std::string(cname) + ": invalid pin: " + s;
-	    err.add_note(errormsg);
+	    note_printf(self->tx,
+			"request %d from %s: invalid pin - name, type or dir missing: Pin=(%s)",
+			self->rx.type(), from ? from : "NULL", s.c_str());
 	}
     }
-    // reply if any bad news
-    if (err.note_size() > 0)
-	return send_pbcontainer(from, err, socket);
+    // reply if any bad news so far
+    if (self->tx.note_size() > 0)
+	return send_pbcontainer(from, self->tx, socket);
 
     // see if component already exists
     if (self->rcomps.count(cname) == 0) {
 	// no, new component being created remotely
-	rc = create_rcomp(self, from, cname, socket);
+	// any errors accumulate in self->tx.note
+	rc = create_rcomp(self, pbcomp, from, socket);
 	if (rc) {
 	    self->rcomps[cname] = rc;
 	    // acquire and bind happens during subscribe
@@ -304,56 +344,55 @@ process_rcomp_bind(const char *from,  htself_t *self, void *socket)
     } else {
 	// component exists
 	rc = self->rcomps[cname];
-	// TBD: validate request against existing comp
+	// validate request against existing comp
+	retval = validate_component(cname, pbcomp, self->tx);
+	if (retval) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "%s: bind request from %s:"
+			    " mismatch against existing HAL component",
+			    self->cfg->progname, from);
+	    return send_pbcontainer(from, self->tx, socket);
+	}
     }
-
+    // all good.
     if (rc) {
 	// a valid component, either existing or new.
+
+	pb::Component *c  __attribute__((cleanup(halpr_autorelease_mutex))) = self->tx.add_comp();
+	rtapi_mutex_get(&(hal_data->mutex));
+	hal_comp_t *comp = halpr_find_comp_by_name(cname);
+	assert(comp != NULL);
 	self->tx.set_type(pb::MT_HALRCOMP_BIND_CONFIRM);
 	self->tx.set_uuid(&self->instance_uuid, sizeof(uuid_t));
-	pb::Component *c = self->tx.mutable_comp();
-	retval = hal_describe_component(cname, c);
+	retval = halpr_describe_component(comp, c);
 	assert(retval == 0);
-	return send_pbcontainer(from, self->tx, socket);
-
-    } else {
-	return send_pbcontainer(from, err, socket);
     }
+    return send_pbcontainer(from, self->tx, socket);
 }
 
-    // def validate(self, comp, pins):
-    //     ''' validate pins of an existing remote component against
-    //     requested pinlist '''
-
-    //     np_exist = len(comp.pins())
-    //     np_requested = len(pins)
-    //     if np_exist != np_requested:
-    //         raise ValidateError, "pin count mismatch: requested=%d have=%d" % (np_exist,np_requested)
-    //     pd = pindict(comp)
-    //     for p in pins:
-    //         if not pd.has_key(str(p.name)):
-    //             raise ValidateError, "pin " + p.name + "does not exist"
-
-    //         pin = pd[str(p.name)]
-    //         if p.type != pin.type:
-    //             raise ValidateError, "pin %s type mismatch: %d/%d" % (p.name, p.type,pin.type)
-    //         if p.dir != pin.dir:
-    //             raise ValidateError, "pin %s direction mismatch: %d/%d" % (p.name, p.dir,pin.dir)
-    //     # all is well
-
 static int
-dispatch_request(const char *from,  htself_t *self, void *socket)
+dispatch_request(htself_t *self, const char *from,  void *socket)
 {
     int retval = 0;
 
     switch (self->rx.type()) {
 
     case pb::MT_PING:
-	retval = process_ping(from, self, socket);
+	retval = process_ping(self, from, socket);
 	break;
 
     case pb::MT_HALRCOMP_BIND:
-	retval = process_rcomp_bind(from, self, socket);
+	// check for component submessages, and fail if none present
+	if (self->rx.comp_size() == 0) {
+	    note_printf(self->tx, "request %d from %s: no Component submessage",
+			self->rx.type(), from ? from : "NULL");
+	    return send_pbcontainer(from, self->tx, socket);
+	}
+	// bind them all
+	for (int i = 0; i < self->rx.comp_size(); i++) {
+	    const pb::Component *pbcomp = &self->rx.comp(i);
+	    retval = process_rcomp_bind(self, from, pbcomp,  socket);
+	}
 	break;
 
     // HAL object set/get ops
@@ -361,26 +400,125 @@ dispatch_request(const char *from,  htself_t *self, void *socket)
 	// pin
 	// signal
 	// param
+	retval = process_rcmd_set(self, from, socket);
 	break;
 
     case pb::MT_HALRCOMMAND_GET:
 	// pin
 	// signal
 	// param
+	retval = process_rcmd_get(self, from, socket);
 	break;
 
+    case pb::MT_HALRCOMMAND_DESCRIBE:
+
+	retval = process_describe(self, from, socket);
+	break;
+
+	// NIY - fall through:
     case pb::MT_HALRCOMMAND_CREATE:
 	// signal
-	// param
-	break;
-
+	// member
+	// group
     case pb::MT_HALRCOMMAND_DELETE:
-	break;
-
     default:
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rcommand from %s : unhandled type %d",
 			self->cfg->progname, from, (int) self->rx.type());
 	retval = -1;
     }
     return retval;
+}
+
+static int
+process_rcmd_set(htself_t *self, const char *from,  void *socket)
+{
+    std::string s;
+
+    // work the pins
+    for (int i = 0; i < self->rx.pin_size(); i++) {
+	const pb::Pin &p = self->rx.pin(i);
+
+	// try fast path via item dict first
+	if (p.has_handle() && p.has_type() &&
+	    (p.has_halfloat() ||
+	     p.has_halbit() ||
+	     p.has_halu32() ||
+	     p.has_hals32())) {
+
+	    int handle = p.handle();
+	    if (self->items.count(handle)) {
+		// found via items dict
+		halitem_t *hi = self->items[handle];
+		if (hi->type != HAL_PIN) {
+		     note_printf(self->tx,
+				"handle type mismatch - not a pin: handle=%d type=%d",
+				 handle, hi->type);
+		     continue;
+		}
+		hal_pin_t *hp = hi->o.pin;
+		assert(hp != NULL);
+
+		if (hp->dir == HAL_IN) {
+		    note_printf(self->tx,
+				"cant write a HAL_IN pin: handle=%d name=%s",
+				handle, hp->name);
+		    continue;
+		}
+		if (hp->type != (hal_type_t) p.type()) {
+		    note_printf(self->tx,
+				"pin type mismatch: pb=%d/hal=%d, handle=%d name=%s",
+				p.type(), hp->type, handle, hp->name);
+		    continue;
+		}
+		// set value
+		hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
+		assert(vp != NULL);
+
+		switch (hp->type) {
+		default:
+		    assert("invalid pin type" == NULL);
+		    break;
+		case HAL_BIT:
+		    vp->b = p.halbit();
+		    break;
+		case HAL_FLOAT:
+		    vp->f = p.halfloat();
+		    break;
+		case HAL_S32:
+		    vp->s = p.hals32();
+		    break;
+		case HAL_U32:
+		    vp->u = p.halu32();
+		    break;
+		}
+		continue;
+	    }
+	    // record handle lookup failure
+	    note_printf(self->tx, "no such handle: %d",handle);
+
+	    continue;
+	}
+	// later: no handle given, try slow path via name, and add item.
+	// reply with handle binding.
+	// if (p.has_name() ) {
+	// }
+    }
+    if (self->tx.note_size()) {
+	self->tx.set_type(pb::MT_HALRCOMP_SET_REJECT);
+	return send_pbcontainer(from, self->tx, socket);
+    }
+
+    // otherwise reply only if explicitly required:
+    if (self->rx.has_reply_required() && self->rx.reply_required()) {
+	self->tx.set_type(pb::MT_HALRCOMMAND_ACK);
+	return send_pbcontainer(from, self->tx, socket);
+    }
+    return 0;
+}
+
+static int
+process_rcmd_get(htself_t *self, const char *from,  void *socket)
+{
+
+    return 0;
 }

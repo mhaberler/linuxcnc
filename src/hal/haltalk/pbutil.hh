@@ -16,9 +16,21 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
+#include "rtapi.h"
 #include <middleware/generated/message.pb.h>
+
+// for repeated string field creation (Container.note, Container.argv)
+typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
 // send a protobuf - encoded Container message
 // optionally prepend destination field
 int send_pbcontainer(const char *dest, pb::Container &c, void *socket);
+
+// add an printf-formatted string to the 'note' repeated string in a
+// Container
+// also log to RTAPI log at RTAPI_MSG_ERR
+// the a string longer than MAX_NOTESIZE-4 will be truncated to
+// MAX_NOTESIZE-4 and the string "..." appended, indicating truncation
+#define MAX_NOTESIZE 4096
+int
+note_printf(pb::Container &c, const char *fmt, ...);
