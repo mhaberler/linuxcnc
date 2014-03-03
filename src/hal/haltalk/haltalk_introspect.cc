@@ -30,6 +30,7 @@ static int describe_sig(hal_sig_t *sig,  void *arg);
 static int describe_funct(hal_funct_t *funct,  void *arg);
 static int describe_ring(hal_ring_t *ring,  void *arg);
 static int describe_thread(hal_thread_t *thread,  void *arg);
+static int describe_group(hal_group_t *group,  void *arg);
 
 // describe the current HAL universe.
 int
@@ -40,12 +41,14 @@ process_describe(htself_t *self, const char *from,  void *socket)
 
     halpr_foreach_comp(NULL, describe_comp, self);
     halpr_foreach_sig(NULL, describe_sig, self);
+    halpr_foreach_group(NULL, describe_group, self);
     halpr_foreach_funct(NULL, describe_funct, self);
     halpr_foreach_ring(NULL, describe_ring, self);
     halpr_foreach_thread(NULL, describe_thread, self);
     return send_pbcontainer(from, self->tx, socket);
 }
 
+// ----- end of public functions ---
 
 static int describe_comp(hal_comp_t *comp,  void *arg)
 {
@@ -60,6 +63,37 @@ static int describe_sig(hal_sig_t *sig,  void *arg)
     htself_t *self = (htself_t *) arg;
     pb::Signal *s = self->tx.add_signal();
     halpr_describe_signal(sig, s);
+    return 0;
+}
+
+static int describe_member(int level, hal_group_t **groups,
+			   hal_member_t *member, void *arg)
+{
+    hal_sig_t *sig = (hal_sig_t *)SHMPTR(member->sig_member_ptr);
+
+    pb::Group *pbgroup =  (pb::Group *) arg;
+    pb::Member *pbmember = pbgroup->add_member();
+
+    pbmember->set_name(sig->name);
+    pbmember->set_handle(sig->handle);
+    pbmember->set_type((pb::ObjectType)sig->type);
+    pbmember->set_userarg1(member->userarg1);
+    pbmember->set_epsilon(member->epsilon);
+    return 0;
+}
+
+static int describe_group(hal_group_t *g,  void *arg)
+{
+    htself_t *self = (htself_t *) arg;
+    pb::Group *pbgroup = self->tx.add_group();
+
+    pbgroup->set_name(g->name);
+    pbgroup->set_refcount(g->refcount);
+    pbgroup->set_userarg1(g->userarg1);
+    pbgroup->set_userarg2(g->userarg2);
+    pbgroup->set_handle(g->handle);
+
+    halpr_foreach_member(g->name, describe_member, pbgroup, RESOLVE_NESTED_GROUPS);
     return 0;
 }
 
