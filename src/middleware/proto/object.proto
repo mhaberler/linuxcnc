@@ -176,11 +176,10 @@ message Member {
 message Group {
     optional string       name          = 1; //  [(nanopb).max_size = 41];
     optional fixed32      handle        = 2;
-    optional sfixed32     id            = 3;
     optional sfixed32     userarg1      = 4;
     optional sfixed32     userarg2      = 5;
-    optional sfixed32     serial        = 6;
-    repeated Member       member        = 7;
+    optional sfixed32     refcount      = 6;
+    repeated Member       member        = 7;  // list of signals
 }
 
 // retire
