@@ -45,6 +45,9 @@ message AnError {
     optional Originator    origin   = 4;
 }
 
+
+
+
 message Pin {
     optional ValueType   type       = 1;
     optional string      name       = 2; //    [(nanopb).max_size = 41];
@@ -182,34 +185,34 @@ message Group {
     repeated Member       member        = 7;  // list of signals
 }
 
-// retire
-// message Object {
+// the following are specialized, rigid-format messages
+// which can stand in for pin and signal updates.
+// the usage contract is:
+//
+// the handle MUST refer to an object handle assigned by the serving entity (ef haltalk)
+// the object type given out with the handle must match the type of update message.
+//
+// the justification for this variant is: using a short message
+// of all required fields minimizes the message checking effort in the critical path
+// of frequent updates at the receiving end, since an improper message composition
+// will already fail at the sender serialisation step
 
-//     required ObjectType       type = 10;
+message FloatUpdate {
+    required fixed32       handle   = 1;
+    required double        halfloat = 2;
+}
 
-//     // an object identity is uniquely defined by a name, or a handle
-//     optional string           name = 20; //  [(nanopb).max_size = 41];
-//     optional fixed32         handle = 25;
-//     optional bool          changed = 30;  // relative to last use
+message IntUpdate {
+    required fixed32       handle   = 1;
+    required sfixed32      hals32   = 2;
+}
 
-//     // scalars and compound values
-//     optional Value       value     = 50;
+message UnsignedUpdate {
+    required fixed32       handle   = 1;
+    required fixed32       halu32   = 2;
+}
 
-//     // HAL objects
-//     // these are named objects which doubles up on Object.name
-//     // HAL object name has precedence over the Object name which should
-//     // not be used in in this case. The handle remains optional.
-
-//     // this is unfortunate but Protobuf doesnt support type inheritance
-//     // into submessages.
-//     optional Pin         pin       = 100;
-//     optional Signal      signal    = 110;
-//     optional Param       param     = 120;
-//     optional Thread      thread    = 130;
-//     optional Component   comp      = 140;
-//     optional Ring        ring      = 150;
-//     optional Group       group     = 160;
-//     optional Member      member    = 170;
-//     optional Function    function  = 180;
-//     optional AnError     error     = 190;
-// }
+message BoolUpdate {
+    required fixed32       handle   = 1;
+    required bool          halbit   = 2;
+}

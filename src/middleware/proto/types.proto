@@ -230,22 +230,32 @@ enum ContainerType {
     MT_MESSAGEBUS_NO_DESTINATION = 255;
 
     // rcomp creation and binding
-    MT_HALRCOMP_BIND  = 260;
-    MT_HALRCOMP_BIND_CONFIRM  = 261;
-    MT_HALRCOMP_BIND_REJECT  = 262;
+    MT_HALRCOMP_BIND  = 256;
+    MT_HALRCOMP_BIND_CONFIRM  = 257;
+    MT_HALRCOMP_BIND_REJECT  = 258;
 
-    // HAL object set/get ops
+    // the following to a similar to MT_HALRCOMMAND_SET and  MT_HALRCOMMAND_GET, except
+    // in the context of HALRcomp, only pins and params are evaluated
+    // also, to set a pin or param, it must have direction HAL_OUT or HAL_IO
+    MT_HALRCOMP_SET  = 259;
+    MT_HALRCOMP_SET_REJECT  = 260;
+    MT_HALRCOMP_GET  = 261;
+    MT_HALRCOMP_GET_REJECT  = 262;
+    MT_HALRCOMP_ACK  = 263;
+
+    // HAL object general setter/getter operations
+    // these work as viewed from halcmd and include signals
     MT_HALRCOMMAND_SET = 265;
-    MT_HALRCOMP_SET_REJECT = 266;
+    MT_HALRCOMMAND_SET_REJECT = 266;
 
     MT_HALRCOMMAND_GET = 267;
-    MT_HALRCOMP_GET_REJECT = 268;
+    MT_HALRCOMMAND_GET_REJECT = 268;
 
     MT_HALRCOMMAND_CREATE = 269;
-    MT_HALRCOMP_CREATE_REJECT = 270;
+    MT_HALRCOMMAND_CREATE_REJECT = 270;
 
     MT_HALRCOMMAND_DELETE = 271;
-    MT_HALRCOMP_DELETE_REJECT = 272;
+    MT_HALRCOMMAND_DELETE_REJECT = 272;
 
     MT_HALRCOMMAND_ACK = 273;
     MT_HALRCOMMAND_ERROR = 274;
@@ -267,8 +277,6 @@ enum ContainerType {
     MT_HALGROUP_FULL_UPDATE = 297;
     MT_HALGROUP_INCREMENTAL_UPDATE = 298;
     MT_HALGROUP_ERROR = 299;
-
-
 
 
     // rtapi_app commands from halcmd:

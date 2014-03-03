@@ -27,18 +27,21 @@ message Container {
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
 
-    optional MotionCommand motcmd         = 3;  // new style
-    optional MotionStatus  motstat        = 4;  // new style
-    optional bytes         legacy_motcmd  = 5;  // emcmot_command_t wrapped in PB
-    optional bytes         legacy_motstat = 6;  // emcmot_status_t wrapped in PB
-    optional bytes         wou            = 7;  // Arais Wishbone-over-USB
-    optional HalUpdate     hal_update     = 8;  // halupdate protocol
-    optional RTAPI_Message rtapi_message  = 9;
-    optional TaskReply     task_reply     = 10;
-    optional TicketUpdate  ticket_update  = 11;
-    optional LogMessage    log_message    = 12;
-    // simplified argument list for hal_rcomp/stp  updates
-    // retire repeated Signal                signal = 13;  //  [(nanopb).max_count = 20];
+    // fast path updates, see object.proto
+    repeated FloatUpdate float_update = 2;
+    repeated IntUpdate   int_update = 3;
+    repeated UnsignedUpdate  unsigned_update = 4;
+    repeated BoolUpdate bool_update = 5;
+
+
+    optional MotionCommand motcmd         = 9;
+    optional MotionStatus  motstat        = 10;
+    optional bytes         legacy_motcmd  = 11;  // emcmot_command_t wrapped in PB
+    optional bytes         legacy_motstat = 12;  // emcmot_status_t wrapped in PB
+
+    optional RTAPI_Message rtapi_message  = 13;
+    optional TaskReply     task_reply     = 14;
+    optional TicketUpdate  ticket_update  = 15;
 
     // tags in the range 16 through 2047 take two bytes.
     // various blobs and less frequently used messages
@@ -102,6 +105,7 @@ message Container {
 
     optional RTAPICommand           rtapicmd = 86;
 
+
     // a reply may carry several service announcements:
     repeated ServiceAnnouncement  service_announcement = 88;
 
@@ -119,6 +123,7 @@ message Container {
     repeated Member      member    = 107;
     repeated Function    function  = 108;
 
+
     // miscellanous
     optional string        ascii          = 140;
     optional bytes         unicode        = 141;
@@ -135,6 +140,8 @@ message Container {
     optional bytes         svg            = 152;
 
     // infrequent compound messages
+    optional bytes         wou            = 160;  // Arais Wishbone-over-USB
+    optional LogMessage    log_message    = 87;
 
     // //  messages of the halupdate protocol:
     // optional Offer                  offer = 150;
