@@ -18,15 +18,15 @@
 
 #include "haltalk.hh"
 #include "halutil.hh"
-#include "halpb.h"
+#include "halpb.hh"
 #include "pbutil.hh"
 #include "rtapi_hexdump.h"
 
 #include <google/protobuf/text_format.h>
 
 static int dispatch_request(htself_t *self, const char *from, void *socket);
-static int process_rcmd_get(htself_t *self, const char *from, void *socket);
-static int process_rcmd_set(htself_t *self, const char *from, void *socket);
+static int process_get(htself_t *self, bool halrcomp, const char *from, void *socket);
+static int process_set(htself_t *self, bool halrcomp, const char *from, void *socket);
 
 int
 handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -374,8 +374,9 @@ static int
 dispatch_request(htself_t *self, const char *from,  void *socket)
 {
     int retval = 0;
+    pb::ContainerType type = self->rx.type();
 
-    switch (self->rx.type()) {
+    switch (type) {
 
     case pb::MT_PING:
 	retval = process_ping(self, from, socket);
@@ -397,21 +398,23 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
 
     // HAL object set/get ops
     case pb::MT_HALRCOMMAND_SET:
+    case pb::MT_HALRCOMP_SET:
+
 	// pin
 	// signal
 	// param
-	retval = process_rcmd_set(self, from, socket);
+	retval = process_set(self, type == pb::MT_HALRCOMP_SET, from, socket);
 	break;
 
     case pb::MT_HALRCOMMAND_GET:
+    case pb::MT_HALRCOMP_GET:
 	// pin
 	// signal
 	// param
-	retval = process_rcmd_get(self, from, socket);
+	retval = process_get(self, type == pb::MT_HALRCOMP_GET, from, socket);
 	break;
 
     case pb::MT_HALRCOMMAND_DESCRIBE:
-
 	retval = process_describe(self, from, socket);
 	break;
 
@@ -430,94 +433,132 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
 }
 
 static int
-process_rcmd_set(htself_t *self, const char *from,  void *socket)
+process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 {
     std::string s;
 
     // work the pins
     for (int i = 0; i < self->rx.pin_size(); i++) {
 	const pb::Pin &p = self->rx.pin(i);
-
+	// required fields
+	if (!p.has_type()) {
+	    note_printf(self->tx,
+			"type missing in pin: handle=%d", p.handle());
+	    continue;
+	}
+	// value present?
+	if (!(p.has_halfloat() ||
+	      p.has_halbit() ||
+	      p.has_halu32() ||
+	      p.has_hals32())) {
+	    note_printf(self->tx,
+			"value missing in pin: handle=%d", p.handle());
+	    continue;
+	}
 	// try fast path via item dict first
-	if (p.has_handle() && p.has_type() &&
-	    (p.has_halfloat() ||
-	     p.has_halbit() ||
-	     p.has_halu32() ||
-	     p.has_hals32())) {
-
+	if (p.has_handle()) {
 	    int handle = p.handle();
-	    if (self->items.count(handle)) {
-		// found via items dict
+	    if (self->items.count(p.handle())) {
+		// handle present and found
 		halitem_t *hi = self->items[handle];
 		if (hi->type != HAL_PIN) {
-		     note_printf(self->tx,
+		    note_printf(self->tx,
 				"handle type mismatch - not a pin: handle=%d type=%d",
-				 handle, hi->type);
-		     continue;
+				handle, hi->type);
+		continue;
 		}
 		hal_pin_t *hp = hi->o.pin;
 		assert(hp != NULL);
-
+		if (halrcomp) {
 		if (hp->dir == HAL_IN) {
 		    note_printf(self->tx,
-				"cant write a HAL_IN pin: handle=%d name=%s",
+				"HALrcomp cant write a HAL_IN pin: handle=%d name=%s",
 				handle, hp->name);
 		    continue;
+		}
+		} else {
+		    if (hp->dir == HAL_OUT) {
+			note_printf(self->tx,
+				    "cant set an HAL_OUT pin: handle=%d name=%s",
+				    handle, hp->name);
+		    continue;
+		    }
 		}
 		if (hp->type != (hal_type_t) p.type()) {
 		    note_printf(self->tx,
 				"pin type mismatch: pb=%d/hal=%d, handle=%d name=%s",
-				p.type(), hp->type, handle, hp->name);
+			    p.type(), hp->type, handle, hp->name);
 		    continue;
 		}
 		// set value
 		hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
 		assert(vp != NULL);
-
-		switch (hp->type) {
-		default:
-		    assert("invalid pin type" == NULL);
-		    break;
-		case HAL_BIT:
-		    vp->b = p.halbit();
-		    break;
-		case HAL_FLOAT:
-		    vp->f = p.halfloat();
-		    break;
-		case HAL_S32:
-		    vp->s = p.hals32();
-		    break;
-		case HAL_U32:
-		    vp->u = p.halu32();
-		    break;
+		if (hal_pbpin2u(&p, vp)) {
+		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), hp->name);
+		    continue;
 		}
+	    } else {
+		// record handle lookup failure
+		note_printf(self->tx, "no such handle: %d",handle);
 		continue;
 	    }
-	    // record handle lookup failure
-	    note_printf(self->tx, "no such handle: %d",handle);
+	} else {
+	    // no handle given, try slow path via name, and add item.
+	    if (!p.has_name()) {
+		note_printf(self->tx,
+			    "pin: no name and no handle!");
+		continue;
+	    }
+	    {
+		hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
+		rtapi_mutex_get(&(hal_data->mutex));
+		const char *name = p.name().c_str();
+		hp = halpr_find_pin_by_name(name);
+		if (hp == NULL) {
+		    note_printf(self->tx, "no such pin: '%s'", name);
+		    continue;
+		}
+		// set value
+		hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
+		assert(vp != NULL);
+		if (hal_pbpin2u(&p, vp)) {
+		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), hp->name);
+		    continue;
+		}
+		// pin found. add to items
+		halitem_t *hi = new halitem_t();
+		hi->type = HAL_PIN;
+		hi->o.pin = hp;
+		hi->ptr = SHMPTR(hp->data_ptr_addr);
+		self->items[hp->handle] = hi;
+		printf("add pin %s to items\n", hp->name);
 
-	    continue;
+		// add binding in reply - includes handle
+		pb::Pin *pbpin = self->tx.add_pin();
+		halpr_describe_pin(hp, pbpin);
+	    }
 	}
-	// later: no handle given, try slow path via name, and add item.
+
 	// reply with handle binding.
 	// if (p.has_name() ) {
 	// }
     }
     if (self->tx.note_size()) {
-	self->tx.set_type(pb::MT_HALRCOMP_SET_REJECT);
+	self->tx.set_type(halrcomp ? pb::MT_HALRCOMP_SET_REJECT :
+			  pb:: MT_HALRCOMMAND_SET_REJECT);
 	return send_pbcontainer(from, self->tx, socket);
     }
 
     // otherwise reply only if explicitly required:
     if (self->rx.has_reply_required() && self->rx.reply_required()) {
-	self->tx.set_type(pb::MT_HALRCOMMAND_ACK);
+	self->tx.set_type(halrcomp ? pb::MT_HALRCOMP_ACK : pb::MT_HALRCOMMAND_ACK);
 	return send_pbcontainer(from, self->tx, socket);
     }
     return 0;
 }
 
 static int
-process_rcmd_get(htself_t *self, const char *from,  void *socket)
+process_get(htself_t *self, bool halrcomp, const char *from,  void *socket)
 {
 
     return 0;

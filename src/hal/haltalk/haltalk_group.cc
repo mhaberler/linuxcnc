@@ -17,7 +17,7 @@
  */
 
 #include "haltalk.hh"
-#include "halpb.h"
+#include "halpb.hh"
 
 static int group_report_cb(int phase, hal_compiled_group_t *cgroup,
 			   hal_sig_t *sig, void *cb_data);
@@ -66,10 +66,12 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		    g->timer_id = zloop_timer(self->z_loop, g->msec,
 					      0, handle_group_timer, (void *)g);
 		    assert(g->timer_id > -1);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: start scanning group %s, tid=%d %d mS",
+		    rtapi_print_msg(RTAPI_MSG_DBG,
+				    "%s: start scanning group %s, tid=%d %d mS",
 				    self->cfg->progname, topic, g->timer_id, g->msec);
 		}
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s: wildcard subscribe group='%s' serial=%d",
+		rtapi_print_msg(RTAPI_MSG_DBG,
+				"%s: wildcard subscribe group='%s' serial=%d",
 				self->cfg->progname,
 				gi->first.c_str(), gi->second->serial);
 	    }
@@ -79,7 +81,8 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    if (gi != self->groups.end()) {
 		group_t *g = gi->second;
 		g->flags |= GROUP_REPORT_FULL;
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s: subscribe group='%s' serial=%d",
+		rtapi_print_msg(RTAPI_MSG_DBG,
+				"%s: subscribe group='%s' serial=%d",
 				self->cfg->progname,
 				gi->first.c_str(), gi->second->serial);
 
@@ -88,8 +91,10 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		    g->timer_id = zloop_timer(self->z_loop, g->msec,
 					      0, handle_group_timer, (void *)g);
 		    assert(g->timer_id > -1);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: start scanning group %s, tid=%d %d mS",
-				    self->cfg->progname, topic, g->timer_id, g->msec);
+		    rtapi_print_msg(RTAPI_MSG_DBG,
+				    "%s: start scanning group %s, tid=%d %d mS",
+				    self->cfg->progname, topic,
+				    g->timer_id, g->msec);
 		}
 	    } else {
 		// non-existant topic, complain.
@@ -124,7 +129,8 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    group_t *g = self->groups[topic];
 	    // stop the scanning timer
 	    if (g->timer_id > -1) {  // currently scanning
-		rtapi_print_msg(RTAPI_MSG_DBG, "%s: group %s stop scanning, tid=%d",
+		rtapi_print_msg(RTAPI_MSG_DBG,
+				"%s: group %s stop scanning, tid=%d",
 				self->cfg->progname, topic, g->timer_id);
 		int retval = zloop_timer_end (self->z_loop, g->timer_id);
 		assert(retval == 0);
@@ -279,13 +285,18 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 	break;
 
     case REPORT_SIGNAL: // per-reported-signal action
-	signal = self->tx.add_signal();
-	assert(hal_sig2pb(sig, signal) == 0);
 	if (grp->flags & GROUP_REPORT_FULL) {
+	    signal = self->tx.add_signal();
+	    assert(hal_sig2pb(sig, signal) == 0);
 	    signal->set_name(sig->name);
 	    signal->set_type((pb::ValueType)sig->type);
+	    signal->set_handle(sig->handle);
+	} else {
+	    // use fast update messages
+	    if (hal_sig2fastpb(sig, &self->tx))
+		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for signal '%s'\n",
+				sig->type, sig->name);
 	}
-	signal->set_handle(sig->handle);
 	break;
 
     case REPORT_END: // finalize & send

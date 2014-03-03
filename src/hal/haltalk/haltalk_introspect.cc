@@ -19,7 +19,7 @@
 #include "haltalk.hh"
 #include "hal_iter.h"
 #include "halutil.hh"
-#include "halpb.h"
+#include "halpb.hh"
 #include "pbutil.hh"
 #include "rtapi_hexdump.h"
 
@@ -32,7 +32,7 @@ static int describe_ring(hal_ring_t *ring,  void *arg);
 static int describe_thread(hal_thread_t *thread,  void *arg);
 static int describe_group(hal_group_t *group,  void *arg);
 
-// describe the current HAL universe.
+// describe the current HAL universe as a protobuf message.
 int
 process_describe(htself_t *self, const char *from,  void *socket)
 {

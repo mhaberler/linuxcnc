@@ -17,13 +17,14 @@
  */
 
 #include "haltalk.hh"
+#include "halpb.hh"
 
 static int collect_unbound_comps(hal_compstate_t *cs,  void *cb_data);
 static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 			  hal_pin_t *pin,
 			  hal_data_u *vp,
 			  void *cb_data);
-static int handle_rcomp_command(htself_t *self, zmsg_t *msg);
+//static int handle_rcomp_command(htself_t *self, zmsg_t *msg);
 static int add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 			     hal_pin_t *pin, hal_data_u *vp, void *cb_data);
 
@@ -129,12 +130,16 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    break;
 
 	default:
+#if 0
 	    handle_rcomp_command(self, msg);
+#endif
 	    zmsg_destroy(&msg);
 	}
 	return 0;
     } else {
+#if 0
 	handle_rcomp_command(self, msg);
+#endif
 	zmsg_destroy(&msg);
     }
     return 0;
@@ -308,29 +313,20 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	break;
 
     case REPORT_PIN: // per-reported-pin action
-	p = self->tx.add_pin();
-	switch (pin->type) {
-	default:
-	    assert("invalid signal type" == NULL);
-	case HAL_BIT:
-	    p->set_halbit(vp->b);
-	    break;
-	case HAL_FLOAT:
-	    p->set_halfloat(vp->f);
-	    break;
-	case HAL_S32:
-	    p->set_hals32(vp->s);
-	    break;
-	case HAL_U32:
-	    p->set_halu32(vp->u);
-	    break;
-	}
 	if (rc->flags & RCOMP_REPORT_FULL) {
+	    p = self->tx.add_pin();
 	    p->set_name(pin->name);
 	    p->set_type((pb::ValueType)pin->type);
 	    p->set_linked(pin->signal != 0);
+	    p->set_handle(pin->handle);
+	    if (hal_pin2pb(pin, p))
+		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for pin '%s'\n",
+				pin->type, pin->name);
+	} else {
+	    if (hal_pin2fastpb(pin, &self->tx))
+		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for pin '%s'\n",
+				pin->type, pin->name);
 	}
-	p->set_handle(pin->handle);
 	break;
 
     case REPORT_END: // finalize & send
@@ -348,6 +344,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     }
     return 0;
 }
+#if 0
 
 static int
 handle_rcomp_command(htself_t *self, zmsg_t *msg)
@@ -417,7 +414,7 @@ handle_rcomp_command(htself_t *self, zmsg_t *msg)
     free(cname);
     return 0;
 }
-
+#endif
 
 static int
 add_pins_to_items(int phase,  hal_compiled_comp_t *cc,

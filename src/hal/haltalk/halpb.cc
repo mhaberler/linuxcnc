@@ -1,39 +1,46 @@
-#include "halpb.h"
+#include "halpb.hh"
+
+int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin)
+{
+    pbpin->set_type((pb::ValueType) pin->type);
+    pbpin->set_dir((pb::HalPinDirection) pin->dir);
+    pbpin->set_handle(pin->handle);
+    pbpin->set_name(pin->name);
+    pbpin->set_linked(pin->signal != 0);
+    assert(hal_pin2pb(pin, pbpin) == 0);
+#ifdef USE_PIN_USER_ATTRIBUTES
+    pbpin->set_flags(pin->flags);
+    if (pin->type == HAL_FLOAT)
+	pbpin->set_epsilon(pin->epsilon);
+#endif
+    return 0;
+}
+
 // transfrom a HAL component into a Component protobuf.
 // does not aquire the HAL mutex.
 int
-halpr_describe_component(hal_comp_t *comp, pb::Component *c)
+halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
 {
-    c->set_name(comp->name);
-    c->set_comp_id(comp->comp_id);
-    c->set_type(comp->type);
-    c->set_state(comp->state);
-    c->set_last_update(comp->last_update);
-    c->set_last_bound(comp->last_bound);
-    c->set_last_unbound(comp->last_unbound);
-    c->set_pid(comp->pid);
+    pbcomp->set_name(comp->name);
+    pbcomp->set_comp_id(comp->comp_id);
+    pbcomp->set_type(comp->type);
+    pbcomp->set_state(comp->state);
+    pbcomp->set_last_update(comp->last_update);
+    pbcomp->set_last_bound(comp->last_bound);
+    pbcomp->set_last_unbound(comp->last_unbound);
+    pbcomp->set_pid(comp->pid);
     if (comp->insmod_args)
-	c->set_args((const char *)SHMPTR(comp->insmod_args));
-    c->set_userarg1(comp->userarg1);
-    c->set_userarg2(comp->userarg2);
+	pbcomp->set_args((const char *)SHMPTR(comp->insmod_args));
+    pbcomp->set_userarg1(comp->userarg1);
+    pbcomp->set_userarg2(comp->userarg2);
 
     int next = hal_data->pin_list_ptr;
     while (next != 0) {
 	hal_pin_t *pin = (hal_pin_t *)SHMPTR(next);
 	hal_comp_t *owner = (hal_comp_t *) SHMPTR(pin->owner_ptr);
 	if (owner->comp_id == comp->comp_id) {
-	    pb::Pin *p = c->add_pin();
-	    p->set_type((pb::ValueType) pin->type);
-	    p->set_dir((pb::HalPinDirection) pin->dir);
-	    p->set_handle(pin->handle);
-	    p->set_name(pin->name);
-	    p->set_linked(pin->signal != 0);
-	    assert(hal_pin2pb(pin, p) == 0);
-#ifdef USE_PIN_USER_ATTRIBUTES
-	    p->set_flags(pin->flags);
-	    if (pin->type == HAL_FLOAT)
-		p->set_epsilon(pin->epsilon);
-#endif
+	    pb::Pin *pbpin = pbcomp->add_pin();
+	    halpr_describe_pin(pin, pbpin);
 	}
 	next = pin->next_ptr;
     }
@@ -42,12 +49,12 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *c)
 	hal_param_t *param = (hal_param_t *)SHMPTR(next);
 	hal_comp_t *owner = (hal_comp_t *) SHMPTR(param->owner_ptr);
 	if (owner->comp_id == comp->comp_id) {
-	    pb::Param *p = c->add_param();
-	    p->set_name(param->name);
-	    p->set_type((pb::ValueType) param->type);
-	    p->set_dir((pb::HalParamDirection) param->dir);
-	    p->set_handle(param->handle);
-	    assert(hal_param2pb(param, p) == 0);
+	    pb::Param *pbparam = pbcomp->add_param();
+	    pbparam->set_name(param->name);
+	    pbparam->set_type((pb::ValueType) param->type);
+	    pbparam->set_dir((pb::HalParamDirection) param->dir);
+	    pbparam->set_handle(param->handle);
+	    assert(hal_param2pb(param, pbparam) == 0);
 	}
 	next = param->next_ptr;
     }
