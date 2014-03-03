@@ -112,3 +112,37 @@ int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread)
     }
     return 0;
 }
+
+// NB: assumes nesting resolved
+int halpr_describe_member(hal_member_t *member, pb::Member *pbmember)
+{
+    hal_sig_t *sig = (hal_sig_t *)SHMPTR(member->sig_member_ptr);
+
+    pbmember->set_name(sig->name);
+    pbmember->set_handle(sig->handle);
+    pbmember->set_type((pb::ObjectType)sig->type);
+    pbmember->set_userarg1(member->userarg1);
+    pbmember->set_epsilon(member->epsilon);
+    return 0;
+}
+
+static int describe_member(int level, hal_group_t **groups,
+			   hal_member_t *member, void *arg)
+{
+    pb::Group *pbgroup =  (pb::Group *) arg;
+    pb::Member *pbmember = pbgroup->add_member();
+    halpr_describe_member(member, pbmember);
+    return 0;
+}
+
+int halpr_describe_group(hal_group_t *g, pb::Group *pbgroup)
+{
+    pbgroup->set_name(g->name);
+    pbgroup->set_refcount(g->refcount);
+    pbgroup->set_userarg1(g->userarg1);
+    pbgroup->set_userarg2(g->userarg2);
+    pbgroup->set_handle(g->handle);
+
+    halpr_foreach_member(g->name, describe_member, pbgroup, RESOLVE_NESTED_GROUPS);
+    return 0;
+}

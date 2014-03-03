@@ -11,6 +11,9 @@ int halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring);
 int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct);
 int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread);
 int halpr_describe_component(hal_comp_t *comp, pb::Component *c);
+int halpr_describe_group(hal_group_t *g, pb::Group *pbgroup);
+int halpr_describe_member(hal_member_t *member, pb::Member *pbmember);
+
 
 static inline const hal_data_u *hal_sig2u(const hal_sig_t *sig)
 {
