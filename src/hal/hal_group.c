@@ -73,6 +73,7 @@ int hal_group_new(const char *name, int arg1, int arg2)
 	/* initialize the structure */
 	new->userarg1 = arg1;
 	new->userarg2 = arg2;
+	new->handle = rtapi_next_handle();
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* search list for 'name' and insert new structure */
 	prev = &(hal_data->group_list_ptr);

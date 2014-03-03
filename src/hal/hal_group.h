@@ -20,10 +20,11 @@ typedef struct {
     int refcount;               /* advisory by using code */
     int userarg1;	        /* interpreted by using layer */
     int userarg2;	        /* interpreted by using layer */
-    //  int serial;                 /* incremented each time a signal is added/deleted*/
+    int handle;                 /* immutable ID */
     char name[HAL_NAME_LEN + 1];	/* group name */
     int member_ptr;             /* list of group members */
 } hal_group_t;
+
 
 #define CGROUP_MAGIC  0xbeef7411
 typedef struct {
