@@ -1562,6 +1562,10 @@ endif  # build kernel RTAPI modules
 
 # Phony so that it is always rebuilt when requested, not because it
 # shouldn't exist as a file
+FINDOPTS:= ! -path "./middleware/generated/*" \
+	! -path "./middleware/nanopb/*" \
+	! -path "./objects/*"
+
 .PHONY: tags
 tags:
 	ctags-exuberant \
@@ -1573,10 +1577,10 @@ tags:
 		-I MODULE_AUTHOR+,MODULE_DESCRIPTION+,MODULE_LICENSE+ \
 		-R . ../tcl ../scripts ../share/axis/tcl
 	rm -f TAGS
-	find . -type f -name '*.[ch]' | grep -v './objects/*' | xargs  etags -l c --append
-	find . -type f -name '*.cc'   | grep -v './objects/*' | xargs  etags -l c++ --append
-	find . -type f -name '*.hh'   | grep -v './objects/*' | xargs  etags -l c++ --append
-	find . -type f -name '*.proto'  | grep -v './objects/*' | xargs  etags -l c++ --append
+	find . -type f -name '*.[ch]' $(FINDOPTS) | xargs  etags -l c --append
+	find . -type f -name '*.cc'  $(FINDOPTS) | xargs  etags -l c++ --append
+	find . -type f -name '*.hh'  $(FINDOPTS) | xargs  etags -l c++ --append
+	find . -type f -name '*.proto'  $(FINDOPTS) | xargs  etags -l c++ --append
 
 etags:
 	etags	--extra=+fq \
@@ -1586,10 +1590,10 @@ etags:
 		-I RTAPI_MP_ARRAY_INT+,RTAPI_MP_ARRAY_LONG+,RTAPI_MP_ARRAY_STRING+ \
 		-I MODULE_AUTHOR+,MODULE_DESCRIPTION+,MODULE_LICENSE+ \
 		-R . ../tcl ../scripts ../share/axis/tcl
-	find . -type f -name '*.[ch]' | grep -v './objects/*'|xargs etags --language-force=C --append
-	find . -type f -name '*.cc' | grep -v './objects/*'|xargs etags --language-force=C++ --append
-	find . -type f -name '*.hh' | grep -v './objects/*'|xargs etags --language-force=C++ --append
-	find . -type f -name '*.proto' | grep -v './objects/*'|xargs etags --language-force=C++ --append
+	find . -type f -name '*.[ch]' $(FINDOPTS) |xargs etags --language-force=C --append
+	find . -type f -name '*.cc'  $(FINDOPTS) |xargs etags --language-force=C++ --append
+	find . -type f -name '*.hh'  $(FINDOPTS) |xargs etags --language-force=C++ --append
+	find . -type f -name '*.proto'  $(FINDOPTS) |xargs etags --language-force=C++ --append
 
 .PHONY: swish
 swish:
