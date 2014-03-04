@@ -186,7 +186,9 @@ add_sig_to_items(int level, hal_group_t **groups,
 {
     hal_sig_t *sig = (hal_sig_t *) SHMPTR(member->sig_member_ptr);
     htself_t *self = (htself_t *)cb_data;
-    if (self->items.count(sig->handle) == 0) {
+    itemmap_iterator it = self->items.find(sig->handle);
+
+    if (it == self->items.end()) { // not in handle map
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_SIGNAL;
 	hi->o.signal = sig;

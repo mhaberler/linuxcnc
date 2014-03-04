@@ -436,6 +436,7 @@ static int
 process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 {
     std::string s;
+    itemmap_iterator it;
 
     // work the pins
     for (int i = 0; i < self->rx.pin_size(); i++) {
@@ -458,9 +459,11 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 	// try fast path via item dict first
 	if (p.has_handle()) {
 	    int handle = p.handle();
-	    if (self->items.count(p.handle())) {
+	    it = self->items.find(handle);
+
+	    if (it != self->items.end()) {
 		// handle present and found
-		halitem_t *hi = self->items[handle];
+		halitem_t *hi = it->second;
 		if (hi->type != HAL_PIN) {
 		    note_printf(self->tx,
 				"handle type mismatch - not a pin: handle=%d type=%d",

@@ -422,16 +422,17 @@ add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 		  hal_data_u *vp,
 		  void *cb_data)
 {
-    htself_t *self = (htself_t *) cb_data;;
     if (phase != REPORT_PIN) return 0;
 
-    if (self->items.count(pin->handle) == 0) {
+    htself_t *self = (htself_t *) cb_data;;
+    itemmap_iterator it = self->items.find(pin->handle);
+
+    if (it == self->items.end()) { // not in handle map
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_PIN;
 	hi->o.pin = pin;
 	hi->ptr = SHMPTR(pin->data_ptr_addr);
 	self->items[pin->handle] = hi;
-	// printf("add pin %s\n", pin->name);
     }
     return 0;
 }
