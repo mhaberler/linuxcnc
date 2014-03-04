@@ -1,3 +1,23 @@
+/*
+ * Copyright (C) 2013-2014 Michael Haberler <license@mah.priv.at>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+// various functions and inlines dealing both with protobuf and HAL objects
+
 #include <rtapi.h>
 #include <hal.h>
 #include <hal_priv.h>
@@ -6,6 +26,7 @@
 #include <hal_ring.h>
 #include <middleware/generated/message.pb.h>
 
+// in halpb.cc:
 int halpr_describe_signal(hal_sig_t *sig, pb::Signal *pbsig);
 int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin);
 int halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring);
@@ -172,7 +193,6 @@ static inline int hal_param2pb(const hal_param_t *pp, pb::Param *p)
     }
     return 0;
 }
-
 
 static inline int hal_pbpin2u(const pb::Pin *p, hal_data_u *vp)
 {
