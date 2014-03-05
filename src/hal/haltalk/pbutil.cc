@@ -25,6 +25,8 @@ send_pbcontainer(const char *dest, pb::Container &c, void *socket)
     int retval = 0;
     zframe_t *f;
 
+    // XXX this could stand some RTAPI error messages on failure
+
     f = zframe_new(NULL, c.ByteSize());
     if (f == NULL)
 	return -ENOMEM;

@@ -366,6 +366,8 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
     int retval = 0;
     pb::ContainerType type = self->rx.type();
 
+    // rtapi_print_msg(RTAPI_MSG_INFO, "%s: rcommand type %d",
+    // 		    self->cfg->progname, type);
     switch (type) {
 
     case pb::MT_PING:
@@ -458,29 +460,29 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 		    note_printf(self->tx,
 				"handle type mismatch - not a pin: handle=%d type=%d",
 				handle, hi->type);
-		continue;
+		    continue;
 		}
 		hal_pin_t *hp = hi->o.pin;
 		assert(hp != NULL);
 		if (halrcomp) {
-		if (hp->dir == HAL_IN) {
-		    note_printf(self->tx,
-				"HALrcomp cant write a HAL_IN pin: handle=%d name=%s",
-				handle, hp->name);
-		    continue;
-		}
+		    if (hp->dir == HAL_IN) {
+			note_printf(self->tx,
+				    "HALrcomp cant write a HAL_IN pin: handle=%d name=%s",
+				    handle, hp->name);
+			continue;
+		    }
 		} else {
 		    if (hp->dir == HAL_OUT) {
 			note_printf(self->tx,
 				    "cant set an HAL_OUT pin: handle=%d name=%s",
 				    handle, hp->name);
-		    continue;
+			continue;
 		    }
 		}
 		if (hp->type != (hal_type_t) p.type()) {
 		    note_printf(self->tx,
 				"pin type mismatch: pb=%d/hal=%d, handle=%d name=%s",
-			    p.type(), hp->type, handle, hp->name);
+				p.type(), hp->type, handle, hp->name);
 		    continue;
 		}
 		// set value
@@ -524,18 +526,105 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 		hi->o.pin = hp;
 		hi->ptr = SHMPTR(hp->data_ptr_addr);
 		self->items[hp->handle] = hi;
-		printf("add pin %s to items\n", hp->name);
+		// printf("add pin %s to items\n", hp->name);
 
 		// add binding in reply - includes handle
 		pb::Pin *pbpin = self->tx.add_pin();
 		halpr_describe_pin(hp, pbpin);
 	    }
 	}
-
-	// reply with handle binding.
-	// if (p.has_name() ) {
-	// }
     }
+
+    // work the signals
+    for (int i = 0; i < self->rx.signal_size(); i++) {
+	const pb::Signal &s = self->rx.signal(i);
+	// required fields
+	if (!s.has_type()) {
+	    note_printf(self->tx,
+			"type missing in signal: handle=%d", s.handle());
+	    continue;
+	}
+	// value present?
+	if (!(s.has_halfloat() ||
+	      s.has_halbit() ||
+	      s.has_halu32() ||
+	      s.has_hals32())) {
+	    note_printf(self->tx,
+			"value missing in signal: handle=%d", s.handle());
+	    continue;
+	}
+	// try fast path via item dict first
+	if (s.has_handle()) {
+	    int handle = s.handle();
+	    it = self->items.find(handle);
+
+	    if (it != self->items.end()) {
+		// handle present and found
+		halitem_t *hi = it->second;
+		if (hi->type != HAL_SIGNAL) {
+		    note_printf(self->tx,
+				"handle type mismatch - not a signal: handle=%d type=%d",
+				handle, hi->type);
+		    continue;
+		}
+		hal_sig_t *hs = hi->o.signal;
+		assert(hs != NULL);
+		if (hs->type != (hal_type_t) s.type()) {
+		    note_printf(self->tx,
+				"signal type mismatch: pb=%d/hal=%d, handle=%d name=%s",
+				s.type(), hs->type, handle, hs->name);
+		    continue;
+		}
+		// set value
+		hal_data_u *vp = (hal_data_u *) hal_sig2u(hs);
+		assert(vp != NULL);
+		if (hal_pbsig2u(&s, vp)) {
+		    note_printf(self->tx, "bad signal type %d name=%s",s.type(), hs->name);
+		    continue;
+		}
+	    } else {
+		// record handle lookup failure
+		note_printf(self->tx, "no such handle: %d",handle);
+		continue;
+	    }
+	} else {
+	    // no handle given, try slow path via name, and add item.
+	    if (!s.has_name()) {
+		note_printf(self->tx,
+			    "signal: no name and no handle!");
+		continue;
+	    }
+	    {
+		hal_sig_t *hs __attribute__((cleanup(halpr_autorelease_mutex)));
+		rtapi_mutex_get(&(hal_data->mutex));
+		const char *name = s.name().c_str();
+		hs = halpr_find_sig_by_name(name);
+		if (hs == NULL) {
+		    note_printf(self->tx, "no such signal: '%s'", name);
+		    continue;
+		}
+		// set value
+		hal_data_u *vp = (hal_data_u *) hal_sig2u(hs);
+		assert(vp != NULL);
+		if (hal_pbsig2u(&s, vp)) {
+		    note_printf(self->tx, "bad signal type %d name=%s",s.type(), hs->name);
+		    continue;
+		}
+		// pin found. add to items
+		halitem_t *hi = new halitem_t();
+		hi->type = HAL_SIGNAL;
+		hi->o.signal = hs;
+		hi->ptr = SHMPTR(hs->data_ptr);
+		self->items[hs->handle] = hi;
+		//printf("add signal %s to items\n", hs->name);
+
+		// add binding in reply - includes handle
+		pb::Signal *pbsignal = self->tx.add_signal();
+		halpr_describe_signal(hs, pbsignal);
+	    }
+	}
+    }
+
     if (self->tx.note_size()) {
 	self->tx.set_type(halrcomp ? pb::MT_HALRCOMP_SET_REJECT :
 			  pb:: MT_HALRCOMMAND_SET_REJECT);
