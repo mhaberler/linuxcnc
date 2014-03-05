@@ -161,19 +161,17 @@ message Ring {
 }
 
 message Member {
-    optional ObjectType   type          = 1;
-    optional string       name          = 2; //  [(nanopb).max_size = 41];
-    optional fixed32      handle        = 3;
-    optional sfixed32     userarg1      = 4;
+    optional ObjectType   mtype         = 1;
+    optional sfixed32     userarg1      = 2;
+    optional double       epsilon       = 3;
 
-    optional bool         halbit        = 5;
-    optional double       halfloat      = 6;
-    optional sfixed32     hals32        = 7;
-    optional fixed32      halu32        = 8;
-    optional string       strval        = 9;
-    optional bytes        blob          = 10;
+    // if mtype == HAL_MEMBER_SIGNAL
+    optional Signal       signal        = 4;
 
-    optional double       epsilon       = 11;
+    // if mtype == HAL_MEMBER_GROUP
+    optional string       groupname     = 5; //  [(nanopb).max_size = 41];
+    optional fixed32      handle        = 6;
+
 }
 
 message Group {
@@ -182,5 +180,5 @@ message Group {
     optional sfixed32     userarg1      = 4;
     optional sfixed32     userarg2      = 5;
     optional sfixed32     refcount      = 6;
-    repeated Member       member        = 7;  // list of signals
+    repeated Member       member        = 7;  // list of signals or group names
 }
