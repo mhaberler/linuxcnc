@@ -417,6 +417,9 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
 	// group
     case pb::MT_HALRCOMMAND_DELETE:
     default:
+	self->tx.set_type(pb::MT_HALRCOMMAND_ERROR);
+	note_printf(self->tx, "rcommand %d: not implemented", self->rx.type());
+	return send_pbcontainer(from, self->tx, socket);
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rcommand from %s : unhandled type %d",
 			self->cfg->progname, from, (int) self->rx.type());
 	retval = -1;
