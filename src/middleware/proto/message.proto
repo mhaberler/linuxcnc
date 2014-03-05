@@ -23,16 +23,11 @@ message Container {
 
     required ContainerType type = 1;
 
+    // 2, 3 reserved for repeated Pin, Signal - see below; those are high-frequency
+
     // protobuf-encoded submessages
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
-
-    // fast path updates, see object.proto
-    repeated FloatUpdate float_update = 2;
-    repeated IntUpdate   int_update = 3;
-    repeated UnsignedUpdate  unsigned_update = 4;
-    repeated BoolUpdate bool_update = 5;
-
 
     optional MotionCommand motcmd         = 9;
     optional MotionStatus  motstat        = 10;
@@ -114,8 +109,8 @@ message Container {
 
     // remote comp description for MT_HALCOMP_CREATE: [comp, pins*]
     repeated Component   comp      = 100;
-    repeated Pin         pin       = 101;
-    repeated Signal      signal    = 102;
+    repeated Pin         pin       = 2;  // high frequency - use single byte tag
+    repeated Signal      signal    = 3;  // high frequency - use single byte tag
     repeated Param       param     = 103;
     repeated Thread      thread    = 104;
     repeated Ring        ring      = 105;
@@ -123,8 +118,7 @@ message Container {
     repeated Member      member    = 107;
     repeated Function    function  = 108;
 
-
-    // miscellanous
+    // miscellanous typed objects
     optional string        ascii          = 140;
     optional bytes         unicode        = 141;
     optional string        gcode          = 142;
