@@ -575,6 +575,12 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 				s.type(), hs->type, handle, hs->name);
 		    continue;
 		}
+		if (hs->writers > 0) {
+		    note_printf(self->tx,
+				"cannot update signal '%s'  - %d output pin(s) linked",
+				hs->name, hs->writers);
+		    continue;
+		}
 		// set value
 		hal_data_u *vp = (hal_data_u *) hal_sig2u(hs);
 		assert(vp != NULL);
