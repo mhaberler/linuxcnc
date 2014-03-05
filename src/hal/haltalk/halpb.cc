@@ -120,16 +120,23 @@ int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread)
     return 0;
 }
 
-// NB: assumes nesting resolved
+
 int halpr_describe_member(hal_member_t *member, pb::Member *pbmember)
 {
-    hal_sig_t *sig = (hal_sig_t *)SHMPTR(member->sig_member_ptr);
-
-    pbmember->set_name(sig->name);
-    pbmember->set_handle(sig->handle);
-    pbmember->set_type((pb::ObjectType)sig->type);
-    pbmember->set_userarg1(member->userarg1);
-    pbmember->set_epsilon(member->epsilon);
+    if (member->sig_member_ptr) {
+	hal_sig_t *sig = (hal_sig_t *)SHMPTR(member->sig_member_ptr);
+	pbmember->set_mtype(pb::HAL_MEMBER_SIGNAL);
+	pbmember->set_userarg1(member->userarg1);
+	if (sig->type == HAL_FLOAT)
+	    pbmember->set_epsilon(member->epsilon);
+	pb::Signal *pbsig = pbmember->mutable_signal();
+	halpr_describe_signal(sig, pbsig);
+    } else {
+	hal_group_t *group = (hal_group_t *)SHMPTR(member->group_member_ptr);
+	pbmember->set_mtype(pb::HAL_MEMBER_GROUP);
+	pbmember->set_groupname(group->name);
+	pbmember->set_handle(group->handle);
+    }
     return 0;
 }
 

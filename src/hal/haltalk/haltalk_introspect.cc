@@ -25,12 +25,12 @@
 
 #include <google/protobuf/text_format.h>
 
-static int describe_comp(hal_comp_t *comp,  void *arg);
-static int describe_sig(hal_sig_t *sig,  void *arg);
-static int describe_funct(hal_funct_t *funct,  void *arg);
-static int describe_ring(hal_ring_t *ring,  void *arg);
-static int describe_thread(hal_thread_t *thread,  void *arg);
-static int describe_group(hal_group_t *group,  void *arg);
+static int describe_comp_cb(hal_comp_t *comp,  void *arg);
+static int describe_sig_cb(hal_sig_t *sig,  void *arg);
+static int describe_funct_cb(hal_funct_t *funct,  void *arg);
+static int describe_ring_cb(hal_ring_t *ring,  void *arg);
+static int describe_thread_cb(hal_thread_t *thread,  void *arg);
+static int describe_group_cb(hal_group_t *group,  void *arg);
 
 // describe the current HAL universe as a protobuf message.
 int
@@ -39,12 +39,12 @@ process_describe(htself_t *self, const char *from,  void *socket)
     int retval __attribute__((cleanup(halpr_autorelease_mutex)));
     rtapi_mutex_get(&(hal_data->mutex));
 
-    halpr_foreach_comp(NULL, describe_comp, self);
-    halpr_foreach_sig(NULL, describe_sig, self);
-    halpr_foreach_group(NULL, describe_group, self);
-    halpr_foreach_funct(NULL, describe_funct, self);
-    halpr_foreach_ring(NULL, describe_ring, self);
-    halpr_foreach_thread(NULL, describe_thread, self);
+    halpr_foreach_comp(NULL, describe_comp_cb, self);
+    halpr_foreach_sig(NULL, describe_sig_cb, self);
+    halpr_foreach_group(NULL, describe_group_cb, self);
+    halpr_foreach_funct(NULL, describe_funct_cb, self);
+    halpr_foreach_ring(NULL, describe_ring_cb, self);
+    halpr_foreach_thread(NULL, describe_thread_cb, self);
     return send_pbcontainer(from, self->tx, socket);
 }
 
@@ -61,7 +61,7 @@ describe_group(htself_t *self, const char *group, const char *from,  void *socke
 	note_printf(self->tx, "no such group: '%s'", group);
 	return send_pbcontainer(from, self->tx, socket);
     }
-    halpr_foreach_group(group, describe_group, self);
+    halpr_foreach_group(group, describe_group_cb, self);
     return send_pbcontainer(from, self->tx, socket);
 }
 
@@ -78,13 +78,13 @@ describe_comp(htself_t *self, const char *comp, const char *from,  void *socket)
 	note_printf(self->tx, "no such component: '%s'", comp);
 	return send_pbcontainer(from, self->tx, socket);
     }
-    halpr_foreach_comp(comp, describe_comp, self);
+    halpr_foreach_comp(comp, describe_comp_cb, self);
     return send_pbcontainer(from, self->tx, socket);
 }
 
 // ----- end of public functions ---
 
-static int describe_comp(hal_comp_t *comp,  void *arg)
+static int describe_comp_cb(hal_comp_t *comp,  void *arg)
 {
     htself_t *self = (htself_t *) arg;
     pb::Component *c = self->tx.add_comp();
@@ -92,7 +92,7 @@ static int describe_comp(hal_comp_t *comp,  void *arg)
     return 0;
 }
 
-static int describe_sig(hal_sig_t *sig,  void *arg)
+static int describe_sig_cb(hal_sig_t *sig,  void *arg)
 {
     htself_t *self = (htself_t *) arg;
     pb::Signal *s = self->tx.add_signal();
@@ -100,7 +100,7 @@ static int describe_sig(hal_sig_t *sig,  void *arg)
     return 0;
 }
 
-static int describe_group(hal_group_t *g,  void *arg)
+static int describe_group_cb(hal_group_t *g,  void *arg)
 {
     htself_t *self = (htself_t *) arg;
     pb::Group *pbgroup = self->tx.add_group();
@@ -108,7 +108,7 @@ static int describe_group(hal_group_t *g,  void *arg)
     return 0;
 }
 
-static int describe_funct(hal_funct_t *funct,  void *arg)
+static int describe_funct_cb(hal_funct_t *funct,  void *arg)
 {
     htself_t *self = (htself_t *) arg;
     pb::Function *f = self->tx.add_function();
@@ -116,7 +116,7 @@ static int describe_funct(hal_funct_t *funct,  void *arg)
     return 0;
 }
 
-static int describe_ring(hal_ring_t *ring,  void *arg)
+static int describe_ring_cb(hal_ring_t *ring,  void *arg)
 {
     htself_t *self = (htself_t *) arg;
     pb::Ring *r = self->tx.add_ring();
@@ -124,7 +124,7 @@ static int describe_ring(hal_ring_t *ring,  void *arg)
     return 0;
 }
 
-static int describe_thread(hal_thread_t *thread,  void *arg)
+static int describe_thread_cb(hal_thread_t *thread,  void *arg)
 {
     htself_t *self = (htself_t *) arg;
     pb::Thread *t = self->tx.add_thread();

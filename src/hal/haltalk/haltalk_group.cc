@@ -54,7 +54,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 	if (strlen(topic) == 0) {
 	    // this was a subscribe("") - all topics
-	    // mark all groups as requiring a full report on next poll
+	    // describe all groups
 	    for (groupmap_iterator gi = self->groups.begin();
 		 gi != self->groups.end(); gi++) {
 
@@ -79,7 +79,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 				gi->first.c_str(), gi->second->serial);
 	    }
 	} else {
-	    // a selective subscribe
+	    // a selective subscribe - describe only the desired group
 	    groupmap_iterator gi = self->groups.find(topic);
 	    if (gi != self->groups.end()) {
 		group_t *g = gi->second;
@@ -159,7 +159,7 @@ handle_group_timer(zloop_t *loop, int timer_id, void *arg)
 {
     group_t *g = (group_t *) arg;
     if (hal_cgroup_match(g->cg))
-	hal_cgroup_report(g->cg, group_report_cb, g, g->flags);
+	hal_cgroup_report(g->cg, group_report_cb, g, 0);
     return 0;
 }
 
