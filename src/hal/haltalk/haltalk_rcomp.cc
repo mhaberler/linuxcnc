@@ -18,13 +18,13 @@
 
 #include "haltalk.hh"
 #include "halpb.hh"
+#include "pbutil.hh"
 
 static int collect_unbound_comps(hal_compstate_t *cs,  void *cb_data);
 static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 			  hal_pin_t *pin,
 			  hal_data_u *vp,
 			  void *cb_data);
-//static int handle_rcomp_command(htself_t *self, zmsg_t *msg);
 static int add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 			     hal_pin_t *pin, hal_data_u *vp, void *cb_data);
 
@@ -72,15 +72,10 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		// not found, publish an error message on this topic
 		self->tx.set_type(pb::MT_HALRCOMP_ERROR);
-		std::string error = "component " + std::string(topic) + " does not exist";
-		self->tx.add_note(error);
-		zframe_t *reply_frame = zframe_new(NULL, self->tx.ByteSize());
-		self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
-
-		zstr_sendm (self->z_rcomp_status, topic);
-		retval = zframe_send (&reply_frame, self->z_rcomp_status, 0);
+		note_printf(self->tx, "component '%s' does not exist", topic);
+		retval = send_pbcontainer(topic, self->tx, self->z_rcomp_status);
 		assert(retval == 0);
-		self->tx.Clear();
+
 	    } else {
 		// compiled component found, schedule a full update
 		rcomp_t *g = self->rcomps[topic];
@@ -91,10 +86,11 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		// first subscriber - activate scanning
 		if (g->timer_id < 0) { // not scanning
-		    g->timer_id = zloop_timer(self->z_loop, g->msec,
-					      0, handle_rcomp_timer, (void *)g);
+		    g->timer_id = zloop_timer(self->z_loop, g->msec, 0,
+					      handle_rcomp_timer, (void *)g);
 		    assert(g->timer_id > -1);
-		    rtapi_print_msg(RTAPI_MSG_DBG, "%s: start scanning comp %s, tid=%d %d mS",
+		    rtapi_print_msg(RTAPI_MSG_DBG,
+				    "%s: start scanning comp %s, tid=%d %d mS",
 				    self->cfg->progname, topic, g->timer_id, g->msec);
 		}
 
@@ -129,16 +125,11 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    break;
 
 	default:
-#if 0
-	    handle_rcomp_command(self, msg);
-#endif
 	    zmsg_destroy(&msg);
 	}
 	return 0;
     } else {
-#if 0
-	handle_rcomp_command(self, msg);
-#endif
+
 	zmsg_destroy(&msg);
     }
     return 0;
@@ -293,7 +284,6 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     rcomp_t *rc = (rcomp_t *) cb_data;
     htself_t *self =  rc->self;
     pb::Pin *p;
-    zmsg_t *msg;
     int retval;
 
     switch (phase) {
@@ -312,15 +302,8 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	break;
 
     case REPORT_END: // finalize & send
-	msg = zmsg_new();
-	zmsg_pushstr(msg, cc->comp->name);
-	zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
-	self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
-	zmsg_add(msg, update_frame);
-	retval = zmsg_send (&msg, self->z_rcomp_status);
+	retval = send_pbcontainer(cc->comp->name, self->tx, self->z_rcomp_status);
 	assert(retval == 0);
-	assert(msg == NULL);
-	self->tx.Clear();
 	break;
     }
     return 0;

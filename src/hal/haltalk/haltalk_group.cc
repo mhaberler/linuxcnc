@@ -18,6 +18,7 @@
 
 #include "haltalk.hh"
 #include "halpb.hh"
+#include "pbutil.hh"
 
 static int group_report_cb(int phase, hal_compiled_group_t *cgroup,
 			   hal_sig_t *sig, void *cb_data);
@@ -104,28 +105,14 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		}
 	    } else {
 		// non-existant topic, complain.
-		std::string note = "no such group: " + std::string(topic)
-		    + ", valid groups are: ";
+		self->tx.set_type(pb::MT_STP_NOGROUP);
+		note_printf(self->tx, "no such group: '%s', valid groups are:", topic);
 		for (groupmap_iterator g = self->groups.begin();
 		     g != self->groups.end(); g++) {
-		    note += g->first;
-		    note += " ";
+		    note_printf(self->tx, "    %s", g->first.c_str());
 		}
-		rtapi_print_msg(RTAPI_MSG_DBG,
-				"%s: subscribe error: %s\n",
-				self->cfg->progname, note.c_str());
-
-		self->tx.set_type(pb::MT_STP_NOGROUP);
-		self->tx.add_note(note);
-		zmsg_t *msg = zmsg_new();
-		zmsg_pushstr(msg, topic);
-		zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
-		self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
-		zmsg_add(msg, update_frame);
-		int retval = zmsg_send (&msg, self->z_group_status);
+		int retval = send_pbcontainer(topic, self->tx, self->z_group_status);
 		assert(retval == 0);
-		assert(msg == NULL);
-		self->tx.Clear();
 	    }
 	}
 	break;
@@ -163,9 +150,8 @@ handle_group_timer(zloop_t *loop, int timer_id, void *arg)
     return 0;
 }
 
-// walk HAL groups, and compile any which arent in
-// self->groups yet
-// itempotent - will add new groups as found
+// walk HAL groups, and compile any which are not in self->groups yet
+// idempotent - will add new groups as found
 int
 scan_groups(htself_t *self)
 {
@@ -201,7 +187,7 @@ add_sig_to_items(int level, hal_group_t **groups,
     return 0;
 }
 
-// walk the signals of a group, and add them to the items sparse map
+// walk the signals of a group, and add them to the items dict
 // for lookup-by-handle if not yet present - idempotent
 static int
 add_signals_from_group(htself_t *self, const char *name)
@@ -267,7 +253,6 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
     group_t *grp = (group_t *) cb_data;
     htself_t *self = grp->self;
     pb::Signal *signal;
-    zmsg_t *msg;
     int retval;
 
     switch (phase) {
@@ -289,14 +274,8 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 	break;
 
     case REPORT_END: // finalize & send
-	msg = zmsg_new();
-	zmsg_pushstr(msg, cgroup->group->name);
-	zframe_t *update_frame = zframe_new(NULL, self->tx.ByteSize());
-	self->tx.SerializeWithCachedSizesToArray(zframe_data(update_frame));
-	zmsg_add(msg, update_frame);
-	retval = zmsg_send (&msg, self->z_group_status);
+	retval = send_pbcontainer(cgroup->group->name, self->tx, self->z_group_status);
 	assert(retval == 0);
-	assert(msg == NULL);
 
 #if JSON_TIMING
 	// timing test:
@@ -314,7 +293,6 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 	}
 #endif // JSON_TIMING
 
-	self->tx.Clear();
 	break;
     }
     return 0;
