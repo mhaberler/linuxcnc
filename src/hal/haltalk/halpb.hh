@@ -79,41 +79,6 @@ static inline int hal_pin2pb(const hal_pin_t *hp, pb::Pin *p)
     return 0;
 }
 
-static inline int hal_pin2fastpb(const hal_pin_t *pin, pb::Container *c)
-{
-    pb::BoolUpdate *bu;
-    pb::FloatUpdate *fu;
-    pb::IntUpdate *iu;
-    pb::UnsignedUpdate *uu;
-    const hal_data_u *vp = hal_pin2u(pin);
-
-    switch (pin->type) {
-    case HAL_BIT:
-	bu = c->add_bool_update();
-	bu->set_halbit(vp->b);
-	bu->set_handle(pin->handle);
-	break;
-    case HAL_FLOAT:
-	fu = c->add_float_update();
-	fu->set_halfloat(vp->f);
-	fu->set_handle(pin->handle);
-	break;
-    case HAL_S32:
-	iu = c->add_int_update();
-	iu->set_hals32(vp->s);
-	iu->set_handle(pin->handle);
-	break;
-    case HAL_U32:
-	uu = c->add_unsigned_update();
-	uu->set_halu32(vp->u);
-	uu->set_handle(pin->handle);
-	break;
-    default:
-	return -1;
-    }
-    return 0;
-}
-
 static inline int hal_sig2pb(const hal_sig_t *sp, pb::Signal *s)
 {
     const hal_data_u *vp = hal_sig2u(sp);
@@ -132,41 +97,6 @@ static inline int hal_sig2pb(const hal_sig_t *sp, pb::Signal *s)
     case HAL_U32:
 	s->set_halu32(vp->u);
 	break;
-    }
-    return 0;
-}
-
-static inline int hal_sig2fastpb(const hal_sig_t *sig, pb::Container *c)
-{
-    pb::BoolUpdate *bu;
-    pb::FloatUpdate *fu;
-    pb::IntUpdate *iu;
-    pb::UnsignedUpdate *uu;
-    const hal_data_u *vp = hal_sig2u(sig);
-
-    switch (sig->type) {
-    case HAL_BIT:
-	bu = c->add_bool_update();
-	bu->set_halbit(vp->b);
-	bu->set_handle(sig->handle);
-	break;
-    case HAL_FLOAT:
-	fu = c->add_float_update();
-	fu->set_halfloat(vp->f);
-	fu->set_handle(sig->handle);
-	break;
-    case HAL_S32:
-	iu = c->add_int_update();
-	iu->set_hals32(vp->s);
-	iu->set_handle(sig->handle);
-	break;
-    case HAL_U32:
-	uu = c->add_unsigned_update();
-	uu->set_halu32(vp->u);
-	uu->set_handle(sig->handle);
-	break;
-    default:
-	return -1;
     }
     return 0;
 }
@@ -235,3 +165,76 @@ static inline int hal_pbsig2u(const pb::Signal *s, hal_data_u *vp)
     }
     return 0;
 }
+
+
+#if 0
+static inline int hal_pin2fastpb(const hal_pin_t *pin, pb::Container *c)
+{
+    pb::BoolUpdate *bu;
+    pb::FloatUpdate *fu;
+    pb::IntUpdate *iu;
+    pb::UnsignedUpdate *uu;
+    const hal_data_u *vp = hal_pin2u(pin);
+
+    switch (pin->type) {
+    case HAL_BIT:
+	bu = c->add_bool_update();
+	bu->set_halbit(vp->b);
+	bu->set_handle(pin->handle);
+	break;
+    case HAL_FLOAT:
+	fu = c->add_float_update();
+	fu->set_halfloat(vp->f);
+	fu->set_handle(pin->handle);
+	break;
+    case HAL_S32:
+	iu = c->add_int_update();
+	iu->set_hals32(vp->s);
+	iu->set_handle(pin->handle);
+	break;
+    case HAL_U32:
+	uu = c->add_unsigned_update();
+	uu->set_halu32(vp->u);
+	uu->set_handle(pin->handle);
+	break;
+    default:
+	return -1;
+    }
+    return 0;
+}
+
+static inline int hal_sig2fastpb(const hal_sig_t *sig, pb::Container *c)
+{
+    pb::BoolUpdate *bu;
+    pb::FloatUpdate *fu;
+    pb::IntUpdate *iu;
+    pb::UnsignedUpdate *uu;
+    const hal_data_u *vp = hal_sig2u(sig);
+
+    switch (sig->type) {
+    case HAL_BIT:
+	bu = c->add_bool_update();
+	bu->set_halbit(vp->b);
+	bu->set_handle(sig->handle);
+	break;
+    case HAL_FLOAT:
+	fu = c->add_float_update();
+	fu->set_halfloat(vp->f);
+	fu->set_handle(sig->handle);
+	break;
+    case HAL_S32:
+	iu = c->add_int_update();
+	iu->set_hals32(vp->s);
+	iu->set_handle(sig->handle);
+	break;
+    case HAL_U32:
+	uu = c->add_unsigned_update();
+	uu->set_halu32(vp->u);
+	uu->set_handle(sig->handle);
+	break;
+    default:
+	return -1;
+    }
+    return 0;
+}
+#endif

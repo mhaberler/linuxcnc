@@ -51,3 +51,13 @@ halpr_param_count(const char *name)
     }
     return count;
 }
+
+// hal mutex scope-locked version of halpr_find_pin_by_name()
+hal_pin_t *
+hal_find_pin_by_name(const char *name)
+{
+    hal_pin_t *p __attribute__((cleanup(halpr_autorelease_mutex)));
+    rtapi_mutex_get(&(hal_data->mutex));
+    p = halpr_find_pin_by_name(name);
+    return p;
+}

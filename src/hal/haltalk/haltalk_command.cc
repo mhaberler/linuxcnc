@@ -62,16 +62,6 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 // ----- end of public functions ---
 
-// hal mutex scope-locked version of halpr_find_pin_by_name()
-hal_pin_t *
-find_pin_by_name(const char *name)
-{
-    hal_pin_t *p __attribute__((cleanup(halpr_autorelease_mutex)));
-    rtapi_mutex_get(&(hal_data->mutex));
-    p = halpr_find_pin_by_name(name);
-    return p;
-}
-
 static int
 process_ping(htself_t *self, const char *from,  void *socket)
 {
@@ -236,11 +226,11 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
     for (int i = 0; i < pbcomp->pin_size(); i++) {
 	const pb::Pin &p = pbcomp->pin(i);
 	hi = new halitem_t();
-
 	if (hi == NULL) {
 	    note_printf(self->tx, "new halitem_t() failed");
 	    goto EXIT_COMP;
 	}
+	// storage for the pin
 	hi->ptr = hal_malloc(sizeof(void *));
 	if (hi->ptr == NULL) {
 	    note_printf(self->tx,"hal_malloc() failed");
@@ -256,7 +246,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 	    note_printf(self->tx, "hal_pin_new() failed");
 	    goto EXIT_COMP;
 	}
-	hi->o.pin = find_pin_by_name(p.name().c_str());
+	hi->o.pin = hal_find_pin_by_name(p.name().c_str());
 	if (hi->o.pin == NULL) {
 	    note_printf(self->tx, "hal_find_pin_by_name() failed");
 	    goto EXIT_COMP;

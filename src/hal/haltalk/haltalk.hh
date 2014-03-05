@@ -60,14 +60,6 @@ namespace gpb = google::protobuf;
 #include <jansson.h>
 #endif
 
-typedef enum {
-    GROUP_REPORT_FULL = 1,
-} group_flags_t;
-
-typedef enum {
-    RCOMP_REPORT_FULL = 1,
-} rcomp_flags_t;
-
 typedef struct htself htself_t;
 
 typedef struct {
@@ -169,3 +161,5 @@ int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 
 // haltalk_introspect.cc:
 int process_describe(htself_t *self, const char *from,  void *socket);
+int describe_group(htself_t *self, const char *group, const char *from,  void *socket);
+int describe_comp(htself_t *self, const char *comp, const char *from,  void *socket);

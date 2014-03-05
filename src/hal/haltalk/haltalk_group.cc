@@ -59,7 +59,10 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		 gi != self->groups.end(); gi++) {
 
 		group_t *g = gi->second;
-		g->flags |= GROUP_REPORT_FULL;
+		self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
+		self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+		self->tx.set_serial(g->serial++);
+		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
 
 		// if first subscriber: activate scanning
 		if (g->timer_id < 0) { // not scanning
@@ -80,7 +83,10 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    groupmap_iterator gi = self->groups.find(topic);
 	    if (gi != self->groups.end()) {
 		group_t *g = gi->second;
-		g->flags |= GROUP_REPORT_FULL;
+		self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
+		self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+		self->tx.set_serial(g->serial++);
+		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
 		rtapi_print_msg(RTAPI_MSG_DBG,
 				"%s: subscribe group='%s' serial=%d",
 				self->cfg->progname,
@@ -152,11 +158,8 @@ int
 handle_group_timer(zloop_t *loop, int timer_id, void *arg)
 {
     group_t *g = (group_t *) arg;
-
-    if (hal_cgroup_match(g->cg) ||  (g->flags & GROUP_REPORT_FULL)) {
-	hal_cgroup_report(g->cg, group_report_cb, g,
-			  (g->flags & GROUP_REPORT_FULL));
-    }
+    if (hal_cgroup_match(g->cg))
+	hal_cgroup_report(g->cg, group_report_cb, g, g->flags);
     return 0;
 }
 
@@ -270,15 +273,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
     switch (phase) {
 
     case REPORT_BEGIN:	// report initialisation
-	// this enables a new subscriber to easily detect she's receiving
-	// a full status snapshot, not just a change tracking update
-	if (grp->flags & GROUP_REPORT_FULL) {
-	    self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
-	    // enable clients to detect a restart
-	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
-	} else
-	    self->tx.set_type(pb::MT_HALGROUP_INCREMENTAL_UPDATE);
-
+	self->tx.set_type(pb::MT_HALGROUP_INCREMENTAL_UPDATE);
 	// the serial enables detection of lost updates
 	// for a client to recover from a lost update:
 	// unsubscribe + re-subscribe which will cause
@@ -287,18 +282,10 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 	break;
 
     case REPORT_SIGNAL: // per-reported-signal action
-	if (grp->flags & GROUP_REPORT_FULL) {
-	    signal = self->tx.add_signal();
-	    assert(hal_sig2pb(sig, signal) == 0);
-	    signal->set_name(sig->name);
-	    signal->set_type((pb::ValueType)sig->type);
-	    signal->set_handle(sig->handle);
-	} else {
-	    // use fast update messages
-	    if (hal_sig2fastpb(sig, &self->tx))
-		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for signal '%s'\n",
-				sig->type, sig->name);
-	}
+	signal = self->tx.add_signal();
+	signal->set_handle(sig->handle);
+	retval = hal_sig2pb(sig, signal);
+	assert(retval == 0);
 	break;
 
     case REPORT_END: // finalize & send
@@ -310,7 +297,6 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 	retval = zmsg_send (&msg, self->z_group_status);
 	assert(retval == 0);
 	assert(msg == NULL);
-	grp->flags &= ~GROUP_REPORT_FULL;
 
 #if JSON_TIMING
 	// timing test:

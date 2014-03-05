@@ -28,17 +28,13 @@ static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 static int add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 			     hal_pin_t *pin, hal_data_u *vp, void *cb_data);
 
-// handle timer event for a rcomp
-// report if one is due
+// handle timer event for a rcomp - report any changes in comp
 int
 handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg)
 {
     rcomp_t *rc = (rcomp_t *) arg;
-
-    if (hal_ccomp_match(rc->cc) ||  (rc->flags & RCOMP_REPORT_FULL)) {
-	hal_ccomp_report(rc->cc, comp_report_cb, rc,
-			 (rc->flags & RCOMP_REPORT_FULL));
-    }
+    if (hal_ccomp_match(rc->cc))
+	hal_ccomp_report(rc->cc, comp_report_cb, rc, rc->flags);
     return 0;
 }
 
@@ -88,7 +84,10 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    } else {
 		// compiled component found, schedule a full update
 		rcomp_t *g = self->rcomps[topic];
-		g->flags |= RCOMP_REPORT_FULL;
+		self->tx.set_type(pb::MT_HALRCOMP_FULL_UPDATE);
+		self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+		self->tx.set_serial(g->serial++);
+		describe_comp(self, topic, topic, poller->socket);
 
 		// first subscriber - activate scanning
 		if (g->timer_id < 0) { // not scanning
@@ -300,33 +299,16 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     switch (phase) {
 
     case REPORT_BEGIN:	// report initialisation
-	// this enables a new subscriber to easily detect she's receiving
-	// a full status snapshot, not just a change tracking update
-	if (rc->flags & RCOMP_REPORT_FULL) {
-	    self->tx.set_type(pb::MT_HALRCOMP_FULL_UPDATE);
-	    // enable clients to detect a restart
-	    self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
-	} else
-	    self->tx.set_type(pb::MT_HALRCOMP_INCREMENTAL_UPDATE);
-
+	self->tx.set_type(pb::MT_HALRCOMP_INCREMENTAL_UPDATE);
 	self->tx.set_serial(rc->serial++);
 	break;
 
     case REPORT_PIN: // per-reported-pin action
-	if (rc->flags & RCOMP_REPORT_FULL) {
-	    p = self->tx.add_pin();
-	    p->set_name(pin->name);
-	    p->set_type((pb::ValueType)pin->type);
-	    p->set_linked(pin->signal != 0);
-	    p->set_handle(pin->handle);
-	    if (hal_pin2pb(pin, p))
+	p = self->tx.add_pin();
+	p->set_handle(pin->handle);
+	if (hal_pin2pb(pin, p))
 		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for pin '%s'\n",
 				pin->type, pin->name);
-	} else {
-	    if (hal_pin2fastpb(pin, &self->tx))
-		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for pin '%s'\n",
-				pin->type, pin->name);
-	}
 	break;
 
     case REPORT_END: // finalize & send
@@ -338,83 +320,11 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	retval = zmsg_send (&msg, self->z_rcomp_status);
 	assert(retval == 0);
 	assert(msg == NULL);
-	rc->flags &= ~GROUP_REPORT_FULL;
 	self->tx.Clear();
 	break;
     }
     return 0;
 }
-#if 0
-
-static int
-handle_rcomp_command(htself_t *self, zmsg_t *msg)
-{
-    int retval;
-    zframe_t *reply_frame;
-    size_t nframes = zmsg_size(msg);
-
-    if (nframes != 2)
-	return -1;
-    char *cname = zmsg_popstr(msg);
-    zframe_t *f = zmsg_pop(msg);
-
-    if (!self->rx.ParseFromArray(zframe_data(f), zframe_size(f))) {
-	char *s = zframe_strhex(f);
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rcomp %s command: cant parse %s",
-			self->cfg->progname, cname, s);
-	free(s);
-	free(cname);
-	zframe_destroy(&f);
-	return -1;
-    }
-    switch (self->rx.type()) {
-
-    case pb::MT_PING:
-	self->tx.set_type(pb::MT_PING_ACKNOWLEDGE);
-	reply_frame = zframe_new(NULL, self->tx.ByteSize());
-	self->tx.SerializeWithCachedSizesToArray(zframe_data(reply_frame));
-	zstr_sendm (self->z_rcomp_status, cname);
-	retval = zframe_send (&reply_frame, self->z_rcomp_status, 0);
-	assert(retval == 0);
-	self->tx.Clear();
-	break;
-
-    case pb::MT_HALRCOMP_BIND:
-
-	// if (comp exists in rcomp dict) {
-	//     if (!validate()) {
-	// 	send  MT_HALRCOMP_BIND_REJECT;
-	//     } else
-	// 	send  MT_HALRCOMP_BIND_CONFIRM;
-	// } else {
-	//     create comp as per pinlist;
-	//     ready the comp;
-	//     compile it;
-	//     add to self->rcomps[name];
-	//     register timer in loop;
-	// }
-	break;
-
-    case pb::MT_HALRCOMMAND_SET:
-	// forall (pins) {
-	//     lookup pin in handle2pin dict;
-	//     set value;
-	//     on failure {
-	// 	send  MT_HALRCOMP_SET_PINS_REJECT;
-	//     }
-	// }
-	// extension: reply if rsvp is set
-	break;
-
-    default:
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: rcomp %s command: unhandled type %d",
-			self->cfg->progname, cname, (int) self->rx.type());
-    }
-    zframe_destroy(&f);
-    free(cname);
-    return 0;
-}
-#endif
 
 static int
 add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
