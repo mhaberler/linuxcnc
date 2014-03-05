@@ -2632,7 +2632,9 @@ int do_save_cmd(char *type, char *filename)
 
 int do_newg_cmd(char *group,char **opt)
 {
-    int arg1 = 0, arg2 = 0;
+    int arg1 = 0;
+    // default to report only changed members
+    int arg2 = (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS);
 
     char *cp;
     int optind = 0;
