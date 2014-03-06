@@ -239,8 +239,6 @@ enum ContainerType {
     // also, to set a pin or param, it must have direction HAL_OUT or HAL_IO
     MT_HALRCOMP_SET  = 259;
     MT_HALRCOMP_SET_REJECT  = 260;
-    MT_HALRCOMP_GET  = 261;
-    MT_HALRCOMP_GET_REJECT  = 262;
     MT_HALRCOMP_ACK  = 263;
 
     // HAL object general setter/getter operations
