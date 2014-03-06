@@ -19,25 +19,41 @@
 #include "pbutil.hh"
 #include <czmq.h>
 
+
 int
 send_pbcontainer(const char *dest, pb::Container &c, void *socket)
 {
     int retval = 0;
     zframe_t *f;
 
-    // XXX this could stand some RTAPI error messages on failure
-
     f = zframe_new(NULL, c.ByteSize());
-    if (f == NULL)
+    if (f == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - failed to zframe_new(%d)",
+			__func__, c.ByteSize());
 	return -ENOMEM;
+    }
 
-    c.SerializeWithCachedSizesToArray(zframe_data(f));
+    unsigned char *buf = zframe_data(f);
+    unsigned char *end = c.SerializeWithCachedSizesToArray(buf);
+    if ((end - buf) == 0) {
+	// serialize failed
+	rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - SerializeWithCachedSizesToArray() failed",
+			__func__);
+	goto DONE;
+    }
     if (dest) {
 	retval = zstr_sendm (socket, dest);
-	if (retval)
+	if (retval) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - failed to zstr_sendm(%s)",
+			    __func__, dest);
 	    goto DONE;
+	}
     }
     retval = zframe_send(&f, socket, 0);
+    if (retval) {
+	rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - failed to zframe_sendm(%d)",
+			    __func__, end-buf);
+    }
  DONE:
     c.Clear();
     return retval;
