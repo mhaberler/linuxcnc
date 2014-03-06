@@ -331,6 +331,36 @@ class HalRcommand:
             return self.rx
         return None
 
+    def getsignal(self, name):
+        self.tx.type = MT_HALRCOMMAND_GET
+        self.tx.reply_required = True
+        p = self.tx.signal.add()
+        p.name = name
+        #print str(self.tx)
+        buffer = self.tx.SerializeToString()
+        self.tx.Clear()
+        self.cmd.send(buffer)
+        msg = self.cmd.recv()
+        if msg:
+            self.rx.ParseFromString(msg)
+            return self.rx
+        return None
+
+    def getpin(self, name):
+        self.tx.type = MT_HALRCOMMAND_GET
+        self.tx.reply_required = True
+        p = self.tx.pin.add()
+        p.name = name
+        #print str(self.tx)
+        buffer = self.tx.SerializeToString()
+        self.tx.Clear()
+        self.cmd.send(buffer)
+        msg = self.cmd.recv()
+        if msg:
+            self.rx.ParseFromString(msg)
+            return self.rx
+        return None
+
 def fudge(o):
     ''' any kind of change so change detection triggers'''
     if o.type == HAL_FLOAT:
@@ -389,6 +419,14 @@ def main():
         #     print str(reply)
         #time.sleep(1)
 
+    for name in signals.keys():
+        reply = rcmd.getsignal(name)
+        if reply:
+            print str(reply)
+    for name in pins.keys():
+        reply = rcmd.getpin(name)
+        if reply:
+            print str(reply)
 
     time.sleep(1)
 

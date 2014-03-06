@@ -79,7 +79,7 @@ process_ping(htself_t *self, const char *from,  void *socket)
 // any errors are added as c.note strings.
 // Returns the number of notes added (= errors).
 // Acquires the HAL mutex.
-int
+static int
 validate_component(const char *name, const pb::Component *pbcomp, pb::Container &e)
 {
     hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -394,17 +394,12 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
     // HAL object set/get ops
     case pb::MT_HALRCOMMAND_SET:
     case pb::MT_HALRCOMP_SET:
-
-	// pin
-	// signal
-	// param
+	// XXX: param missing
 	retval = process_set(self, type == pb::MT_HALRCOMP_SET, from, socket);
 	break;
 
     case pb::MT_HALRCOMMAND_GET:
-	// pin
-	// signal
-	// param
+	// XXX: param missing
 	retval = process_get(self, from, socket);
 	break;
 
@@ -414,9 +409,6 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
 
 	// NIY - fall through:
     case pb::MT_HALRCOMMAND_CREATE:
-	// signal
-	// member
-	// group
     case pb::MT_HALRCOMMAND_DELETE:
     default:
 	self->tx.set_type(pb::MT_HALRCOMMAND_ERROR);
@@ -582,6 +574,7 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 		continue;
 	}
     }
+    // XXX: add param handling here
 
     if (self->tx.note_size()) {
 	self->tx.set_type(halrcomp ? pb::MT_HALRCOMP_SET_REJECT :
@@ -662,6 +655,8 @@ process_get(htself_t *self, const char *from,  void *socket)
 	    describe_signal_by_name(self, s.name().c_str());
 	}
     }
+    // XXX: add param handling here
+
     self->tx.set_type(self->tx.note_size() ? pb::MT_HALRCOMMAND_GET_REJECT :
 		      pb::MT_HALRCOMMAND_ACK);
     return send_pbcontainer(from, self->tx, socket);
