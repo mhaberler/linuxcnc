@@ -25,8 +25,11 @@
 #include <google/protobuf/text_format.h>
 
 static int dispatch_request(htself_t *self, const char *from, void *socket);
-static int process_get(htself_t *self, bool halrcomp, const char *from, void *socket);
+static int process_get(htself_t *self, const char *from, void *socket);
 static int process_set(htself_t *self, bool halrcomp, const char *from, void *socket);
+static int describe_pin_by_name(htself_t *self, const char *name);
+static int describe_signal_by_name(htself_t *self, const char *name);
+
 
 int
 handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -399,11 +402,10 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
 	break;
 
     case pb::MT_HALRCOMMAND_GET:
-    case pb::MT_HALRCOMP_GET:
 	// pin
 	// signal
 	// param
-	retval = process_get(self, type == pb::MT_HALRCOMP_GET, from, socket);
+	retval = process_get(self, from, socket);
 	break;
 
     case pb::MT_HALRCOMMAND_DESCRIBE:
@@ -430,7 +432,6 @@ dispatch_request(htself_t *self, const char *from,  void *socket)
 static int
 process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 {
-    std::string s;
     itemmap_iterator it;
 
     // work the pins
@@ -477,7 +478,7 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 		} else {
 		    if (hp->dir == HAL_OUT) {
 			note_printf(self->tx,
-				    "cant set an HAL_OUT pin: handle=%d name=%s",
+				    "HALrcommand: cant set an HAL_OUT pin: handle=%d name=%s",
 				    handle, hp->name);
 			continue;
 		    }
@@ -507,34 +508,8 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 			    "pin: no name and no handle!");
 		continue;
 	    }
-	    {
-		hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
-		rtapi_mutex_get(&(hal_data->mutex));
-		const char *name = p.name().c_str();
-		hp = halpr_find_pin_by_name(name);
-		if (hp == NULL) {
-		    note_printf(self->tx, "no such pin: '%s'", name);
-		    continue;
-		}
-		// set value
-		hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
-		assert(vp != NULL);
-		if (hal_pbpin2u(&p, vp)) {
-		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), hp->name);
-		    continue;
-		}
-		// pin found. add to items
-		halitem_t *hi = new halitem_t();
-		hi->type = HAL_PIN;
-		hi->o.pin = hp;
-		hi->ptr = SHMPTR(hp->data_ptr_addr);
-		self->items[hp->handle] = hi;
-		// printf("add pin %s to items\n", hp->name);
-
-		// add binding in reply - includes handle
-		pb::Pin *pbpin = self->tx.add_pin();
-		halpr_describe_pin(hp, pbpin);
-	    }
+	    if (describe_pin_by_name(self, p.name().c_str()))
+		continue;
 	}
     }
 
@@ -603,34 +578,8 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 			    "signal: no name and no handle!");
 		continue;
 	    }
-	    {
-		hal_sig_t *hs __attribute__((cleanup(halpr_autorelease_mutex)));
-		rtapi_mutex_get(&(hal_data->mutex));
-		const char *name = s.name().c_str();
-		hs = halpr_find_sig_by_name(name);
-		if (hs == NULL) {
-		    note_printf(self->tx, "no such signal: '%s'", name);
-		    continue;
-		}
-		// set value
-		hal_data_u *vp = (hal_data_u *) hal_sig2u(hs);
-		assert(vp != NULL);
-		if (hal_pbsig2u(&s, vp)) {
-		    note_printf(self->tx, "bad signal type %d name=%s",s.type(), hs->name);
-		    continue;
-		}
-		// pin found. add to items
-		halitem_t *hi = new halitem_t();
-		hi->type = HAL_SIGNAL;
-		hi->o.signal = hs;
-		hi->ptr = SHMPTR(hs->data_ptr);
-		self->items[hs->handle] = hi;
-		//printf("add signal %s to items\n", hs->name);
-
-		// add binding in reply - includes handle
-		pb::Signal *pbsignal = self->tx.add_signal();
-		halpr_describe_signal(hs, pbsignal);
-	    }
+	    if (describe_signal_by_name(self, s.name().c_str()))
+		continue;
 	}
     }
 
@@ -649,8 +598,131 @@ process_set(htself_t *self, bool halrcomp, const char *from,  void *socket)
 }
 
 static int
-process_get(htself_t *self, bool halrcomp, const char *from,  void *socket)
+process_get(htself_t *self, const char *from,  void *socket)
 {
+    itemmap_iterator it;
 
-    return 0;
+    for (int i = 0; i < self->rx.pin_size(); i++) {
+	const pb::Pin &p = self->rx.pin(i);
+	if (p.has_handle()) {
+	    int handle = p.handle();
+	    it = self->items.find(handle);
+	    if (it != self->items.end()) {
+		halitem_t *hi = it->second;
+		if (hi->type != HAL_PIN) {
+		    note_printf(self->tx,
+				"get pin: handle type mismatch - not a pin: handle=%d type=%d",
+				handle, hi->type);
+		    continue;
+		}
+		hal_pin_t *hp = hi->o.pin;
+		assert(hp != NULL);
+		pb::Pin *pbpin = self->tx.add_pin();
+		// reply with just value and handle
+		pbpin->set_handle(hp->handle);
+		hal_pin2pb(hp, pbpin);
+	    }
+	} else {
+	    if (!p.has_name()) {
+		note_printf(self->tx,
+			    "get pin: no name and no handle!");
+		continue;
+	    }
+	    // for named get, reply with full decoration
+	    describe_pin_by_name(self, p.name().c_str());
+	}
+    }
+    for (int i = 0; i < self->rx.signal_size(); i++) {
+	const pb::Signal &s = self->rx.signal(i);
+	if (s.has_handle()) {
+	    int handle = s.handle();
+	    it = self->items.find(handle);
+	    if (it != self->items.end()) {
+		halitem_t *hi = it->second;
+		if (hi->type != HAL_SIGNAL) {
+		    note_printf(self->tx,
+				"get signal: handle type mismatch - not a signal: handle=%d type=%d",
+				handle, hi->type);
+		    continue;
+		}
+		hal_sig_t *hs = hi->o.signal;
+		assert(hs != NULL);
+		pb::Signal *pbsignal = self->tx.add_signal();
+		// reply with just value and handle
+		pbsignal->set_handle(hs->handle);
+		hal_sig2pb(hs, pbsignal);
+	    }
+	} else {
+	    if (!s.has_name()) {
+		note_printf(self->tx,
+			    "get signal: no name and no handle!");
+		continue;
+	    }
+	    // for named get, reply with full decoration
+	    describe_signal_by_name(self, s.name().c_str());
+	}
+    }
+    self->tx.set_type(self->tx.note_size() ? pb::MT_HALRCOMMAND_GET_REJECT :
+		      pb::MT_HALRCOMMAND_ACK);
+    return send_pbcontainer(from, self->tx, socket);
+}
+
+// lookup pin by name and add pin with full decoration to self->tx if found
+// add a halitem_t to the items array if pin handle not yet present
+static
+int describe_pin_by_name(htself_t *self, const char *name)
+{
+    hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
+    rtapi_mutex_get(&(hal_data->mutex));
+    itemmap_iterator it;
+
+    hp = halpr_find_pin_by_name(name);
+    if (hp == NULL) {
+	note_printf(self->tx, "no such pin: '%s'", name);
+	return -1;
+    }
+    // add to items if not yet present
+    it = self->items.find(hp->handle);
+    if (it == self->items.end()) {
+	// pin not found. add to items
+	halitem_t *hi = new halitem_t();
+	hi->type = HAL_PIN;
+	hi->o.pin = hp;
+	hi->ptr = SHMPTR(hp->data_ptr_addr);
+	self->items[hp->handle] = hi;
+	// printf("add pin %s to items\n", hp->name);
+    }
+    // add binding in reply - includes handle
+    pb::Pin *pbpin = self->tx.add_pin();
+    return halpr_describe_pin(hp, pbpin); // full decoration
+}
+
+// lookup signal by name and add signal with full decoration to self->tx if found
+// add a halitem_t to the items array if signal handle not yet present
+static
+int describe_signal_by_name(htself_t *self, const char *name)
+{
+    hal_sig_t *hs __attribute__((cleanup(halpr_autorelease_mutex)));
+    rtapi_mutex_get(&(hal_data->mutex));
+    itemmap_iterator it;
+
+    hs = halpr_find_sig_by_name(name);
+    if (hs == NULL) {
+	note_printf(self->tx, "no such signal: '%s'", name);
+	return -1;
+    }
+    // add to items if not yet present
+    it = self->items.find(hs->handle);
+    if (it == self->items.end()) {
+	// pin not found. add to items
+	halitem_t *hi = new halitem_t();
+	hi->type = HAL_SIGNAL;
+	hi->o.signal = hs;
+	hi->ptr = SHMPTR(hs->data_ptr);
+	self->items[hs->handle] = hi;
+	// printf("add signal %s to items\n", hs->name);
+    }
+    // add binding in reply - includes handle
+    pb::Signal *pbsignal = self->tx.add_signal();
+    return halpr_describe_signal(hs, pbsignal);
 }
