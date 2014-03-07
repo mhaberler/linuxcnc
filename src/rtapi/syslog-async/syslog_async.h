@@ -17,8 +17,10 @@
 #ifndef _SYSLOG_ASYNC_H
 #define _SYSLOG_ASYNC_H 1
 
+
 #include <syslog.h>
 #include <stdarg.h>
+#include "rtapi.h"  // for RTAPI_BEGIN_DECLS/RTAPI_END_DECLS
 
 /* Syslog_async is a non-blocking replacement for the
    POSIX-standard syslog() system call. Instead of blocking,
@@ -46,6 +48,7 @@
    openlog_async(), closelog_async() and setlogmask_async() are
    identical to the POSIX equivalents.
 */
+RTAPI_BEGIN_DECLS
 
 void openlog_async(const char *ident, int option, int facility);
 void closelog_async(void);
@@ -122,5 +125,7 @@ void log_write_async(void);
 */
 
 void tunelog_async(int backlog, int delay);
+
+RTAPI_END_DECLS
 
 #endif
