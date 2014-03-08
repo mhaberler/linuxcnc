@@ -3,7 +3,6 @@ import zmq
 import threading
 
 from message_pb2 import Container
-from object_pb2 import Component, Pin
 from types_pb2 import *
 import sdiscover
 
@@ -385,14 +384,15 @@ def main():
                        services[ST_STP_HALRCOMP].uri,
                        services[ST_STP_HALGROUP].uri, v,
                        compcallback, pincallback,groupcallback,sigcallback,
-                       ["gladevcp"],["power-supply"])
+                       ["gladevcp"],["power-supply","halui"])
     u.setDaemon(True)
     u.start()
 
     time.sleep(1)
 
     rcmd = HalRcommand(context, services[ST_HAL_RCOMMAND].uri)
-
+    time.sleep(300)
+    sys.exit(0)
     if not rcmd.ping():
         print "haltalk-cmd not responding"
         sys.exit(1)
