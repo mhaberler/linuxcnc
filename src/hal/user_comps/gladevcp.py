@@ -46,7 +46,7 @@ global remote_ok
 try:
     import glib
     import gtk.gdk
-    import pyczmq
+    import zmq
     from message_pb2 import Container
     from types_pb2 import *
 except ImportError,msg:
@@ -80,8 +80,8 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
           , Option( '-u', dest='usermod', action='append', default=[], metavar='FILE'
                   , help='Use FILEs as additional user defined modules with handlers')
 
-          , Option( '-z', dest='halserver', metavar='HALserver IP address'
-                  , help='connect to remote HAL server')
+          , Option( '-I', dest='instance', default=-1, metavar='remote HAL instance to connect to'
+                  , help='connect to remote haltalk server by giving its RTAPI instance number (default 0)')
            , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
                   , help='pass USEROPTs to Python modules')
           ]
@@ -193,8 +193,8 @@ def main():
     gladevcp_debug = debug = opts.debug
     xmlname = args[0]
 
-    if opts.halserver and not remote_ok:
-        print >> sys.stderr, "gladevcp: cant operate remotely to %s - modules missing" % (opts.halserver)
+    if opts.instance > -1 and not remote_ok:
+        print >> sys.stderr, "gladevcp: cant operate remotely  - modules missing"
         sys.exit(1)
 
     #if there was no component name specified use the xml file name
@@ -220,7 +220,7 @@ def main():
 
     window.set_title(opts.component)
 
-    if not opts.halserver:
+    if opts.instance == -1: # local
         try:
             import hal
             halcomp = hal.component(opts.component)
@@ -231,21 +231,17 @@ def main():
 
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
     else:
-        instance = 0
-
+        print "remote to instance: ", opts.instance
         # explicitly configured sockets
-        cmd_uri="tcp://127.0.0.1:4711"
-        update_uri="tcp://127.0.0.1:4712"
-
-        # use zbeacon service discovery
-        # cmd_uri = None
-        # update_uri = None
-
+        #cmd_uri="tcp://127.0.0.1:4711"
+        #update_uri="tcp://127.0.0.1:4712"
+        cmd_uri = None
+        update_uri = None
         pinginterval = 3
         rcdebug=False
         halcomp = GRemoteComponent(opts.component, builder,
                                    cmd_uri=cmd_uri,update_uri=update_uri,
-                                   instance=instance,
+                                   instance=opts.instance,
                                    period=pinginterval,
                                    debug=rcdebug)
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
@@ -317,9 +313,9 @@ def main():
     if opts.maximum:
         window.window.maximize()
 
-    if opts.halserver:
+    if opts.instance > -1:
         # zmq setup incantations
-        print "setup for halserver",opts.halserver
+        print "setup for remote instance",opts.instance
         pass
 
     if opts.halfile:

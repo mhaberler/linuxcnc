@@ -6,7 +6,8 @@ import linuxcnc
 import sys
 import os
 import time
-from pyczmq import zmq, zctx, zsocket, zmsg, zframe, zbeacon, zstr
+import zmq
+import sdiscover
 
 import gtk.gdk
 import gobject
@@ -15,8 +16,7 @@ import glib
 from message_pb2 import Container
 from types_pb2 import *
 
-BEACON_PORT = 10042
-HAL_RCOMP_VERSION = 1
+HAL_RCOMP_VERSION = 2
 
 class GPin(gobject.GObject, hal.Pin):
     __gtype_name__ = 'GPin'
@@ -87,7 +87,7 @@ class GRemotePin(gobject.GObject):
     __gsignals__ = {
         'value-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, ()),
         'hal-pin-changed': (gobject.SIGNAL_RUN_FIRST, gobject.TYPE_NONE, (gobject.TYPE_OBJECT,))
-}
+        }
 
     def __init__(self, name, type, direction,comp):
         gobject.GObject.__init__(self)
@@ -161,13 +161,15 @@ class GRemoteComponent(gobject.GObject):
     CMD = None
     COUNT = 0 # instance counter
 
-
-    # process service announcements on beacon socket
-    def beacon_readable(self, socket):
-        print "-------- beacon_readable "
-        f = zframe.recv(socket)
-        self.rx.ParseFromString(zframe.data(f))
-        print "beacon_message " + str(self.rx)
+    def discover(self,servicelist, trace=False):
+        sd = sdiscover.ServiceDiscover(trace=trace)
+        for s in servicelist:
+            sd.add(s)
+        services = sd.discover()
+        if not services:
+            print "failed to discover all services, found only:"
+            sd.detail(True)
+        return services
 
     def __init__(self, name, builder,cmd_uri=None, update_uri=None, instance=0,
                  period=3,debug=False):
@@ -188,80 +190,31 @@ class GRemoteComponent(gobject.GObject):
         self.tx = Container()
 
         if not GRemoteComponent.CONTEXT:
-            ctx = zctx.new()
-            update = zsocket.new(ctx, zmq.SUB)
-            cmd = zsocket.new(ctx, zmq.DEALER)
-            zsocket.set_identity(cmd, "%s-%d" % (name,os.getpid()))
-            zsocket.set_linger(cmd, 0)
+            ctx = zmq.Context()
+            ctx.linger = 0
+            update = ctx.socket(zmq.XSUB)
+            cmd = ctx.socket(zmq.DEALER)
+            cmd.identity = "%s-%d" % (name,os.getpid())
 
-            if True:# not (cmd_uri and update_uri):
-                #  Create service discovery beacon
-                self.client_beacon = zbeacon.new(ctx, BEACON_PORT)
-                # receive any message
-                zbeacon.subscribe(self.client_beacon, '')
-                # ignore own queries
-                zbeacon.noecho(self.client_beacon)
-                # turn on unicast receive
-                zbeacon.unicast(self.client_beacon, 1)
-                self.beacon_socket = zbeacon.socket(self.client_beacon)
-
-                # publish MT_SERVICE_PROBE until all services
-                # collected, or giving up
-                zbeacon.set_interval(self.client_beacon, 500)
-                probe = Container()
-                probe.type = MT_SERVICE_PROBE
-                zbeacon.publish(self.client_beacon, probe.SerializeToString())
-
-                required = [ST_HAL_RCOMP]
-                known = dict()
-                # give up if not all services aquired after max_wait
-                max_wait = 2.0
-                done = False
-                start = time.time()
-
-                while not done:
-                    if (time.time() - start) > max_wait:
-                        break
-                    ipaddress = zstr.recv(self.beacon_socket)
-                    if zctx.interrupted:
-                        break
-                    if ipaddress is None:
-                        continue
-
-                    content = zframe.recv(self.beacon_socket)
-                    rx = Container()
-                    rx.ParseFromString(zframe.data(content))
-
-                    if rx.type == MT_SERVICE_ANNOUNCEMENT:
-                        for a in rx.service_announcement:
-                            if a.stype in required:
-                                print "aquiring:", a.stype
-                                known[a.stype] = a
-                                required.remove(a.stype)
-                        if not required:
-                            zbeacon.silence(self.client_beacon)
-                            done = True
-
-                    zframe.destroy(content)
-
-                if required:
+            if not (cmd_uri and update_uri):
+                self.services = self.discover([ST_STP_HALRCOMP,ST_HAL_RCOMMAND])
+                if not self.services:
                     raise RuntimeError, "Service Discovery failed"
+                print "discovered HALrcomp uri %s" % (self.services[ST_STP_HALRCOMP].uri)
+                update.connect(self.services[ST_STP_HALRCOMP].uri)
 
-                cfg = known[ST_HAL_RCOMP]
-                print "got ip=%s msg=%s" % (ipaddress, str(cfg))
-                zsocket.connect(update, "tcp://%s:%d" % (ipaddress, cfg.update_port))
-                zsocket.connect(cmd, "tcp://%s:%d" % (ipaddress, cfg.cmd_port))
-
+                print "discovered HALrcommand uri %s" % (self.services[ST_HAL_RCOMMAND].uri)
+                cmd.connect(self.services[ST_HAL_RCOMMAND].uri)
             else:
+                print "--------- FAIL"
+                update.connect(update_uri)
+                cmd.connect(cmd_uri)
 
-                zsocket.connect(update, update_uri)
-                zsocket.connect(cmd, cmd_uri)
-
-            self.cmd_notify = gobject.io_add_watch(zsocket.fd(cmd),
+            self.cmd_notify = gobject.io_add_watch(cmd.get(zmq.FD),
                                                    gobject.IO_IN,
                                                    self.zmq_readable, cmd,
                                                    self.cmd_readable)
-            self.update_notify = gobject.io_add_watch(zsocket.fd(update),
+            self.update_notify = gobject.io_add_watch(update.get(zmq.FD),
                                                       gobject.IO_IN,
                                                       self.zmq_readable, update,
                                                       self.update_readable)
@@ -278,7 +231,7 @@ class GRemoteComponent(gobject.GObject):
 
     # activity on one of the zmq sockets:
     def zmq_readable(self, eventfd, condition, socket, callback):
-        while zsocket.events(socket)  & zmq.POLLIN:
+        while socket.get(zmq.EVENTS)  & zmq.POLLIN:
             callback(socket)
         return True
 
@@ -290,17 +243,18 @@ class GRemoteComponent(gobject.GObject):
     def bind(self):
 
         self.tx.type = MT_HALRCOMP_BIND
-        self.tx.comp.name = self.name
+        c = self.tx.comp.add()
+        c.name = self.name
         #c.comp.ninst = 1
         #inst = 0
         for pin_name,pin in self.pinsbyname.iteritems():
-            p = self.tx.pin.add()
+            p = c.pin.add()
             #p.name = "%s.%d.%s" %(self.name, inst,pin_name)
             p.name = self.name +  "." + pin_name
             p.type = pin.get_type()
             p.dir = pin.get_dir()
         if self.debug: print "bind:" , str(self.tx)
-        zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
+        GRemoteComponent.CMD.send(self.tx.SerializeToString())
         self.tx.Clear()
 
     def pin_update(self,rp,lp):
@@ -311,13 +265,13 @@ class GRemoteComponent(gobject.GObject):
 
     # process updates received on subscriber socket
     def update_readable(self, socket):
-        m = zmsg.recv(socket)
-        topic = zmsg.popstr(m)
-        self.rx.ParseFromString(zframe.data(zmsg.pop(m)))
+        m = socket.recv_multipart()
+        topic = m[0]
+        self.rx.ParseFromString(m[1])
 
         if self.debug: print "status_update ", topic, str(self.rx)
 
-        if self.rx.type == MT_HALRCOMP_PIN_CHANGE: # incremental update
+        if self.rx.type == MT_HALRCOMP_INCREMENTAL_UPDATE: # incremental update
             for rp in self.rx.pin:
                 lp = self.pinsbyhandle[rp.handle]
                 self.pin_update(rp,lp)
@@ -327,22 +281,23 @@ class GRemoteComponent(gobject.GObject):
             self.sstate = states.UP
             return
 
-        if self.rx.type == MT_HALRCOMP_STATUS: # full update
-            for rp in self.rx.pin:
-                lname = str(rp.name)
-                if "." in lname: # strip comp prefix
-                    cname,pname = lname.split(".",1)
-                lp = self.pinsbyname[pname]
-                lp.handle = rp.handle
-                self.pinsbyhandle[rp.handle] = lp
-                self.pin_update(rp,lp)
-            self.synced = True
-            if self.sstate != states.UP:
-                self.emit('protocol-status', self.cstate,states.UP)
-            self.sstate = states.UP
+        if self.rx.type == MT_HALRCOMP_FULL_UPDATE: # full update
+            for c in self.rx.comp:
+                for rp in c.pin:
+                    lname = str(rp.name)
+                    if "." in lname: # strip comp prefix
+                        cname,pname = lname.split(".",1)
+                    lp = self.pinsbyname[pname]
+                    lp.handle = rp.handle
+                    self.pinsbyhandle[rp.handle] = lp
+                    self.pin_update(rp,lp)
+                self.synced = True
+                if self.sstate != states.UP:
+                    self.emit('protocol-status', self.cstate,states.UP)
+                self.sstate = states.UP
             return
 
-        if self.rx.type == MT_HALRCOMP_SUBSCRIBE_ERROR:
+        if self.rx.type == MT_HALRCOMP_ERROR:
             self.sstate = states.DOWN
             print "proto error on subscribe: ",str(self.rx.note)
             self.emit('protocol-error', str(self.rx.note))
@@ -352,8 +307,8 @@ class GRemoteComponent(gobject.GObject):
 
     # process replies received on command socket
     def cmd_readable(self, socket):
-        f = zframe.recv(socket)
-        self.rx.ParseFromString(zframe.data(f))
+        f = socket.recv()
+        self.rx.ParseFromString(f)
 
         if self.debug: print "server_message " + str(self.rx)
 
@@ -365,10 +320,11 @@ class GRemoteComponent(gobject.GObject):
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_CONFIRM:
+            if self.debug: print "bind confirmed "
             self.cstate = states.UP
             self.sstate = states.TRYING
             self.emit('protocol-status', self.cstate,self.sstate)
-            zsocket.set_subscribe(GRemoteComponent.UPDATE, self.name)
+            GRemoteComponent.UPDATE.send("\001" + self.name)
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_REJECT:
@@ -377,7 +333,7 @@ class GRemoteComponent(gobject.GObject):
             print "bind rejected: %s" % (str(self.rx.note))
             return
 
-        if self.rx.type == MT_HALRCOMP_SET_PINS_REJECT:
+        if self.rx.type == MT_HALRCOMP_SET_REJECT:
             self.cstate = states.DOWN
             self.emit('protocol-status', self.cstate,self.sstate)
             #protocol error - emit string signal
@@ -392,14 +348,15 @@ class GRemoteComponent(gobject.GObject):
             self.emit('protocol-status', self.cstate,self.sstate)
             print "timeout"
         self.tx.type = MT_PING
-        zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
+        GRemoteComponent.CMD.send(self.tx.SerializeToString())
         self.tx.Clear()
         self.ping_outstanding = True
 
     def pin_change(self, rpin):
         if self.debug: print "pinchange", self.synced
         if not self.synced: return
-        self.tx.type = MT_HALRCOMP_SET_PINS
+        if rpin.direction == HAL_IN: return
+        self.tx.type = MT_HALRCOMP_SET
 
         # This message MUST carry a Pin message for each pin which has
         # changed value since the last message of this type.
@@ -411,6 +368,7 @@ class GRemoteComponent(gobject.GObject):
 
         pin.handle = rpin.handle
         pin.name = rpin.name
+        pin.type = rpin.type
         if rpin.type == HAL_FLOAT:
             pin.halfloat = rpin.get()
         if rpin.type == HAL_BIT:
@@ -419,7 +377,7 @@ class GRemoteComponent(gobject.GObject):
             pin.hals32 = rpin.get()
         if rpin.type == HAL_U32:
             pin.halu32 = rpin.get()
-        zframe.send(zframe.new(self.tx.SerializeToString()), GRemoteComponent.CMD, 0)
+        GRemoteComponent.CMD.send(self.tx.SerializeToString())
         self.tx.Clear()
 
     #---- HAL 'emulation' --
