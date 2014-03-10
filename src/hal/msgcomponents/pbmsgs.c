@@ -1,3 +1,4 @@
+
 // this component provides support for other RT components
 // it exports protobuf message descriptors in nanopb format
 // as automatically generated in protobuf/Submakefile
@@ -46,7 +47,16 @@ void rtapi_app_exit(void)
 #define PB_DESCRIPTOR(symbol) EXPORT_SYMBOL(pb_ ## symbol ## _fields)
 
 PB_DESCRIPTOR(Container);
-PB_DESCRIPTOR(Object);
+PB_DESCRIPTOR(Function);
+PB_DESCRIPTOR(Instance);
+PB_DESCRIPTOR(Pin);
+PB_DESCRIPTOR(Param);
+PB_DESCRIPTOR(Signal);
+PB_DESCRIPTOR(Group);
+PB_DESCRIPTOR(Ring);
+PB_DESCRIPTOR(Component);
+/* PB_DESCRIPTOR(); */
+
 PB_DESCRIPTOR(MotionCommand);
 PB_DESCRIPTOR(MotionStatus);
 //PB_DESCRIPTOR(Pm_Cartesian);
