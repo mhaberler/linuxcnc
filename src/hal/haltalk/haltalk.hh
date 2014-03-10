@@ -52,9 +52,9 @@
 namespace gpb = google::protobuf;
 
 // announced protocol versions
-#define HAL_GROUP_STATUS_VERSION 1
-#define HAL_RCOMP_STATUS_VERSION 1
-#define HAL_RCOMMAND_VERSION     1
+#define HAL_GROUP_STATUS_VERSION 2
+#define HAL_RCOMP_STATUS_VERSION 2
+#define HAL_RCOMMAND_VERSION     2
 
 #if JSON_TIMING
 #include <middleware/json2pb/json2pb.h>
