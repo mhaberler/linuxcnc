@@ -1,0 +1,14 @@
+HAL bridge function:
+ take component, uri command param (multiples?)
+ bridge = active side = connects, creates/verifies comp, subscribes
+ on startup either connect to existing local halcomp, or create from remote comp
+ states: discovery,connecting, verified, mismatch, up/updates flowing
+
+options:name, cmduri updateuri (instance # - sd?)
+
+ connecting: describe until reply
+	     verify local comp OR create according to describe
+	     compile local comp
+	     set up updates
+
+ updates: in+inout only
