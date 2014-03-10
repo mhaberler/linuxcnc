@@ -17,8 +17,11 @@ extern "C" {
 
     // init service discovery for a particular instance id
     // use port 0 for default
-    // ctx may be NULL in which case this allocates its own context,
     extern sdreq_t *sd_new(int port, int instance);
+
+    // return the socket fd registered by sd_new()
+    // usage example: integrate into event loop
+    int sd_socket(sdreq_t *self);
 
     // add  (protocol, minversion, api) to wishlist
     // returns 0 on sucess, -1 on error
@@ -27,6 +30,10 @@ extern "C" {
     // log service requests and replies
     // returns 0 on sucess, -1 on error
     extern void sd_log(sdreq_t *self, int trace);
+
+    // just broadcast the probe frame, without waiting for a reply
+    // usage example: integrate into event loop
+    extern int sd_send_probe(sdreq_t *self);
 
     // run the query on the wishlist
     // returns 0 on sucess (all services found)

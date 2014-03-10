@@ -49,14 +49,24 @@ typedef struct _sdreq {
     int sock;
 } _sdreq_t;
 
+static int s_register_sockets(sdreq_t *self);
+static int s_send_probe(sdreq_t *self);
+
 sdreq_t *sd_new(int port, int instance)
 {
+    int retval;
+
+
     _sdreq_t *self = (_sdreq_t *) zmalloc(sizeof(_sdreq_t));
     assert (self);
     self->port = port > 0 ? port : SERVICE_DISCOVERY_PORT;
     self->retry_time = RETRY_TIME;
     self->instance = instance;
 
+    if ((retval = s_register_sockets(self))) {
+	free(self);
+	return NULL;
+    }
     // ready the probe frame one - it might be reused
     pb::Container p;
     p.set_type(pb::MT_SERVICE_PROBE);
@@ -64,7 +74,14 @@ sdreq_t *sd_new(int port, int instance)
     self->probe = (unsigned char *) zmalloc(self->probe_len);
     assert(self->probe != NULL);
     p.SerializeWithCachedSizesToArray(self->probe);
+
     return self;
+}
+
+int sd_socket(sdreq_t *self)
+{
+    assert (self);
+    return self->sock;
 }
 
 void sd_log(sdreq_t *self, int trace)
@@ -124,10 +141,12 @@ void sd_destroy(sdreq_t **arg)
     *arg = NULL;
 }
 
+int sd_send_probe(sdreq_t *self)
+{
+    return s_send_probe(self);
+}
 
 static int s_msec_since(struct timeval *start);
-static int s_register_sockets(sdreq_t *self);
-static int s_send_probe(sdreq_t *self);
 static int s_find_matches(sdreq_t *self, unsigned char *buffer, size_t len);
 
 int sd_query(sdreq_t *self, int timeoutms)
@@ -137,9 +156,6 @@ int sd_query(sdreq_t *self, int timeoutms)
     int retval;
 
     assert (self);
-    if ((retval = s_register_sockets(self)))
-	return retval;
-
     struct pollfd pfd = { self->sock, POLLIN, 0 };
     gettimeofday(&start, NULL);
 
@@ -209,10 +225,7 @@ static int s_find_matches(sdreq_t *self, unsigned char *buffer, size_t len)
 		    (sa.api() >= sq->api)) {
 
 		    sq->found = true; // first matching responder wins
-		    if (sa.has_port()) sq->port = sa.port();
-		    if (sa.has_ipaddress())
-			sq->ipaddress = strdup(sa.ipaddress().c_str());
-		    if (sa.has_uri()) sq->uri = strdup(sa.uri().c_str());
+		    sq->uri = strdup(sa.uri().c_str());
 		    if (sa.has_description())
 			sq->description = strdup(sa.description().c_str());
 		    sq->api = sa.api();
@@ -230,7 +243,7 @@ static int s_send_probe(sdreq_t *self)
     int retval;
     struct sockaddr_in destaddr = {0};
 
-    // broadcast the quere frame
+    // broadcast the query frame
     destaddr.sin_port = htons(self->port);
     destaddr.sin_family = AF_INET;
     destaddr.sin_addr.s_addr  = INADDR_BROADCAST;
@@ -311,19 +324,6 @@ static sdquery_t *find_service(sdreq_t *self, unsigned stype)
     return NULL;
 }
 
-const char *sd_ipaddress(sdreq_t *self, int stype)
-{
-    sdquery_t *s = find_service(self, stype);
-    if (s == NULL) return NULL;
-    return s->ipaddress;
-}
-
-int sd_port(sdreq_t *self, int stype)
-{
-    sdquery_t *s = find_service(self, stype);
-    if (s == NULL) return -1;
-    return s->port;
-}
 
 int sd_version(sdreq_t *self, int stype)
 {

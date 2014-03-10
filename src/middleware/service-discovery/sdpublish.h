@@ -3,6 +3,7 @@
 
 #include "discovery.h"
 #include "czmq.h"
+#include <uuid/uuid.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,7 +14,8 @@ extern "C" {
 
     // init service discovery for a particular instance id
     // use port 0 for default
-    extern spub_t *sp_new(zctx_t *ctx, int port, int instance);
+
+    extern spub_t *sp_new(zctx_t *ctx, int port, int instance, uuid_t uuid);
 
     // export a service (protocol, version, api) to wishlist
     // returns 0 on sucess, -1 on error

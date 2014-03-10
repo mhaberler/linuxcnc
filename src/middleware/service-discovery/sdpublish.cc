@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string>
+#include <uuid/uuid.h>
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -22,11 +23,12 @@ typedef struct _spub {
     void *pipe;
     zctx_t *ctx;
     bool trace;
+    uuid_t uuid;
 } _spub_t;
 
 
 spub_t *
-sp_new(zctx_t *ctx, int port, int instance)
+sp_new(zctx_t *ctx, int port, int instance, unsigned char *uuid)
 {
     _spub_t *self = (_spub_t *) zmalloc(sizeof(_spub_t));
     assert (self);
@@ -36,7 +38,8 @@ sp_new(zctx_t *ctx, int port, int instance)
     self->instance = instance;
     self->tx = new pb::Container();
     self->tx->set_type(pb::MT_SERVICE_ANNOUNCEMENT);
-
+    if (uuid)
+	self->tx->set_uuid(uuid, sizeof(uuid_t));
     return self;
 }
 
@@ -57,12 +60,7 @@ sp_add(spub_t *self,
     sa->set_instance(self->instance);
     sa->set_stype((pb::ServiceType)stype);
     sa->set_version(version);
-    if (ipaddr)
-	sa->set_ipaddress(ipaddr);
-    if (port > 0)
-	sa->set_port(port);
-    if (uri)
-	sa->set_uri(uri);
+    sa->set_uri(uri);
     sa->set_api((pb::ServiceAPI)api);
     if (description)
 	sa->set_description(description);
@@ -298,7 +296,7 @@ int main(int argc, char **argv)
 
     zctx_t *ctx = zctx_new();
 
-    spub_t *sp = sp_new(ctx, 0, 0);
+    spub_t *sp = sp_new(ctx, 0, 0, NULL);
     assert(sp);
 
     rc = sp_add(sp,

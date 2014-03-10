@@ -63,15 +63,15 @@ while True:
             sa.stype = ST_HAL_RCOMP_STATUS
             sa.instance = instance
             sa.version = HAL_RCOMP_VERSION
-            sa.port = hal_rcomp_update_port
             sa.api = SA_ZMQ_PROTOBUF
+            sa.uri = "FIXME sdpublish.py"
 
             sa = tx.service_announcement.add()
             sa.stype = ST_STP
-            sa.port = hal_status_update_port
             sa.instance = instance
             sa.version = STP_VERSION
             sa.api = SA_ZMQ_PROTOBUF
+            sa.uri = "FIXME2 sdpublish.py"
 
             pkt = tx.SerializeToString()
 

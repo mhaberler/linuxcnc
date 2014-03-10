@@ -26,7 +26,7 @@ TARGETS += ../lib/libsdpublish.so ../lib/libsdpublish.so.0
 	@mkdir -p ../lib
 	@rm -f $@
 	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS)
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS)  -luuid
 
 
 LIBSDSRCS := $(addprefix  $(SDDIR)/, \
@@ -46,7 +46,7 @@ TARGETS += ../lib/libsdiscover.so ../lib/libsdiscover.so.0
 	@mkdir -p ../lib
 	@rm -f $@
 	$(CXX) -g $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ -lstdc++ \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS)
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) -luuid
 
 
 
@@ -62,7 +62,7 @@ $(call TOOBJSDEPS, $(TESTSDPUB_SRCS)) : EXTRAFLAGS += -DTEST -g \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -g -o $@ $^  \
-	 $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
+	 $(PROTOBUF_LIBS) $(CZMQ_LIBS) -luuid -lstdc++
 
 TARGETS += ../bin/testsdpub
 

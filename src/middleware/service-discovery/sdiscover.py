@@ -11,8 +11,6 @@ from types_pb2 import * #MT_SERVICE_PROBE,MT_SERVICE_ANNOUNCEMENT
 class Service:
     def __init__(self):
         self.uri = None
-        self.ipaddress = None
-        self.port = -1
         self.version = 0
         self.api = None
         self.description = ""
@@ -93,8 +91,6 @@ class ServiceDiscover:
                             for a in rx.service_announcement:
                                     s = Service()
                                     s.uri = a.uri
-                                    s.ipaddress = a.ipaddress
-                                    s.port = a.port
                                     s.version = a.version
                                     s.api = a.api
                                     s.description = a.description
