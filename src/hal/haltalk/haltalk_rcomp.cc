@@ -80,7 +80,7 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		// compiled component found, schedule a full update
 		rcomp_t *g = self->rcomps[topic];
 		self->tx.set_type(pb::MT_HALRCOMP_FULL_UPDATE);
-		self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+		self->tx.set_uuid(self->uuid, sizeof(self->uuid));
 		self->tx.set_serial(g->serial++);
 		describe_comp(self, topic, topic, poller->socket);
 
@@ -90,8 +90,8 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 					      handle_rcomp_timer, (void *)g);
 		    assert(g->timer_id > -1);
 		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "%s: start scanning comp %s, tid=%d %d mS",
-				    self->cfg->progname, topic, g->timer_id, g->msec);
+				    "%s: start scanning comp %s, tid=%d, %d mS, %d pins tracked",
+				    self->cfg->progname, topic, g->timer_id, g->msec, g->cc->n_pins);
 		}
 
 		if (g->cc->comp->state == COMP_UNBOUND) {

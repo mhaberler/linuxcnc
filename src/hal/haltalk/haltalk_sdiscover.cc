@@ -29,7 +29,7 @@ service_discovery_start(htself_t *self)
 
     // start the service announcement responder
     self->sd_publisher = sp_new(self->z_context, self->cfg->sd_port,
-				rtapi_instance);
+				rtapi_instance, self->uuid);
 
     assert(self->sd_publisher != NULL);
     sp_log(self->sd_publisher, self->cfg->sddebug);

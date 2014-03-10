@@ -61,7 +61,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		group_t *g = gi->second;
 		self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
-		self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+		self->tx.set_uuid(self->uuid, sizeof(self->uuid));
 		self->tx.set_serial(g->serial++);
 		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
 
@@ -71,8 +71,9 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 					      0, handle_group_timer, (void *)g);
 		    assert(g->timer_id > -1);
 		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "%s: start scanning group %s, tid=%d %d mS",
-				    self->cfg->progname, topic, g->timer_id, g->msec);
+				    "%s: start scanning group %s, tid=%d, %d mS, %d members, %d monitored",
+				    self->cfg->progname, topic, g->timer_id, g->msec,
+				    g->cg->n_members, g->cg->n_monitored);
 		}
 		rtapi_print_msg(RTAPI_MSG_DBG,
 				"%s: wildcard subscribe group='%s' serial=%d",
@@ -85,7 +86,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    if (gi != self->groups.end()) {
 		group_t *g = gi->second;
 		self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
-		self->tx.set_uuid(self->instance_uuid, sizeof(self->instance_uuid));
+		self->tx.set_uuid(self->uuid, sizeof(self->uuid));
 		self->tx.set_serial(g->serial++);
 		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
 		rtapi_print_msg(RTAPI_MSG_DBG,
@@ -99,9 +100,9 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 					      0, handle_group_timer, (void *)g);
 		    assert(g->timer_id > -1);
 		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "%s: start scanning group %s, tid=%d %d mS",
+				    "%s: start scanning group %s, tid=%d, %d mS, %d members, %d monitored",
 				    self->cfg->progname, topic,
-				    g->timer_id, g->msec);
+				    g->timer_id, g->msec, g->cg->n_members, g->cg->n_monitored);
 		}
 	    } else {
 		// non-existant topic, complain.

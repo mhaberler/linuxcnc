@@ -21,11 +21,17 @@
 //      HAL groups via the Status Tracking protocol.
 //
 //   2. implements the HALRcomp protocol for remote HAL components.
+//
+//   3. Implements remote remote set/get operations for pins and signals.
+//
+//   4. Reports a HAL instance through the DESCRIBE operation.
+//
+//   5. optional may bridge to a remote HAL instance through a remote component.
 
 #include "haltalk.hh"
 
 
-static const char *option_string = "hI:S:dt:Du:r:T:c:p";
+static const char *option_string = "hI:S:dt:Du:r:T:c:pb:C:U:i:";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"paranoid", no_argument, 0, 'p'},
@@ -38,6 +44,10 @@ static struct option long_options[] = {
     {"stpuri", required_argument, 0, 'u'},
     {"rcompuri", required_argument, 0, 'r'},
     {"cmduri", required_argument, 0, 'c'},
+    {"bridge", required_argument, 0, 'b'},
+    {"bridgecmduri", required_argument, 0, 'C'},
+    {"bridgeupdateuri", required_argument, 0, 'U'},
+    {"bridgeinstance", required_argument, 0, 'i'},
     {0,0,0,0}
 };
 
@@ -50,6 +60,10 @@ static htconf_t conf = {
     "tcp://127.0.0.1:*", // localhost, use ephemeral port
     "tcp://127.0.0.1:*",
     "tcp://127.0.0.1:*",
+    NULL,
+    NULL,
+    NULL,
+    -1,
     0,
     0,
     0,
@@ -92,7 +106,7 @@ mainloop( htself_t *self)
     self->z_loop = zloop_new();
     assert (self->z_loop);
 
-    zloop_set_verbose (self->z_loop, self->cfg->debug);
+    zloop_set_verbose (self->z_loop, self->cfg->debug > 1);
 
     zloop_poller(self->z_loop, &signal_poller, handle_signal, self);
     zloop_poller(self->z_loop, &group_poller,  handle_group_input, self);
@@ -204,7 +218,7 @@ hal_setup(htself_t *self)
     zmq_version (&major, &minor, &patch);
 
     char buf[40];
-    uuid_unparse(self->instance_uuid, buf);
+    uuid_unparse(self->uuid, buf);
 
     rtapi_print_msg(RTAPI_MSG_DBG,
 		    "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d uuid=%s\n",
@@ -255,6 +269,14 @@ read_config(htconf_t *conf)
     if ((s = iniFind(inifp, "COMMAND_URI", conf->section)))
 	conf->command = strdup(s);
 
+    if ((s = iniFind(inifp, "BRIDGE_COMP", conf->section)))
+	conf->bridgecomp = strdup(s);
+    if ((s = iniFind(inifp, "BRIDGE_COMMAND_URI", conf->section)))
+	conf->bridgecomp_cmduri = strdup(s);
+    if ((s = iniFind(inifp, "BRIDGE_STATUS_URI", conf->section)))
+	conf->bridgecomp_updateuri = strdup(s);
+    iniFindInt(inifp, "BRIDGE_TARGET_INSTANCE", conf->section, &conf->bridge_target_instance);
+
     iniFindInt(inifp, "GROUPTIMER", conf->section, &conf->default_group_timer);
     iniFindInt(inifp, "RCOMPTIMER", conf->section, &conf->default_rcomp_timer);
     iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
@@ -300,7 +322,7 @@ int main (int argc, char *argv[])
 			      long_options, NULL)) != -1) {
 	switch(opt) {
 	case 'd':
-	    conf.debug = 1;
+	    conf.debug++;
 	    break;
 	case 'D':
 	    conf.sddebug = 1;
@@ -329,6 +351,18 @@ int main (int argc, char *argv[])
 	case 'p':
 	    conf.paranoid = 1;
 	    break;
+	case 'b':
+	    conf.bridgecomp = optarg;
+	    break;
+	case 'C':
+	    conf.bridgecomp_cmduri = optarg;
+	    break;
+	case 'i':
+	    conf.bridge_target_instance = atoi(optarg);
+	    break;
+	case 'U':
+	    conf.bridgecomp_updateuri = optarg;
+	    break;
 	case 'h':
 	default:
 	    usage();
@@ -346,7 +380,7 @@ int main (int argc, char *argv[])
     htself_t self = {0};
     self.cfg = &conf;
     self.pid = getpid();
-    uuid_generate_time(self.instance_uuid);
+    uuid_generate_time(self.uuid);
 
     retval = hal_setup(&self);
     if (retval) exit(retval);
@@ -355,6 +389,9 @@ int main (int argc, char *argv[])
     if (retval) exit(retval);
 
     retval = service_discovery_start(&self);
+    if (retval) exit(retval);
+
+    retval = bridge_init(&self);
     if (retval) exit(retval);
 
     mainloop(&self);

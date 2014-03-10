@@ -42,6 +42,7 @@
 #include <hal_group.h>
 #include <hal_rcomp.h>
 #include <sdpublish.h>
+#include <sdiscover.h>
 #include <inifile.h>
 #include <redirect_log.h>
 
@@ -80,6 +81,14 @@ typedef struct {
     int msec;
 } rcomp_t;
 
+typedef struct htbridge {
+    int state;
+    sdreq_t *sdiscover;
+    void *z_bridge_status;
+    void *z_bridge_cmd;
+    int timer_id;
+} htbridge_t;
+
 // groups indexed by group name
 typedef std::unordered_map<std::string, group_t *> groupmap_t;
 typedef groupmap_t::iterator groupmap_iterator;
@@ -100,6 +109,10 @@ typedef struct htconf {
     const char *group_status;
     const char *rcomp_status;
     const char *command;
+    const char *bridgecomp;
+    const char *bridgecomp_cmduri;
+    const char *bridgecomp_updateuri;
+    int bridge_target_instance;
 
     int paranoid; // extensive runtime checks - may be costly
     int debug;
@@ -111,7 +124,7 @@ typedef struct htconf {
 
 typedef struct htself {
     htconf_t *cfg;
-    uuid_t instance_uuid;
+    uuid_t uuid;
     int comp_id;
     int signal_fd;
     bool interrupted;
@@ -137,6 +150,8 @@ typedef struct htself {
     const char *z_command_dsn;
 
     itemmap_t items;
+
+    htbridge_t *bridge;
 } htself_t;
 
 
@@ -163,3 +178,6 @@ int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 int process_describe(htself_t *self, const char *from,  void *socket);
 int describe_group(htself_t *self, const char *group, const char *from,  void *socket);
 int describe_comp(htself_t *self, const char *comp, const char *from,  void *socket);
+
+// haltalk_bridge.cc:
+int bridge_init(htself_t *self);
