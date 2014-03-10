@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <syslog.h>
+#include <uuid/uuid.h>
 #include <czmq.h>
 
 #include <string>
@@ -98,6 +99,7 @@ static int signal_fd;
 typedef struct {
     void *response;
     void *cmd;
+    uuid_t uuid;
     const char *command_dsn, *response_dsn;
     actormap_t *cmd_subscribers;
     actormap_t *response_subscribers;
@@ -325,7 +327,7 @@ static int sd_init(msgbusd_self_t *self, int port)
 	return 0;  // service discovery disabled
 
     self->sd_publisher = sp_new(self->context, port,
-				rtapi_instance);
+				rtapi_instance, self->uuid);
 
     assert(self->sd_publisher != NULL);
     sp_log(self->sd_publisher, sddebug);
@@ -516,10 +518,13 @@ int main (int argc, char *argv[])
     // printf("hi stdout from messagebus\n"); fflush(stdout);
     // fprintf(stderr, "hi stderr from messagebus\n"); fflush(stderr);
 
+
     if (read_config())
 	exit(1);
 
     msgbusd_self_t self = {0};
+    uuid_generate_time(self.uuid);
+
     if (!zmq_setup(&self) &&
 	!hal_setup(&self) &&
 	!signal_setup() &&

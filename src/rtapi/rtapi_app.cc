@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <uuid/uuid.h>
 #include <dlfcn.h>
 #include <signal.h>
 #include <sys/signalfd.h>
@@ -117,6 +118,7 @@ static int z_port;
 static pb::Container command, reply;
 static int sd_port = SERVICE_DISCOVERY_PORT;
 static spub_t *sd_publisher;
+static uuid_t uuid;
 
 // the following two variables, despite extern, are in fact private to rtapi_app
 // in the sense that they are not visible in the RT space (the namespace 
@@ -852,7 +854,7 @@ static int mainloop(size_t  argc, char **argv)
     zloop_timer (z_loop, BACKGROUND_TIMER, 0, s_handle_timer, NULL);
 
     // start the service announcement responder
-    sd_publisher = sp_new( z_context, sd_port, instance_id);
+    sd_publisher = sp_new( z_context, sd_port, instance_id, uuid);
     assert(sd_publisher);
     sp_log(sd_publisher, getenv("SDDEBUG") != NULL);
 
@@ -1135,6 +1137,7 @@ int main(int argc, char **argv)
 {
     int c;
     progname = argv[0];
+    uuid_generate_time(uuid);
 
     // drop privs unless needed
     save_uid();

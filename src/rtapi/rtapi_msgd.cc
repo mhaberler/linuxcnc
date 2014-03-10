@@ -93,6 +93,7 @@ static int hal_thread_stack_size = HAL_STACKSIZE;
 static int signal_fd;
 static int sd_port = SERVICE_DISCOVERY_PORT;
 static spub_t *sd_publisher;
+static uuid_t uuid;
 
 // messages tend to come bunched together, e.g during startup and shutdown
 // poll faster if a message was read, and decay the poll timer up to msg_poll_max
@@ -742,10 +743,11 @@ int main(int argc, char **argv)
     sigset_t sigmask;
     size_t argv0_len, procname_len, max_procname_len;
 
-    struct lws_context_creation_info ws_info;
+    uuid_generate_time(uuid);
 
-    memset(&ws_info, 0, sizeof ws_info);
-    ws_info.port = 7681;
+    info.port = 7681; // move to config.h DEFAULT_HTTP_PORT
+    info.gid = -1;
+    info.uid = -1;
 
     // Verify that the version of the library that we linked against is
     // compatible with the version of the headers we compiled against.
@@ -1013,7 +1015,7 @@ int main(int argc, char **argv)
     zctx  = zctx_new();
 
     // start the service announcement responder
-    sd_publisher = sp_new( zctx, sd_port, rtapi_instance);
+    sd_publisher = sp_new( zctx, sd_port, rtapi_instance, uuid);
     assert(sd_publisher);
     sp_log(sd_publisher, sddebug);
 
