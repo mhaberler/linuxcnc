@@ -19,9 +19,7 @@ message ServiceAnnouncement {
     required fixed32                version = 2 [default = 0];
     required fixed32               instance = 3 [default = 0]; // RTAPI instance id
     required ServiceAPI                 api = 8;
-    optional string              ipaddress  = 4;
-    optional fixed32                   port = 5;  // TCP port number
-    optional string                     uri = 6;
+    required string                     uri = 6;
     optional string            description  = 7;
 
 }
