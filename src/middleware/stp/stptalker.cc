@@ -364,7 +364,7 @@ static void s_beacon_recv (sttalker_t * self)
 	    sa->set_instance(0);
 	    sa->set_stype((pb::ServiceType)self->stp_service);
 	    sa->set_version(1);
-	    sa->set_port(self->port);
+	    sa->set_uri("FIXME stptalker.cc");
 
 	    size_t txlen = self->update->ByteSize();
 	    assert(txlen < sizeof(buffer));
