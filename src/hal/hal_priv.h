@@ -282,6 +282,10 @@ typedef struct {
     char name[HAL_NAME_LEN + 1];	/* pin name */
 } hal_pin_t;
 
+typedef enum {
+    PIN_DO_NOT_TRACK=1, // no change monitoring, no reporting
+} pinflag_t;
+
 /** HAL 'signal' data structure.
     This structure contains information about a 'signal' object.
 */

@@ -336,6 +336,7 @@ int hal_retrieve_pinstate(const char *comp_name,
 int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 {
    hal_compiled_comp_t *tc;
+   int pincount = 0;
 
    if (!name) {
        rtapi_print_msg(RTAPI_MSG_ERR,
@@ -364,14 +365,17 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        while (next != 0) {
 	    pin = SHMPTR(next);
 	    owner = SHMPTR(pin->owner_ptr);
-	    if (owner->comp_id == comp->comp_id)
-		n++;
+	    if (owner->comp_id == comp->comp_id) {
+		if (!(pin->flags & PIN_DO_NOT_TRACK))
+		    n++;
+		pincount++;
+	    }
 	    next = pin->next_ptr;
        }
        if (n == 0) {
 	   rtapi_print_msg(RTAPI_MSG_ERR,
-			   "HAL:%d ERROR: component %s has no pins to watch for changes\n",
-			   rtapi_instance, name);
+			   "ERROR: component %s has no pins to watch for changes\n",
+			   name);
 	   return -EINVAL;
        }
        // a compiled comp is a userland/per process memory object
@@ -404,7 +408,8 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        while (next != 0) {
 	   pin = SHMPTR(next);
 	   owner = SHMPTR(pin->owner_ptr);
-	   if (owner->comp_id == comp->comp_id)
+	   if ((owner->comp_id == comp->comp_id) &&
+	       !(pin->flags & PIN_DO_NOT_TRACK))
 	       tc->pin[n++] = pin;
 	   next = pin->next_ptr;
        }
@@ -412,9 +417,12 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        tc->magic = CCOMP_MAGIC;
        *ccomp = tc;
    }
+   rtapi_print_msg(RTAPI_MSG_DBG, "hal_compile_comp(%s): %d pins, %d tracked",
+		   name, pincount, tc->n_pins);
    return 0;
 }
 
+#if 0
 int hal_ccomp_apply(hal_compiled_comp_t *cc, int handle, hal_type_t type, hal_data_u value)
 {
     hal_pin_t *pin;
@@ -457,6 +465,7 @@ int hal_ccomp_apply(hal_compiled_comp_t *cc, int handle, hal_type_t type, hal_da
     }
     return 0;
 }
+#endif
 
 int hal_ccomp_match(hal_compiled_comp_t *cc)
 {
