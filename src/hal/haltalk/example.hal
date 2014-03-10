@@ -18,6 +18,7 @@ newm power-supply fuse-ok
 
 newcomp gladevcp timer=100
 newpin  gladevcp gladevcp.hal_button1 bit in
+newpin  gladevcp gladevcp.counter u32 in flags=1  # do not track
 newpin  gladevcp gladevcp.hal_label1  float out
 ready   gladevcp
 
