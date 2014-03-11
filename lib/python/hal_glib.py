@@ -8,6 +8,7 @@ import os
 import time
 import zmq
 import sdiscover
+import uuid
 
 import gtk.gdk
 import gobject
@@ -152,8 +153,9 @@ class GRemoteComponent(gobject.GObject):
         'protocol-error' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                               (gobject.TYPE_STRING,)),
         'protocol-status' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                              (gobject.TYPE_INT,gobject.TYPE_INT,))
-
+                              (gobject.TYPE_INT,gobject.TYPE_INT,)),
+        'server-instance' : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                              (gobject.TYPE_STRING,))
         }
 
     CONTEXT = None
@@ -171,6 +173,12 @@ class GRemoteComponent(gobject.GObject):
             sd.detail(True)
         return services
 
+    def set_uuid(self, u):
+        if self.uuid != u:
+            self.uuid = u
+            self.emit('server-instance', str(uuid.UUID(bytes=self.uuid)))
+            print "haltalk uuid:",uuid.UUID(bytes=self.uuid)
+
     def __init__(self, name, builder,cmd_uri=None, update_uri=None, instance=0,
                  period=3,debug=False):
         gobject.GObject.__init__(self)
@@ -179,6 +187,7 @@ class GRemoteComponent(gobject.GObject):
         self.period = period
         self.cstate = states.DOWN
         self.sstate = states.DOWN
+        self.uuid = -1
 
         self.ping_outstanding = False
         self.name = name
@@ -206,7 +215,6 @@ class GRemoteComponent(gobject.GObject):
                 print "discovered HALrcommand uri %s" % (self.services[ST_HAL_RCOMMAND].uri)
                 cmd.connect(self.services[ST_HAL_RCOMMAND].uri)
             else:
-                print "--------- FAIL"
                 update.connect(update_uri)
                 cmd.connect(cmd_uri)
 
@@ -245,11 +253,8 @@ class GRemoteComponent(gobject.GObject):
         self.tx.type = MT_HALRCOMP_BIND
         c = self.tx.comp.add()
         c.name = self.name
-        #c.comp.ninst = 1
-        #inst = 0
         for pin_name,pin in self.pinsbyname.iteritems():
             p = c.pin.add()
-            #p.name = "%s.%d.%s" %(self.name, inst,pin_name)
             p.name = self.name +  "." + pin_name
             p.type = pin.get_type()
             p.dir = pin.get_dir()
@@ -282,6 +287,8 @@ class GRemoteComponent(gobject.GObject):
             return
 
         if self.rx.type == MT_HALRCOMP_FULL_UPDATE: # full update
+            if self.rx.uuid:
+                self.set_uuid(self.rx.uuid)
             for c in self.rx.comp:
                 for rp in c.pin:
                     lname = str(rp.name)
@@ -313,10 +320,13 @@ class GRemoteComponent(gobject.GObject):
         if self.debug: print "server_message " + str(self.rx)
 
         if self.rx.type == MT_PING_ACKNOWLEDGE:
+
             self.cstate = states.UP
             self.emit('protocol-status', self.cstate,self.sstate)
             #self.emit('hal-connected')
             self.ping_outstanding = False
+            if self.rx.uuid:
+                self.set_uuid(self.rx.uuid)
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_CONFIRM:
