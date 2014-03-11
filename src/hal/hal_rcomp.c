@@ -422,51 +422,6 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
    return 0;
 }
 
-#if 0
-int hal_ccomp_apply(hal_compiled_comp_t *cc, int handle, hal_type_t type, hal_data_u value)
-{
-    hal_pin_t *pin;
-    hal_sig_t *sig;
-    hal_data_u *dp;
-
-    assert(cc->magic ==  CCOMP_MAGIC);
-
-    // handles (value references) run from 0..cc->n_pin-1
-    if ((handle < 0) || (handle > cc->n_pins-1))
-	return -ERANGE;
-    pin = cc->pin[handle];
-    if (pin->type != type)
-	return -EINVAL;
-    if (pin->signal != 0) {
-	// linked to a signal
-	sig = SHMPTR(pin->signal);
-	dp = SHMPTR(sig->data_ptr);
-    } else {
-	dp = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
-    }
-    switch (type) {
-    case HAL_TYPE_UNSPECIFIED:
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: hal_ccomp_apply(): invalid HAL type %d\n",
-			   rtapi_instance, type);
-	   return -EINVAL;
-    case HAL_BIT:
-	dp->b = value.b;
-	break;
-    case HAL_FLOAT:
-	dp->f = value.f;
-	break;
-    case HAL_S32:
-	dp->s = value.s;
-	break;
-    case HAL_U32:
-	dp->u = value.u;
-	break;
-    }
-    return 0;
-}
-#endif
-
 int hal_ccomp_match(hal_compiled_comp_t *cc)
 {
     int i, nchanged = 0;
