@@ -11,7 +11,8 @@ HALTALK_SRCS :=  $(addprefix hal/haltalk/, \
 	haltalk_sdiscover.cc \
 	haltalk_bridge.cc \
 	haltalk_main.cc) \
-	rtapi/redirect_log.c
+	rtapi/redirect_log.c \
+	rtapi/syslog-async/syslog_async.c
 
 HALTALK_CXXFLAGS := -DULAPI \
 	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \

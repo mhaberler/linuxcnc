@@ -5,7 +5,8 @@ MBDIR := $(MWDIR)/messagebus
 MESSAGEBUS_SRCS :=  $(addprefix $(MBDIR)/, \
 	messagebus.cc \
 	rtproxy.cc ) \
-	rtapi/redirect_log.c
+	rtapi/redirect_log.c \
+	rtapi/syslog-async/syslog_async.c
 
 
 MESSAGEBUS_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)  # -DPB_FIELD_32BIT

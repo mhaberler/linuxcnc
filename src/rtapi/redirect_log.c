@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
-#include <syslog.h>
+#include <syslog_async.h>
 #include <stdlib.h>
 
 #include "redirect_log.h"
@@ -17,7 +17,7 @@ static size_t writer(void *cookie, char const *data, size_t leng)
 
     l = strtok(lines, "\n");
     while (l != NULL) {
-	syslog(level, "%s%s", tag, l);
+	syslog_async(level, "%s%s", tag, l);
 	l = strtok(NULL, "\n");
     }
     free(lines);
@@ -41,7 +41,7 @@ void to_syslog(const char *tag, FILE **pfp)
 #ifdef TEST
 int main(int argc, char **argv)
 {
-    openlog("foo", LOG_NDELAY , LOG_USER);
+    openlog_async("foo", LOG_NDELAY , LOG_USER);
     to_syslog("stderr: ", &stderr);
     fprintf(stderr, "this came via stderr\n");
     exit(0);
