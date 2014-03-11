@@ -447,7 +447,7 @@ static int attach_global_segment()
 	    tries--;
 	    if (tries == 0) {
 		syslog_async(LOG_ERR,
-		       "rt:%d ERROR: cannot attach global segment key=0x%x %s\n",
+		       "rtapi_app:%d: ERROR: cannot attach global segment key=0x%x %s\n",
 		       instance_id, globalkey, strerror(-retval));
 		return retval;
 	    }
@@ -458,7 +458,7 @@ static int attach_global_segment()
 
     if (size != sizeof(global_data_t)) {
 	syslog_async(LOG_ERR,
-	       "rt:%d global segment size mismatch: expect %zu got %d\n", 
+	       "rtapi_app:%d global segment size mismatch: expect %zu got %d\n",
 	       instance_id, sizeof(global_data_t), size);
 	return -EINVAL;
     }
@@ -468,7 +468,7 @@ static int attach_global_segment()
 	tries--;
 	if (tries == 0) {
 	    syslog_async(LOG_ERR,
-		   "rt:%d ERROR: global segment magic not changing to ready: magic=0x%x\n",
+		   "rtapi_app:%d: ERROR: global segment magic not changing to ready: magic=0x%x\n",
 		   instance_id, global_data->magic);
 	    return -EINVAL;
 	}
@@ -709,7 +709,7 @@ s_handle_timer(zloop_t *loop, int  timer_id, void *args)
 {
     if (global_data->rtapi_msgd_pid == 0) {
 	// cant log this via rtapi_print, since msgd is gone
-	syslog(LOG_ERR,"rtapi_msgd went away, exiting\n");
+	syslog_async(LOG_ERR,"rtapi_msgd went away, exiting\n");
 	exit_actions(instance_id);
 	if (global_data)
 	    global_data->rtapi_app_pid = 0;
@@ -742,14 +742,13 @@ static int mainloop(size_t  argc, char **argv)
     // rtapi:<instance>
     if (prctl(PR_SET_NAME, argv[0]) < 0) {
 	syslog_async(LOG_ERR,	"rtapi_app: prctl(PR_SETNAME,%s) failed: %s\n",
-		argv[0], strerror(errno));
+	       argv[0], strerror(errno));
     }
 
     // attach global segment which rtapi_msgd already prepared
     if ((retval = attach_global_segment()) != 0) {
 	syslog_async(LOG_ERR, "%s: FATAL - failed to attach to global segment\n",
-		argv[0]);
-	write_exitcode(statuspipe[1], 1);
+	       argv[0]);
 	exit(retval);
     }
 
@@ -759,8 +758,7 @@ static int mainloop(size_t  argc, char **argv)
     if ((global_data->rtapi_msgd_pid == 0) ||
 	kill(global_data->rtapi_msgd_pid, 0) != 0) {
 	syslog_async(LOG_ERR,"%s: rtapi_msgd pid invalid: %d, exiting\n",
-		argv[0], global_data->rtapi_msgd_pid);
-	write_exitcode(statuspipe[1], 2);
+	       argv[0], global_data->rtapi_msgd_pid);
 	exit(EXIT_FAILURE);
     }
 
@@ -1097,26 +1095,6 @@ static int harden_rt()
     return 0;
 }
 
-// normally rtapi_app will log through the message ringbuffer in the
-// global data segment. This isnt available initially, and during shutdown,
-// so switch to direct syslog_async during these time windows so we dont
-// loose log messages, even if they cant go through the ringbuffer
-void rtapi_app_msg_handler(msg_level_t level, const char *fmt,
-				va_list ap) {
-    // during startup the global segment might not be
-    // available yet, so use stderr until then
-    if (global_data) {
-	vs_ring_write(level, fmt, ap);
-    } else {
-	vsyslog_async(rtapi2syslog(level), fmt, ap);
-    }
-}
-
-// use this handler if -F/--foreground was given
-void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt,
-				  va_list ap) {
-    vfprintf(stderr, fmt, ap);
-}
 
 static void usage(int argc, char **argv) 
 {
@@ -1245,7 +1223,7 @@ static void rtapi_app_msg_handler(msg_level_t level, const char *fmt,
     if (global_data) {
 	vs_ring_write(level, fmt, ap);
     } else {
-	vsyslog(rtapi2syslog(level), fmt, ap);
+	vsyslog_async(rtapi2syslog(level), fmt, ap);
     }
 }
 
