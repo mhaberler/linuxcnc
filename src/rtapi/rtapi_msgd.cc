@@ -46,11 +46,12 @@
 #include <errno.h>
 #include <assert.h>
 #include <syslog_async.h>
+#include <uuid/uuid.h>
+#include <string>
+#include <vector>
 #include <poll.h>
 #include <sys/signalfd.h>
 #include <assert.h>
-#include <string>
-#include <vector>
 
 using namespace std;
 
@@ -123,13 +124,7 @@ static ringbuffer_t rtapi_msg_buffer;   // ring access strcuture for messages
 static const char *progname;
 static char proctitle[20];
 static int exit_code  = 0;
-
-static void *logpub;  // zeromq log publisher socket
-static zctx_t *zmq_ctx;
-static const char *logpub_uri = "tcp://127.0.0.1:5550";
-
-static const char *origins[] = { "kernel","rt","user" };
-//static const char *encodings[] = { "ascii","stashf","protobuf" };
+static const char *origins[] = { "kernel", "rt", "user" };
 
 static void usage(int argc, char **argv)
 {
@@ -421,27 +416,16 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     if (s != sizeof(struct signalfd_siginfo)) {
 	perror("read");
     }
-    syslog(LOG_ERR,"s_handle_signal %d\n", fdsi.ssi_signo);
 
     switch (fdsi.ssi_signo) {
     case SIGTERM:
     case SIGINT:
-<<<<<<< HEAD
 	syslog_async(LOG_INFO, "msgd:%d: %s - shutting down\n",
-	       rtapi_instance, strsignal(sig));
-||||||| merged common ancestors
-
-	syslog(LOG_INFO, "msgd:%d: %s - shutting down\n",
-	       rtapi_instance, strsignal(sig));
-=======
-	syslog(LOG_INFO, "msgd:%d: %s - shutting down\n",
 	       rtapi_instance, strsignal(fdsi.ssi_signo));
->>>>>>> rtapi/msgd: fix rebase fallout
 
 	// hint if error ring couldnt be served fast enough,
 	// or there was contention
-	// none observed so far
-	// this might be interesting to hear about
+	// none observed so far - this might be interesting to hear about
 	if (global_data && (global_data->error_ring_full ||
 			    global_data->error_ring_locked))
 	    syslog_async(LOG_INFO, "msgd:%d: message ring stats: full=%d locked=%d ",
@@ -453,9 +437,10 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
     default: // pretty bad
 	syslog_async(LOG_ERR,
-	       "msgd:%d: caught signal %d '%s' - dumping core (current dir=%s)\n",
-	       rtapi_instance, sig, strsignal(sig), get_current_dir_name());
-	closelog_async();
+	       "msgd:%d: signal %d - '%s' received, dumping core (current dir=%s)\n",
+	       rtapi_instance, fdsi.ssi_signo, strsignal(fdsi.ssi_signo),
+	       get_current_dir_name());
+	closelog();
 	sleep(1); // let syslog drain
 	signal(SIGABRT, SIG_DFL);
 	abort();
@@ -491,19 +476,15 @@ cleanup_actions(void)
     }
 }
 
-// react to subscribe events
+// react to subscribe/unsubscribe events
 static int logpub_readable_cb(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
     zframe_t *f = zframe_recv(poller->socket);
     const char *s = (const char *) zframe_data(f);
     if (strcmp(s+1, "json") == 0) {
-
-#ifdef OLDWS
-	if (!ws_config.publish_json)
-	    syslog(LOG_DEBUG,"%s publishing JSON log messages",
-		   *s ? "start" : "stop");
-	ws_config.publish_json = (*s != 0);
-#endif
+	syslog_async(LOG_DEBUG,"%s publishing JSON log messages",
+	       *s ? "start" : "stop");
+	have_json_subs = (*s != 0);
     }
     zframe_destroy(&f);
     return 0;
@@ -512,7 +493,7 @@ static int logpub_readable_cb(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 static int
 s_start_shutdown_cb(zloop_t *loop, int  timer_id, void *args)
 {
-    syslog(LOG_ERR, "msgd shutting down");
+    syslog_async(LOG_ERR, "msgd shutting down");
     return -1; // exit reactor
 }
 
@@ -530,71 +511,19 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
     std::string json;
     int current_interval = msg_poll;
 
-<<<<<<< HEAD
-    // sigset of all the signals that we're interested in
-    retval = sigemptyset(&sigset);        assert(retval == 0);
-    retval = sigaddset(&sigset, SIGINT);  assert(retval == 0);
-    retval = sigaddset(&sigset, SIGKILL); assert(retval == 0);
-    retval = sigaddset(&sigset, SIGTERM); assert(retval == 0);
-    retval = sigaddset(&sigset, SIGSEGV); assert(retval == 0);
-    retval = sigaddset(&sigset, SIGFPE);  assert(retval == 0);
 
-    // block the signals in order for signalfd to receive them
-    retval = sigprocmask(SIG_BLOCK, &sigset, NULL); assert(retval == 0);
+    while ((retval = record_read(&rtapi_msg_buffer,
+				 (const void **) &msg, &msg_size)) == 0) {
+	payload_length = msg_size - sizeof(rtapi_msgheader_t);
 
-    sigfd = signalfd(-1, &sigset, 0);
-    assert(sigfd != -1);
-
-    struct pollfd pfd[1];
-    int ret;
-
-    pfd[0].fd = sigfd;
-    pfd[0].events = POLLIN | POLLERR | POLLHUP;
-
-    global_data->magic = GLOBAL_READY;
-||||||| merged common ancestors
-    // sigset of all the signals that we're interested in
-    assert(sigemptyset(&sigset) == 0);
-    assert(sigaddset(&sigset, SIGINT) == 0);
-    assert(sigaddset(&sigset, SIGKILL) == 0);
-    assert(sigaddset(&sigset, SIGTERM) == 0);
-    assert(sigaddset(&sigset, SIGSEGV) == 0);
-    assert(sigaddset(&sigset, SIGFPE) == 0);
-
-    // block the signals in order for signalfd to receive them
-    assert(sigprocmask(SIG_BLOCK, &sigset, NULL) == 0);
-
-    assert((sigfd = signalfd(-1, &sigset, 0)) != -1);
-
-    struct pollfd pfd[1];
-    int ret;
-
-    pfd[0].fd = sigfd;
-    pfd[0].events = POLLIN | POLLERR | POLLHUP;
-
-    global_data->magic = GLOBAL_READY;
-=======
->>>>>>> rtapi/msgd: fix rebase fallout
-
-    do {
-	if (global_data->rtapi_app_pid == 0) {
-	    syslog_async(LOG_ERR,
-		   "msgd:%d: rtapi_app exit detected - shutting down",
-		   rtapi_instance);
-	    msgd_exit++;
-	}
-	while ((retval = record_read(&rtapi_msg_buffer,
-					   (const void **) &msg, &msg_size)) == 0) {
-	    payload_length = msg_size - sizeof(rtapi_msgheader_t);
-
-	    switch (msg->encoding) {
-	    case MSG_ASCII:
-		// strip trailing newlines
-		while ((cp = strrchr(msg->buf,'\n')))
-		    *cp = '\0';
-		syslog_async(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
-		       msg->tag, msg->pid, origins[msg->origin],
-		       (int) payload_length, msg->buf);
+	switch (msg->encoding) {
+	case MSG_ASCII:
+	    // strip trailing newlines
+	    while ((cp = strrchr(msg->buf,'\n')))
+		*cp = '\0';
+	    syslog_async(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
+		   msg->tag, msg->pid, origins[msg->origin],
+		   (int) payload_length, msg->buf);
 
 
 	    if (logpub) {
@@ -619,33 +548,31 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 		if (container.SerializeWithCachedSizesToArray(zframe_data(z_pbframe))) {
 		    // channel name:
 		    if (zstr_sendm(logpub, "pb2"))
-			syslog(LOG_ERR,"zstr_sendm(%s,pb2): %s",
+			syslog_async(LOG_ERR,"zstr_sendm(%s,pb2): %s",
 			       logpub_uri, strerror(errno));
 
 		    // and the actual pb2-encoded message
 		    // zframe_send() deallocates the frame after sending,
 		    // and frees pb_buffer through zfree_cb()
 		    if (zframe_send(&z_pbframe, logpub, 0))
-			syslog(LOG_ERR,"zframe_send(%s): %s",
+			syslog_async(LOG_ERR,"zframe_send(%s): %s",
 			       logpub_uri, strerror(errno));
 
-#ifdef OLDWS
 		    // convert to JSON only if we have actual connections
 		    // to the log websocket:
-		    if (ws_config.publish_json) {
+		    if (have_json_subs) {
 			json = pb2json(container);
-			z_jsonframe = zframe_new( json.c_str(), json.size());
-			//syslog(LOG_DEBUG, "json pub: '%s'", json.c_str());
+			zframe_t *z_jsonframe = zframe_new( json.c_str(), json.size());
+			//syslog_async(LOG_DEBUG, "json pub: '%s'", json.c_str());
 			if (zstr_sendm(logpub, "json"))
-			    syslog(LOG_ERR,"zstr_sendm(%s,json): %s",
+			    syslog_async(LOG_ERR,"zstr_sendm(%s,json): %s",
 				   logpub_uri, strerror(errno));
 			if (zframe_send(&z_jsonframe, logpub, 0))
-			    syslog(LOG_ERR,"zframe_send(%s): %s",
+			    syslog_async(LOG_ERR,"zframe_send(%s): %s",
 				   logpub_uri, strerror(errno));
 		    }
-#endif
 		} else {
-		    syslog(LOG_ERR, "container serialization failed");
+		    syslog_async(LOG_ERR, "container serialization failed");
 		}
 	    }
 	    break;
@@ -659,43 +586,9 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 	record_shift(&rtapi_msg_buffer);
 	msg_poll = msg_poll_min;
     }
-<<<<<<< HEAD
-	ret = poll(pfd, 1, msg_poll);
-	if (ret < 0) {
-	    syslog_async(LOG_ERR, "msgd:%d: poll(): %s - shutting down\n",
-		   rtapi_instance, strerror(errno));
-	    msgd_exit++;
-	} else if (pfd[0].revents & POLLIN) { // signal received
-	    struct signalfd_siginfo info;
-	    size_t bytes = read(sigfd, &info, sizeof(info));
-	    assert(bytes == sizeof(info));
-	    signal_handler(info.ssi_signo);
-	}
-
-	msg_poll += msg_poll_inc;
-	if (msg_poll > msg_poll_max)
-	    msg_poll = msg_poll_max;
-||||||| merged common ancestors
-	ret = poll(pfd, 1, msg_poll);
-	if (ret < 0) {
-	    syslog(LOG_ERR, "msgd:%d: poll(): %s - shutting down\n",
-		   rtapi_instance, strerror(errno));
-	    msgd_exit++;
-	} else if (pfd[0].revents & POLLIN) { // signal received
-	    struct signalfd_siginfo info;
-	    size_t bytes = read(sigfd, &info, sizeof(info));
-	    assert(bytes == sizeof(info));
-	    signal_handler(info.ssi_signo);
-	}
-
-	msg_poll += msg_poll_inc;
-	if (msg_poll > msg_poll_max)
-	    msg_poll = msg_poll_max;
-=======
     msg_poll += msg_poll_inc;
     if (msg_poll > msg_poll_max)
 	msg_poll = msg_poll_max;
->>>>>>> rtapi/msgd: fix rebase fallout
 
     if (current_interval != msg_poll) {
 	zloop_timer_end(loop, polltimer_id);
@@ -707,7 +600,7 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 	(shutdowntimer_id ==  0)) {
 	// schedule a loop shutdown but keep reading messages for a while
 	// so we dont loose messages
-	syslog(LOG_ERR, "msgd: rtapi_app exit detected - scheduled shutdown");
+	syslog_async(LOG_ERR, "msgd: rtapi_app exit detected - scheduled shutdown");
 	shutdowntimer_id = zloop_timer (loop, GRACE_PERIOD, 1, s_start_shutdown_cb, NULL);
     }
     return 0;
@@ -742,6 +635,8 @@ int main(int argc, char **argv)
     pid_t pid, sid;
     sigset_t sigmask;
     size_t argv0_len, procname_len, max_procname_len;
+    struct lws_context_creation_info info = {0};
+    const char *www_dir = NULL;
 
     uuid_generate_time(uuid);
 
@@ -812,18 +707,15 @@ int main(int argc, char **argv)
 	case 'U':
 	    logpub_uri = strdup(optarg);
 	    break;
-
-
 	case 'w':
-	    // ws_config.www_dir = strdup(optarg);
+	    www_dir = optarg;
 	    break;
 	case 'p':
-	    // ws_info.port = atoi(optarg);
+	    info.port = atoi(optarg);
 	    break;
 	case 'W':
-	    // ws_config.debug_level = atoi(optarg);
+	    wsdebug = atoi(optarg);
 	    break;
-
 	case '?':
 	    if (optopt)  fprintf(stderr, "bad short opt '%c'\n", optopt);
 	    else  fprintf(stderr, "bad long opt \"%s\"\n", argv[curind]);
@@ -968,10 +860,11 @@ int main(int argc, char **argv)
 
    if ((global_data->rtapi_msgd_pid != 0) &&
 	kill(global_data->rtapi_msgd_pid, 0) == 0) {
-	syslog(LOG_ERR, "%s: another rtapi_msgd is already running (pid %d), exiting\n",
+	syslog_async(LOG_ERR, "%s: another rtapi_msgd is already running (pid %d), exiting\n",
 	       progname, global_data->rtapi_msgd_pid);
 	exit(EXIT_FAILURE);
     }
+
     int fd = open("/dev/null", O_RDONLY);
     dup2(fd, STDIN_FILENO);
     close(fd);
@@ -994,19 +887,18 @@ int main(int argc, char **argv)
     if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
 	perror("sigprocmask");
 
-    sigemptyset(&sigmask);
-
+    // sigset of all the signals that we're interested in
     // these we want delivered via signalfd()
-    sigaddset(&sigmask, SIGINT);
-    sigaddset(&sigmask, SIGQUIT);
-    sigaddset(&sigmask, SIGKILL);
-    sigaddset(&sigmask, SIGTERM);
-    sigaddset(&sigmask, SIGSEGV);
-    sigaddset(&sigmask, SIGFPE);
-    // sigaddset(&sigmask, SIGABRT);
+    retval = sigemptyset(&sigmask);        assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGINT);  assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGKILL); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGTERM); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGSEGV); assert(retval == 0);
+    retval = sigaddset(&sigmask, SIGFPE);  assert(retval == 0);
 
     if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0)
 	perror("signalfd");
+
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()
     zsys_handler_set(NULL);
@@ -1020,10 +912,9 @@ int main(int argc, char **argv)
     sp_log(sd_publisher, sddebug);
 
     if (logpub_uri) {
-
 	int major, minor, patch;
 	zmq_version (&major, &minor, &patch);
-	syslog(LOG_DEBUG,
+	syslog_async(LOG_DEBUG,
 	       "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d jansson=%s libwebsockets=%s\n",
 	       major, minor, patch,
 	       CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
@@ -1031,12 +922,13 @@ int main(int argc, char **argv)
 	       (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
 	       GOOGLE_PROTOBUF_VERSION % 1000,
 	       JANSSON_VERSION, lws_get_library_version());
+
 	// start the zeromq log publisher socket
-	logpub = zsocket_new(zmq_ctx, ZMQ_XPUB);
+	logpub = zsocket_new(zctx, ZMQ_XPUB);
 
 	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
 	if (zsocket_bind(logpub, logpub_uri) > 0) {
-	    syslog(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
+	    syslog_async(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
 		   logpub_uri);
 	    retval = sp_add(sd_publisher,
 			    (int) pb::ST_LOGGING, //type
@@ -1051,7 +943,7 @@ int main(int argc, char **argv)
 	    lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
 
 	    if ((zws = zwsproxy_new(zctx, www_dir, &info)) == NULL) {
-		syslog(LOG_ERR, "failed to start websockets proxy\n");
+		syslog_async(LOG_ERR, "failed to start websockets proxy\n");
 		goto nows;
 	    }
 	    // add a user-defined relay policy
@@ -1067,7 +959,7 @@ int main(int argc, char **argv)
 	    assert(retval == 0);
 
 	} else {
-	    syslog(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
+	    syslog_async(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		   logpub_uri, strerror(errno));
 	    logpub = NULL;
 	}
@@ -1085,10 +977,11 @@ int main(int argc, char **argv)
 
     polltimer_id = zloop_timer (loop, msg_poll, 0, message_poll_cb, NULL);
 
-   polltimer_id = zloop_timer (loop, msg_poll, 0, message_poll_cb, NULL);
+    global_data->rtapi_msgd_pid = getpid();
+    global_data->magic = GLOBAL_READY;
 
     if ((retval = sp_start(sd_publisher))) {
-	syslog(LOG_ERR, "failed to start service publisher: %d\n", retval);
+	syslog_async(LOG_ERR, "failed to start service publisher: %d\n", retval);
     }
 
     do {
@@ -1102,6 +995,7 @@ int main(int argc, char **argv)
 
     // shutdown zmq context
     zctx_destroy(&zctx);
+
     cleanup_actions();
     closelog();
     exit(exit_code);
@@ -1125,7 +1019,7 @@ static void lwsl_emit_rtapilog(int level, const char *line)
 		syslog_level = LOG_INFO;
 		break;
 	}
-	syslog(syslog_level, "%s", line);
+	syslog_async(syslog_level, "%s", line);
 }
 
 #include <zwsproxy-private.h>
