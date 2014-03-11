@@ -9,7 +9,6 @@ import "types.proto";
 import "object.proto";
 import "log.proto";
 import "motcmds.proto";
-import "halupdate.proto";
 import "test.proto";
 import "task.proto";
 import "canon.proto";
@@ -136,14 +135,6 @@ message Container {
     // infrequent compound messages
     optional bytes         wou            = 160;  // Arais Wishbone-over-USB
     optional LogMessage    log_message    = 87;
-
-    // //  messages of the halupdate protocol:
-    // optional Offer                  offer = 150;
-    // optional ConfirmOffer         confirm = 155;
-    // optional DisplayMessage    displaymsg = 160;
-    // optional Shutdown            shutdown = 165;
-    // optional ConfirmShutdown  confirm_shutdown = 170;
-
 
     // taskplan (interpreter command) messages
     optional TaskPlanExecute     tpexecute     = 200;
