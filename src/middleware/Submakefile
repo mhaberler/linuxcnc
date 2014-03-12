@@ -106,7 +106,8 @@ PROTO_PY_TARGETS += $(subst $(PROTODIR)/, \
 	../lib/python/, \
 	$(patsubst %.proto, %_pb2.py, $(PROTO_SPECS)))
 
-ifdef BUILD_PROTOC_C
+ifeq ($(BUILD_PROTOC_C),yes)
+
 # generated C includes
 PROTO_C_INCS := $(PBGEN)/nanopb.pb-c.h
 PROTO_C_INCS += $(PBGEN)/google/protobuf/descriptor.pb-c.h
@@ -333,7 +334,8 @@ USERSRCS +=  $(NANOPB_C_SRCS) \
 	$(PROTO_NANOPB_C_SRCS) \
 	$(PB2JSONLIB_SRCS)
 
-ifdef BUILD_PROTOC_C
+ifeq ($(BUILD_PROTOC_C),yes)
+
 USERSRCS += $(PROTO_C_SRCS) \
 	$(MWDIR)/generated/descriptor.pb-c.h \
 	$(MWDIR)/generated/descriptor.pb-c.c
@@ -345,7 +347,7 @@ GENERATED += $(PROTO_PY_TARGETS) \
 	$(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
 	$(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS)
 
-ifdef BUILD_PROTOC_C
+ifeq ($(BUILD_PROTOC_C),yes)
 GENERATED += \
 	$(PROTO_C_SRCS) $(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
 	$(PROTO_C_INCS) $(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS) \
@@ -365,7 +367,7 @@ TARGETS += $(NANOPROTOCLIB) $(NANOPROTOCLIB).0 \
 	$(PROTOCXXLIB) $(PROTOCXXLIB).0 \
 	$(PB2JSONLIB) $(PB2JSONLIB).0
 
-ifdef BUILD_PROTOC_C
+ifeq ($(BUILD_PROTOC_C),yes)
 TARGETS += $(PROTOCLIB) $(PROTOCLIB).0
 endif
 

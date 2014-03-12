@@ -584,6 +584,19 @@ AC_ARG_ENABLE(examples,
       BUILD_EXAMPLES=no
     ])
 
+AC_MSG_CHECKING(whether to build protoc-c C bindings)
+AC_ARG_ENABLE(protoc-c,
+    [  --enable-protoc-c       build protoc-c C bindings],
+    [
+	BUILD_PROTOC_C=yes
+        AC_MSG_RESULT([configuring to to build protoc-c C bindings])
+    ],
+    [
+      AC_MSG_RESULT([not building  protoc-c C bindings])
+      BUILD_PROTOC_C=no
+    ])
+
+
 AC_MSG_CHECKING(whether to use the common shared memory driver)
 AC_ARG_ENABLE(shmdrv,
     [  --enable-shmdrv      use the common shared memory driver kernel module],
@@ -1421,6 +1434,11 @@ AC_SUBST(SHMDRV_KERNEL_DIRS,[$shmdrv_kernels])
 AC_SUBST(BUILD_EXAMPLES)
 if test "$BUILD_EXAMPLES" = yes; then
    AC_DEFINE(BUILD_EXAMPLES, [], [build programming examples])
+fi
+
+AC_SUBST(BUILD_PROTOC_C)
+if test "$BUILD_PROTOC_C" = yes; then
+   AC_DEFINE(BUILD_PROTOC_C, [], [build protoc-c C bindings])
 fi
 
 AC_SUBST(BUILD_EMCWEB)
