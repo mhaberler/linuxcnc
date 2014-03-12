@@ -106,6 +106,7 @@ PROTO_PY_TARGETS += $(subst $(PROTODIR)/, \
 	../lib/python/, \
 	$(patsubst %.proto, %_pb2.py, $(PROTO_SPECS)))
 
+ifdef BUILD_PROTOC_C
 # generated C includes
 PROTO_C_INCS := $(PBGEN)/nanopb.pb-c.h
 PROTO_C_INCS += $(PBGEN)/google/protobuf/descriptor.pb-c.h
@@ -119,6 +120,10 @@ PROTO_C_SRCS += $(PBGEN)/google/protobuf/descriptor.pb-c.c
 PROTO_C_SRCS +=  $(subst $(PROTODIR)/, \
 	$(PBGEN)/, \
 	$(patsubst %.proto, %.pb-c.c, $(PROTO_SPECS)))
+else
+PROTO_C_INCS :=
+PROTO_C_SRCS :=
+endif
 
 # generated C++ includes
 PROTO_CXX_INCS :=  $(PBGEN)/nanopb.pb.h
@@ -324,22 +329,29 @@ $(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))  $(PROTOCXXLIB)
 
 # those will be compiled
 USERSRCS +=  $(NANOPB_C_SRCS) \
-	$(PROTO_C_SRCS) \
 	$(PROTO_CXX_SRCS) \
 	$(PROTO_NANOPB_C_SRCS) \
 	$(PB2JSONLIB_SRCS)
 
-#	$(MWDIR)/generated/descriptor.pb-c.h \
-#	$(MWDIR)/generated/descriptor.pb-c.c \
+ifdef BUILD_PROTOC_C
+USERSRCS += $(PROTO_C_SRCS) \
+	$(MWDIR)/generated/descriptor.pb-c.h \
+	$(MWDIR)/generated/descriptor.pb-c.c
+endif
 
 GENERATED += $(PROTO_PY_TARGETS) \
-	$(MWDIR)/generated/nanopb.pb-c.h \
 	$(MWDIR)/generated/nanopb.pb.h	\
-	$(MWDIR)/generated/nanopb.pb-c.c \
 	$(MWDIR)/generated/nanopb.pb.cc \
-	$(PROTO_C_SRCS) $(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
-	$(PROTO_C_INCS) $(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS)
+	$(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
+	$(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS)
 
+ifdef BUILD_PROTOC_C
+GENERATED += \
+	$(PROTO_C_SRCS) $(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
+	$(PROTO_C_INCS) $(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS) \
+	$(MWDIR)/generated/nanopb.pb-c.h  \
+	$(MWDIR)/generated/nanopb.pb-c.c
+endif
 
 PYTARGETS += $(PROTO_PY_TARGETS)
 
@@ -350,8 +362,10 @@ INCLUDES += $(PB2JSON)
 TARGETS += $(PROTO_CXX_INCS) $(PROTO_C_INCS) $(PROTO_NANOPB_C_INCS)
 TARGETS += $(INSTALL_INCS)
 TARGETS += $(NANOPROTOCLIB) $(NANOPROTOCLIB).0 \
-	$(PROTOCLIB) $(PROTOCLIB).0 \
 	$(PROTOCXXLIB) $(PROTOCXXLIB).0 \
 	$(PB2JSONLIB) $(PB2JSONLIB).0
 
+ifdef BUILD_PROTOC_C
+TARGETS += $(PROTOCLIB) $(PROTOCLIB).0
+endif
 
