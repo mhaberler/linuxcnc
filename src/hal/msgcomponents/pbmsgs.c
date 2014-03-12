@@ -61,7 +61,6 @@ PB_DESCRIPTOR(MotionCommand);
 PB_DESCRIPTOR(MotionStatus);
 //PB_DESCRIPTOR(Pm_Cartesian);
 //PB_DESCRIPTOR(Emc_Pose);
-PB_DESCRIPTOR(HalUpdate);
 //PB_DESCRIPTOR(LegacyEmcPose);
 PB_DESCRIPTOR(RTAPI_Message);
 PB_DESCRIPTOR(RTAPICommand);
