@@ -722,8 +722,10 @@ endif
 # ../include.  A pair of rules like these will exist in the Submakefile
 # of each file that contains headers.
 ../include/%.h: %.h
+	@mkdir -p $(dir $@)
 	$(Q)-cp $^ $@
 ../include/%.hh: %.hh
+	@mkdir -p $(dir $@)
 	$(Q)-cp $^ $@
 
 

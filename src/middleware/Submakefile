@@ -81,7 +81,7 @@ NANOPB_C_SRCS := $(wildcard $(NANOPB)/*.c)
 
 # headers which are to go into ../include
 NANOPB_INSTALL_INCS := $(subst $(NANOPB), \
-	../include,  \
+	../include/$(NANOPB),  \
 	$(NANOPB_INCS))
 
 PROTO_NANOPB_C_INCS := $(subst $(PROTODIR)/, \
@@ -140,8 +140,17 @@ PROTO_CXX_SRCS  +=  $(subst $(PROTODIR)/, \
 
 # headers which are to go into ../include
 INSTALL_INCS := $(subst $(PBGEN), \
-	../include,  \
+	../include/$(PBGEN),  \
 	$(PROTO_CXX_INCS) $(PROTO_C_INCS) $(PROTO_NANOPB_C_INCS))
+
+INSTALL_INCS += \
+	../include/middleware/include/pb-linuxcnc.h \
+	../include/middleware/include/container.h \
+	../include/middleware/json2pb/json2pb.hh \
+	../include/middleware/json2pb/bin2ascii.hh \
+	../include/middleware/nanopb/pb.h \
+	../include/middleware/nanopb/pb_encode.h \
+	../include/middleware/nanopb/pb_decode.h
 
 # generate emctypes.proto from emc/nml_intf/emc.hh
 $(PBGEN)/emctypes.proto: emc/nml_intf/emc.hh $(MWDIR)/scripts/extract-nmltypes
