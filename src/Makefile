@@ -542,8 +542,8 @@ ifeq ($(USE_PROTOBUF),yes)
 HEADERS += \
 	middleware/include/pb-linuxcnc.h \
 	middleware/include/container.h \
-	middleware/json2pb/json2pb.h \
-	middleware/json2pb/bin2ascii.h \
+	middleware/json2pb/json2pb.hh \
+	middleware/json2pb/bin2ascii.hh \
 	middleware/nanopb/pb.h \
 	middleware/nanopb/pb_encode.h \
 	middleware/nanopb/pb_decode.h

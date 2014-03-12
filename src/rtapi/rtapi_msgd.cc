@@ -69,7 +69,7 @@ using namespace std;
 #include <middleware/generated/message.pb.h>
 using namespace google::protobuf;
 
-#include <middleware/json2pb/json2pb.h>
+#include <middleware/json2pb/json2pb.hh>
 #include <jansson.h> // just for library version tag
 
 #include <zwsproxy.h>

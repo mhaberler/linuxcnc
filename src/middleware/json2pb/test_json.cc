@@ -1,4 +1,4 @@
-#include "json2pb.h"
+#include "json2pb.hh"
 #include "test.pb.h"
 
 #include <stdio.h>
@@ -6,7 +6,7 @@
 
 using google::protobuf::Message;
 
-int main()
+int main(int argc, char **argv)
 {
 	char buf[8192];
 	FILE * fp = fopen("test.json", "r");

@@ -302,8 +302,8 @@ $(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))  $(PROTOCXXLIB)
 	@rm -f $@
 	$(Q)$(CXX)  -Wl,-soname,$(notdir $@) -shared -o $@ $^ $(PB2JSONLIB_LDFLAGS)
 
-# pb2json.h header
-../include/%.h: ./$(PB2JSON)/%.h
+# pb2json headers
+../include/%.hh: ./$(PB2JSON)/%.hh
 	@mkdir -p $(dir $@)
 	cp $^ $@
 
