@@ -100,7 +100,7 @@ class GRemotePin(gobject.GObject):
         self.handle = 0
         w = self.comp.builder.get_object(self.name)
         self.setter = None
-        if isinstance(w, (gtk.Range, gtk.SpinButton)):
+        if isinstance(w, (gtk.Range, gtk.SpinButton,gtk.ProgressBar)):
             self.setter = w.set_value
         if isinstance(w, (gtk.CheckButton,
                           gtk.ToggleButton,gtk.RadioButton,gtk.ComboBox)):
