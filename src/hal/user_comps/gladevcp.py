@@ -240,11 +240,12 @@ def main():
         #update_uri="tcp://127.0.0.1:4712"
         cmd_uri = None
         update_uri = None
+        print "remote debug=",int(opts.rcdebug)
         halcomp = GRemoteComponent(opts.component, builder,
                                    cmd_uri=cmd_uri,update_uri=update_uri,
                                    instance=opts.instance,
                                    period=int(opts.pinginterval),
-                                   debug=opts.rcdebug)
+                                   debug=int(opts.rcdebug))
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
 
     # at this point, any glade HL widgets and their pins are set up.
