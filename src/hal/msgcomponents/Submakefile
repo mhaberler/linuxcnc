@@ -12,7 +12,6 @@ pbmsgs-objs := \
 	$(MSGCOMP_DIR)/pbmsgs.o	\
 	$(PBGEN)/canon.npb.o \
 	$(PBGEN)/emcclass.npb.o \
-	$(PBGEN)/halupdate.npb.o \
 	$(PBGEN)/log.npb.o \
 	$(PBGEN)/message.npb.o \
 	$(PBGEN)/motcmds.npb.o \

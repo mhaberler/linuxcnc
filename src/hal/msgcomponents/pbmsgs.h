@@ -9,7 +9,6 @@
 #include <middleware/generated/object.npb.h>
 #include <middleware/generated/value.npb.h>
 #include <middleware/generated/message.npb.h>
-#include <middleware/generated/halupdate.npb.h>
 #include <middleware/generated/rtapi_message.npb.h>
 #include <middleware/generated/emcclass.npb.h>
 #include <middleware/generated/motcmds.npb.h>
