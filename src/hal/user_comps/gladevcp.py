@@ -79,9 +79,12 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
                   , help="Reparent gladevcp into an existing window XID instead of creating a new top level window")
           , Option( '-u', dest='usermod', action='append', default=[], metavar='FILE'
                   , help='Use FILEs as additional user defined modules with handlers')
-
           , Option( '-I', dest='instance', default=-1, metavar='remote HAL instance to connect to'
                   , help='connect to remote haltalk server by giving its RTAPI instance number (default 0)')
+          , Option( '-D', dest='rcdebug', default=0, metavar='debug level for remote components'
+                  , help='set to > to trace message exchange for remote components')
+          , Option( '-P', dest='pinginterval', default=3, metavar='seconds to ping haltalk'
+                  , help='normally 3 secs')
            , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
                   , help='pass USEROPTs to Python modules')
           ]
@@ -237,13 +240,11 @@ def main():
         #update_uri="tcp://127.0.0.1:4712"
         cmd_uri = None
         update_uri = None
-        pinginterval = 3
-        rcdebug=False
         halcomp = GRemoteComponent(opts.component, builder,
                                    cmd_uri=cmd_uri,update_uri=update_uri,
                                    instance=opts.instance,
-                                   period=pinginterval,
-                                   debug=rcdebug)
+                                   period=int(opts.pinginterval),
+                                   debug=opts.rcdebug)
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
 
     # at this point, any glade HL widgets and their pins are set up.
