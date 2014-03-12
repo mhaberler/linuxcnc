@@ -448,7 +448,7 @@ static void s_talker_task (void *args, zctx_t *ctx, void *pipe)
 		    (char *) &on, sizeof (on));
 #endif
 	// setsockopt(SO_BROADCAST) not needed since we're using directed replies
-	if (bind(self->beacon_fd, (struct sockaddr*)&sd_addr, sizeof(sd_addr) ) == -1) {
+	if (::bind(self->beacon_fd, (struct sockaddr*)&sd_addr, sizeof(sd_addr) ) == -1) {
 	    perror("bind");
 	    zstr_send (pipe, "-1");
 	    return;
