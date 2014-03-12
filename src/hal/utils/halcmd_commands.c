@@ -3284,6 +3284,26 @@ static int do_wait_remote(char *comp_name, int state)
     return 0;
 }
 
+int do_waitexists_cmd(char *comp_name)
+{
+    hal_comp_t *comp;
+    int done = 0;
+
+    halcmd_info("Waiting for component '%s' to be created\n", comp_name);
+    do {
+	struct timespec ts = {0, 200 * 1000 * 1000};
+	nanosleep(&ts, NULL);
+	rtapi_mutex_get(&(hal_data->mutex));
+	comp = halpr_find_comp_by_name(comp_name);
+	if (comp != NULL) {
+	    done = 1;
+	}
+	rtapi_mutex_give(&(hal_data->mutex));
+    } while (!done);
+    halcmd_info("Component '%s' now exists\n", comp_name);
+    return 0;
+}
+
 int do_waitbound_cmd(char *comp_name, char *tokens[])
 {
     return do_wait_remote(comp_name,  COMP_BOUND);

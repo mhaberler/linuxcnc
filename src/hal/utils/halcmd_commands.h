@@ -98,6 +98,7 @@ extern int do_newcomp_cmd(char *comp, char *args[]);
 extern int do_newpin_cmd(char *comp, char *pin, char *type, char *args[]);
 extern int do_ready_cmd(char *comp, char *tokens[]);
 extern int do_waitbound_cmd(char *comp, char *tokens[]);
+extern int do_waitexists_cmd(char *comp);
 extern int do_waitunbound_cmd(char *comp, char *tokens[]);
 //extern int do_unloadrem_cmd(char *comp, char *tokens[]);
 

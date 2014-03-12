@@ -205,6 +205,7 @@ struct halcmd_command halcmd_commands[] = {
     {"newpin",  FUNCT(do_newpin_cmd), A_THREE |  A_PLUS},
     {"ready",   FUNCT(do_ready_cmd),    A_ONE | A_OPTIONAL },
     {"waitbound", FUNCT(do_waitbound_cmd), A_ONE| A_OPTIONAL  },
+    {"waitexists", FUNCT(do_waitexists_cmd), A_ONE },
     {"waitunbound", FUNCT(do_waitunbound_cmd), A_ONE| A_OPTIONAL  },
 
 };
