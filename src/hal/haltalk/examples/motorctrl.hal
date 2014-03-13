@@ -1,3 +1,11 @@
+# run this script as:
+# halrun -I motorctrl.hal
+# in directory src/hal/haltalk/examples
+
+# set logging to 'pretty high'
+log rt 5
+log user 5
+
 # start haltalk server
 loadusr -W haltalk --ini haltalk.ini
 

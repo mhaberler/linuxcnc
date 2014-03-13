@@ -1,14 +1,14 @@
 This is the demo app I described in my mail this morning
 
-see motorcontrol.hal for what it does
+see motorctrl.hal for what it does
 
 run like so:
 
  $ . machinekit/scripts/rip-environment
  $ cd machinekit/src/hal/haltalk/examples
- $ DEBUG=5 realtime start
- $ halcmd -f -k
-   type 'source motorctrl.hal'
+ $ halrun -I motorctrl.hal
+
+to exit, type 'exit' to the halcmd: prompt.
 
 in a separate window, run:
 
