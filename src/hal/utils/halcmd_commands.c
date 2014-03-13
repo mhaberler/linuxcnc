@@ -1250,6 +1250,10 @@ int do_unloadusr_cmd(char *mod_name)
     next = hal_data->comp_list_ptr;
     while (next != 0) {
 	comp = SHMPTR(next);
+	// do this here because hal_exit() wipes
+	// the comp->next_ptr field
+	next = comp->next_ptr;
+
 	if ((comp->type == TYPE_REMOTE)
 	    && comp->pid == 0) {
 	    /* found a disowned remote component */
@@ -1273,7 +1277,6 @@ int do_unloadusr_cmd(char *mod_name)
                 kill(abs(comp->pid), SIGTERM);
 	    }
 	}
-	next = comp->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
     return 0;
