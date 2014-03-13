@@ -40,8 +40,6 @@
   </object>
   <object class="GtkAdjustment" id="lowpass-gain-adjustment">
     <property name="upper">1</property>
-    <property name="value">0.01</property>
-    <property name="step_increment">0.01</property>
     <property name="page_increment">0.10000000000000001</property>
   </object>
   <object class="GtkWindow" id="window1">
@@ -69,7 +67,7 @@
                       <object class="HAL_ProgressBar" id="fb_pos">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="text" translatable="yes">current position</property>
+                        <property name="text" translatable="yes">position</property>
                         <property name="adjustment">fb-curpos-adjustment</property>
                         <property name="green_limit">1</property>
                         <property name="red_limit">1</property>
@@ -86,7 +84,7 @@
                       <object class="HAL_ProgressBar" id="fb_vel">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="text" translatable="yes">current velocity</property>
+                        <property name="text" translatable="yes">velocity</property>
                         <property name="adjustment">fb-curvel-adjustment</property>
                         <property name="green_limit">0.60000002384185791</property>
                         <property name="red_limit">0.89999997615814209</property>
@@ -103,7 +101,7 @@
                       <object class="HAL_ProgressBar" id="fb_acc">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="text" translatable="yes">current acceleration</property>
+                        <property name="text" translatable="yes">acceleration</property>
                         <property name="adjustment">fb-curacc-adjustment</property>
                         <property name="green_limit">0.60000002384185791</property>
                         <property name="red_limit">0.80000001192092896</property>
@@ -151,11 +149,35 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="HAL_HScale" id="cmd_pos">
+                      <object class="GtkFrame" id="frame1">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="adjustment">cmd-pos-adjustment</property>
-                        <property name="round_digits">1</property>
+                        <property name="can_focus">False</property>
+                        <property name="label_xalign">0</property>
+                        <property name="shadow_type">none</property>
+                        <child>
+                          <object class="GtkAlignment" id="alignment4">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="left_padding">12</property>
+                            <child>
+                              <object class="HAL_HScale" id="cmd_pos">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="tooltip_text" translatable="yes">commanded position</property>
+                                <property name="adjustment">cmd-pos-adjustment</property>
+                                <property name="round_digits">1</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child type="label">
+                          <object class="GtkLabel" id="label4">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">&lt;b&gt;commanded position&lt;/b&gt;</property>
+                            <property name="use_markup">True</property>
+                          </object>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">True</property>
@@ -164,11 +186,35 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="HAL_HScale" id="cmd_maxvel">
+                      <object class="GtkFrame" id="frame4">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="adjustment">cmd-maxvel-adjustment</property>
-                        <property name="round_digits">1</property>
+                        <property name="can_focus">False</property>
+                        <property name="label_xalign">0</property>
+                        <property name="shadow_type">none</property>
+                        <child>
+                          <object class="GtkAlignment" id="alignment5">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="left_padding">12</property>
+                            <child>
+                              <object class="HAL_HScale" id="cmd_maxvel">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="tooltip_text" translatable="yes">maximum velocity</property>
+                                <property name="adjustment">cmd-maxvel-adjustment</property>
+                                <property name="round_digits">1</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child type="label">
+                          <object class="GtkLabel" id="label5">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">&lt;b&gt;maximum velocity&lt;/b&gt;</property>
+                            <property name="use_markup">True</property>
+                          </object>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">True</property>
@@ -177,11 +223,35 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="HAL_HScale" id="cmd_maxacc">
+                      <object class="GtkFrame" id="frame5">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="adjustment">cmd-maxacc-adjustment</property>
-                        <property name="round_digits">1</property>
+                        <property name="can_focus">False</property>
+                        <property name="label_xalign">0</property>
+                        <property name="shadow_type">none</property>
+                        <child>
+                          <object class="GtkAlignment" id="alignment6">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="left_padding">12</property>
+                            <child>
+                              <object class="HAL_HScale" id="cmd_maxacc">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="tooltip_text" translatable="yes">maximum acceleration</property>
+                                <property name="adjustment">cmd-maxacc-adjustment</property>
+                                <property name="round_digits">1</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child type="label">
+                          <object class="GtkLabel" id="label6">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">&lt;b&gt;maximum acceleration&lt;/b&gt;</property>
+                            <property name="use_markup">True</property>
+                          </object>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">True</property>
@@ -190,11 +260,36 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="HAL_HScale" id="lowpass_gain">
+                      <object class="GtkFrame" id="frame6">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="adjustment">lowpass-gain-adjustment</property>
-                        <property name="round_digits">1</property>
+                        <property name="can_focus">False</property>
+                        <property name="label_xalign">0</property>
+                        <property name="shadow_type">none</property>
+                        <child>
+                          <object class="GtkAlignment" id="alignment7">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="left_padding">12</property>
+                            <child>
+                              <object class="HAL_HScale" id="lowpass_gain">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="tooltip_text" translatable="yes">lowpass filter gain</property>
+                                <property name="adjustment">lowpass-gain-adjustment</property>
+                                <property name="round_digits">5</property>
+                                <property name="digits">5</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child type="label">
+                          <object class="GtkLabel" id="label7">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">&lt;b&gt;lowpass filter gain&lt;/b&gt;</property>
+                            <property name="use_markup">True</property>
+                          </object>
+                        </child>
                       </object>
                       <packing>
                         <property name="expand">True</property>
@@ -236,17 +331,8 @@
                   <object class="GtkTable" id="table1">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="n_rows">3</property>
+                    <property name="n_rows">6</property>
                     <property name="n_columns">2</property>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
-                    <child>
-                      <placeholder/>
-                    </child>
                     <child>
                       <object class="HAL_LED" id="led1">
                         <property name="visible">True</property>
@@ -277,6 +363,33 @@
                         <property name="top_attach">1</property>
                         <property name="bottom_attach">2</property>
                       </packing>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
+                    </child>
+                    <child>
+                      <placeholder/>
                     </child>
                   </object>
                 </child>
