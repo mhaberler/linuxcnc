@@ -1,0 +1,27 @@
+This is the demo app I described in my mail this morning
+
+see motorcontrol.hal for what it does
+
+run like so:
+
+ $ . machinekit/scripts/rip-environment
+ $ cd machinekit/src/hal/haltalk/examples
+ $ DEBUG=5 realtime start
+ $ halcmd -f -k
+   type 'source motorctrl.hal'
+
+in a separate window, run:
+
+ $ gladevcp -I 0 motorctrl.ui
+
+halscope, and the UI should come up
+
+it is in fact possible to trigger the scope by the 'trigger scope' UI
+button, but the scope scaling is still off
+
+to complete the demo, you need to:
+
+- connect a motor and link commanded position to signal 'cmd-pos'
+- hardware led/button:
+  comment out 'net led motorctrl.led1 <== motorctrl.togglebutton1'
+  link in real led, reak button as appropriate

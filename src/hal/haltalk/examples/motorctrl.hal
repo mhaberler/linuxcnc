@@ -1,0 +1,36 @@
+# start haltalk server
+loadusr -W haltalk --ini haltalk.ini
+
+# the control setup
+loadrt threads period1=1000000 name1=thread
+loadrt limit3
+# differentiate pos to get vel, vel to get acc
+loadrt ddt names=actvel,actacc
+addf limit3.0 thread
+addf actvel thread
+addf actacc thread
+start
+
+# wait the halcmd script until the UI has created the remote component 'motorctrl':
+waitexists motorctrl
+
+# at this stage, the component and its pins exist
+# and can be linked to
+
+net cmd-pos motorctrl.cmd_pos =>       limit3.0.in
+net cmd-maxvel motorctrl.cmd_maxvel => limit3.0.maxv
+net cmd-maxacc motorctrl.cmd_maxacc => limit3.0.maxa
+
+net curr-pos limit3.0.out => motorctrl.fb_pos actvel.in
+net curr-vel actvel.out =>   actacc.in motorctrl.fb_vel
+net curr-acc actacc.out =>   motorctrl.fb_acc
+
+# make led follow togglebutton for now:
+net led motorctrl.led1 <== motorctrl.togglebutton1
+
+# make trigger pin a signal - halscope wants signals to trigger on:
+net scope-trigger motorctrl.scope_trigger
+
+
+# load scope only now - because all sigs are now defined:
+loadusr halscope
