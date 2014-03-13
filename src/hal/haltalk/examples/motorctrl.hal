@@ -15,7 +15,28 @@ addf actacc thread
 start
 
 # wait the halcmd script until the UI has created the remote component 'motorctrl':
-waitexists motorctrl
+# waitexists motorctrl
+
+# OR preconfigure the remote component like so
+# in this case no waiting required
+# pin count, name, type, direction must match exactly what
+# is in the GUI
+newcomp motorctrl timer=100
+newpin motorctrl motorctrl.cmd_maxacc    float out
+newpin motorctrl motorctrl.cmd_maxvel    float out
+newpin motorctrl motorctrl.cmd_pos       float out
+newpin motorctrl motorctrl.fb_acc        float in eps=0.01
+newpin motorctrl motorctrl.fb_acc.scale  float in eps=0.01
+newpin motorctrl motorctrl.fb_pos        float in eps=0.01
+newpin motorctrl motorctrl.fb_pos.scale  float in eps=0.01
+newpin motorctrl motorctrl.fb_vel        float in eps=0.01
+newpin motorctrl motorctrl.fb_vel.scale  float in eps=0.01
+newpin motorctrl motorctrl.led1          bit in
+newpin motorctrl motorctrl.lowpass_gain  float out
+newpin motorctrl motorctrl.scope_trigger bit out
+newpin motorctrl motorctrl.togglebutton1 bit out
+newpin motorctrl motorctrl.togglebutton1-not bit out
+ready  motorctrl
 
 # at this stage, the component and its pins exist
 # and can be linked to
