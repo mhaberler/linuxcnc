@@ -327,7 +327,11 @@ process_rcomp_bind(htself_t *self, const char *from,
 
     // see if component already exists
     if (self->rcomps.count(cname) == 0) {
-	// no, new component being created remotely
+	// check if any rcomps defined in HAL since startup
+	scan_comps(self);
+    }
+    if (self->rcomps.count(cname) == 0) {
+	// still no, new component being created remotely
 	// any errors accumulate in self->tx.note
 	rc = create_rcomp(self, pbcomp, from, socket);
 	if (rc) {
