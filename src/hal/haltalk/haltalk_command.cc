@@ -325,12 +325,21 @@ process_rcomp_bind(htself_t *self, const char *from,
     if (self->tx.note_size() > 0)
 	return send_pbcontainer(from, self->tx, socket);
 
-    // see if component already exists
     if (self->rcomps.count(cname) == 0) {
-	// check if any rcomps defined in HAL since startup
-	scan_comps(self);
-    }
-    if (self->rcomps.count(cname) == 0) {
+
+	// see if component already exists
+	// there might be a comp but user might have
+	// left out the 'ready <compname>' step or forgotten to call 'hal_ready()'
+	// in which case the comp will be in state COMP_INITIALIZING
+	int compstate = hal_comp_state_by_name(cname);
+	if (compstate == COMP_INITIALIZING) {
+
+	    note_printf(self->tx, "component '%s' exists but has state COMP_INITIALIZING", cname);
+	    note_printf(self->tx, "this could be caused by a missing hal_ready() call or "
+			"a missing 'ready <compname>' halcmd statement");
+	    return send_pbcontainer(from, self->tx, socket);
+	}
+
 	// still no, new component being created remotely
 	// any errors accumulate in self->tx.note
 	rc = create_rcomp(self, pbcomp, from, socket);
