@@ -325,6 +325,12 @@ process_rcomp_bind(htself_t *self, const char *from,
     if (self->tx.note_size() > 0)
 	return send_pbcontainer(from, self->tx, socket);
 
+    // see if component already exists
+    if (self->rcomps.count(cname) == 0) {
+       // check if any rcomps defined in HAL since startup
+       scan_comps(self);
+    }
+
     if (self->rcomps.count(cname) == 0) {
 
 	// see if component already exists
