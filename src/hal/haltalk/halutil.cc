@@ -61,3 +61,15 @@ hal_find_pin_by_name(const char *name)
     p = halpr_find_pin_by_name(name);
     return p;
 }
+
+int
+hal_comp_state_by_name(const char *name)
+{
+    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+    rtapi_mutex_get(&(hal_data->mutex));
+
+    comp = halpr_find_comp_by_name(name);
+    if (comp == NULL)
+	return -ENOENT;
+    return comp->state;
+}
