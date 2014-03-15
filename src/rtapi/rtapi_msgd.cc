@@ -708,7 +708,7 @@ int main(int argc, char **argv)
 	    logpub_uri = strdup(optarg);
 	    break;
 	case 'w':
-	    www_dir = optarg;
+	    www_dir = strdup(optarg);
 	    break;
 	case 'p':
 	    info.port = atoi(optarg);
