@@ -18,6 +18,18 @@ typedef struct {
     unsigned long user_flags;    // uninterpreted by HAL code
 } hal_compiled_comp_t;
 
+// flags for userarg2 in a rcomp
+typedef enum {
+    // if a rcomp is defined like so in halcmd:
+    // newcomp motorctrl timer=100 acceptdefaults
+    // any pin value for OUT/IN_OUT present in the MT_HALRCOMP_BIND
+    // message will be applied IFF THE COMPONENT IS IN STATE UNBOUND
+    // technically this means: the first UI to connect will get a
+    // chance on setting the OUT/IO values; other UI's wont,
+
+    RCOMP_ACCEPT_VALUES_ON_BIND = 1,
+
+} rcompflags_t;
 
 typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
 				     hal_pin_t *pin,

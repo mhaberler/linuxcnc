@@ -43,6 +43,7 @@
 #include "../hal_priv.h"	/* private HAL decls */
 #include "hal_ring.h"	        /* ringbuffer declarations */
 #include "hal_group.h"	        /* group/member declarations */
+#include "hal_rcomp.h"	        /* remote component declarations */
 #include "halcmd_commands.h"
 #include "halcmd_rtapiapp.h"
 
@@ -3076,14 +3077,14 @@ int do_newcomp_cmd(char *comp, char *opt[])
 			return -EINVAL;
 		    }
 		} else {
-#if 0
-		    // example code for handling keyword-only arguments
-		    if (!strcmp(s1, "thiskeyword")) {
-			arg2 |= RCOMP_THISFLAG;
+		    // handle keyword-only arguments
+		    if (!strcmp(s1, "acceptdefaults")) {
+			arg2 |=RCOMP_ACCEPT_VALUES_ON_BIND;
+#if 0 // handle more keywords like so:
 		    } else if (!strcmp(s1, "thatflag")) {
 			arg2 |= RCOMP_THATFLAG;
-		    } else {
 #endif
+		    } else {
 			// try to convert from integer
 			arg2 = 	strtol(s1, &cp, 0);
 			if ((*cp != '\0') && (!isspace(*cp))) {
@@ -3091,9 +3092,7 @@ int do_newcomp_cmd(char *comp, char *opt[])
 					 s1);
 			    return -EINVAL;
 			}
-#if 0
 		    }
-#endif
 		}
 	    }
 	}
