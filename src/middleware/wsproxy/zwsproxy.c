@@ -429,10 +429,11 @@ static int serve_http(struct libwebsocket_context *context,
 			      "<html><head><title>404 Not Found</title></head>"
 			      "<body><h1>Not Found</h1>"
 			      "<p>The requested URL %s "
-			      "was not found on this server.</p>"
+			      "was not found on this server."
+			      "path was: '%s'</p>"
 			      "<address>zwsproxy Port %d</address>"
 			      "</body></html>",
-			      (char *)in, cfg->info.port);
+			      (char *)in,buf, cfg->info.port);
 	libwebsocket_write (wsi, (unsigned char *)m404, len, LWS_WRITE_HTTP);
 	return -1;
     }
