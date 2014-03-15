@@ -403,8 +403,6 @@ static int serve_http(struct libwebsocket_context *context,
 	lwsl_err( "closing HTTP connection - www_dir not configured\n");
 	return -1;
     }
-    return serve_http(context, cfg, wsi, buf, len);
-
     snprintf(buf, sizeof(buf), "%s/", cfg->www_dir);
     if (uriUriStringToUnixFilenameA((const char *)in,
 				    &buf[strlen(cfg->www_dir)])) {
