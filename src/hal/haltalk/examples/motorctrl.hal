@@ -66,6 +66,8 @@ net led motorctrl.led1 <== motorctrl.togglebutton1
 # make trigger pin a signal - halscope wants signals to trigger on:
 net scope-trigger motorctrl.scope_trigger
 
+# start the gladevcp version
+loadusr -Wn motorctrl gladevcp -I 0 motorctrl.ui
 
 # load scope only now - because all sigs are now defined:
 loadusr halscope
