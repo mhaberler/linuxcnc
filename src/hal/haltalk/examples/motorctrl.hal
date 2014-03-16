@@ -29,7 +29,7 @@ start
 # in this case no waiting required
 # pin count, name, type, direction must match exactly what
 # is in the GUI
-newcomp motorctrl timer=100
+newcomp motorctrl timer=100 acceptdefaults
 newpin motorctrl motorctrl.cmd_maxacc    float out
 newpin motorctrl motorctrl.cmd_maxvel    float out
 newpin motorctrl motorctrl.cmd_pos       float out
