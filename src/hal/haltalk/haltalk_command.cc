@@ -795,6 +795,9 @@ apply_initial_values(htself_t *self, const pb::Component *pbcomp)
 		note_printf(self->tx, "bad pin type %d/%d name=%s", p.type(), hp->type, pname);
 		continue;
 	    }
+	    rtapi_print_msg(RTAPI_MSG_DBG,
+			    "%s: comp %s: applied inital value of %s",
+			    self->cfg->progname, pbcomp->name().c_str(), pname);
 	}
     }
     // do same for params?
