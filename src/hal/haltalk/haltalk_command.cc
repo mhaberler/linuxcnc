@@ -29,7 +29,7 @@ static int process_get(htself_t *self, const char *from, void *socket);
 static int process_set(htself_t *self, bool halrcomp, const char *from, void *socket);
 static int describe_pin_by_name(htself_t *self, const char *name);
 static int describe_signal_by_name(htself_t *self, const char *name);
-
+static int apply_initial_values(htself_t *self, const pb::Component *pbcomp);
 
 int
 handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -364,6 +364,28 @@ process_rcomp_bind(htself_t *self, const char *from,
 			    " mismatch against existing HAL component",
 			    self->cfg->progname, from);
 	    return send_pbcontainer(from, self->tx, socket);
+	}
+
+	// decide here if we want to carry over pin/param values
+	// passed in the BIND request.
+	// one possible route is to set pins only if the comp
+	// is not currently bound, and was never bound before; this is made conditional
+	// on a flag in the comp userarg2 so its optional and must be set
+	// explicitly
+	//
+	// purpose: apply initial values from UI widgets
+	// together with the waitbound halcmd operation this assures all values
+	// are set up once waitbound finishes
+	//
+	hal_comp_t *c = rc->cc->comp;
+	if ((c->userarg2 & RCOMP_ACCEPT_VALUES_ON_BIND) &&   // option set
+	    (c->last_bound == 0) &&                          // never bound before
+	    (c->state == COMP_UNBOUND)) {                    // currently unbound
+	    rtapi_print_msg(RTAPI_MSG_DBG,
+			    "%s: comp %s first bind, accepting initial pin values from BIND request",
+			    self->cfg->progname, c->name);
+	    if (apply_initial_values(self, pbcomp))
+		return send_pbcontainer(from, self->tx, socket);
 	}
     }
     // all good.
@@ -739,4 +761,44 @@ int describe_signal_by_name(htself_t *self, const char *name)
     // add binding in reply - includes handle
     pb::Signal *pbsignal = self->tx.add_signal();
     return halpr_describe_signal(hs, pbsignal);
+}
+
+// extract pin (param too?) values out of the component passed int the
+// MT_HALRCOMP_BIND message
+// apply to HAL_OUT and HAL_IO pins
+static int
+apply_initial_values(htself_t *self, const pb::Component *pbcomp)
+{
+    for (int i = 0; i < pbcomp->pin_size(); i++) {
+	const pb::Pin &p = pbcomp->pin(i);
+	{
+	    hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
+	    rtapi_mutex_get(&(hal_data->mutex));
+
+	    const char *pname  = p.name().c_str();
+	    hp = halpr_find_pin_by_name(pname);
+	    if (hp == NULL) {
+		note_printf(self->tx,
+			    "BUG: pin %s missing in already validated component %s ?",
+			    pname, pbcomp->name().c_str());
+		continue;
+	    }
+	    // disconnected HAL_IN pins can be dealt with in halcmd with setp
+	    // it would be wrong to set them from the remote
+	    if (hp->dir == HAL_IN)
+		continue;
+
+	    // apply value
+	    hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
+	    assert(vp != NULL);
+	    if (hal_pbpin2u(&p, vp)) {
+		note_printf(self->tx, "bad pin type %d/%d name=%s", p.type(), hp->type, pname);
+		continue;
+	    }
+	}
+    }
+    // do same for params?
+    // better to get rid of params altogether and replace by pins
+
+    return self->tx.note_size();
 }

@@ -24,8 +24,11 @@ typedef enum {
     // newcomp motorctrl timer=100 acceptdefaults
     // any pin value for OUT/IN_OUT present in the MT_HALRCOMP_BIND
     // message will be applied IFF THE COMPONENT IS IN STATE UNBOUND
-    // technically this means: the first UI to connect will get a
-    // chance on setting the OUT/IO values; other UI's wont,
+    // AND THE COMPONENT WAS NEVER BOUND BEFORE
+    // technically this means: the first UI to connect ever will get a
+    // chance on setting the OUT/IO values; other UI's wont. Also,
+    // repeated disconnects/connects will NOT cause the BIND
+    // values to be accepted.
 
     RCOMP_ACCEPT_VALUES_ON_BIND = 1,
 
