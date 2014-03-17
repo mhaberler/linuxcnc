@@ -14,5 +14,6 @@
 #include <middleware/generated/motcmds.npb.h>
 #include <middleware/generated/test.npb.h>
 #include <middleware/generated/rtapicommand.npb.h>
+#include <middleware/generated/config.npb.h>
 
 #endif // _PBMSGS_H
