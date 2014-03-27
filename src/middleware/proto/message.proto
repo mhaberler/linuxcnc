@@ -12,6 +12,7 @@ import "motcmds.proto";
 import "test.proto";
 import "task.proto";
 import "canon.proto";
+import "value.proto";
 import "rtapicommand.proto";
 import "rtapi_message.proto";
 import "config.proto";
@@ -96,7 +97,7 @@ message Container {
     optional Originator            origin = 80;
 
     // generalized polymorphic argument list
-    // retire: repeated Object                arg   = 85;  //  [(nanopb).max_count = 20];
+    repeated Value                value   = 85;  //  [(nanopb).max_count = 20];
 
     optional RTAPICommand           rtapicmd = 86;
 
