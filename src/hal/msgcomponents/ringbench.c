@@ -290,7 +290,7 @@ int main(int argc, char **argv)
 			"ringbench: failed to create new ring %s: %d\n",
 			ringname, retval);
     }
-    if ((retval = hal_ring_attach(ringname, &rb, comp_id))) {
+    if ((retval = hal_ring_attach(ringname, &rb, comp_id, NULL))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"ringbench: failed to attach to ring %s: %d\n",
 			ringname, retval);

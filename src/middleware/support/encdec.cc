@@ -14,7 +14,7 @@
 #include <middleware/generated/message.pb.h>
 #include <middleware/generated/object.pb.h>
 
-#include <middleware/json2pb/json2pb.h>
+#include <middleware/json2pb/json2pb.hh>
 
 using namespace pb;
 using namespace std;
@@ -29,8 +29,6 @@ int main(int argc, char* argv[])
 
     string buffer;
     Container container, got;
-    Originator *origin;
-    Object *object;
     Pin *pin;
     Value *value;
 
@@ -39,32 +37,16 @@ int main(int argc, char* argv[])
     container.set_serial(56789);
     container.set_rsvp(NONE);
 
-    // prepare a submessage for reuse
-    origin = new Originator();
-    origin->set_origin(PROCESS);
-    origin->set_name("gladevcp");
-    origin->set_id(234);
 
-#if 0
-    // this doesnt work with the jessie protobuf package yet
-    // but not terribly important
-    // plug in the prepared origin submessage
-    object->set_allocated_origin(origin);
-#endif
     // add optional submessage(s)
-    object = container.add_arg();
-    object->set_type(HAL_PIN);
 
-    pin = object->mutable_pin();
+
+    pin = container.add_pin();
     pin->set_type(HAL_S32);
     pin->set_name("foo.1.bar");
     pin->set_hals32(4711);
 
-    object = container.add_arg();
-    object->set_type(NAMED_VALUE);
-    object->set_name("pi");
-
-    value = object->mutable_value();
+    value = container.add_value();
     value->set_type(DOUBLE);
     value->set_v_double(3.14159);
 

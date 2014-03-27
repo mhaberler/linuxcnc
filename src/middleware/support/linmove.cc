@@ -10,7 +10,7 @@
 #include <middleware/generated/emcclass.pb.h>
 #include <middleware/generated/message.pb.h>
 
-#include <middleware/json2pb/json2pb.h>
+#include <middleware/json2pb/json2pb.hh>
 
 using namespace std;
 using namespace google::protobuf;

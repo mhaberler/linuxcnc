@@ -78,6 +78,7 @@ void print_value(pb_Value *v, char *tag)
     }
 }
 
+#if 0
 void print_object_detail(pb_Object *o, char *tag)
 {
     printf("%s.object.type = %d\n", tag, o->type);
@@ -105,6 +106,7 @@ void print_object_detail(pb_Object *o, char *tag)
 	print_value(&o->value, tag);
 
 }
+#endif
 
 bool print_string(pb_istream_t *stream, const pb_field_t *field, void *arg)
 {
@@ -130,7 +132,7 @@ bool print_member(pb_istream_t *stream, const pb_field_t *field, void *cbdata)
 
     return 0;
 }
-
+#if 0
 bool print_object(pb_istream_t *stream, const pb_field_t *field, char *tag)
 {
     pb_Object obj = {0};
@@ -178,6 +180,7 @@ bool print_object(pb_istream_t *stream, const pb_field_t *field, char *tag)
     return true;
 }
 #endif
+#endif
 
 int main(int argc, char **argv)
 {
@@ -208,8 +211,8 @@ int main(int argc, char **argv)
 
     c.type = pb_ContainerType_MT_HALUPDATE;
 #ifdef ARGS_CALLBACK
-    c.arg.funcs.decode = &print_object;
-    c.arg.arg = "arg";
+    /* c.arg.funcs.decode = &print_object; */
+    /* c.arg.arg = "arg"; */
 #endif
 
     if (!pb_decode(&stream, pb_Container_fields, &c)) {

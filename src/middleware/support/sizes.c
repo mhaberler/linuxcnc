@@ -22,7 +22,6 @@ int main()
     printf("npb Container = %d\n", sizeof(pb_Container));
     printf("npb Test1 = %d\n", sizeof(pb_Test1));
     printf("npb Value = %d\n", sizeof(pb_Value));
-    printf("npb Object = %d\n", sizeof(pb_Object));
 
     printf("npb MotionCommand = %d\n", sizeof(pb_MotionCommand));
 
