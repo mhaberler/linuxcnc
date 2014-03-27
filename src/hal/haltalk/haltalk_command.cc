@@ -115,17 +115,17 @@ validate_component(const char *name, const pb::Component *pbcomp, pb::Container 
 	// basic syntax - required attributes
 	if (!p.has_name()) {
 	    gpb::TextFormat::PrintToString(p, &s);
-	    note_printf(e, "pin withtout name: %s", s.c_str());
+	    note_printf(e, "pin without name: %s", s.c_str());
 	    continue;
 	}
 	if (!p.has_type()) {
 	    gpb::TextFormat::PrintToString(p, &s);
-	    note_printf(e, "pin withtout type: %s", s.c_str());
+	    note_printf(e, "pin without type: %s", s.c_str());
 	    continue;
 	}
 	if (!p.has_dir()) {
 	    gpb::TextFormat::PrintToString(p, &s);
-	    note_printf(e, "pin withtout dir: %s", s.c_str());
+	    note_printf(e, "pin without dir: %s", s.c_str());
 	    continue;
 	}
 
@@ -137,11 +137,11 @@ validate_component(const char *name, const pb::Component *pbcomp, pb::Container 
 	    // HAL pin name exists, match attributes
 	    if (hp->type != (hal_type_t) p.type())
 		note_printf(e, "HAL pin '%s' type mismatch: hal=%d pb=%d",
-			    hp->type, p.type());
+			    p.name().c_str(), hp->type, p.type());
 
 	    if (hp->dir != (hal_pin_dir_t) p.dir())
 		note_printf(e, "HAL pin '%s' direction mismatch: hal=%d pb=%d",
-			    hp->dir, p.dir());
+			    p.name().c_str(), hp->dir, p.dir());
 	}
     }
     // same for params:
