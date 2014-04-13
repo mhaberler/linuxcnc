@@ -80,8 +80,12 @@ typedef struct {
 // here since ringbuffers do not rely on HAL and may be used without HAL
 // an example thereof is the error ring buffer in the global data segment
 
+#define RINGTYPE_RECORD    0
+#define RINGTYPE_MULTIPART 1
+#define RINGTYPE_STREAM    2
+
 typedef struct {
-    __u8 is_stream;      // record or stream mode
+    __u8 type;           // RINGTYPE_*
     __u8 use_rmutex;     // hint to using code - use ringheader_t.rmutex
     __u8 use_wmutex;     // hint to using code - use ringheader_t.wmutex
     int refcount;        // number of referencing entities (modules, threads..)
@@ -125,8 +129,9 @@ typedef struct {
 } ringiter_t;
 
 typedef struct {
-    void * rv_base;
+    const void *rv_base;
     size_t rv_len;
+    int    rv_flags;
 } ringvec_t;
 
 // mode flags passed in by ring_new
@@ -240,11 +245,11 @@ static inline void ringheader_init(ringheader_t *ringheader, int flags,
 
     // mode-dependent initialisation
     if (flags &  MODE_STREAM) {
-	ringheader->is_stream = 1;
+	ringheader->type = RINGTYPE_STREAM;
 	ringheader->size_mask = ringheader->size -1;
     } else {
 	// default to MODE_RECORD
-	ringheader->is_stream = 0;
+	ringheader->type = RINGTYPE_RECORD;
 	ringheader->generation = 0;
     }
     ringheader->refcount = 1;
@@ -587,7 +592,12 @@ static inline int record_iter_read(const ringiter_t *iter,
 
 static inline int ring_isstream(ringbuffer_t *ring)
 {
-    return ring->header->is_stream;
+    return (ring->header->type == RINGTYPE_STREAM);
+}
+
+static inline int ring_ismultipart(ringbuffer_t *ring)
+{
+    return (ring->header->type == RINGTYPE_MULTIPART);
 }
 
 
