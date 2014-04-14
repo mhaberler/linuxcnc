@@ -30,7 +30,7 @@ FUNCTION(_) {
     ring_size_t rsize;
     const void *data;
 
-    if (rb.header->is_stream) {
+    if (rb.header->type == RINGTYPE_STREAM) {
 	// peek into the stream, non-copy mode
 	stream_get_read_vector(&rb, vec);
 	rsize = vec[0].rv_len + vec[1].rv_len;
@@ -128,10 +128,10 @@ int rtapi_app_main(void)
     }
 
     rtapi_print_msg(RTAPI_MSG_INFO,
-		    "%s: attached ring '%s' size=%zu mode=%s"
+		    "%s: attached ring '%s' size=%zu type=%d"
 		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%zu\n",
 		    name, ring, rb.header->size,
-		    rb.header->is_stream ? "stream" : "record",
+		    rb.header->type,
 		    ring_use_rmutex(&rb), ring_use_wmutex(&rb),
 		    rb.header->reader, rb.header->writer,
 		    ring_scratchpad_size(&rb));

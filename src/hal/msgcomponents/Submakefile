@@ -21,15 +21,24 @@ pbmsgs-objs := \
 	$(PBGEN)/task.npb.o \
 	$(PBGEN)/test.npb.o \
 	$(PBGEN)/types.npb.o \
+	$(PBGEN)/config.npb.o \
 	$(PBGEN)/value.npb.o
-
-$(RTLIBDIR)/pbmsgs$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbmsgs-objs))
-
 
 obj-m += ringload.o
 ringload-objs := $(MSGCOMP_DIR)/ringload.o
 
+obj-m += pbring.o
+pbring-objs := $(MSGCOMP_DIR)/pbring.o
+
+obj-m += mptx.o
+mptx-objs := $(MSGCOMP_DIR)/mptx.o
+
+ifneq "$(filter normal user-dso,$(BUILD_SYS))" ""
+$(RTLIBDIR)/pbmsgs$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbmsgs-objs))
 $(RTLIBDIR)/ringload$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(ringload-objs))
+$(RTLIBDIR)/pbring$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbring-objs))
+$(RTLIBDIR)/mptx$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(mptx-objs))
+endif
 
 
 ../include/%.h: ./hal/msgcomponents/%.h

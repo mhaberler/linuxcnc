@@ -2924,11 +2924,16 @@ static void print_ring_info(char **patterns)
 	    rh = ringbuffer.header;
 /* Name           Size       Type   Own Rdr Wrt Ref Flags  */
 /* ring_0         16392      record 0   0   0   2   recmax:16376  */
-
+	    char *rtype = "unknown";
+	    switch (rh->type) {
+	    case RINGTYPE_RECORD:    rtype = "record"; break;
+	    case RINGTYPE_MULTIPART: rtype = "multi"; break;
+	    case RINGTYPE_STREAM:    rtype = "stream"; break;
+	    }
 	    halcmd_output("%-14.14s %-10zu %-6.6s %-3d %d/%d %d/%d %-3d",
 			  rptr->name,
 			  rh->size,
-			  (rh->is_stream) ? "stream" : "record",
+			  rtype,
 			  rptr->owner,
 			  rh->reader,rh->reader_instance,
 			  rh->writer,rh->writer_instance,
@@ -2937,7 +2942,7 @@ static void print_ring_info(char **patterns)
 		halcmd_output(" rmutex");
 	    if (rh->use_wmutex )
 		halcmd_output(" wmutex");
-	    if (rh->is_stream)
+	    if (rh->type == RINGTYPE_STREAM)
 		halcmd_output(" free:%zu ",
 			      stream_write_space(rh));
 	    else

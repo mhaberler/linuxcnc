@@ -34,7 +34,7 @@ FUNCTION(_) {
 	length = strlen(buffer);
 	sent++;
 
-	if (rb.header->is_stream) {
+	if (rb.header->type == RINGTYPE_STREAM) {
 	    if (stream_write(&rb, buffer, length) != length)
 		overrun++;
 	} else {
