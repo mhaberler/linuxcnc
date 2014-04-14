@@ -1,0 +1,4 @@
+loadrt threads
+loadrt mptx
+addf mptx.0.update thread1
+#start
