@@ -534,6 +534,7 @@ HEADERS := \
     rtapi/rtapi_string.h \
     rtapi/rtapi_pci.h \
     rtapi/ring.h \
+    rtapi/bufring.h \
     rtapi/rtapi_mbarrier.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
@@ -1154,10 +1155,6 @@ streamer-objs := hal/components/streamer.o $(MATHSTUB)
 obj-$(CONFIG_SAMPLER) += sampler.o
 sampler-objs := hal/components/sampler.o $(MATHSTUB)
 
-# Subdirectory: hal/msgcomponents
-obj-m += pbring.o
-pbring-objs := hal/msgcomponents/pbring.o
-
 # Subdirectory: hal/support
 ifeq ($(TARGET_PLATFORM),beaglebone)
 ifeq ($(BUILD_SYS),user-dso)
@@ -1495,7 +1492,6 @@ $(RTLIBDIR)/sampler$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(sampler-objs))
 $(RTLIBDIR)/hal_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_parport-objs))
 $(RTLIBDIR)/probe_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probe_parport-objs))
 
-$(RTLIBDIR)/pbring$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pbring-objs))
 
 ifeq ($(BUILD_SYS),user-dso)
 $(RTLIBDIR)/probe_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probe_parport-objs))
