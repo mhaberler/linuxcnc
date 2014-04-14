@@ -666,7 +666,38 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     return 0;
 }
 
+// handle signals delivered via sigaction - not all signals
+// can be dealt with through signalfd(2)
+// log, try to do something sane, and dump core
+static void sigaction_handler(int sig, siginfo_t *si, void *uctx)
+{
+    switch (sig) {
+    case SIGXCPU:
+        // should not happen - must be handled in RTAPI if enabled
+        rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app: BUG: SIGXCPU should be handled in RTAPI");
+	// NB: fall through
 
+    default:
+	rtapi_print_msg(RTAPI_MSG_INFO,
+			"signal %d - '%s' received, dumping core (current dir=%s)",
+			sig, strsignal(sig), get_current_dir_name());
+	exit_actions(instance_id);
+	if (global_data)
+	    global_data->rtapi_app_pid = 0;
+
+	closelog_async(); // let syslog_async drain
+        sleep(1);
+        signal(SIGABRT, SIG_DFL);
+        abort();
+        break;
+    }
+    // not reached
+}
+
+
+// handle signals delivered synchronously in the event loop
+// by polling signal_fd
+// log, start shutdown and flag end of the event loop
 static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 {
     struct signalfd_siginfo fdsi;
@@ -675,7 +706,7 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     s = read(signal_fd, &fdsi, sizeof(struct signalfd_siginfo));
     if (s != sizeof(struct signalfd_siginfo)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"read(signal_fd): %s", strerror(errno));
+			"BUG: read(signal_fd): %s", strerror(errno));
 	return 0;
     }
     switch (fdsi.ssi_signo) {
@@ -693,12 +724,18 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	if (global_data)
 	    global_data->rtapi_app_pid = 0;
 	return -1;
+
     default:
-	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received, dumping core (current dir=%s)\n",
+	// shouldnt happen, but at least say so
+	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received (FIXME!), dumping core (current dir=%s)\n",
 			fdsi.ssi_signo, strsignal(fdsi.ssi_signo),
 			get_current_dir_name());
 	if (global_data)
 	    global_data->rtapi_app_pid = 0;
+
+	closelog_async(); // let syslog_async drain
+        sleep(1);
+        signal(SIGABRT, SIG_DFL);  // just in case
 	abort();
     }
     return 0;
@@ -965,15 +1002,26 @@ exit_handler(void)
     }
 }
 
+
 static void setup_signals(void)
 {
-    sigset_t sigmask;
+    // SIGSEGV cannot be delivered via signalfd
+    // so deliver via sigaction
+    struct sigaction sig_act;
 
+    sigemptyset( &sig_act.sa_mask );
+    sig_act.sa_sigaction = sigaction_handler;
+    sig_act.sa_flags   = SA_SIGINFO;
+    sigaction(SIGSEGV, &sig_act, (struct sigaction *) NULL);
+
+    sigset_t sigmask;
     sigemptyset(&sigmask);
 
     // block all signal delivery through signal handler
+    // except SIGSEGV
     // since we're using signalfd()
     sigfillset(&sigmask);
+    sigdelset(&sigmask, SIGSEGV);
     if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
 	perror("sigprocmask");
 
@@ -985,7 +1033,7 @@ static void setup_signals(void)
     sigaddset(&sigmask, SIGQUIT);
     sigaddset(&sigmask, SIGKILL);
     sigaddset(&sigmask, SIGTERM);
-    sigaddset(&sigmask, SIGSEGV);
+    //    sigaddset(&sigmask, SIGSEGV);
     sigaddset(&sigmask, SIGFPE);
 
     signal_fd = signalfd(-1, &sigmask, 0);
