@@ -712,7 +712,6 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     switch (fdsi.ssi_signo) {
 
     case SIGINT:
-    case SIGQUIT:
     case SIGKILL:
     case SIGTERM:
 	rtapi_print_msg(RTAPI_MSG_INFO,
@@ -726,8 +725,8 @@ static int s_handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	return -1;
 
     default:
-	// shouldnt happen, but at least say so
-	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received (FIXME!), dumping core (current dir=%s)\n",
+	// siquit, sigfpe, sigill
+	rtapi_print_msg(RTAPI_MSG_ERR, "signal %d - '%s' received, dumping core (current dir=%s)\n",
 			fdsi.ssi_signo, strsignal(fdsi.ssi_signo),
 			get_current_dir_name());
 	if (global_data)
@@ -1027,14 +1026,16 @@ static void setup_signals(void)
 
     sigemptyset(&sigmask);
 
-    // these we want delivered via signalfd()
+    // delivered via signalfd()
     sigemptyset(&sigmask);
     sigaddset(&sigmask, SIGINT);
     sigaddset(&sigmask, SIGQUIT);
     sigaddset(&sigmask, SIGKILL);
     sigaddset(&sigmask, SIGTERM);
-    //    sigaddset(&sigmask, SIGSEGV);
     sigaddset(&sigmask, SIGFPE);
+    sigaddset(&sigmask, SIGFPE);
+    sigaddset(&sigmask, SIGBUS);
+    sigaddset(&sigmask, SIGILL);
 
     signal_fd = signalfd(-1, &sigmask, 0);
     assert(signal_fd > -1);
