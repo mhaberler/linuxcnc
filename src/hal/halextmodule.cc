@@ -9,6 +9,7 @@
 
 #include <boost/python.hpp>
 #include <boost/python/raw_function.hpp>
+#include <boost/python/overloads.hpp>
 #include <exception>
 #include <map>
 #include <string>
@@ -139,17 +140,9 @@ class MultipartRing : public Ring {
 public:
     MultipartRing(const char *name, ringbuffer_t &rbuffer);
     virtual ~MultipartRing();
-// int bring_write_begin(bringbuffer_t *ring, void ** data, size_t size, int flags);
-// int bring_write_end(bringbuffer_t *ring, void * data, size_t size);
-// int bring_write(bringbuffer_t *ring, ringvec_t *rv); // const void * data, size_t size, int flags);
-// int bring_write_flush(bringbuffer_t *ring);
 
-// int bring_read(bringbuffer_t *ring, ringvec_t *rv); // const void **data, size_t *size, int *flags);
-// int bring_shift(bringbuffer_t *ring);
-// int bring_shift_flush(bringbuffer_t *ring);
-
-    int write(char *buf, size_t size, int flags); // add frame
-    size_t commit();
+    int append_frame(char *buf, size_t size, int flags); // add frame
+    size_t commit(); // send off multipart message
 
     bp::object next_size();
     bp::list read_multipart();
@@ -412,60 +405,33 @@ bp::object RecordRing::next_buffer()
 
 MultipartRing::MultipartRing(const char *name, ringbuffer_t &rbuffer)
     :  Ring(name,rbuffer) {
-    //fprintf(stderr, "MultipartRing CTOR:  this=%p mpr=%p\n",  this, &mpr);
-
     bring_init(&mpr, &rb);
-     // mpr = {0};
-     // mpr.ring = &rb;
-
-    // ringvec_t arg =  { .rv_base = "mah was here", .rv_len = 12, .rv_flags = 42};
-    // int retval =  bring_write(&mpr, &arg);
-    // sleep(1);
-    // retval =  bring_write(&mpr, &arg);
-    //    int retval2 = bring_write_flush(&mpr);
-
-    // fprintf(stderr, "init:   mpr %p rb %p rb->h %p  this=%p size=%zu\n",
-    // 	    &mpr, mpr.ring, &mpr.ring->header,
-    // 	    this,mpr.ring->header->size);
 }
 
 
 MultipartRing::~MultipartRing() {
-    //fprintf(stderr, "~MultipartRing DTOR:   this=%p\n", this);
-    // if (mpr.ring->_write != 0) {
-    // 	PyErr_Format(PyExc_IOError,
-    // 		     "MultipartRing dtor: partially writen message (%d)",
-    // 		     mpr.ring->_write);
-    // 	throw boost::python::error_already_set();
-    // }
 }
 
-int MultipartRing::write(char *buf, size_t size, int flags) {
-    // fprintf(stderr, "write:  mpr %p rb %p rb->h %p  this=%p size=%zu\n",
-    // 	    &mpr, mpr.ring, &mpr.ring->header,
-    // 	    this,mpr.ring->header->size);
-    // fprintf(stderr, "write:  buf='%s' size=%zu flags=%d\n",
-    // 	    buf, size, flags);
+int MultipartRing::append_frame(char *buf, size_t size, int flags) {
 
     ringvec_t arg =  { .rv_base = buf, .rv_len = size, .rv_flags = flags};
 
     int retval =  bring_write(&mpr, &arg);
-    // retval =  bring_write(&mpr, &arg);
 
     switch (retval) {
     case EINVAL:
-	PyErr_Format(PyExc_IOError, "write: invalid value (EINVAL)");
+	PyErr_Format(PyExc_IOError, "append: invalid value (EINVAL)");
 	throw boost::python::error_already_set();
 	break;
     case EAGAIN:
 	// from record_write_begin()
-	PyErr_Format(PyExc_IOError, "write: currently insufficient space (EAGAIN)");
+	PyErr_Format(PyExc_IOError, "append: currently insufficient space (EAGAIN)");
 	throw boost::python::error_already_set();
 	break;
     case ERANGE:
 	// from record_write_begin()
 	PyErr_Format(PyExc_IOError,
-		     "write: size exceeds ringbuffer size %d/%d (ERANGE)",
+		     "append: size exceeds ringbuffer size %d/%d (ERANGE)",
 		     size, mpr.ring->header->size);
 	throw boost::python::error_already_set();
 	break;
@@ -475,10 +441,8 @@ int MultipartRing::write(char *buf, size_t size, int flags) {
 }
 
 size_t MultipartRing::commit() {
-    // fprintf(stderr, "commit: mpr %p rb %p rb->h %p  this=%p size=%zu\n",
-    // 	    &mpr, mpr.ring, &mpr.ring->header,
-    // 	    this,mpr.ring->header->size);
-return bring_write_flush(&mpr); } // XXX can this fail?
+    return bring_write_flush(&mpr); // XXX can this fail?
+}
 
 bp::list MultipartRing::read_multipart() {
     ringvec_t frame;
@@ -1160,6 +1124,7 @@ static int halmutex(void) { return hal_data->mutex; }
 
 static bp::object net(bp::tuple args, bp::dict kwargs);
 
+//BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(append_overloads, append_frame, 2,3);
 
 BOOST_PYTHON_MODULE(halext) {
 
@@ -1273,7 +1238,7 @@ BOOST_PYTHON_MODULE(halext) {
     class_<MultipartRing,boost::noncopyable, mpring_ptr,
 	bp::bases<Ring> >("MultipartRing", no_init)
 
-	.def("append", &MultipartRing::write,
+	.def("append", &MultipartRing::append_frame, //append_overloads(),
 	     "add a frame to a multipart message. Returns 0 on success.")
 	.def("commit", &MultipartRing::commit,
 	     "finish a multipart message")

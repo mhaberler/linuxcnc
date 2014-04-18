@@ -33,9 +33,10 @@ except NameError,e:
 #print "----"
 #r.reader = comp.id
 c.writer = comp.id
+#c.commit()
+c.append("blah",4,12312)
 c.commit()
-c.append("blah",4,126)
-c.commit()
+
 c.append("bar",3,4711)
 c.append("foo",3,42)
 c.append("xxx",3,42)
@@ -44,6 +45,11 @@ c.append("fas",3,42)
 c.append("fxx",3,42)
 c.commit()
 
+c.append("foo",3,42)
+c.append("bar",3,4711)
+c.append("baz",3,1234)
+c.append("blah",4,126)
+c.commit()
 sys.exit(0)
 
 
@@ -52,11 +58,7 @@ time.sleep(1)
 sys.exit(0)
 #print dir(c),c
 
-c.append("foo",3,42)
-c.append("bar",3,4711)
-c.append("baz",3,1234)
-c.append("blah",4,126)
-c.commit()
+
 print c
 comp.exit()
 
