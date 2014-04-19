@@ -428,6 +428,7 @@ default: $(INFILES)
 # in ../include is used when building external components of linuxcnc.
 HEADERS := \
     config.h \
+    middleware/nanopb/pb.h \
     emc/ini/emcIniFile.hh \
     emc/ini/iniaxis.hh \
     emc/ini/initool.hh \
@@ -1053,6 +1054,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/emc/kinematics \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
+	-I$(BASEPWD)/middleware/nanopb \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
