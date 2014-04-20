@@ -213,6 +213,7 @@ SUBDIRS := \
 	hal/cython \
 	hal/remote \
 	hal/haltalk \
+	hal/cython \
 	\
 	emc/usr_intf/axis \
 	emc/usr_intf/touchy \
