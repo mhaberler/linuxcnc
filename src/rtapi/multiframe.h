@@ -38,14 +38,14 @@
  * Public API:
  *
  * int msgbuffer_init(msgbuffer_t *mb, ringbuffer_t *ring);
- * int frame_write_begin(msgbuffer_t *mb, void ** data, size_t size, int flags);
+ * int frame_write_begin(msgbuffer_t *mb, void ** data, size_t size, __u32 flags);
  * int frame_write_end(msgbuffer_t *mb, size_t size);
  * int frame_writev(msgbuffer_t *mb, ringvec_t *rv);
- * int frame_write(msgbuffer_t *mb, const void * data, size_t size, int flags)
+ * int frame_write(msgbuffer_t *mb, const void * data, size_t size, __u32 flags)
  * int msg_write_flush(msgbuffer_t *mb);
  * int msg_write_abort(msgbuffer_t *mb);
 
- * int frame_read(msgbuffer_t *mb, const void **data, size_t *size, int *flags);
+ * int frame_read(msgbuffer_t *mb, const void **data, size_t *size, __u32 *flags);
  * int frame_readv(msgbuffer_t *mb, ringvec_t *rv);
  * int frame_shift(msgbuffer_t *mb);
  * int msg_read_flush(msgbuffer_t *mb);
@@ -74,7 +74,7 @@ typedef struct {
 // not exposed at API - internal only.
 typedef struct {
     __s32 size;
-    __s32 flags;
+    __u32 flags;
     char data[0];  // actual frame contents
 } frameheader_t;
 
@@ -92,7 +92,7 @@ static inline int msgbuffer_init(msgbuffer_t *mb, ringbuffer_t *ring)
 // return 0 on success.
 // return EAGAIN if there is currently insufficient space
 // return ERANGE if the write size exceeds the underlying ringbuffer size.
-static inline int frame_write_begin(msgbuffer_t *mb, void ** data, size_t size, int flags)
+static inline int frame_write_begin(msgbuffer_t *mb, void ** data, size_t size, __u32 flags)
 {
     const size_t sz = size + sizeof(frameheader_t);
     if (!mb->_write) {
@@ -102,7 +102,7 @@ static inline int frame_write_begin(msgbuffer_t *mb, void ** data, size_t size, 
 	mb->write_size = sz;
 	mb->write_off = 0;
     }
-    frameheader_t * frame = mb->_write + mb->write_off;
+    frameheader_t * frame = (frameheader_t *) ((unsigned char *)mb->_write + mb->write_off);
     if (mb->write_size < mb->write_off + sizeof(frameheader_t) + size) {
 	// Reallocate
 	const void * old = mb->_write;
@@ -124,20 +124,20 @@ static inline int frame_write_end(msgbuffer_t *mb, size_t size)
 {
     if (!mb->_write)
 	return EINVAL;
-    frameheader_t * frame = mb->_write;
+    frameheader_t * frame = (frameheader_t *) mb->_write;
     frame->size = size;
     mb->write_off = mb->write_off + sizeof(*frame) + frame->size;
     return 0;
 }
 
 // copying frame write, discrete args style
-static inline int frame_write(msgbuffer_t *mb, const void * data, size_t size, int flags)
+static inline int frame_write(msgbuffer_t *mb, const void * data, size_t size, __u32 flags)
 {
     void * ptr;
     int r = frame_write_begin(mb, &ptr, size, flags);
     if (r) return r;
     memmove(ptr, data, size);
-    return frame_write_end(mb, ptr, size);
+    return frame_write_end(mb, size);
 }
 
 // copying frame write, iov-style args
@@ -149,7 +149,7 @@ static inline int frame_writev(msgbuffer_t *mb, ringvec_t *rv)
 // commit and send off a multipart message, consisting of zero or more frames.
 static inline int msg_write_flush(msgbuffer_t *mb)
 {
-    int r = frame_write_end(mb->ring, mb->_write, mb->write_off);
+    int r = record_write_end(mb->ring, mb->_write, mb->write_off);
     mb->_write = 0;
     return r;
 }
@@ -163,16 +163,16 @@ static inline int msg_write_abort(msgbuffer_t *mb)
 }
 
 // read a frame without consuming,  discrete args style
-static inline int frame_read(msgbuffer_t *mb, const void ** data, size_t * size, int * flags)
+static inline int frame_read(msgbuffer_t *mb, const void ** data, size_t * size, __u32 * flags)
 {
     if (!mb->_read) {
-	int r = frame_read(mb->ring, &mb->_read, &mb->read_size);
+	int r = record_read(mb->ring, &mb->_read, &mb->read_size);
 	if (r) return r;
 	mb->read_off = 0;
     }
     if (mb->read_off == mb->read_size)
 	return EAGAIN; //XXX?
-    const frameheader_t * frame = mb->_read + mb->read_off;
+    const frameheader_t * frame = (frameheader_t *) ((unsigned char *)mb->_read + mb->read_off);
     *data = frame + 1;
     *size = frame->size;
     *flags = frame->flags;
@@ -191,7 +191,7 @@ static inline int frame_readv(msgbuffer_t *mb, ringvec_t *rv)
 static inline int frame_shift(msgbuffer_t *mb)
 {
     if (!mb->_read || mb->read_off == mb->read_size) return EINVAL;
-    const frameheader_t * frame = mb->_read + mb->read_off;
+    const frameheader_t * frame = (frameheader_t *) ((unsigned char *)mb->_read + mb->read_off);
     mb->read_off += sizeof(*frame) + frame->size;
     return 0;
 }
@@ -201,7 +201,7 @@ static inline int msg_read_flush(msgbuffer_t *mb)
 {
     if (!mb->_read) return EINVAL;
     mb->_read = 0;
-    return frame_shift(mb->ring);
+    return record_shift(mb->ring);
 }
 
 // abort a read operation, undoing any consumption in the multipart message
