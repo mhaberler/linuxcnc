@@ -3,7 +3,7 @@
 
 #include <rtapi.h>
 #include <ring.h>
-#include <bufring.h>
+#include <multiframe.h>
 
 
 RTAPI_BEGIN_DECLS
