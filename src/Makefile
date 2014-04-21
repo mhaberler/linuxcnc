@@ -536,7 +536,7 @@ HEADERS := \
     rtapi/rtapi_string.h \
     rtapi/rtapi_pci.h \
     rtapi/ring.h \
-    rtapi/bufring.h \
+    rtapi/multiframe.h \
     rtapi/rtapi_mbarrier.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
