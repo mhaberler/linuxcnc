@@ -36,7 +36,7 @@ int rtapi_app_main(void)
 	return -1;
     }
     if (mode)
-	flags = MODE_STREAM;
+	flags = RINGTYPE_STREAM;
     if (in_halmem)
 	flags |= ALLOC_HALMEM;
 

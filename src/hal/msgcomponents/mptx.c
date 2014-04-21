@@ -18,10 +18,10 @@ typedef struct {
     hal_u32_t *decodefail;	// number of messages which failed to protobuf decode
 
     ringbuffer_t to_rt_rb;      // incoming ringbuffer
-    bringbuffer_t to_rt_mrb;    // multiframe layer on incoming ringbuffer
+    msgbuffer_t to_rt_mrb;    // multiframe layer on incoming ringbuffer
 
     ringbuffer_t from_rt_rb;    // outgoing ringbuffer
-    bringbuffer_t from_rt_mrb;  // multiframe layer on outgoing ringbuffer
+    msgbuffer_t from_rt_mrb;  // multiframe layer on outgoing ringbuffer
 
 } pbring_inst_t;
 
@@ -88,8 +88,8 @@ static void update_pbring(void *arg, long l)
     ringvec_t rv[10] = { };
 
     for (n = 0;
-	 (n < 10) && (bring_read(&p->to_rt_mrb, &rv[n]) == 0);
-	 n++, bring_shift(&p->to_rt_mrb));
+	 (n < 10) && (frame_readv(&p->to_rt_mrb, &rv[n]) == 0);
+	 n++, frame_shift(&p->to_rt_mrb));
 
     for (i = 0; i < n; i++) {
 	ringvec_t *v = &rv[i];
@@ -97,7 +97,8 @@ static void update_pbring(void *arg, long l)
 			"Data[%d]: %zd '%.*s' %d\n", i, v->rv_len, (int) v->rv_len,
 			(const char *) v->rv_base, v->rv_flags);
     }
-    bring_shift_flush(&p->to_rt_mrb);
+    // dump frames 10..
+    msg_read_flush(&p->to_rt_mrb);
 
 #if 0
     const void *cmdbuffer = record_next(&p->to_rt_rb);
@@ -291,8 +292,8 @@ static int export_pbring(const char *comp, int n, pbring_inst_t *p)
     p->to_rt_rb.header->reader = comp_id;
     p->from_rt_rb.header->writer = comp_id;
 
-    bring_init(&p->to_rt_mrb, &p->to_rt_rb);
-    bring_init(&p->from_rt_mrb, &p->from_rt_rb);
+    msgbuffer_init(&p->to_rt_mrb, &p->to_rt_rb);
+    msgbuffer_init(&p->from_rt_mrb, &p->from_rt_rb);
 
     rtapi_snprintf(name, sizeof(name), "%s.%d.update", comp, n);
     if ((retval = hal_export_funct(name, update_pbring, &(pbring_array[n]),

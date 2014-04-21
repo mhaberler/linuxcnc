@@ -3,7 +3,6 @@
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_ring.h"
-#include "bufring.h"
 
 // the nanopb library and compiled message definitions are brought in once by
 // 'halcmd loadrt pbmsgs' (message descriptors for parsing and generating pb msgs)
