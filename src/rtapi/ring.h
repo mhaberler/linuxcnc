@@ -8,6 +8,8 @@
 *               depend on any other code. They can in fact used standalone
 *               provided a ringheader of ring_memsize() is allocated.
 *
+* Terminology:
+*    record:
 *
 * ring buffers support non-blocking, variable-sized record queue
 * operations between cooperating entitiess. The underlying model is a
@@ -27,6 +29,7 @@
 *   Herlihy/Shavit:  The Art of Multiprocessor Programming, Morgan Kaufmann 2012.
 *
 * The original record-oriented ring code is by Pavel Shramov, 1/2013,
+* The multiframe ring code is by Pavel Shramov, 3/2014.
 * http://psha.org.ru/cgit/psha/ring/
 * License: MIT
 *
@@ -71,7 +74,7 @@ typedef __s32 ring_size_t;
 
 typedef struct {
     size_t tail __attribute__((aligned(16)));
-    char scratchpad_buf[0];  // actual scratchpad storage
+    __u8 scratchpad_buf[0];  // actual scratchpad storage
 } ringtrailer_t;
 
 // the ringbuffer shared data
@@ -81,23 +84,41 @@ typedef struct {
 // an example thereof is the error ring buffer in the global data segment
 
 #define RINGTYPE_RECORD    0
-#define RINGTYPE_MULTIPART 1
-#define RINGTYPE_STREAM    2
+#define RINGTYPE_MULTIPART RTAPI_BIT(0)
+#define RINGTYPE_STREAM    RTAPI_BIT(1)
+#define RINGTYPE_MASK      (RTAPI_BIT(0)|RTAPI_BIT(1))
+
+// mode flags passed in by ring_new
+// exposed in ringheader_t.mode
+#define USE_RMUTEX       RTAPI_BIT(2)
+#define USE_WMUTEX       RTAPI_BIT(3)
+#define ALLOC_HALMEM     RTAPI_BIT(4)
+
 
 typedef struct {
-    __u8 type;           // RINGTYPE_*
-    __u8 use_rmutex;     // hint to using code - use ringheader_t.rmutex
-    __u8 use_wmutex;     // hint to using code - use ringheader_t.wmutex
-    int refcount;        // number of referencing entities (modules, threads..)
-    int reader, writer;  // HAL module id's - informational
-    int reader_instance, writer_instance; // RTAPI instance id's
-    unsigned long rmutex, wmutex; // optional use - if used by multiple readers/writers
-    size_t trailer_size; // sizeof(ringtrailer_t) + scratchpad size
-    size_t size_mask;    // stream mode only
-    size_t size;         // common to stream and record mode
-    size_t head __attribute__((aligned(16)));
-    __u64    generation;
-    char buf[0];         // actual ring storage without scratchpad
+    __u8    type       : 2;  // RINGTYPE_*
+    __u8    use_rmutex : 1;  // hint to using code - use ringheader_t.rmutex
+    __u8    use_wmutex : 1;  // hint to using code - use ringheader_t.wmutex
+
+    // allocate this ring in HAL shared memory rather than a separate shm segment
+    // this is needed if pins/signals etc are allocated in the scratchpad area
+    // because those objects must reside in HAL mem.
+    // technically this option is a directive to the using HAL layer, not the
+    // ringbuffer code per se.
+    __u8    alloc_halmem : 1;
+
+    __u32   userflags : 27;  // not interpreted by ringbuffer code
+
+    __s32   refcount;        // number of referencing entities (modules, threads..)
+    __s32   reader, writer;  // HAL module id's - informational
+    __s32   reader_instance, writer_instance; // RTAPI instance id's
+    rtapi_atomic_type rmutex, wmutex; // optional use - if used by multiple readers/writers
+    size_t  trailer_size;   // sizeof(ringtrailer_t) + scratchpad size
+    size_t  size_mask;      // stream mode only
+    size_t  size;           // common to stream and record mode
+    size_t  head __attribute__((aligned(16)));
+    __u64   generation;
+    __u8    buf[0];         // actual ring storage without scratchpad
 } ringheader_t;
 
 
@@ -109,11 +130,11 @@ typedef struct {
 #define RINGBUFFER_MAGIC 0x74737769
 
 typedef struct {
-    int magic;
-    ringheader_t *header;
-    ringtrailer_t *trailer;
-    char *buf;
-    void *scratchpad;
+    __s32           magic;
+    ringheader_t   *header;
+    ringtrailer_t  *trailer;
+    __u8           *buf;
+    void           *scratchpad;
 } ringbuffer_t;
 
 static inline int ringbuffer_attached(ringbuffer_t *rb)
@@ -130,28 +151,10 @@ typedef struct {
 
 typedef struct {
     const void *rv_base;
-    size_t rv_len;
-    int    rv_flags;
+    size_t      rv_len;
+    __u32       rv_flags; // meaningful only for multiframe ringvec_t's
 } ringvec_t;
 
-// mode flags passed in by ring_new
-// exposed in ringheader_t.mode
-#define MODE_STREAM      RTAPI_BIT(0)
-#define USE_RMUTEX       RTAPI_BIT(1)
-#define USE_WMUTEX       RTAPI_BIT(2)
-
-// allocate this ring in HAL shared memory rather than a separate shm segment
-// this is needed if pins/signals etc are allocated in the scratchpad area
-// because those objects must reside in HAL mem.
-// technically this option is a directive to the using HAL layer, not this
-// ringbuffer code.
-#define ALLOC_HALMEM     RTAPI_BIT(3)
-
-// hint by creator how other side should handle protobuf messages:
-// deserialize into a nanopb struct RTMessage on write
-#define DECODE_BEFORE_WRITE  RTAPI_BIT(4)
-// seerialize into a nanopb struct RTMessage on write
-#define ENCODE_AFTER_READ   RTAPI_BIT(5)
 
 #define RB_ALIGN 8
 
@@ -180,7 +183,7 @@ static unsigned inline next_power_of_two(unsigned v) {
 
 static inline size_t ring_storage_alloc(int flags, size_t size)
 {
-    if (flags & MODE_STREAM) {
+    if  ((flags & RINGTYPE_MASK) == RINGTYPE_STREAM) {
 	// stream mode buffers need to be a power of two sized
 	return next_power_of_two(size);
     } else {
@@ -242,14 +245,12 @@ static inline void ringheader_init(ringheader_t *ringheader, int flags,
     ringheader->head = 0;
     t = _trailer_from_header(ringheader);
     t->tail = 0;
+    ringheader->type = (flags & RINGTYPE_MASK);
 
     // mode-dependent initialisation
-    if (flags &  MODE_STREAM) {
-	ringheader->type = RINGTYPE_STREAM;
+    if (flags &  RINGTYPE_STREAM) {
 	ringheader->size_mask = ringheader->size -1;
     } else {
-	// default to MODE_RECORD
-	ringheader->type = RINGTYPE_RECORD;
 	ringheader->generation = 0;
     }
     ringheader->refcount = 1;
