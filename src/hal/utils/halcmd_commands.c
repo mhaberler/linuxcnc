@@ -2995,7 +2995,7 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	}  else if  (!strcasecmp(s,"record")) {
 	    // default
 	}  else if  (!strcasecmp(s,"stream")) {
-	    mode |=  MODE_STREAM;
+	    mode |=  RINGTYPE_STREAM;
 	} else if (!strncasecmp(s, SCRATCHPAD, strlen(SCRATCHPAD))) {
 	    spsize = strtol(strchr(s,'=') + 1, &cp, 0);
 	    if ((*cp != '\0') && (!isspace(*cp))) {
