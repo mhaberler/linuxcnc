@@ -64,6 +64,7 @@
 #include "rtapi_bitops.h"
 #include "rtapi_mbarrier.h"
 #include "rtapi_string.h"
+#include "rtapi_int.h"
 
 #ifndef MAXIMUM // MAX conflicts with definition in hal/drivers/pci_8255.c
 #define MAXIMUM(x, y) (((x) > (y))?(x):(y))
