@@ -33,10 +33,23 @@ typedef struct {
 // generic ring methods for all modes:
 
 // create a named ringbuffer, owned by comp module_id
-// mode is one of: MODE_RECORD, MODE_STREAM
-// optionally or'd with USE_RMUTEX, USE_WMUTEX
+//
+// mode is an or of:
+
+// exposed in ringheader_t.type:
+// #define RINGTYPE_RECORD    0
+// #define RINGTYPE_MULTIPART RTAPI_BIT(0)
+// #define RINGTYPE_STREAM    RTAPI_BIT(1)
+
+// mode flags passed in by ring_new
+// exposed in ringheader_t.{use_rmutex, use_wmutex, alloc_halmem}
+// #define USE_RMUTEX       RTAPI_BIT(2)
+// #define USE_WMUTEX       RTAPI_BIT(3)
+// #define ALLOC_HALMEM     RTAPI_BIT(4)
+
 // spsize > 0 will allocate a shm scratchpad buffer
 // accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
+
 int hal_ring_new(const char *name, int size, int spsize, int module_id, int mode);
 
 // delete a ring buffer. Can be done only by the creating module.
