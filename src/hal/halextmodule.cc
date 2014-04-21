@@ -123,9 +123,9 @@ public:
 };
 
 
-class RecordRing : public Ring {
+class FrameRing : public Ring {
 public:
-    RecordRing(const char *name, ringbuffer_t &rbuffer);
+    FrameRing(const char *name, ringbuffer_t &rbuffer);
     const size_t flush();
     int write(char *buf, size_t size);
     bp::object next_size();
@@ -135,6 +135,7 @@ public:
     RingIter __iter__() const;
 };
 
+#if 0
 class MultipartRing : public Ring {
     bringbuffer_t mpr;
 public:
@@ -147,19 +148,19 @@ public:
     bp::object next_size();
     bp::list read_multipart();
 };
-
+#endif
 
 typedef boost::shared_ptr< Ring > ring_ptr;
 typedef boost::shared_ptr< StreamRing > streamring_ptr;
-typedef boost::shared_ptr< RecordRing > recordring_ptr;
-typedef boost::shared_ptr< MultipartRing > mpring_ptr;
+typedef boost::shared_ptr< FrameRing > framering_ptr;
+//typedef boost::shared_ptr< MultipartRing > mpring_ptr;
 
 class RingIter : public ringiter_t {
 private:
-    const RecordRing &_ring;
+    const FrameRing &_ring;
 
     int shift() {
-	int r = record_iter_shift(this);
+	int r = frame_iter_shift(this);
 	if (r == EINVAL)
 	    throw std::out_of_range("Iterator is out of date");
 	return r;
@@ -170,7 +171,7 @@ private:
 	const void *data;
 	size_t size;
 
-	int r = record_iter_read(this, &data, &size);
+	int r = frame_iter_read(this, &data, &size);
 	if (r) {
 	    if (r == EAGAIN) return bp::object();
 	    throw std::out_of_range("Iterator is out of date");
@@ -180,11 +181,11 @@ private:
     }
 
 public:
-    RingIter(const RecordRing &ring) : _ring(ring) {
-	record_iter_init(&ring.rb, this);
+    RingIter(const FrameRing &ring) : _ring(ring) {
+	frame_iter_init(&ring.rb, this);
     }
 
-    bool valid() { return !record_iter_invalid(this);}
+    bool valid() { return !frame_iter_invalid(this);}
 
     bp::object next()  {
 	bp::object buf = read_buffer();
@@ -197,7 +198,7 @@ public:
     }
 };
 
-inline RingIter RecordRing::__iter__() const { return RingIter(*this); }
+inline RingIter FrameRing::__iter__() const { return RingIter(*this); }
 
 class HalComponent {
 private:
@@ -238,12 +239,12 @@ public:
     ring_ptr ring_create(char *name,
 			 size_t size = DEFAULT_RING_SIZE,
 			 size_t spsize = 0,
-			 int type = RINGTYPE_RECORD,
+			 int type = RINGTYPE_FRAME,
 			 bool use_rmutex = false,
 			 bool use_wmutex = false,
 			 bool in_halmem = false);
     ring_ptr ring_attach(char *name,
-			 int type = RINGTYPE_RECORD);
+			 int type = RINGTYPE_FRAME);
     void ring_detach(Ring &r);
 };
 
@@ -361,30 +362,30 @@ bool Ring::get_wmutex_mode() { return ring_use_wmutex(&rb); }
 bool Ring::get_in_halmem()   { return in_halmem; }
 std::string Ring::get_name() { return rname; }
 
-//------------------- record ring operations --------------------------
+//------------------- frame ring operations --------------------------
 
-RecordRing::RecordRing(const char *name,
+FrameRing::FrameRing(const char *name,
 		       ringbuffer_t &rbuffer)
     : Ring(name,rbuffer) {}
 
-bp::object RecordRing::next_size() {
+bp::object FrameRing::next_size() {
     int retval;
-    if ((retval = record_next_size(&rb)) > -1)
+    if ((retval = frame_next_size(&rb)) > -1)
 	return bp::object(retval);
     return bp::object();
 }
 
-int RecordRing::shift()               { return record_shift(&rb); }
-const size_t RecordRing::available()  { return record_write_space(rb.header); }
-const size_t RecordRing::flush()      { return record_flush(&rb); }
+int FrameRing::shift()               { return frame_shift(&rb); }
+const size_t FrameRing::available()  { return frame_write_space(rb.header); }
+const size_t FrameRing::flush()      { return frame_flush(&rb); }
 
-int RecordRing::write(char *buf, size_t size) {
+int FrameRing::write(char *buf, size_t size) {
     int retval;
 
-    if ((retval = record_write(&rb, buf, size)) == ERANGE) {
+    if ((retval = frame_write(&rb, buf, size)) == ERANGE) {
 
 	PyErr_Format(PyExc_IOError,
-		     "write: record size %zu greater than buffer size %zu",
+		     "write: frame size %zu greater than buffer size %zu",
 		     size, rb.header->size);
 	throw boost::python::error_already_set();
     }
@@ -392,15 +393,16 @@ int RecordRing::write(char *buf, size_t size) {
     return retval;
 }
 
-bp::object RecordRing::next_buffer()
+bp::object FrameRing::next_buffer()
 {
-    ring_size_t size = record_next_size(&rb);
+    ring_size_t size = frame_next_size(&rb);
     if (size < 0)
 	return bp::object();
-    bp::handle<> h(PyString_FromStringAndSize((const char *)record_next(&rb), size));
+    bp::handle<> h(PyString_FromStringAndSize((const char *)frame_next(&rb), size));
     return bp::object(h);
 }
 
+#if 0
 //------------------- multipart ring operations --------------------------
 
 MultipartRing::MultipartRing(const char *name, ringbuffer_t &rbuffer)
@@ -424,12 +426,12 @@ int MultipartRing::append_frame(char *buf, size_t size, int flags) {
 	throw boost::python::error_already_set();
 	break;
     case EAGAIN:
-	// from record_write_begin()
+	// from frame_write_begin()
 	PyErr_Format(PyExc_IOError, "append: currently insufficient space (EAGAIN)");
 	throw boost::python::error_already_set();
 	break;
     case ERANGE:
-	// from record_write_begin()
+	// from frame_write_begin()
 	PyErr_Format(PyExc_IOError,
 		     "append: size exceeds ringbuffer size %d/%d (ERANGE)",
 		     size, mpr.ring->header->size);
@@ -458,10 +460,11 @@ bp::list MultipartRing::read_multipart() {
 
 bp::object MultipartRing::next_size() {
     int retval;
-    if ((retval = record_next_size(mpr.ring)) > -1)
+    if ((retval = frame_next_size(mpr.ring)) > -1)
 	return bp::object(retval);
     return bp::object();
 }
+#endif
 
 //------------------- stream ring operations --------------------------
 
@@ -823,7 +826,7 @@ ring_ptr HalComponent::ring_create(char *name,
     ring_ptr r;
 
     switch (type) {
-    case RINGTYPE_RECORD:    break;
+    case RINGTYPE_FRAME:    break;
     case RINGTYPE_MULTIPART: break;
     case RINGTYPE_STREAM:   arg |= MODE_STREAM; break;
     }
@@ -846,12 +849,12 @@ ring_ptr HalComponent::ring_create(char *name,
 	throw boost::python::error_already_set();
     }
     switch (type) {
-    case RINGTYPE_RECORD:
-	r = boost::shared_ptr<RecordRing>(new RecordRing(name, ringbuf));
+    case RINGTYPE_FRAME:
+	r = boost::shared_ptr<FrameRing>(new FrameRing(name, ringbuf));
 	break;
-    case RINGTYPE_MULTIPART:
-	r = boost::shared_ptr<MultipartRing>(new MultipartRing(name, ringbuf));
-	break;
+    // case RINGTYPE_MULTIPART:
+    // 	r = boost::shared_ptr<MultipartRing>(new MultipartRing(name, ringbuf));
+    // 	break;
     case RINGTYPE_STREAM:
 	r = boost::shared_ptr<StreamRing>(new StreamRing(name, ringbuf));
     }
@@ -878,17 +881,17 @@ ring_ptr HalComponent::ring_attach(char *name, int type)
     }
 
     switch (type) {
-    case RINGTYPE_RECORD:
-	r = boost::shared_ptr<RecordRing>(new RecordRing(name, rbuf));
+    case RINGTYPE_FRAME:
+	r = boost::shared_ptr<FrameRing>(new FrameRing(name, rbuf));
 	break;
-    case RINGTYPE_MULTIPART:
-	if (rbuf.header->type == RINGTYPE_STREAM) {
-	    PyErr_Format(PyExc_NameError, "ring_attach(%s): cant multipart-attach to a stream ring",
-			 name);
-	    throw boost::python::error_already_set();
-	}
-	r = boost::shared_ptr<MultipartRing>(new MultipartRing(name, rbuf));
-	break;
+    // case RINGTYPE_MULTIPART:
+    // 	if (rbuf.header->type == RINGTYPE_STREAM) {
+    // 	    PyErr_Format(PyExc_NameError, "ring_attach(%s): cant multipart-attach to a stream ring",
+    // 			 name);
+    // 	    throw boost::python::error_already_set();
+    // 	}
+    // 	r = boost::shared_ptr<MultipartRing>(new MultipartRing(name, rbuf));
+    // 	break;
     case RINGTYPE_STREAM:
 	r = boost::shared_ptr<StreamRing>(new StreamRing(name, rbuf));
     }
@@ -1143,7 +1146,7 @@ BOOST_PYTHON_MODULE(halext) {
     scope().attr("HAL_MEMBER_GROUP") = (int) HAL_MEMBER_GROUP;
     scope().attr("HAL_MEMBER_PIN") = (int)  HAL_MEMBER_PIN;
 
-    scope().attr("RINGTYPE_RECORD") = (int) RINGTYPE_RECORD;
+    scope().attr("RINGTYPE_FRAME") = (int) RINGTYPE_FRAME;
     scope().attr("RINGTYPE_STREAM") = (int) RINGTYPE_STREAM;
     scope().attr("RINGTYPE_MULTIPART") = (int) RINGTYPE_MULTIPART;
 
@@ -1202,54 +1205,54 @@ BOOST_PYTHON_MODULE(halext) {
 		      "'ring allocated in HAL shared memory if true. ")
 	;
 
-    class_<RecordRing,boost::noncopyable, recordring_ptr,
-	bp::bases<Ring> >("RecordRing", no_init)
-	.def("__iter__", &RecordRing::__iter__)
-	.def("next", &RecordRing::next_buffer,
-	     "returns the size of the next record, "
+    class_<FrameRing,boost::noncopyable, framering_ptr,
+	bp::bases<Ring> >("FrameRing", no_init)
+	.def("__iter__", &FrameRing::__iter__)
+	.def("next", &FrameRing::next_buffer,
+	     "returns the size of the next frame, "
 	     "or -1 if no data is available. "
-	     "Note in Record mode, 0 is a legit record size.")
-	.def("write", &RecordRing::write,
+	     "Note in Frame mode, 0 is a legit frame size.")
+	.def("write", &FrameRing::write,
 	     "write to ring. Returns 0 on success."
 	     "a non-zero return value indicates the write failed due to lack of "
 	     "buffer space, and should be retried later. An oversized "
-	     "record (larger than buffer size) will raise an IOError "
+	     "frame (larger than buffer size) will raise an IOError "
 	     "exception.")
-	.def("flush", &RecordRing::flush,
+	.def("flush", &FrameRing::flush,
 	     "clear the buffer contents. Note this is not thread-safe"
 	     " unless all readers and writers use a r/w mutex.")
-	.def("available", &RecordRing::available,
-	     "return the size of the largest record which can"
+	.def("available", &FrameRing::available,
+	     "return the size of the largest frame which can"
 	     " safely be written.")
-	.def("next_buffer", &RecordRing::next_buffer,
-	     "Return the next record, or None. "
+	.def("next_buffer", &FrameRing::next_buffer,
+	     "Return the next frame, or None. "
 	     "this is a 'peek read' - "
 	     "data is not actually removed from the buffer "
 	     "until shift is executed.")
-	.def("next_size", &RecordRing::next_size,
-	     "Return size of the next record. Int. "
-	     "Zero is a valid record length. "
+	.def("next_size", &FrameRing::next_size,
+	     "Return size of the next frame. Int. "
+	     "Zero is a valid frame length. "
 	     "If the buffer is empty, return None.")
 
-	.def("shift", &RecordRing::shift,
-	     "consume the current record.")
+	.def("shift", &FrameRing::shift,
+	     "consume the current frame.")
 	;
 
-    class_<MultipartRing,boost::noncopyable, mpring_ptr,
-	bp::bases<Ring> >("MultipartRing", no_init)
+    // class_<MultipartRing,boost::noncopyable, mpring_ptr,
+    // 	bp::bases<Ring> >("MultipartRing", no_init)
 
-	.def("append", &MultipartRing::append_frame, //append_overloads(),
-	     "add a frame to a multipart message. Returns 0 on success.")
-	.def("commit", &MultipartRing::commit,
-	     "finish a multipart message")
-	.def("next_size", &MultipartRing::next_size,
-	     "Return size of the next message, including"
-	     "all overhead."
-	     "If the buffer is empty, return None.")
-	.def("read", &MultipartRing::read_multipart,
-	     "read a multipart message."
-	     "returns a list of tuples (frame, flags)")
-	;
+    // 	.def("append", &MultipartRing::append_frame, //append_overloads(),
+    // 	     "add a frame to a multipart message. Returns 0 on success.")
+    // 	.def("commit", &MultipartRing::commit,
+    // 	     "finish a multipart message")
+    // 	.def("next_size", &MultipartRing::next_size,
+    // 	     "Return size of the next message, including"
+    // 	     "all overhead."
+    // 	     "If the buffer is empty, return None.")
+    // 	.def("read", &MultipartRing::read_multipart,
+    // 	     "read a multipart message."
+    // 	     "returns a list of tuples (frame, flags)")
+    // 	;
 
     class_<StreamRing,boost::noncopyable, streamring_ptr,
 	bp::bases<Ring> >("StreamRing", no_init)
@@ -1280,7 +1283,7 @@ BOOST_PYTHON_MODULE(halext) {
 	     "available bytes are consumed,")
 	;
 
-    class_<RingIter>("RingIter", init<const RecordRing &>())
+    class_<RingIter>("RingIter", init<const FrameRing &>())
 	.def("valid", &RingIter::valid,
 	     "determine if iterator still valid;",
 	     "a concurrent read operation will invalidate the iterator.")
@@ -1318,7 +1321,7 @@ BOOST_PYTHON_MODULE(halext) {
 	.def("create",  &HalComponent::ring_create,
 	     (bp::arg("size") = DEFAULT_RING_SIZE,
 	      bp::arg("scratchpad") = 0,
-	      bp::arg("type") = RINGTYPE_RECORD,
+	      bp::arg("type") = RINGTYPE_FRAME,
 	      bp::arg("use_rmutex") = false,
 	      bp::arg("use_wmutex") = false,
 	      bp::arg("in_halmem") = false
