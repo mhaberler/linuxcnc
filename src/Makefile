@@ -1563,15 +1563,23 @@ endif  # build kernel RTAPI modules
 
 # Phony so that it is always rebuilt when requested, not because it
 # shouldn't exist as a file
-FINDOPTS:= ! -path "./middleware/generated/*" \
-	! -path "./middleware/nanopb/*" \
-	! -path "./objects/*"
-
 .PHONY: tags
+
+# dont create tags from these directories
+NOTAGSIN := \
+	depends \
+	objects \
+	middleware/ring \
+	middleware/generated \
+	middleware/nanopb
+
+CTAGOPTS := $(addprefix --exclude=,$(NOTAGSIN))
+ETAGOPTS := $(CTAGOPTS)
+FINDOPTS :=  -not \( $(patsubst %,-path ./% -prune -o,$(NOTAGSIN)) -type d \)
+
 tags:
-	ctags-exuberant \
-		--extra=+fq \
-		--exclude=depends --exclude=objects --exclude=.mod.c \
+	ctags-exuberant --extra=+fq \
+		$(CTAGOPTS) \
 		'--langmap=make:+(Submakefile),make:+(Makefile.inc),c:+.comp' \
 		-I EXPORT_SYMBOL+,RTAPI_MP_INT+,RTAPI_MP_LONG+,RTAPI_MP_STRING+ \
 		-I RTAPI_MP_ARRAY_INT+,RTAPI_MP_ARRAY_LONG+,RTAPI_MP_ARRAY_STRING+ \
@@ -1583,9 +1591,10 @@ tags:
 	find . -type f -name '*.hh'  $(FINDOPTS) | xargs  etags -l c++ --append
 	find . -type f -name '*.proto'  $(FINDOPTS) | xargs  etags -l c++ --append
 
+# etags from exuberant-ctags package
 etags:
-	etags	--extra=+fq \
-		--exclude=depends --exclude=objects --exclude=.mod.c \
+	etags --extra=+fq \
+		$(ETAGOPTS) \
 		'--langmap=make:+(Submakefile),make:+(Makefile.inc),c:+.comp' \
 		-I EXPORT_SYMBOL+,RTAPI_MP_INT+,RTAPI_MP_LONG+,RTAPI_MP_STRING+ \
 		-I RTAPI_MP_ARRAY_INT+,RTAPI_MP_ARRAY_LONG+,RTAPI_MP_ARRAY_STRING+ \
@@ -1595,6 +1604,14 @@ etags:
 	find . -type f -name '*.cc'  $(FINDOPTS) |xargs etags --language-force=C++ --append
 	find . -type f -name '*.hh'  $(FINDOPTS) |xargs etags --language-force=C++ --append
 	find . -type f -name '*.proto'  $(FINDOPTS) |xargs etags --language-force=C++ --append
+
+# emacs etags; does not support tcl
+eetags:
+	@rm -f TAGS
+	@find .  $(FINDOPTS) -type f -name '*.[ch]'  |xargs etags --language=c   --append
+	@find .  $(FINDOPTS) -type f -name '*.cc'    |xargs etags --language=c++ --append
+	@find .  $(FINDOPTS) -type f -name '*.hh'    |xargs etags --language=c++ --append
+	@find .  $(FINDOPTS) -type f -name '*.proto' |xargs etags --language=c++ --append
 
 .PHONY: swish
 swish:
