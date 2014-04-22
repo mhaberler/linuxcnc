@@ -11,18 +11,16 @@ enum KinematicsType {
 }
 
 message Position {
-    optional KinematicsType kins = 1 [ default = KT_JOINT ];
-    optional int32          axismask = 2;
-    optional double x0 = 3;
-    optional double x1 = 4;
-    optional double x2 = 5;
-    optional double x3 = 6;
-    optional double x4 = 7;
-    optional double x5 = 8;
-    optional double x6 = 9;
-    optional double x7 = 10;
-    optional double x8 = 11;
-    optional double x9 = 12;
+
+    optional double x = 3;
+    optional double y = 4;
+    optional double z = 5;
+    optional double a = 6;
+    optional double b = 7;
+    optional double c = 8;
+    optional double u = 9;
+    optional double v = 10;
+    optional double w = 11;
 }
 
 
@@ -86,4 +84,6 @@ message Preview {
     optional double         angular_units     = 101;
     optional double         length_units      = 102;
     optional int32          probetype         = 103;
+    optional KinematicsType kins              = 104 [ default = KT_JOINT ];
+    optional int32          axismask          = 105;
 }
