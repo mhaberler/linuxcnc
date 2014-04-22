@@ -20,31 +20,36 @@ int main(int argc, char* argv[])
 {
 
     GOOGLE_PROTOBUF_VERIFY_VERSION;
-
-    Preview p;
+    Container c;
+    Preview *p;
     string buffer, text;
 
-    p.set_type(PV_STRAIGHT_FEED);
-    p.set_line_number(4711);
-    Position *pos = p.mutable_pos();
-    pos->set_kins(KT_JOINT);
-    pos->set_axismask(1<<1|1<<8);
-    pos->set_x1(42.0);
-    pos->set_x8(3.14);
+    c.set_type(MT_PREVIEW);
 
-    if (TextFormat::PrintToString(p, &text)) {
+    p = c.add_preview();
+
+    p->set_type(PV_STRAIGHT_FEED);
+    p->set_line_number(4711);
+    p->set_kins(KT_JOINT);
+    p->set_axismask(1<<1|1<<8);
+    Position *pos = p->mutable_pos();
+
+    pos->set_x(42.0);
+    pos->set_a(3.14);
+
+    if (TextFormat::PrintToString(c, &text)) {
 	cout << "PrintToString: \n" <<  text << endl;
     } else {
 	cerr << "Fail" << endl;
     }
 
-    if (!p.SerializeToString(&buffer)) {
+    if (!c.SerializeToString(&buffer)) {
 	    cerr << "Failed to serialize Preview." << endl;
 	    exit(1);
     }
 
     // read back
-    Preview q;
+    Container q;
 
     q.ParseFromString(buffer);
 
