@@ -74,7 +74,10 @@ $(call TOOBJSDEPS, $(PREVIEWMODULESRCS)) : EXTRAFLAGS += -Ihal/haltalk $(CZMQ_CF
 PREVIEWMODULE := ../lib/python/preview.so
 $(PREVIEWMODULE): $(call TOOBJS, $(PREVIEWMODULESRCS)) ../lib/librs274.so.0
 	$(ECHO) Linking python module $(notdir $@)
-	$(CXX) $(LDFLAGS) -shared -o $@ $^ -lstdc++  $(CZMQ_LIBS)  $(PROTOBUF_LIBS)
+	$(CXX) $(LDFLAGS) -shared -o $@ $^ \
+	../lib/libjson2pb.so \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	-lstdc++  $(CZMQ_LIBS)  $(PROTOBUF_LIBS)
 
 
 PYTARGETS += $(PREVIEWMODULE)

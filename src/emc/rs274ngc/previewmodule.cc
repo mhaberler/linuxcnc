@@ -16,6 +16,7 @@
 //    along with this program; if not, write to the Free Software
 //    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+
 #include <Python.h>
 #include <structmember.h>
 
@@ -40,10 +41,10 @@ static bool z_debug;
 static char z_ident[20];
 static const char *z_preview_uri = "tcp://127.0.0.1:4711";
 static const char *z_status_uri = "tcp://127.0.0.1:4712";
-static const char *istat_topic = "interpstatus";
+static const char *istat_topic = "status";
 static int batch_limit = 100;
 static int current_credit = 0;
-static const char *p_client = NULL; // single client for now
+static const char *p_client = "preview"; //NULL; // single client for now
 
 static pb::Container istat, output;
 
@@ -79,7 +80,7 @@ static void send_preview(const char *client, bool flush = false)
 
     if ((output.preview_size() > batch_limit) || flush) {
 	output.set_type(pb::MT_PREVIEW);
-	retval = send_pbcontainer(client, output, z_status);
+	retval = send_pbcontainer(client, output, z_preview);
 	assert(retval == 0);
     }
 }
@@ -108,19 +109,26 @@ static int z_init(void)
     snprintf(z_ident, sizeof(z_ident), "preview-interp-%d", getpid());
 
     z_context = zctx_new ();
-    z_preview = zsocket_new (z_context, ZMQ_ROUTER);
-    zsocket_set_linger (z_preview, 0);
-    zsocket_set_identity (z_preview, z_ident);
+
+    //    z_preview = zsocket_new (z_context, ZMQ_ROUTER);
+    z_preview = zsocket_new (z_context, ZMQ_XPUB);
+    //    zsocket_set_linger (z_preview, 0);
+    //    zsocket_set_xpub_verbose (z_preview, 1);
+    //    zsocket_set_identity (z_preview, z_ident);
     //    zsocket_set_rcvtimeo (z_preview, REPLY_TIMEOUT);
+
     rc = zsocket_bind(z_preview, z_preview_uri);
     assert (rc != 0);
 
+
     z_status = zsocket_new (z_context, ZMQ_XPUB);
     assert(z_status);
-    zsocket_set_linger (z_status, 0);
-    zsocket_set_xpub_verbose (z_status, 1);
+    //    zsocket_set_linger (z_status, 0);
+    //    zsocket_set_xpub_verbose (z_status, 1);
     rc = zsocket_bind(z_status, z_status_uri);
     assert (rc != 0);
+
+    usleep(300 *1000); // avoid slow joiner syndrome
 
     note_printf(istat, "interpreter startup pid=%d", getpid());
     publish_istat(pb::INTERP_IDLE);
@@ -131,6 +139,7 @@ static int z_init(void)
 // called on module unload
 static void z_shutdown(void)
 {
+    fprintf(stderr, "preview: socket shutdown\n");
     zctx_destroy(&z_context);
 }
 
@@ -269,11 +278,11 @@ static void maybe_new_line(int sequence_number) {
     interp_new.active_m_codes(new_line_code->mcodes);
     new_line_code->gcodes[0] = sequence_number;
     last_sequence_number = sequence_number;
-    PyObject *result =
-        callmethod(callback, "next_line", "O", new_line_code);
-    Py_DECREF(new_line_code);
-    if(result == NULL) interp_error ++;
-    Py_XDECREF(result);
+    // PyObject *result =
+    //     callmethod(callback, "next_line", "O", new_line_code);
+    // Py_DECREF(new_line_code);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 }
 
 void NURBS_FEED(int line_number, std::vector<CONTROL_POINT> nurbs_control_points, unsigned int k) {
@@ -312,13 +321,14 @@ void ARC_FEED(int line_number,
     }
     maybe_new_line(line_number);
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "arc_feed", "ffffifffffff",
-                            first_end, second_end, first_axis, second_axis,
-                            rotation, axis_end_point,
-                            a_position, b_position, c_position,
-                            u_position, v_position, w_position);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "arc_feed", "ffffifffffff",
+    //                         first_end, second_end, first_axis, second_axis,
+    //                         rotation, axis_end_point,
+    //                         a_position, b_position, c_position,
+    //                         u_position, v_position, w_position);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_ARC_FEED);
@@ -339,7 +349,6 @@ void ARC_FEED(int line_number,
     pos->set_w(w_position);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void STRAIGHT_FEED(int line_number,
@@ -352,10 +361,11 @@ void STRAIGHT_FEED(int line_number,
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; u /= 25.4; v /= 25.4; w /= 25.4; }
     maybe_new_line(line_number);
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "straight_feed", "fffffffff",
-                            x, y, z, a, b, c, u, v, w);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "straight_feed", "fffffffff",
+    //                         x, y, z, a, b, c, u, v, w);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_STRAIGHT_FEED);
@@ -373,7 +383,6 @@ void STRAIGHT_FEED(int line_number,
     pos->set_w(w);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void STRAIGHT_TRAVERSE(int line_number,
@@ -386,10 +395,11 @@ void STRAIGHT_TRAVERSE(int line_number,
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; u /= 25.4; v /= 25.4; w /= 25.4; }
     maybe_new_line(line_number);
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "straight_traverse", "fffffffff",
-                            x, y, z, a, b, c, u, v, w);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "straight_traverse", "fffffffff",
+    //                         x, y, z, a, b, c, u, v, w);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_STRAIGHT_TRAVERSE);
@@ -407,7 +417,6 @@ void STRAIGHT_TRAVERSE(int line_number,
     pos->set_w(w);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void SET_G5X_OFFSET(int g5x_index,
@@ -417,10 +426,11 @@ void SET_G5X_OFFSET(int g5x_index,
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; u /= 25.4; v /= 25.4; w /= 25.4; }
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "set_g5x_offset", "ifffffffff",
-                            g5x_index, x, y, z, a, b, c, u, v, w);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "set_g5x_offset", "ifffffffff",
+    //                         g5x_index, x, y, z, a, b, c, u, v, w);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_SET_G5X_OFFSET);
@@ -440,7 +450,6 @@ void SET_G5X_OFFSET(int g5x_index,
     send_preview(p_client);
 
 
-    Py_XDECREF(result);
 }
 
 void SET_G92_OFFSET(double x, double y, double z,
@@ -449,10 +458,11 @@ void SET_G92_OFFSET(double x, double y, double z,
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; u /= 25.4; v /= 25.4; w /= 25.4; }
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "set_g92_offset", "fffffffff",
-                            x, y, z, a, b, c, u, v, w);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "set_g92_offset", "fffffffff",
+    //                         x, y, z, a, b, c, u, v, w);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_SET_G92_OFFSET);
@@ -470,15 +480,14 @@ void SET_G92_OFFSET(double x, double y, double z,
     pos->set_w(w);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void SET_XY_ROTATION(double t) {
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "set_xy_rotation", "f", t);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "set_xy_rotation", "f", t);
+    // if(result == NULL) interp_error ++;
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_SET_G92_OFFSET);
@@ -492,19 +501,20 @@ void USE_LENGTH_UNITS(CANON_UNITS u) { metric = u == CANON_UNITS_MM; }
 
 void SELECT_PLANE(CANON_PLANE pl) {
     maybe_new_line();
-    if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "set_plane", "i", pl);
-    if(result == NULL) interp_error ++;
-    Py_XDECREF(result);
+    // if(interp_error) return;
+    // PyObject *result =
+    //     callmethod(callback, "set_plane", "i", pl);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 }
 
 void SET_TRAVERSE_RATE(double rate) {
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "set_traverse_rate", "f", rate);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "set_traverse_rate", "f", rate);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_SET_TRAVERSE_RATE);
@@ -512,7 +522,6 @@ void SET_TRAVERSE_RATE(double rate) {
     p->set_rate(rate);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void SET_FEED_MODE(int mode) {
@@ -529,9 +538,10 @@ void SET_FEED_MODE(int mode) {
 void CHANGE_TOOL(int pocket) {
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "change_tool", "i", pocket);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "change_tool", "i", pocket);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_CHANGE_TOOL);
@@ -539,7 +549,6 @@ void CHANGE_TOOL(int pocket) {
     p->set_pocket(pocket);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void CHANGE_TOOL_NUMBER(int pocket) {
@@ -556,9 +565,10 @@ void SET_FEED_RATE(double rate) {
     maybe_new_line();
     if(interp_error) return;
     if(metric) rate /= 25.4;
-    PyObject *result =
-        callmethod(callback, "set_feed_rate", "f", rate);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "set_feed_rate", "f", rate);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_SET_FEED_RATE);
@@ -566,15 +576,15 @@ void SET_FEED_RATE(double rate) {
     p->set_rate(rate);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void DWELL(double time) {
     maybe_new_line();
-    if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "dwell", "f", time);
-    if(result == NULL) interp_error ++;
+    // if(interp_error) return;
+    // PyObject *result =
+    //     callmethod(callback, "dwell", "f", time);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_DWELL);
@@ -582,15 +592,15 @@ void DWELL(double time) {
     p->set_time(time);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void MESSAGE(char *comment) {
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "message", "s", comment);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "message", "s", comment);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_MESSAGE);
@@ -598,7 +608,6 @@ void MESSAGE(char *comment) {
     p->set_text(comment);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void LOG(char *s) {}
@@ -609,9 +618,10 @@ void LOGCLOSE() {}
 void COMMENT(const char *comment) {
     maybe_new_line();
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "comment", "s", comment);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "comment", "s", comment);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_COMMENT);
@@ -619,7 +629,6 @@ void COMMENT(const char *comment) {
     p->set_text(comment);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 
 void SET_TOOL_TABLE_ENTRY(int pocket, int toolno, EmcPose offset, double diameter,
@@ -633,9 +642,11 @@ void USE_TOOL_LENGTH_OFFSET(EmcPose offset) {
     if(metric) {
         offset.tran.x /= 25.4; offset.tran.y /= 25.4; offset.tran.z /= 25.4;
         offset.u /= 25.4; offset.v /= 25.4; offset.w /= 25.4; }
-    PyObject *result = callmethod(callback, "tool_offset", "ddddddddd", offset.tran.x, offset.tran.y, offset.tran.z,
-        offset.a, offset.b, offset.c, offset.u, offset.v, offset.w);
-    if(result == NULL) interp_error ++;
+
+    // PyObject *result = callmethod(callback, "tool_offset", "ddddddddd", offset.tran.x, offset.tran.y, offset.tran.z,
+    //     offset.a, offset.b, offset.c, offset.u, offset.v, offset.w);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_USE_TOOL_OFFSET);
@@ -652,7 +663,6 @@ void USE_TOOL_LENGTH_OFFSET(EmcPose offset) {
     pos->set_v(offset.v);
     pos->set_w(offset.w);
     send_preview(p_client);
-    Py_XDECREF(result);
 }
 
 void SET_FEED_REFERENCE(double reference) { }
@@ -683,14 +693,14 @@ int  GET_EXTERNAL_TC_REASON() {return 0;}
 extern bool GET_BLOCK_DELETE(void) {
     int bd = 0;
     if(interp_error) return 0;
-    PyObject *result =
-        callmethod(callback, "get_block_delete", "");
-    if(result == NULL) {
-        interp_error++;
-    } else {
-        bd = PyObject_IsTrue(result);
-    }
-    Py_XDECREF(result);
+    // PyObject *result =
+    //     callmethod(callback, "get_block_delete", "");
+    // if(result == NULL) {
+    //     interp_error++;
+    // } else {
+    //     bd = PyObject_IsTrue(result);
+    // }
+    // Py_XDECREF(result);
     return bd;
 }
 
@@ -738,10 +748,11 @@ void STRAIGHT_PROBE(int line_number,
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; u /= 25.4; v /= 25.4; w /= 25.4; }
     maybe_new_line(line_number);
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "straight_probe", "fffffffff",
-                            x, y, z, a, b, c, u, v, w);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "straight_probe", "fffffffff",
+    //                         x, y, z, a, b, c, u, v, w);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_STRAIGHT_PROBE);
@@ -758,7 +769,6 @@ void STRAIGHT_PROBE(int line_number,
     pos->set_v(v);
     pos->set_w(w);
     send_preview(p_client);
-    Py_XDECREF(result);
 }
 
 void RIGID_TAP(int line_number,
@@ -766,10 +776,11 @@ void RIGID_TAP(int line_number,
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; }
     maybe_new_line(line_number);
     if(interp_error) return;
-    PyObject *result =
-        callmethod(callback, "rigid_tap", "fff",
-            x, y, z);
-    if(result == NULL) interp_error ++;
+    // PyObject *result =
+    //     callmethod(callback, "rigid_tap", "fff",
+    //         x, y, z);
+    // if(result == NULL) interp_error ++;
+    // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
     p->set_type(pb::PV_RIGID_TAP);
@@ -781,7 +792,6 @@ void RIGID_TAP(int line_number,
     pos->set_z(z);
     send_preview(p_client);
 
-    Py_XDECREF(result);
 }
 double GET_EXTERNAL_MOTION_CONTROL_TOLERANCE() { return 0.1; }
 double GET_EXTERNAL_PROBE_POSITION_X() { return _pos_x; }
@@ -817,15 +827,16 @@ int GET_EXTERNAL_LENGTH_UNIT_TYPE() { return CANON_UNITS_INCHES; }
 CANON_TOOL_TABLE GET_EXTERNAL_TOOL_TABLE(int pocket) {
     CANON_TOOL_TABLE t = {-1,{{0,0,0},0,0,0,0,0,0},0,0,0,0};
     if(interp_error) return t;
-    PyObject *result =
-        callmethod(callback, "get_tool", "i", pocket);
-    if(result == NULL ||
-       !PyArg_ParseTuple(result, "iddddddddddddi", &t.toolno, &t.offset.tran.x, &t.offset.tran.y, &t.offset.tran.z,
-                          &t.offset.a, &t.offset.b, &t.offset.c, &t.offset.u, &t.offset.v, &t.offset.w,
-                          &t.diameter, &t.frontangle, &t.backangle, &t.orientation))
-            interp_error ++;
 
-    Py_XDECREF(result);
+    // PyObject *result =
+    //     callmethod(callback, "get_tool", "i", pocket);
+    // if(result == NULL ||
+    //    !PyArg_ParseTuple(result, "iddddddddddddi", &t.toolno, &t.offset.tran.x, &t.offset.tran.y, &t.offset.tran.z,
+    //                       &t.offset.a, &t.offset.b, &t.offset.c, &t.offset.u, &t.offset.v, &t.offset.w,
+    //                       &t.diameter, &t.frontangle, &t.backangle, &t.orientation))
+    //         interp_error ++;
+
+    // Py_XDECREF(result);
     return t;
 }
 
@@ -865,13 +876,13 @@ int GET_EXTERNAL_FEED_HOLD_ENABLE() {return 1;}
 
 int GET_EXTERNAL_AXIS_MASK() {
     if(interp_error) return 7;
-    PyObject *result =
-        callmethod(callback, "get_axis_mask", "");
-    if(!result) { interp_error ++; return 7 /* XYZABC */; }
-    if(!PyInt_Check(result)) { interp_error ++; return 7 /* XYZABC */; }
-    int mask = PyInt_AsLong(result);
-    Py_DECREF(result);
-    return mask;
+    // PyObject *result =
+    //     callmethod(callback, "get_axis_mask", "");
+    // if(!result) { interp_error ++; return 7 /* XYZABC */; }
+    // if(!PyInt_Check(result)) { interp_error ++; return 7 /* XYZABC */; }
+    // int mask = PyInt_AsLong(result);
+    // Py_DECREF(result);
+    return 7; // mask;
 }
 
 double GET_EXTERNAL_TOOL_LENGTH_XOFFSET() {
@@ -917,45 +928,45 @@ static bool PyFloat_CheckAndError(const char *func, PyObject *p)  {
 }
 
 double GET_EXTERNAL_ANGLE_UNITS() {
-    PyObject *result =
-        callmethod(callback, "get_external_angular_units", "");
-    if(result == NULL) interp_error++;
+    // PyObject *result =
+    //     callmethod(callback, "get_external_angular_units", "");
+    // if(result == NULL) interp_error++;
 
     double dresult = 1.0;
-    if(!result || !PyFloat_CheckAndError("get_external_angle_units", result)) {
-        interp_error++;
-    } else {
-        dresult = PyFloat_AsDouble(result);
-    }
-    Py_XDECREF(result);
+    // if(!result || !PyFloat_CheckAndError("get_external_angle_units", result)) {
+    //     interp_error++;
+    // } else {
+    //     dresult = PyFloat_AsDouble(result);
+    // }
+    // Py_XDECREF(result);
     return dresult;
 }
 
 double GET_EXTERNAL_LENGTH_UNITS() {
-    PyObject *result =
-        callmethod(callback, "get_external_length_units", "");
-    if(result == NULL) interp_error++;
+    // PyObject *result =
+    //     callmethod(callback, "get_external_length_units", "");
+    // if(result == NULL) interp_error++;
 
     double dresult = 0.03937007874016;
-    if(!result || !PyFloat_CheckAndError("get_external_length_units", result)) {
-        interp_error++;
-    } else {
-        dresult = PyFloat_AsDouble(result);
-    }
-    Py_XDECREF(result);
+    // if(!result || !PyFloat_CheckAndError("get_external_length_units", result)) {
+    //     interp_error++;
+    // } else {
+    //     dresult = PyFloat_AsDouble(result);
+    // }
+    // Py_XDECREF(result);
     return dresult;
 }
 
 static bool check_abort() {
-    PyObject *result =
-        callmethod(callback, "check_abort", "");
-    if(!result) return 1;
-    if(PyObject_IsTrue(result)) {
-        Py_DECREF(result);
-        PyErr_Format(PyExc_KeyboardInterrupt, "Load aborted");
-        return 1;
-    }
-    Py_DECREF(result);
+    // PyObject *result =
+    //     callmethod(callback, "check_abort", "");
+    // if(!result) return 1;
+    // if(PyObject_IsTrue(result)) {
+    //     Py_DECREF(result);
+    //     PyErr_Format(PyExc_KeyboardInterrupt, "Load aborted");
+    //     return 1;
+    // }
+    // Py_DECREF(result);
     return 0;
 }
 
@@ -1001,7 +1012,8 @@ static PyObject *parse_file(PyObject *self, PyObject *args) {
 
     interp_new.init();
     interp_new.open(f);
-
+    note_printf(istat, "open '%s'", f);
+    publish_istat(pb::INTERP_RUNNING);
     maybe_new_line();
 
     int result = INTERP_OK;
@@ -1027,6 +1039,9 @@ static PyObject *parse_file(PyObject *self, PyObject *args) {
         error_line_offset = 0;
         result = interp_new.execute();
     }
+    publish_istat(pb::INTERP_IDLE);
+    send_preview(p_client, true);
+
 out_error:
     if(pinterp) pinterp->close();
     if(interp_error) {
