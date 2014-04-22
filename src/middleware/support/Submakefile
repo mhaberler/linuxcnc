@@ -2,7 +2,7 @@
 
 ifeq ($(USE_PROTOBUF),yes)
 
-ifeq ($(BUILD_EXAMPLES),yes)
+#ifeq ($(BUILD_EXAMPLES),yes)
 PBEX := $(MWDIR)/support
 
 ENCDEC_SRCS :=  $(addprefix $(PBEX)/, \
@@ -21,6 +21,24 @@ $(call TOOBJSDEPS, $(ENCDEC_SRCS)) : EXTRAFLAGS += $(ENCDEC_CXX_CFLAGS)
 	$(Q)$(CC) -o $@ $^  \
 	 $(ENCDEC_CXX_LDFLAGS) $(PBJSONLIB)
 
+#----
+POSITION_SRCS :=  $(addprefix $(PBEX)/, \
+	position.cc)
+POSITION_CXX_CFLAGS = -g  $(PROTOBUF_CFLAGS) $(JANSSON_CFLAGS)  -DPB_FIELD_32BIT
+POSITION_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(JANSSON_LIBS) -lstdc++
+
+PBJSONLIB = ../lib/libjson2pb.so
+PB2CXX_PROTOLIB = ../lib/liblinuxcnc-pb2++.so
+
+$(call TOOBJSDEPS, $(POSITION_SRCS)) : EXTRAFLAGS += $(POSITION_CXX_CFLAGS)
+
+../bin/position: $(call TOOBJS, $(POSITION_SRCS)) \
+	$(PB2CXX_PROTOLIB) $(PBJSONLIB)
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  \
+	 $(POSITION_CXX_LDFLAGS) $(PBJSONLIB)
+
+#---
 
 NPDECODE_SRCS :=  $(addprefix $(PBEX)/, \
 	npbdecode.c)
@@ -96,13 +114,20 @@ $(call TOOBJSDEPS, $(PBEX)/sizes.c) : EXTRAFLAGS +=
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^ $(LDFLAGS)
 
-USERSRCS += $(RTPRINTF_SRCS) $(ENCDEC_SRCS) $(RAWREAD_SRCS) \
-	 $(UNIONREAD_SRCS) $(NPDECODE_SRCS) $(PBEX)/sizes.c
+USERSRCS += \
+	 $(RTPRINTF_SRCS) \
+	$(ENCDEC_SRCS) \
+	$(POSITION_SRCS) \
+	$(RAWREAD_SRCS) \
+	 $(UNIONREAD_SRCS) \
+	$(NPDECODE_SRCS) \
+	$(PBEX)/sizes.c
 
 TARGETS += \
 	../bin/sizes \
 	../bin/rtprintf \
 	../bin/encdec \
+	../bin/position \
 	../bin/unionread \
 	../bin/npbdecode \
 	../include/container.h
@@ -141,4 +166,4 @@ USERSRCS += $(LINMOVE_SRCS)
 TARGETS += ../bin/linmove
 
 endif
-endif
+#endif
