@@ -16,6 +16,7 @@ import "value.proto";
 import "rtapicommand.proto";
 import "rtapi_message.proto";
 import "config.proto";
+import "preview.proto";
 
 message Container {
 
@@ -29,6 +30,8 @@ message Container {
     // protobuf-encoded submessages
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
+
+    optional Preview      preview        = 8;
 
     optional MotionCommand motcmd         = 9;
     optional MotionStatus  motstat        = 10;

@@ -1,0 +1,89 @@
+//import "nanopb.proto";
+
+package pb;
+
+// experimental axis/joint representation
+enum KinematicsType {
+    KT_JOINT        = 1;
+    KT_TRIVKINS     = 2;
+    KT_DELTA        = 3;
+    // and so forth
+}
+
+message Position {
+    optional KinematicsType kins = 1 [ default = KT_JOINT ];
+    optional int32          axismask = 2;
+    optional double x0 = 3;
+    optional double x1 = 4;
+    optional double x2 = 5;
+    optional double x3 = 6;
+    optional double x4 = 7;
+    optional double x5 = 8;
+    optional double x6 = 9;
+    optional double x7 = 10;
+    optional double x8 = 11;
+    optional double x9 = 12;
+}
+
+
+enum PreviewOpType {
+    PV_STRAIGHT_PROBE     = 1;
+    PV_RIGID_TAP          = 2;
+    PV_STRAIGHT_FEED      = 3;
+    PV_ARC_FEED           = 4;
+    PV_STRAIGHT_TRAVERSE  = 5;
+    PV_SET_G5X_OFFSET     = 6;
+    PV_SET_G92_OFFSET     = 7;
+    PV_SET_XY_ROTATION    = 8;
+    PV_SELECT_PLANE       = 9;
+    PV_SET_TRAVERSE_RATE  = 10;
+    PV_SET_FEED_RATE      = 11;
+    PV_CHANGE_TOOL        = 12;
+    PV_CHANGE_TOOL_NUMBER = 13;
+    PV_DWELL              = 14;
+    PV_MESSAGE            = 15;
+    PV_COMMENT            = 16;
+    PV_USE_TOOL_OFFSET    = 17;
+    PV_SET_PARAMS         = 18; // kins, axismask, angle_units, length_units
+    PV_SET_FEED_MODE      = 19;
+}
+
+message Preview {
+    required PreviewOpType type        = 1;
+    optional int32         line_number = 2;
+
+    // move dest pos/offset for PV_STRAIGHT_*, PV_RIGID_TAP, PV_SET_* _OFFSET
+    // _position for PV_ARC_FEED, PV_USE_TOOL_OFFSET
+    optional Position      pos         = 3;
+
+    // for PV_ARC_FEED only:
+    optional double        first_end = 4;
+    optional double       second_end = 5;
+    optional double       first_axis = 6;
+    optional double      second_axis = 7;
+    optional int32          rotation = 8;
+    optional double   axis_end_point = 9;
+
+    // for PV_SET_XY_ROTATION:
+    optional double     xy_rotation = 10;
+
+    // for PV_SELECT_PLANE:
+    optional int32            plane = 11;
+
+    // for PV_SET_TRAVERSE_RATE, PV_SET_FEED_RATE
+    optional double            rate = 12;
+
+    // PV_SET_FEED_MODE
+    optional int32        feed_mode = 13;
+
+    // PV_DWELL
+    optional double            time = 14;
+
+    // PV_COMMENT, PV_MESSAGE
+    optional string            text = 15;
+
+    // rarely used:
+    optional double         angular_units     = 101;
+    optional double         length_units      = 102;
+    optional int32          probetype         = 103;
+}

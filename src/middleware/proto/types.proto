@@ -182,6 +182,9 @@ enum ContainerType {
     MT_RTAPI_MESSAGE  = 9;
     MT_LOG_MESSAGE    = 10;
 
+    MT_PREVIEW        = 11;
+    MT_PROGRESS       = 12;
+
     MT_SYSLOG         = 18;
     MT_LEGACY_NML     = 19;
     MT_LEGACY_MOTCONFIG = 20;
@@ -189,7 +192,7 @@ enum ContainerType {
 
     //    MT_HALUPDATE_FULL  = 25;
     MT_STP_UPDATE_FULL = 26;
-    MT_STP_UPDATE     = 11;
+    MT_STP_UPDATE     = 28;
     MT_STP_NOGROUP     = 27;
 
     MT_OFFER          = 30;
