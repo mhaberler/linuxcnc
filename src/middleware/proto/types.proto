@@ -171,6 +171,7 @@ enum ServiceAPI {
     SA_ZMQ_PROTOBUF = 1;
     SA_WS_JSON      = 2;
 }
+
 enum ContainerType {
 
     MT_MOTCMD         = 3;
@@ -184,6 +185,7 @@ enum ContainerType {
 
     MT_PREVIEW        = 11;
     MT_PROGRESS       = 12;
+    MT_INTERP_STAT    = 13;
 
     MT_SYSLOG         = 18;
     MT_LEGACY_NML     = 19;
@@ -608,20 +610,22 @@ enum OriginIndex {
     ORIGIN_G59_3 = 9;
 }
 
+
+// add leading _ to avoid collision with macros in emc.hh
 enum TermConditionType {
-    EMC_TRAJ_TERM_COND_STOP = 1;
-    EMC_TRAJ_TERM_COND_BLEND = 2;
+    _EMC_TRAJ_TERM_COND_STOP = 1;
+    _EMC_TRAJ_TERM_COND_BLEND = 2;
 }
 
 enum CanonDirection {
-    CANON_STOPPED = 1;
-    CANON_CLOCKWISE = 2;
-    CANON_COUNTERCLOCKWISE = 3;
+    _CANON_STOPPED = 1;
+    _CANON_CLOCKWISE = 2;
+    _CANON_COUNTERCLOCKWISE = 3;
 }
 
 enum InputType {
-    ANALOG_INPUT = 0;
-    DIGITAL_INPUT = 1;
+    _ANALOG_INPUT = 0;
+    _DIGITAL_INPUT = 1;
 }
 
 enum WaitType {
@@ -631,3 +635,14 @@ enum WaitType {
     BE_HIGH = 3;
     BE_LOW = 4;
 }
+
+// types for EMC_TASK interpState
+enum InterpreterStateType {
+    INTERP_IDLE        = 1;
+    INTERP_RUNNING     = 2;
+    INTERP_SYNC_WAIT   = 3;
+    INTERP_PAUSED      = 4;
+    INTERP_QEUEUE_WAIT = 5;
+    INTERP_ABORT_WAIT  = 6;
+    INTERP_STATE_UNSET = 99; // to ease change tracking
+};

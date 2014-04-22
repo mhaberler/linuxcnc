@@ -5,13 +5,14 @@ package pb;
 
 // an uncleaned first transliteration
 
+// add _ to avoid collision with macros in emc/nml_intf/motion_typesh
 enum MotionType {
-    EMC_MOTION_TYPE_TRAVERSE = 1;
-    EMC_MOTION_TYPE_FEED = 2;
-    EMC_MOTION_TYPE_ARC = 3;
-    EMC_MOTION_TYPE_TOOLCHANGE = 4;
-    EMC_MOTION_TYPE_PROBING = 5;
-    EMC_MOTION_TYPE_INDEXROTARY = 6;
+    _EMC_MOTION_TYPE_TRAVERSE = 1;
+    _EMC_MOTION_TYPE_FEED = 2;
+    _EMC_MOTION_TYPE_ARC = 3;
+    _EMC_MOTION_TYPE_TOOLCHANGE = 4;
+    _EMC_MOTION_TYPE_PROBING = 5;
+    _EMC_MOTION_TYPE_INDEXROTARY = 6;
 };
 
 enum  cmd_code_t  {

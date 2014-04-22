@@ -58,7 +58,10 @@ message Container {
     // duplicating the topic here allows us to drop the topic frame
     optional string                 topic = 23;
 
-    optional bool            reply_required = 24; // force a response even if OK
+    optional bool          reply_required = 24; // force a response even if OK
+
+    // interpreter status updates, MT_INTERP_STAT
+    optional InterpreterStateType interp_state = 25;
 
     // this is an or of bits in ReplyType:
     optional int32                   rsvp = 30;  // if/how to answer

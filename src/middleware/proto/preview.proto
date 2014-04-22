@@ -86,4 +86,9 @@ message Preview {
     optional int32          probetype         = 103;
     optional KinematicsType kins              = 104 [ default = KT_JOINT ];
     optional int32          axismask          = 105;
+    optional int32          g5_index          = 106;
+
+    //  PV_CHANGE_TOOL, PV_CHANGE_TOOL_NUMBER
+    optional int32          pocket            = 107;
+
 }

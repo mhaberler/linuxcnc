@@ -46,7 +46,7 @@ void STRAIGHT_FEED(unsigned mask,
     pb::Emc_Traj_Linear_Move *m = msg.mutable_traj_linear_move();
 
     // the move type
-    m->set_type(pb::EMC_MOTION_TYPE_FEED);
+    m->set_type(pb::_EMC_MOTION_TYPE_FEED);
 
     // fill in the optional axes as commanded by mask
     pb::EmcPose *p = m->mutable_end();
