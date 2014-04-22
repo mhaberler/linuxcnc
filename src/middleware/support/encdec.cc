@@ -38,9 +38,7 @@ int main(int argc, char* argv[])
     container.set_rsvp(NONE);
 
 
-    // add optional submessage(s)
-
-
+    // add repeated submessage(s)
     pin = container.add_pin();
     pin->set_type(HAL_S32);
     pin->set_name("foo.1.bar");
