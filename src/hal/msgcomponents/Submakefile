@@ -22,6 +22,7 @@ pbmsgs-objs := \
 	$(PBGEN)/test.npb.o \
 	$(PBGEN)/types.npb.o \
 	$(PBGEN)/config.npb.o \
+	$(PBGEN)/preview.npb.o \
 	$(PBGEN)/value.npb.o
 
 obj-m += ringload.o

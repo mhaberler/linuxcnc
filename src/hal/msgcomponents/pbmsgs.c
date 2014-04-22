@@ -57,6 +57,8 @@ PB_DESCRIPTOR(Ring);
 PB_DESCRIPTOR(Component);
 PB_DESCRIPTOR(Application);
 PB_DESCRIPTOR(File);
+PB_DESCRIPTOR(Preview);
+
 
 /* PB_DESCRIPTOR(); */
 
