@@ -31,7 +31,7 @@ message Container {
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
 
-    optional Preview      preview        = 8;
+    repeated Preview       preview        = 8;
 
     optional MotionCommand motcmd         = 9;
     optional MotionStatus  motstat        = 10;
