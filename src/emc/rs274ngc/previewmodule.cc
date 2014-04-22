@@ -25,7 +25,114 @@
 #include "canon.hh"
 #include "config.h"		// LINELEN
 
+#include <google/protobuf/message_lite.h>
+
+#include <middleware/generated/types.pb.h>
+#include <middleware/generated/message.pb.h>
+using namespace google::protobuf;
+
+#include "czmq.h"
+#include "pbutil.hh" // hal/haltalk
+
+static zctx_t *z_context;
+static void *z_preview, *z_status;  // sockets
+static bool z_debug;
+static char z_ident[20];
+static const char *z_preview_uri = "tcp://127.0.0.1:4711";
+static const char *z_status_uri = "tcp://127.0.0.1:4712";
+static const char *istat_topic = "interpstatus";
+static int batch_limit = 100;
+static int current_credit = 0;
+static const char *p_client = NULL; // single client for now
+
+static pb::Container istat, output;
+
+
+// #define REPLY_TIMEOUT 3000 //ms
+// #define UPDATE_TIMEOUT 3000 //ms
+
 int _task = 0; // control preview behaviour when remapping
+
+// publish an interpreter status change.
+static void publish_istat(pb::InterpreterStateType state)
+{
+    static pb::InterpreterStateType last_state = pb::INTERP_STATE_UNSET;
+    int retval;
+
+    if (state ^ last_state) {
+	istat.set_type(pb::MT_INTERP_STAT);
+	istat.set_interp_state(state);
+
+	// NB: this will also istat.Clear()
+	retval = send_pbcontainer(istat_topic, istat, z_status);
+	assert(retval == 0);
+
+	last_state = state; // change tracking
+    }
+}
+
+// send off a preview frame if sufficent preview frames accumulated, or flushing
+// is is assumed a repeated submessage preview was just added
+static void send_preview(const char *client, bool flush = false)
+{
+    int retval;
+
+    if ((output.preview_size() > batch_limit) || flush) {
+	output.set_type(pb::MT_PREVIEW);
+	retval = send_pbcontainer(client, output, z_status);
+	assert(retval == 0);
+    }
+}
+
+static int z_init(void)
+{
+    int rc;
+
+    if (z_context)  // singleton - once only
+	return 0;
+
+    const char *uri = getenv("PREVIEW_URI");
+    if (uri) z_preview_uri = uri;
+    uri = getenv("STATUS_URI");
+    if (uri) z_status_uri = uri;
+
+    z_debug = (getenv("ZDEBUG") != NULL);
+
+    if (getenv("BATCH"))
+	batch_limit = atoi(getenv("BATCH"));
+
+    // Verify that the version of the library that we linked against is
+    // compatible with the version of the headers we compiled against.
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    snprintf(z_ident, sizeof(z_ident), "preview-interp-%d", getpid());
+
+    z_context = zctx_new ();
+    z_preview = zsocket_new (z_context, ZMQ_ROUTER);
+    zsocket_set_linger (z_preview, 0);
+    zsocket_set_identity (z_preview, z_ident);
+    //    zsocket_set_rcvtimeo (z_preview, REPLY_TIMEOUT);
+    rc = zsocket_bind(z_preview, z_preview_uri);
+    assert (rc != 0);
+
+    z_status = zsocket_new (z_context, ZMQ_XPUB);
+    assert(z_status);
+    zsocket_set_linger (z_status, 0);
+    zsocket_set_xpub_verbose (z_status, 1);
+    rc = zsocket_bind(z_status, z_status_uri);
+    assert (rc != 0);
+
+    note_printf(istat, "interpreter startup pid=%d", getpid());
+    publish_istat(pb::INTERP_IDLE);
+
+    return 0;
+}
+
+// called on module unload
+static void z_shutdown(void)
+{
+    zctx_destroy(&z_context);
+}
 
 char _parameter_file_name[LINELEN];
 extern "C" void initinterpreter();
@@ -212,6 +319,26 @@ void ARC_FEED(int line_number,
                             a_position, b_position, c_position,
                             u_position, v_position, w_position);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_ARC_FEED);
+    p->set_line_number(line_number);
+    p->set_first_end(first_end);
+    p->set_second_end(second_end);
+    p->set_first_axis(first_axis);
+    p->set_second_axis(second_axis);
+    p->set_rotation(rotation);
+    p->set_axis_end_point(axis_end_point);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_a(a_position);
+    pos->set_b(b_position);
+    pos->set_c(c_position);
+    pos->set_u(u_position);
+    pos->set_v(v_position);
+    pos->set_w(w_position);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -229,6 +356,23 @@ void STRAIGHT_FEED(int line_number,
         callmethod(callback, "straight_feed", "fffffffff",
                             x, y, z, a, b, c, u, v, w);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_STRAIGHT_FEED);
+    p->set_line_number(line_number);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(x);
+    pos->set_y(y);
+    pos->set_z(z);
+    pos->set_a(a);
+    pos->set_b(b);
+    pos->set_c(c);
+    pos->set_u(u);
+    pos->set_v(v);
+    pos->set_w(w);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -246,6 +390,23 @@ void STRAIGHT_TRAVERSE(int line_number,
         callmethod(callback, "straight_traverse", "fffffffff",
                             x, y, z, a, b, c, u, v, w);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_STRAIGHT_TRAVERSE);
+    p->set_line_number(line_number);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(x);
+    pos->set_y(y);
+    pos->set_z(z);
+    pos->set_a(a);
+    pos->set_b(b);
+    pos->set_c(c);
+    pos->set_u(u);
+    pos->set_v(v);
+    pos->set_w(w);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -260,6 +421,25 @@ void SET_G5X_OFFSET(int g5x_index,
         callmethod(callback, "set_g5x_offset", "ifffffffff",
                             g5x_index, x, y, z, a, b, c, u, v, w);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_SET_G5X_OFFSET);
+    //    p->set_line_number(line_number);
+    p->set_g5_index(g5x_index);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(x);
+    pos->set_y(y);
+    pos->set_z(z);
+    pos->set_a(a);
+    pos->set_b(b);
+    pos->set_c(c);
+    pos->set_u(u);
+    pos->set_v(v);
+    pos->set_w(w);
+    send_preview(p_client);
+
+
     Py_XDECREF(result);
 }
 
@@ -273,6 +453,23 @@ void SET_G92_OFFSET(double x, double y, double z,
         callmethod(callback, "set_g92_offset", "fffffffff",
                             x, y, z, a, b, c, u, v, w);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_SET_G92_OFFSET);
+    //    p->set_line_number(line_number);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(x);
+    pos->set_y(y);
+    pos->set_z(z);
+    pos->set_a(a);
+    pos->set_b(b);
+    pos->set_c(c);
+    pos->set_u(u);
+    pos->set_v(v);
+    pos->set_w(w);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -282,7 +479,13 @@ void SET_XY_ROTATION(double t) {
     PyObject *result =
         callmethod(callback, "set_xy_rotation", "f", t);
     if(result == NULL) interp_error ++;
-    Py_XDECREF(result);
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_SET_G92_OFFSET);
+    //    p->set_line_number(line_number);
+    p->set_xy_rotation(t);
+    send_preview(p_client);
+
 };
 
 void USE_LENGTH_UNITS(CANON_UNITS u) { metric = u == CANON_UNITS_MM; }
@@ -302,6 +505,13 @@ void SET_TRAVERSE_RATE(double rate) {
     PyObject *result =
         callmethod(callback, "set_traverse_rate", "f", rate);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_SET_TRAVERSE_RATE);
+    //    p->set_line_number(line_number);
+    p->set_rate(rate);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -322,6 +532,13 @@ void CHANGE_TOOL(int pocket) {
     PyObject *result =
         callmethod(callback, "change_tool", "i", pocket);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_CHANGE_TOOL);
+    //    p->set_line_number(line_number);
+    p->set_pocket(pocket);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -342,6 +559,13 @@ void SET_FEED_RATE(double rate) {
     PyObject *result =
         callmethod(callback, "set_feed_rate", "f", rate);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_SET_FEED_RATE);
+    //    p->set_line_number(line_number);
+    p->set_rate(rate);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -351,6 +575,13 @@ void DWELL(double time) {
     PyObject *result =
         callmethod(callback, "dwell", "f", time);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_DWELL);
+    //    p->set_line_number(line_number);
+    p->set_time(time);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -360,6 +591,13 @@ void MESSAGE(char *comment) {
     PyObject *result =
         callmethod(callback, "message", "s", comment);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_MESSAGE);
+    //    p->set_line_number(line_number);
+    p->set_text(comment);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -374,6 +612,13 @@ void COMMENT(const char *comment) {
     PyObject *result =
         callmethod(callback, "comment", "s", comment);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_COMMENT);
+    //    p->set_line_number(line_number);
+    p->set_text(comment);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 
@@ -391,6 +636,22 @@ void USE_TOOL_LENGTH_OFFSET(EmcPose offset) {
     PyObject *result = callmethod(callback, "tool_offset", "ddddddddd", offset.tran.x, offset.tran.y, offset.tran.z,
         offset.a, offset.b, offset.c, offset.u, offset.v, offset.w);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_USE_TOOL_OFFSET);
+    //    p->set_line_number(line_number);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(offset.tran.x);
+    pos->set_y(offset.tran.y);
+    pos->set_z(offset.tran.z);
+    pos->set_a(offset.a);
+    pos->set_b(offset.b);
+    pos->set_c(offset.c);
+    pos->set_u(offset.u);
+    pos->set_v(offset.v);
+    pos->set_w(offset.w);
+    send_preview(p_client);
     Py_XDECREF(result);
 }
 
@@ -481,9 +742,25 @@ void STRAIGHT_PROBE(int line_number,
         callmethod(callback, "straight_probe", "fffffffff",
                             x, y, z, a, b, c, u, v, w);
     if(result == NULL) interp_error ++;
-    Py_XDECREF(result);
 
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_STRAIGHT_PROBE);
+    p->set_line_number(line_number);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(x);
+    pos->set_y(y);
+    pos->set_z(z);
+    pos->set_a(a);
+    pos->set_b(b);
+    pos->set_c(c);
+    pos->set_u(u);
+    pos->set_v(v);
+    pos->set_w(w);
+    send_preview(p_client);
+    Py_XDECREF(result);
 }
+
 void RIGID_TAP(int line_number,
                double x, double y, double z) {
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; }
@@ -493,6 +770,17 @@ void RIGID_TAP(int line_number,
         callmethod(callback, "rigid_tap", "fff",
             x, y, z);
     if(result == NULL) interp_error ++;
+
+    pb::Preview *p = output.add_preview();
+    p->set_type(pb::PV_RIGID_TAP);
+    p->set_line_number(line_number);
+
+    pb::Position *pos = p->mutable_pos();
+    pos->set_x(x);
+    pos->set_y(y);
+    pos->set_z(z);
+    send_preview(p_client);
+
     Py_XDECREF(result);
 }
 double GET_EXTERNAL_MOTION_CONTROL_TOLERANCE() { return 0.1; }
@@ -1000,14 +1288,16 @@ static PyMethodDef gcode_methods[] = {
 };
 
 PyMODINIT_FUNC
-initgcode(void) {
-    PyObject *m = Py_InitModule3("gcode", gcode_methods,
-                "Interface to EMC rs274ngc interpreter");
+initpreview(void) {
+    PyObject *m = Py_InitModule3("preview", gcode_methods,
+                "Protobuf ppreview interface to EMC rs274ngc interpreter");
     PyType_Ready(&LineCodeType);
     PyModule_AddObject(m, "linecode", (PyObject*)&LineCodeType);
     PyObject_SetAttrString(m, "MAX_ERROR", PyInt_FromLong(maxerror));
     PyObject_SetAttrString(m, "MIN_ERROR",
             PyInt_FromLong(INTERP_MIN_ERROR));
+    z_init();
+    Py_AtExit(z_shutdown);
 }
 
 // vim:ts=8:sts=4:sw=4:et:
