@@ -254,7 +254,7 @@ static int create_or_attach(const char *ringname, int size, ringbuffer_t * rb)
 
     // for messaging with protobuf, use record mode
     // default mode 0 = record mode
-    if ((retval = hal_ring_new(ringname, size, 0, comp_id, 0))) {
+    if ((retval = hal_ring_new(ringname, size, 0, 0))) {
 	if (retval == -EEXIST) {
 	    rtapi_print_msg(RTAPI_MSG_INFO,
 			    "%s: using existing ring '%s'\n", name, ringname);
@@ -264,7 +264,7 @@ static int create_or_attach(const char *ringname, int size, ringbuffer_t * rb)
 	    return retval;
 	}
     }
-    if ((retval = hal_ring_attach(ringname, rb, comp_id, NULL))) {
+    if ((retval = hal_ring_attach(ringname, rb, NULL))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: hal_ring_attach(%s) failed - %d\n",
 			name, command, retval);

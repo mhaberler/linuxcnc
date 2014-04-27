@@ -65,7 +65,7 @@ int rtapi_app_main(void)
 			name, comp_id);
 	return -1;
     }
-    if ((retval = hal_ring_attach(ring, &rb, comp_id, NULL))) {
+    if ((retval = hal_ring_attach(ring, &rb, NULL))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: ERROR: hal_ring_attach(%s) failed: %d\n",
 			name, ring, retval);

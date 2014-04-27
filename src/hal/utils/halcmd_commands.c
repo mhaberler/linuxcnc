@@ -2907,7 +2907,7 @@ static void print_ring_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Rings:\n");
-	halcmd_output("Name           Size       Type   Own Rdr Wrt Ref Flags \n");
+	halcmd_output("Name           Size       Type   Rdr Wrt Ref Flags \n");
     }
 
     //    rtapi_mutex_get(&(hal_data->mutex));
@@ -2916,25 +2916,24 @@ static void print_ring_info(char **patterns)
 	rptr = SHMPTR(next_ring);
 	if ( match(patterns, rptr->name) ) {
 	    unsigned flags;
-	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, comp_id, &flags))) {
+	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, &flags))) {
 		halcmd_error("%s: hal_ring_attach(%d) failed ",
 			     rptr->name, rptr->ring_id);
 		goto failed;
 	    }
 	    rh = ringbuffer.header;
-/* Name           Size       Type   Own Rdr Wrt Ref Flags  */
-/* ring_0         16392      record 0   0   0   2   recmax:16376  */
+/* Name           Size       Type   Rdr Wrt Ref Flags  */
+/* ring_0         16392      record 0   0   2   recmax:16376  */
 	    char *rtype = "unknown";
 	    switch (rh->type) {
 	    case RINGTYPE_RECORD:    rtype = "record"; break;
 	    case RINGTYPE_MULTIPART: rtype = "multi"; break;
 	    case RINGTYPE_STREAM:    rtype = "stream"; break;
 	    }
-	    halcmd_output("%-14.14s %-10zu %-6.6s %-3d %d/%d %d/%d %-3d",
+	    halcmd_output("%-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
 			  rptr->name,
 			  rh->size,
 			  rtype,
-			  rptr->owner,
 			  rh->reader,rh->reader_instance,
 			  rh->writer,rh->writer_instance,
 			  rh->refcount-1);
@@ -3014,7 +3013,7 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	}
     }
     // this will happen under hal_data->mutex locked
-    if ((retval = hal_ring_new(ring, size, spsize, comp_id, mode))) {
+    if ((retval = hal_ring_new(ring, size, spsize, mode))) {
 	halcmd_error("newring: failed to create new ring %s: %s\n",
 		     ring, strerror(-retval));
 	return -EINVAL;

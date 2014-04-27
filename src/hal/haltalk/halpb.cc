@@ -78,7 +78,6 @@ halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 {
     pbring->set_name(ring->name);
     pbring->set_handle(ring->handle);
-    pbring->set_owner(ring->owner);
     // XXX describing more detail would require a temporary attach.
     return 0;
 }

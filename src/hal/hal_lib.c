@@ -91,7 +91,7 @@ MODULE_LICENSE("GPL");
 
 char *hal_shmem_base = 0;
 hal_data_t *hal_data = 0;
-static int lib_module_id = -1;	/* RTAPI module ID for library module */
+int lib_module_id = -1; 	/* RTAPI module ID for library module */
 static int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
 
 // the global data segment contains vital instance information and

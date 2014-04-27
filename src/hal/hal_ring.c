@@ -5,6 +5,8 @@
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_ring.h"		/* HAL ringbuffer decls */
 
+// RTAPI module id of HAL_LIB. This module id owns all HAL ring shm segments.
+extern int lib_module_id;
 
 static hal_ring_t *alloc_ring_struct(void);
 static void free_ring_struct(hal_ring_t * p);
@@ -13,7 +15,7 @@ static int next_ring_id(void);
 /***********************************************************************
 *                     Public HAL ring functions                        *
 ************************************************************************/
-int hal_ring_new(const char *name, int size, int sp_size, int module_id, int flags)
+int hal_ring_new(const char *name, int size, int sp_size, int flags)
 {
     hal_ring_t *rbdesc;
     int *prev, next, cmp, retval;
@@ -27,6 +29,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
     if (!name) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"HAL: ERROR: hal_ring_new() called with NULL name\n");
+	return -EINVAL;
     }
     if (strlen(name) > HAL_NAME_LEN) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -88,12 +91,12 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 
 	    int shmid;
 
-	    // allocate an RTAPI shm segment owned by the allocating module
-	    if ((shmid = rtapi_shmem_new(rbdesc->ring_shmkey, module_id,
+	    // allocate an RTAPI shm segment owned by HAL_LIB_xxx
+	    if ((shmid = rtapi_shmem_new(rbdesc->ring_shmkey, lib_module_id,
 					 rbdesc->total_size)) < 0) {
 		rtapi_print_msg(RTAPI_MSG_ERR,
 				"HAL: hal_ring_new: rtapi_shmem_new(0x%8.8x,%d) failed: %d\n",
-				rbdesc->ring_shmkey, module_id,
+				rbdesc->ring_shmkey, lib_module_id,
 				rbdesc->total_size);
 		return  -ENOMEM;
 	    }
@@ -116,7 +119,6 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
 	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
 	rtapi_snprintf(rbdesc->name, sizeof(rbdesc->name), "%s", name);
 	rbdesc->next_ptr = 0;
-	rbdesc->owner = module_id;
 
 	// search list for 'name' and insert new structure
 	prev = &(hal_data->ring_list_ptr);
@@ -144,7 +146,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int module_id, int fla
     }
 }
 
-int hal_ring_delete(const char *name, int module_id)
+int hal_ring_delete(const char *name)
 {
     int retval;
 
@@ -156,6 +158,7 @@ int hal_ring_delete(const char *name, int module_id)
     if (!name) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"HAL: ERROR: hal_ring_delete() called with NULL name\n");
+	return -EINVAL;
     }
     if (strlen(name) > HAL_NAME_LEN) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -180,13 +183,6 @@ int hal_ring_delete(const char *name, int module_id)
 	    return -ENOENT;
 	}
 
-	if (hrptr->owner != module_id) {
-	    rtapi_print_msg(RTAPI_MSG_INFO,
-			    "HAL: ring '%s' created by module %d, cant be deleted by %d\n",
-			    name, hrptr->owner, module_id);
-	    return -EPERM;
-	}
-
 	ringheader_t *rhptr;
 	int shmid;
 
@@ -196,7 +192,7 @@ int hal_ring_delete(const char *name, int module_id)
 	} else {
 	    // ring exists as shm segment. Retrieve shared memory address.
 	    if ((shmid = rtapi_shmem_new_inst(hrptr->ring_shmkey,
-					      rtapi_instance, module_id,
+					      rtapi_instance, lib_module_id,
 					      0 )) < 0) {
 		if (shmid != -EEXIST)  {
 		    rtapi_print_msg(RTAPI_MSG_WARN,
@@ -224,10 +220,10 @@ int hal_ring_delete(const char *name, int module_id)
 	if (hrptr->flags & ALLOC_HALMEM) {
 	    ; // if there were a HAL memory free function, call it here
 	} else {
-	    if ((retval = rtapi_shmem_delete(shmid, module_id)) < 0)  {
+	    if ((retval = rtapi_shmem_delete(shmid, lib_module_id)) < 0)  {
 		rtapi_print_msg(RTAPI_MSG_ERR,
 				"HAL: hal_ring_delete(%s): rtapi_shmem_delete(%d,%d) failed: %d\n",
-				name, shmid, module_id, retval);
+				name, shmid, lib_module_id, retval);
 		return retval;
 	    }
 	}
@@ -257,8 +253,7 @@ int hal_ring_delete(const char *name, int module_id)
 
 }
 
-int hal_ring_attach(const char *name, ringbuffer_t *rbptr,
-		    int module_id, unsigned *flags)
+int hal_ring_attach(const char *name, ringbuffer_t *rbptr,unsigned *flags)
 {
     hal_ring_t *rbdesc;
     ringheader_t *rhptr;
@@ -288,7 +283,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr,
 
 	    // map in the shm segment - size 0 means 'must exist'
 	    if ((retval = rtapi_shmem_new_inst(rbdesc->ring_shmkey,
-					       rtapi_instance, module_id,
+					       rtapi_instance, lib_module_id,
 					   0 )) < 0) {
 		if (retval != -EEXIST)  {
 		    rtapi_print_msg(RTAPI_MSG_WARN,

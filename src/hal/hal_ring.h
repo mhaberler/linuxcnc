@@ -9,8 +9,8 @@
 RTAPI_BEGIN_DECLS
 
 // a ring buffer exists always relative to a local instance
-// it is 'owned' by the creating module (primarily because rtapi_shm_new()
-// wants a module_id param); however any module may attach to it.
+// it is 'owned' by hal_lib since because rtapi_shm_new() requires a module id
+// any module may attach to it.
 
 typedef struct {
     char name[HAL_NAME_LEN + 1]; // ring HAL name
@@ -18,7 +18,6 @@ typedef struct {
     int ring_id;                 // as per alloc bitmap
     int ring_shmkey;             // RTAPI shm key - if in shmseg
     int total_size;              // size of shm segment allocated
-    int owner;                   // creating HAL module
     unsigned ring_offset;        // if created in HAL shared memory
     unsigned flags;
     int handle;                  // unique ID
@@ -50,18 +49,22 @@ typedef struct {
 // spsize > 0 will allocate a shm scratchpad buffer
 // accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
 
-int hal_ring_new(const char *name, int size, int spsize, int module_id, int mode);
 
-// delete a ring buffer. Can be done only by the creating module.
+// named HAL rings are owned by the HAL_LIB_<pid> RTAPI module
+// components do not make sense as owners since their lifetime
+// might be shorter than the ring
+
+int hal_ring_new(const char *name, int size, int spsize, int mode);
+
+// delete a ring buffer.
 // will fail if the refcount is > 0 (meaning the ring is still attached somewhere).
-// will fail if not the creating module_id (which can be ignored).
-int hal_ring_delete(const char *name, int module_id);
+int hal_ring_delete(const char *name);
 
 // make an existing ringbuffer accessible to a component
 // rb must point to storage of type ringbuffer_t.
 // Increases the reference count.
 // store halring flags in *flags if non-zero.
-int hal_ring_attach(const char *name, ringbuffer_t *rb, int module_id, unsigned *flags);
+int hal_ring_attach(const char *name, ringbuffer_t *rb, unsigned *flags);
 
 // detach a ringbuffer. Decreases the reference count.
 int hal_ring_detach(const char *name, ringbuffer_t *rb);

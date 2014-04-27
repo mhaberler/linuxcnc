@@ -71,7 +71,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
     if (self->to_rt_name) {
 	unsigned flags;
 	if ((retval = hal_ring_attach(self->to_rt_name, &self->to_rt,
-				      comp_id, &flags))) {
+				       &flags))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_attach(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
@@ -84,7 +84,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	unsigned flags;
 
 	if ((retval = hal_ring_attach(self->from_rt_name, &self->from_rt,
-				      comp_id, &flags))) {
+				      &flags))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_attach(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);

@@ -833,13 +833,13 @@ ring_ptr HalComponent::ring_create(char *name,
     if (in_halmem)
 	arg |= ALLOC_HALMEM;
 
-    if ((retval = hal_ring_new(name, size, spsize, comp->comp_id, arg)) < 0) {
+    if ((retval = hal_ring_new(name, size, spsize, arg)) < 0) {
 	PyErr_Format(PyExc_NameError, "hal_ring_new(): can't create ring '%s': %s",
 		     name, strerror(-retval));
 	throw boost::python::error_already_set();
     }
     unsigned flags; // FIXME make Ring member
-    if (hal_ring_attach(name, &ringbuf, comp->comp_id, &flags) < 0) {
+    if (hal_ring_attach(name, &ringbuf,  &flags) < 0) {
 	PyErr_Format(PyExc_NameError, "hal_ring_attach(): no such ring: '%s': %s",
 		       name, strerror(-retval));
 	throw boost::python::error_already_set();
@@ -870,7 +870,7 @@ ring_ptr HalComponent::ring_attach(char *name, int type)
     ring_ptr r;
     unsigned flags; // FIXME make Ring member
 
-    if ((retval = hal_ring_attach(name, &rbuf, comp->comp_id, &flags))) {
+    if ((retval = hal_ring_attach(name, &rbuf, &flags))) {
 	PyErr_Format(PyExc_NameError, "hal_ring_attach(): no such ring: '%s': %s",
 		     name, strerror(-retval));
 	throw boost::python::error_already_set();
