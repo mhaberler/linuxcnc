@@ -91,7 +91,7 @@ cdef class Ring:
 	#    int dummy __attribute__((cleanup(halpr_autorelease_mutex)));
 	#    rtapi_mutex_get(&(hal_data->mutex));
 	#    self._hal_ring = halpr_find_ring_by_name(name)
-        #    if (self._hal_ring)
+        #    if (!self._hal_ring)
         #       raise Bug
         # }
 
