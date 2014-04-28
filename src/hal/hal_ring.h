@@ -31,7 +31,7 @@ typedef struct {
 
 // generic ring methods for all modes:
 
-// create a named ringbuffer, owned by comp module_id
+// create a named ringbuffer, owned by hal_lib
 //
 // mode is an or of:
 

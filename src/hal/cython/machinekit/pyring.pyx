@@ -6,6 +6,34 @@ from cpython.buffer cimport PyBuffer_FillInfo
 from cpython.bytes cimport PyBytes_AsString, PyBytes_Size, PyBytes_FromStringAndSize
 
 from libring cimport *
+from .hal cimport *
+
+from os import getpid
+
+cdef extern int lib_module_id
+cdef int comp_id = -1
+
+cdef extern from "hal_ring.h" :
+    ctypedef struct hal_ring_t:
+        #char name[HAL_NAME_LEN + 1]
+        int next_ptr
+        int ring_id
+        int ring_shmkey
+        int total_size
+        unsigned ring_offset
+        unsigned flags
+        int handle
+        ringbuffer_t * ring
+
+    # int hal_init(const char *name)
+    # int hal_init_mode(const char *name, int mode, int userarg1, int userarg2)
+
+    int hal_ring_new(const char *name, int size, int spsize, int mode)
+    int hal_ring_delete(const char *name)
+    int hal_ring_attach(const char *name, ringbuffer_t *rb, unsigned *flags)
+    int hal_ring_detach(const char *name, ringbuffer_t *rb)
+
+
 
 cdef class mview:
     cdef void *base
@@ -22,12 +50,16 @@ cdef class mview:
 cdef class Ring:
     cdef ringbuffer_t _ring
 
-    def __cinit__(self, int size):
-        if ring_init(&self._ring, size, NULL):
-            raise RuntimeError("Failed to initialize ringbuffer")
+    def __cinit__(self, char *name, int size = 0, int sp_size = 0, unsigned int flags = 0):
+        if size:
+            if hal_ring_new(name, size, sp_size, flags):
+                raise RuntimeError("hal_ring_new failed")
+        if hal_ring_attach(name, &self._ring, &flags):
+                raise RuntimeError("hal_ring_attach failed")
 
     def __dealloc__(self):
-        ring_free(&self._ring)
+        pass
+        # ring_free(&self._ring)
 
     def write(self, s):
         cdef void * ptr
@@ -138,3 +170,23 @@ cdef class BufRing:
 
     def flush(self):
         msg_write_flush(&self._ring)
+
+# module init function
+def pyring_init():
+    global comp_id,lib_module_id
+    cdef modname
+    if (lib_module_id < 0):
+        modname = "pyring%d" % getpid()
+        comp_id = hal_init(modname)
+        hal_ready(comp_id)
+
+# module exit handler
+def pyring_exit():
+    global comp_id
+    if comp_id > -1:
+        hal_exit(comp_id)
+
+pyring_init()
+
+import atexit
+atexit.register(pyring_exit)
