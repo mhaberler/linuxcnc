@@ -97,6 +97,14 @@ static void update_pbring(void *arg, long l)
 			"Data[%d]: %zd '%.*s' %d\n", i, v->rv_len, (int) v->rv_len,
 			(const char *) v->rv_base, v->rv_flags);
     }
+    // swap frames 1 & 2 and return the message
+
+    frame_writev(&p->from_rt_mrb, &rv[1]);
+    frame_writev(&p->from_rt_mrb, &rv[0]);
+    for (i = 2; i < n; i++)
+	frame_writev(&p->from_rt_mrb, &rv[i]);
+    msg_write_flush(&p->from_rt_mrb);
+
     // dump frames 10..
     msg_read_flush(&p->to_rt_mrb);
 

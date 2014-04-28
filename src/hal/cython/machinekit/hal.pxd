@@ -68,32 +68,32 @@ cdef extern from "hal.h":
         void **data_ptr_addr, int comp_id)
 
 # XXX ops for remote components
-cdef extern from "hal_rcomp.h":
+# cdef extern from "hal_rcomp.h":
 
-    ctypedef struct hal_comp_t:
-        pass
+#     ctypedef struct hal_comp_t:
+#         pass
 
-    ctypedef enum rcompflags_t:
-        RCOMP_ACCEPT_VALUES_ON_BIND
+#     ctypedef enum rcompflags_t:
+#         RCOMP_ACCEPT_VALUES_ON_BIND
 
-        # XXX
-        # typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
-	# 			     hal_pin_t *pin,
-	# 			     hal_data_u *value,
-	# 			     void *cb_data);
+#         # XXX
+#         # typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
+# 	# 			     hal_pin_t *pin,
+# 	# 			     hal_data_u *value,
+# 	# 			     void *cb_data);
 
-    ctypedef struct hal_compiled_comp_t:
-        pass
+#     ctypedef struct hal_compiled_comp_t:
+#         pass
 
-    int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
-    int hal_ccomp_match(hal_compiled_comp_t *ccomp)
+#     int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
+#     int hal_ccomp_match(hal_compiled_comp_t *ccomp)
 
-    # XXX NB: a callback here, see halextmodule.cc how I did this in boost:
-    # int hal_ccomp_report(hal_compiled_comp_t *ccomp,
-    #     		    comp_report_callback_t report_cb,
-    #     		    void *cb_data, int report_all)
-    int hal_ccomp_free(hal_compiled_comp_t *ccomp)
-    int hal_ccomp_args(hal_compiled_comp_t *ccomp, int *arg1, int *arg2)
+#     # XXX NB: a callback here, see halextmodule.cc how I did this in boost:
+#     # int hal_ccomp_report(hal_compiled_comp_t *ccomp,
+#     #     		    comp_report_callback_t report_cb,
+#     #     		    void *cb_data, int report_all)
+#     int hal_ccomp_free(hal_compiled_comp_t *ccomp)
+#     int hal_ccomp_args(hal_compiled_comp_t *ccomp, int *arg1, int *arg2)
 
 
 

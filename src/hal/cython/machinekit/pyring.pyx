@@ -40,7 +40,10 @@ def pyring_hal_init():
     if (lib_module_id < 0):
         modname = "pyring%d" % getpid()
         comp_id = hal_init(modname)
-        hal_ready(comp_id)
+        if comp_id > -1:
+            hal_ready(comp_id)
+        else:
+            raise RuntimeError("hal_init() failed - realtime not started?")
 
 # module exit handler
 def pyring_exit():
