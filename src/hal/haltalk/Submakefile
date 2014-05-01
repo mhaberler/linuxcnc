@@ -1,8 +1,6 @@
 
 PROFILE = #-pg
 HALTALK_SRCS :=  $(addprefix hal/haltalk/, \
-	pbutil.cc \
-	halpb.cc \
 	halutil.cc \
 	haltalk_group.cc \
 	haltalk_rcomp.cc \
@@ -28,6 +26,7 @@ HALTALK_LDFLAGS := \
 $(call TOOBJSDEPS, $(HALTALK_SRCS)) : EXTRAFLAGS += $(HALTALK_CXXFLAGS)
 
 ../bin/haltalk: $(call TOOBJS, $(HALTALK_SRCS)) \
+	../lib/libprotolib.so.0 \
 	../lib/libjson2pb.so \
 	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnchal.so.0 \
