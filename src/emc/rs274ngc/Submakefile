@@ -63,8 +63,8 @@ PYTARGETS += $(GCODEMODULE)
 
 
 PREVIEWMODULESRCS := \
-	emc/rs274ngc/previewmodule.cc \
-	hal/haltalk/pbutil.cc
+	emc/rs274ngc/previewmodule.cc
+
 
 PYSRCS += $(PREVIEWMODULESRCS)
 
@@ -72,7 +72,9 @@ $(call TOOBJSDEPS, $(PREVIEWMODULESRCS)) : Makefile.inc
 $(call TOOBJSDEPS, $(PREVIEWMODULESRCS)) : EXTRAFLAGS += -Ihal/haltalk $(CZMQ_CFLAGS) $(PROTOBUF_CFLAGS)
 
 PREVIEWMODULE := ../lib/python/preview.so
-$(PREVIEWMODULE): $(call TOOBJS, $(PREVIEWMODULESRCS)) ../lib/librs274.so.0
+$(PREVIEWMODULE): $(call TOOBJS, $(PREVIEWMODULESRCS)) \
+	../lib/librs274.so.0 \
+	../lib/libprotolib.so.0
 	$(ECHO) Linking python module $(notdir $@)
 	$(CXX) $(LDFLAGS) -shared -o $@ $^ \
 	../lib/libjson2pb.so \
