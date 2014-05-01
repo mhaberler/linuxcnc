@@ -179,6 +179,7 @@ SUBDIRS := \
 	middleware/service-discovery \
 	middleware/stp \
 	middleware/messagebus \
+	middleware/protolib \
 	libnml/linklist \
 	libnml/cms \
 	libnml/rcs \

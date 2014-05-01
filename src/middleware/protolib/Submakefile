@@ -1,0 +1,27 @@
+
+INCLUDES += $(MWDIR)/protolib
+
+PROTOLIB_SRCS := $(addprefix $(MWDIR)/protolib/, \
+	pbutil.cc \
+	halpb.cc)
+
+USERSRCS += $(PROTOLIB_SRCS)
+
+PROTOLIB_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+PROTOLIB_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
+
+$(call TOOBJSDEPS, $(PROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC $(PROTOLIB_CXXFLAGS)
+
+TARGETS += ../lib/libprotolib.so ../lib/libprotolib.so.0
+
+../lib/libprotolib.so.0: $(patsubst %.cc,objects/%.o,$(PROTOLIB_SRCS))
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CXX) -g $(PROTOLIB_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
+
+../include/%.h: ./$(MWDIR)/protolib/%.h
+	cp $^ $@
+
+../include/%.hh: ./$(MWDIR)/protolib/%.hh
+	cp $^ $@
