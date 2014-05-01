@@ -1,0 +1,28 @@
+
+
+SYSLOGASYNC_DIR := $(MWDIR)/syslog-async
+
+INCLUDES += $(SYSLOGASYNC_DIR)
+
+SYSLOGASYNC_SRCS := $(addprefix $(SYSLOGASYNC_DIR)/, \
+	syslog_async.c)
+
+USERSRCS += $(SYSLOGASYNC_SRCS)
+
+SYSLOGASYNC_CFLAGS :=
+SYSLOGASYNC_LDFLAGS :=  $(PROFILE)
+
+$(call TOOBJSDEPS, $(SYSLOGASYNC_SRCS)) : EXTRAFLAGS=-fPIC $(SYSLOGASYNC_CFLAGS)
+
+TARGETS += ../lib/libsyslog-async.so ../lib/libsyslog-async.so.0
+
+../lib/libsyslog-async.so.0: $(patsubst %.cc,objects/%.o,$(SYSLOGASYNC_SRCS))
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CC) -g $(SYSLOGASYNC_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
+
+
+
+../include/%.h: ./$(MWDIR)/syslog-async/%.h
+	cp  $^ $@

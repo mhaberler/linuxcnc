@@ -175,6 +175,7 @@ PYTARGETS :=
 SUBDIRS := \
 	\
 	middleware \
+	middleware/syslog-async \
 	middleware/support \
 	middleware/service-discovery \
 	middleware/stp \
@@ -192,7 +193,6 @@ SUBDIRS := \
 	rtapi/examples/timer \
 	rtapi/examples/shmem \
 	rtapi/examples \
-	rtapi/syslog-async \
 	rtapi \
 	rtapi/shmdrv \
 	\
