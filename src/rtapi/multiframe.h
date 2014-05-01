@@ -114,7 +114,7 @@ static inline int frame_write_begin(msgbuffer_t *mb, void ** data, size_t size, 
     }
     frame->size = size;
     frame->flags = flags;
-    *data = frame + 1; // point past frameheader_t header
+    *data = frame->data; //frame + 1; // point past frameheader_t header
     return 0;
 }
 

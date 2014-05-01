@@ -70,28 +70,30 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 
     if (self->to_rt_name) {
 	unsigned flags;
-	if ((retval = hal_ring_attach(self->to_rt_name, &self->to_rt,
+	if ((retval = hal_ring_attach(self->to_rt_name, &self->to_rt_ring,
 				       &flags))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_attach(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
 	    return;
 	}
-	self->to_rt.header->writer = comp_id;
+	self->to_rt_ring.header->writer = comp_id;
     }
+    msgbuffer_init(&self->to_rt_mframe, &self->to_rt_ring);
 
     if (self->from_rt_name) {
 	unsigned flags;
 
-	if ((retval = hal_ring_attach(self->from_rt_name, &self->from_rt,
+	if ((retval = hal_ring_attach(self->from_rt_name, &self->from_rt_ring,
 				      &flags))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_attach(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);
 	    return;
 	}
-	self->from_rt.header->reader = comp_id;
+	self->from_rt_ring.header->reader = comp_id;
     }
+    msgbuffer_init(&self->from_rt_mframe, &self->from_rt_ring);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s startup", progname, self->name);
 
@@ -116,73 +118,104 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	    void *cmdsocket = zpoller_wait (cmdpoller, -1);
 	    if (cmdsocket == NULL)
 		goto DONE;
-	    zmsg_t *msg = zmsg_recv(cmdsocket);
-	    char *me = zmsg_popstr (msg);
-	    char *from = zmsg_popstr (msg);
-	    zframe_t *f = zmsg_pop(msg);
-	    if (f == NULL)
-		break;
+	    zmsg_t *to_rt = zmsg_recv(cmdsocket);
+	    zmsg_fprint (to_rt,stderr);
+	    __u32 flags = 0;
 
-	    test_decode(f, pb_Container_fields);
+	    zframe_t *f;
+	    int i;
+	    msg_write_abort(&self->to_rt_mframe);
 
-	     // preallocate memory in ringbuffer
-	    void *buffer;
-	    size_t size = zframe_size(f);
-	    if ((retval = record_write_begin(&self->to_rt,
-				     (void **)&buffer, size)) != 0) {
-		rtapi_print_msg(RTAPI_MSG_ERR,
-				"%s: %s/%s:record_write_begin(%d) failed: %d\n",
-				progname, self->name, self->to_rt_name, size, retval);
-		break; // FIXME retry/timed ?
-	    }
-	    memcpy(buffer, zframe_data(f), size);
-	    if ((retval = record_write_end(&self->to_rt, buffer, size))) {
-		rtapi_print_msg(RTAPI_MSG_ERR,
-				"%s: record_write_end(%d) failed: %d\n",
-				progname,  size, retval);
-		break;  // FIXME
-	    }
-	    if (self->flags & ACTOR_TRACE) {
-		rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
-				     16,1, zframe_data(f), zframe_size(f),1,
-				     "%s->%s: ", self->name, self->to_rt_name);
+	    for (i = 0,f = zmsg_first (to_rt);
+		 f != NULL;
+		 f = zmsg_next(to_rt),i++) {
+		// ringvec_t v = { .rv_base =  zframe_data(f),
+		// 	      .rv_len =  zframe_size(f),
+		// 	      .rv_flags = flags };
+		//	int retval = frame_writev(&self->to_rt_mframe,&v);
+		void *d = zframe_data(f);
+		size_t sz =  zframe_size(f);
+
+		// printf("size = %zu\n",sz);
+		// d = (void *) "123456789";
+		// sz &=  0x000000ff;
+		int retval = frame_write(&self->to_rt_mframe, d, sz, flags);
+
+		// int retval = frame_write(&self->to_rt_mframe, zframe_data(f),
+		// 	  			  zframe_size(f), flags);
+
+		// int retval = frame_write(&self->to_rt_mframe, "blah",
+		// 			  4, flags);
+		if (retval)
+		    rtapi_print_msg(RTAPI_MSG_ERR, "frame_write: %s",
+				    strerror(retval));
+		else
+		    rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
+					 //					  16,1, zframe_data(f), zframe_size(f),1,
+					 16,1, d,sz,1,
+					 "%s->%s: ", self->name, self->to_rt_name);
 	    }
 
-	    zframe_destroy(&f);
+	    // 	switch (i) {
+	    // 	case 0:
+	    // 	case 1:
+	    // 	    frame_write(&self->to_rt_mframe, zframe_data(f),
+	    // 			zframe_size(f), flags);
+	    // 	    break;
+	    // 	default:
+	    // 	    // test_decode(f, pb_Container_fields);
+	    // 	    frame_write(&self->to_rt_mframe, zframe_data(f),
+	    // 			zframe_size(f), flags);
+	    // 	}
+	    // 	if (self->flags & ACTOR_TRACE)
+	    // 	    rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
+	    // 				 16,1, zframe_data(f), zframe_size(f),1,
+	    // 				 "%s->%s: ", self->name, self->to_rt_name);
+
+	    // }
+	    msg_write_flush(&self->to_rt_mframe);
+	    zmsg_destroy(&to_rt);
+
+	    continue;
+
+	    // rtapi_print_msg(RTAPI_MSG_ERR,
+	    // 			"%s: %s/%s:record_write_begin(%d) failed: %d\n",
+	    // 			progname, self->name, self->to_rt_name, size, retval);
 
 	    self->state = WAIT_FOR_RT_RESPONSE;
 	    self->current_delay = self->min_delay;
-	    ring_size_t response_size;
+
+	    zmsg_t *from_rt = zmsg_new();
+	    msg_read_abort(&self->from_rt_mframe);
 	    while (1) {
 		zpoller_wait (delay, self->current_delay);
 		if ( zpoller_terminated (delay) ) {
 		    rtapi_print_msg(RTAPI_MSG_ERR, "%s: wait interrupted",
 				    self->from_rt_name);
-
 		}
-		response_size = record_next_size(&self->from_rt);
-		if (response_size > -1) // zero-size frames are ok
+		ringvec_t rv;
+		if (frame_readv(&self->from_rt_mframe, &rv) == 0) {
+		    if (self->flags & ACTOR_TRACE)
+			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
+				     16,1, rv.rv_base, rv.rv_len, 1,
+				     "%s->%s: ", self->from_rt_name,self->name);
+
+		    // decide what to do based on rv.rv_flags
+
+
+		    // zframe_new copies the data
+		    zframe_t *f = zframe_new (rv.rv_base, rv.rv_len);
+		    zmsg_append (from_rt, &f);
+		    frame_shift(&self->from_rt_mframe);
+		} else
 		    break;
+
 		// exponential backoff
 		self->current_delay <<= 1;
 		self->current_delay = MIN(self->current_delay, self->max_delay);
 	    }
-
-
-	    const void *response = record_next(&self->from_rt);
-	    zframe_t *r = zframe_new(response, response_size);
-
-	    if (self->flags & ACTOR_TRACE) {
-		rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
-				     16,1, zframe_data(r), zframe_size(r),1,
-				     "%s->%s: ", self->from_rt_name,self->name);
-	    }
-	    zstr_sendm(self->proxy_response, me);
-	    zstr_sendm(self->proxy_response, from);
-	    zframe_send (&r, self->proxy_response, 0);
-	    record_shift(&self->from_rt);
-	    free(me);
-	    free(from);
+	    msg_read_flush(&self->from_rt_mframe);
+	    zmsg_send (&from_rt, self->proxy_response);
 	}
     DONE:
 	zpoller_destroy(&cmdpoller);
@@ -221,23 +254,23 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
     zpoller_destroy (&poller);
 #endif
     if (self->to_rt_name) {
-	if ((retval = hal_ring_detach(self->to_rt_name, &self->to_rt))) {
+	if ((retval = hal_ring_detach(self->to_rt_name, &self->to_rt_ring))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
 	    return;
 	}
-	self->to_rt.header->writer = 0;
+	self->to_rt_ring.header->writer = 0;
     }
 
     if (self->from_rt_name) {
-	if ((retval = hal_ring_detach(self->from_rt_name, &self->from_rt))) {
+	if ((retval = hal_ring_detach(self->from_rt_name, &self->from_rt_ring))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);
 	    return;
 	}
-	self->from_rt.header->reader = 0;
+	self->from_rt_ring.header->reader = 0;
     }
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s exit", progname, self->name);

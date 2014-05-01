@@ -195,6 +195,9 @@ static int handle_xpub_in(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    } // else: response to non-existent actor is dropped
 	} else {
 	    // forward
+	    if (debug)
+		rtapi_print_msg(RTAPI_MSG_ERR, "forward: %s->%s:\n", from,to);
+
 	    zstr_sendm(poller->socket, to);          // topic
 	    zstr_sendm(poller->socket, from);        // destination
 	    zmsg_send(&msg, poller->socket);
@@ -228,31 +231,62 @@ static int handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     return -1; // exit reactor with -1
 }
 
+// handle signals delivered via sigaction - not all signals
+// can be dealt with through signalfd(2)
+// log, try to do something sane, and dump core
+static void sigaction_handler(int sig, siginfo_t *si, void *uctx)
+{
+
+    rtapi_print_msg(RTAPI_MSG_INFO,
+		    "signal %d - '%s' received, dumping core (current dir=%s)",
+		    sig, strsignal(sig), get_current_dir_name());
+    //exit_actions(instance_id);
+
+
+    //closelog_async(); // let syslog_async drain
+    //sleep(1);
+    signal(SIGABRT, SIG_DFL);
+    abort();
+
+}
+
 static int signal_setup(void)
 {
+     // SIGSEGV cannot be delivered via signalfd
+    // so deliver via sigaction
+    struct sigaction sig_act;
+
+    sigemptyset( &sig_act.sa_mask );
+    sig_act.sa_sigaction = sigaction_handler;
+    sig_act.sa_flags   = SA_SIGINFO;
+    sigaction(SIGSEGV, &sig_act, (struct sigaction *) NULL);
+
     sigset_t sigmask;
+    sigemptyset(&sigmask);
+
+    // block all signal delivery through signal handler
+    // except SIGSEGV
+    // since we're using signalfd()
+    sigfillset(&sigmask);
+    sigdelset(&sigmask, SIGSEGV);
+    if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
+	perror("sigprocmask");
 
     sigemptyset(&sigmask);
 
-    // block all signal delivery through default signal handlers
-    // since we're using signalfd()
-    sigfillset(&sigmask);
-    sigprocmask(SIG_SETMASK, &sigmask, NULL);
-
-    // explicitly enable signals we want delivered via signalfd()
+    // delivered via signalfd()
     sigemptyset(&sigmask);
     sigaddset(&sigmask, SIGINT);
     sigaddset(&sigmask, SIGQUIT);
+    sigaddset(&sigmask, SIGKILL);
     sigaddset(&sigmask, SIGTERM);
-    sigaddset(&sigmask, SIGSEGV);
     sigaddset(&sigmask, SIGFPE);
+    sigaddset(&sigmask, SIGFPE);
+    sigaddset(&sigmask, SIGBUS);
+    sigaddset(&sigmask, SIGILL);
 
-    if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signaldfd() failed: %s\n",
-			progname,  strerror(errno));
-	return -1;
-    }
-    return 0;
+    signal_fd = signalfd(-1, &sigmask, 0);
+    return (signal_fd < 0);
 }
 
 
@@ -362,8 +396,8 @@ static int rtproxy_setup(msgbusd_self_t *self)
 {
     echo.flags = ACTOR_ECHO|ACTOR_TRACE;
     echo.name = "echo";
-    echo.pipe = zthread_fork (self->context, rtproxy_thread, &echo);
-    assert (echo.pipe);
+    // echo.pipe = zthread_fork (self->context, rtproxy_thread, &echo);
+    // assert (echo.pipe);
 
     demo.flags = ACTOR_RESPONDER|ACTOR_TRACE;
     demo.state = IDLE;
@@ -371,20 +405,22 @@ static int rtproxy_setup(msgbusd_self_t *self)
     demo.max_delay = 200; // msec
 
     demo.name = "demo";
-    demo.to_rt_name = "pbring.0.in";
-    demo.from_rt_name = "pbring.0.out";
+    demo.to_rt_name = "mptx.0.in";
+    demo.from_rt_name = "mptx.0.out";
+    demo.min_delay = 2;   // msec
+    demo.max_delay = 200; // msec
     demo.pipe = zthread_fork (self->context, rtproxy_thread, &demo);
     assert (demo.pipe);
 
-    too.flags = ACTOR_RESPONDER|ACTOR_TRACE;
-    too.state = IDLE;
-    too.min_delay = 2;   // msec
-    too.max_delay = 200; // msec
-    too.name = "too";
-    too.to_rt_name = "pbring.1.in";
-    too.from_rt_name = "pbring.1.out";
-    too.pipe = zthread_fork (self->context, rtproxy_thread, &too);
-    assert (too.pipe);
+    // too.flags = ACTOR_RESPONDER|ACTOR_TRACE;
+    // too.state = IDLE;
+    // too.min_delay = 2;   // msec
+    // too.max_delay = 200; // msec
+    // too.name = "mptx";
+    // too.to_rt_name = "mptx.0.in";
+    // too.from_rt_name = "mptx.0.out";
+    // too.pipe = zthread_fork (self->context, rtproxy_thread, &too);
+    // assert (too.pipe);
 
     return 0;
 }
@@ -513,8 +549,8 @@ int main (int argc, char *argv[])
     }
     openlog("", LOG_NDELAY , logopt);
 
-    to_syslog("messagebus> ", &stdout); // redirect stdout to syslog
-    to_syslog("messagebus>> ", &stderr);  // redirect stderr to syslog
+    // to_syslog("messagebus> ", &stdout); // redirect stdout to syslog
+    // to_syslog("messagebus>> ", &stderr);  // redirect stderr to syslog
     // printf("hi stdout from messagebus\n"); fflush(stdout);
     // fprintf(stderr, "hi stderr from messagebus\n"); fflush(stderr);
 

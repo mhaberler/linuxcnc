@@ -10,13 +10,18 @@ typedef enum {
 
 typedef struct {
     const char *name;
+
     unsigned flags;
     rtproxystate_t state;
     void *pipe;
     void *proxy_response;
     void *proxy_cmd;
-    ringbuffer_t to_rt;
-    ringbuffer_t from_rt;
+    ringbuffer_t to_rt_ring;       // incoming ringbuffer
+    msgbuffer_t to_rt_mframe;      // multiframe layer on incoming ringbuffer
+
+    ringbuffer_t from_rt_ring;     // outgoing ringbuffer
+    msgbuffer_t from_rt_mframe;    // multiframe layer on outgoing ringbuffer
+
     const char *to_rt_name;
     const char *from_rt_name;
     bool decode_out, encode_in;  // pb_encode()/pb_decode() before/after RT I/O

@@ -87,16 +87,25 @@ static void update_pbring(void *arg, long l)
     int n,i;
     ringvec_t rv[10] = { };
 
+    rtapi_print_msg(RTAPI_MSG_ERR,"next size = %d\n",cmdsize);
+    msg_read_abort(&p->to_rt_mrb);
+
     for (n = 0;
 	 (n < 10) && (frame_readv(&p->to_rt_mrb, &rv[n]) == 0);
-	 n++, frame_shift(&p->to_rt_mrb));
+	 n++, frame_shift(&p->to_rt_mrb)) {
+	ringvec_t *v = &rv[n];
 
-    for (i = 0; i < n; i++) {
-	ringvec_t *v = &rv[i];
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"Data[%d]: %zd '%.*s' %d\n", i, v->rv_len, (int) v->rv_len,
+			"Data[%d]: %zd '%.*s' %d\n", n, v->rv_len, (int) v->rv_len,
 			(const char *) v->rv_base, v->rv_flags);
     }
+
+    /* for (i = 0; i < n; i++) { */
+    /* 	ringvec_t *v = &rv[i]; */
+    /* 	rtapi_print_msg(RTAPI_MSG_ERR, */
+    /* 			"Data[%d]: %zd '%.*s' %d\n", i, v->rv_len, (int) v->rv_len, */
+    /* 			(const char *) v->rv_base, v->rv_flags); */
+    /* } */
     // swap frames 1 & 2 and return the message
 
     frame_writev(&p->from_rt_mrb, &rv[1]);
@@ -245,7 +254,6 @@ void rtapi_app_exit(void)
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed: %d\n",
 			    name, ringname, retval);
-	// hal_ring_delete(ringname, comp_id);
 
 	p->from_rt_rb.header->writer = 0;
 	rtapi_snprintf(ringname, sizeof(ringname), "%s.%d.out", name, i);
@@ -253,7 +261,6 @@ void rtapi_app_exit(void)
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed: %d\n",
 			    name, ringname, retval);
-	// hal_ring_delete(ringname, comp_id);
     }
     hal_exit(comp_id);
 }

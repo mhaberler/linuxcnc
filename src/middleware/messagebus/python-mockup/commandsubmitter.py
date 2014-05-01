@@ -51,11 +51,12 @@ time.sleep(1) # let subscriptions stabilize
 for j in range(options.iter):
 
     for n in range(options.batch):
-        msg = "cmd %d " % i
+        msg = "cmd %d" % i
         i += 1
+        mp = [me, options.destination,msg]
         if options.verbose:
-            print "---%s send command to %s: %s" % (me,options.destination, msg)
-        cmd.send_multipart([me, options.destination,msg])
+            print "---%s msg %s" % (me,mp)
+        cmd.send_multipart(mp)
 
     for n in range(options.batch):
         msg = response.recv_multipart()
