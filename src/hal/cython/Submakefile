@@ -28,20 +28,19 @@ $(HALNGDIR)/machinekit/hal.c: $(addprefix $(HALNGDIR)/machinekit/, hal.pyx hal.p
 
 
 
-# RINGSRCS := $(addprefix $(HALNGDIR)/, \
-# 	machinekit/pyring.c )
-# TARGETS += ../lib/python/machinekit/pyring.so
-# USERSRCS += $(RINGSRCS)
-# $(call TOOBJSDEPS,  $(RINGSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
+RINGSRCS := $(addprefix $(HALNGDIR)/, \
+	machinekit/pyring.c )
+TARGETS += ../lib/python/machinekit/pyring.so 
+USERSRCS += $(RINGSRCS)
+$(call TOOBJSDEPS,  $(RINGSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
 
-# $(HALNGDIR)/machinekit/pyring.c: $(addprefix $(HALNGDIR)/machinekit/, pyring.pyx libring.pxd)
-# 	cython -o $@ $<
+$(HALNGDIR)/machinekit/pyring.c: $(addprefix $(HALNGDIR)/machinekit/, pyring.pyx libring.pxd)
+	cython -o $@ $<
 
-# ../lib/python/machinekit/pyring.so: 	../lib/liblinuxcnchal.so.0 \
-#	$(patsubst %.c,objects/%.o,$(RINGSRCS))
-# 	$(ECHO) Linking $($@)
-# 	@mkdir -p $(dir $@)
-# 	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS) 
+../lib/python/machinekit/pyring.so: $(patsubst %.c,objects/%.o,$(RINGSRCS)) ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS)
 
 endif
 
