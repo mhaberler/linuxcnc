@@ -1,11 +1,18 @@
+PROTOLIB_DIR := $(MWDIR)/protolib
 
-INCLUDES += $(MWDIR)/protolib
+INCLUDES += $(PROTOLIB_DIR)
 
-PROTOLIB_SRCS := $(addprefix $(MWDIR)/protolib/, \
+
+# protobuf support functions - usable without HAL (eg remotely)
+PROTOLIB_SRCS := $(addprefix $(PROTOLIB_DIR)/, \
 	pbutil.cc \
+	setup_signals.c)
+
+# protobuf support functions which depend on HAL - on RT host only
+HALPROTOLIB_SRCS := $(addprefix $(PROTOLIB_DIR)/, \
 	halpb.cc)
 
-USERSRCS += $(PROTOLIB_SRCS)
+USERSRCS += $(PROTOLIB_SRCS) $(HALPROTOLIB_SRCS)
 
 PROTOLIB_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 PROTOLIB_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
@@ -14,14 +21,30 @@ $(call TOOBJSDEPS, $(PROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC $(PROTOLIB_CXXFLAGS)
 
 TARGETS += ../lib/libprotolib.so ../lib/libprotolib.so.0
 
-../lib/libprotolib.so.0: $(patsubst %.cc,objects/%.o,$(PROTOLIB_SRCS))
+../lib/libprotolib.so.0: $(patsubst %.cc,objects/%.o,$(PROTOLIB_SRCS)) \
+	../lib/libsyslog-async.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
 	$(Q)$(CXX) -g $(PROTOLIB_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
 
-../include/%.h: ./$(MWDIR)/protolib/%.h
+../include/%.h: ./$(PROTOLIB_DIR)/%.h
 	cp $^ $@
 
-../include/%.hh: ./$(MWDIR)/protolib/%.hh
+../include/%.hh: ./$(PROTOLIB_DIR)/%.hh
 	cp $^ $@
+
+HALPROTOLIB_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+HALPROTOLIB_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
+
+$(call TOOBJSDEPS, $(HALPROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC $(HALPROTOLIB_CXXFLAGS)
+
+TARGETS += ../lib/libhalprotolib.so ../lib/libhalprotolib.so.0
+
+../lib/libhalprotolib.so.0: \
+	$(patsubst %.cc,objects/%.o,$(HALPROTOLIB_SRCS)) \
+	 ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CXX) -g $(HALPROTOLIB_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
