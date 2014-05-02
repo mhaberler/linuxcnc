@@ -181,6 +181,7 @@ SUBDIRS := \
 	middleware/stp \
 	middleware/messagebus \
 	middleware/protolib \
+	middleware/configd \
 	libnml/linklist \
 	libnml/cms \
 	libnml/rcs \

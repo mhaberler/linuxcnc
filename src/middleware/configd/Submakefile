@@ -1,0 +1,25 @@
+
+
+CONFIGD_DIR := $(MWDIR)/configd
+
+CONFIGD_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+	configd.cc \
+	)
+
+
+CONFIGD_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+CONFIGD_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
+
+$(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += $(CONFIGD_CXX_CFLAGS)
+
+../bin/configd: $(call TOOBJS, $(CONFIGD_SRCS)) \
+	../lib/libsyslog-async.so.0 \
+	../lib/libprotolib.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  \
+	 $(CONFIGD_CXX_LDFLAGS)
+
+USERSRCS += $(CONFIGD_SRCS)
+
+TARGETS += ../bin/configd
