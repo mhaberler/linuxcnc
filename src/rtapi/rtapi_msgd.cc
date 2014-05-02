@@ -32,9 +32,7 @@
 #include "rtapi_compat.h"
 
 #include <sys/types.h>
-#include <signal.h>
 #include <sys/stat.h>
-#include <sys/signalfd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <time.h>
@@ -50,7 +48,6 @@
 #include <string>
 #include <vector>
 #include <poll.h>
-#include <sys/signalfd.h>
 #include <assert.h>
 
 using namespace std;
@@ -59,9 +56,9 @@ using namespace std;
 #include <rtapi/shmdrv/shmdrv.h>
 #include <ring.h>
 #include <sdpublish.h>  // for UDP service discovery
-#include <redirect_log.h>
+#include <setup_signals.h>
 
-#include "czmq.h"
+#include <czmq.h>
 
 #include <google/protobuf/text_format.h>
 #include <middleware/generated/types.pb.h>
@@ -600,10 +597,25 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 	(shutdowntimer_id ==  0)) {
 	// schedule a loop shutdown but keep reading messages for a while
 	// so we dont loose messages
-	syslog_async(LOG_ERR, "msgd: rtapi_app exit detected - scheduled shutdown");
-	shutdowntimer_id = zloop_timer (loop, GRACE_PERIOD, 1, s_start_shutdown_cb, NULL);
+	syslog_async(LOG_ERR, "rtapi_app exit detected - scheduled shutdown");
+	shutdowntimer_id = zloop_timer (loop, GRACE_PERIOD, 1,
+					s_start_shutdown_cb, NULL);
     }
     return 0;
+}
+
+// handle signals delivered via sigaction - not all signals
+// can be dealt with through signalfd(2)
+// log, try to do something sane, and dump core
+static void sigaction_handler(int sig, siginfo_t *si, void *uctx)
+{
+    syslog_async(LOG_ERR,"signal %d - '%s' received, dumping core (current dir=%s)",
+		    sig, strsignal(sig), get_current_dir_name());
+    closelog_async(); // let syslog_async drain
+    sleep(1);
+    signal(SIGABRT, SIG_DFL);
+    abort();
+    // not reached
 }
 
 
@@ -633,7 +645,6 @@ int main(int argc, char **argv)
     int c, i, retval;
     int option = LOG_NDELAY;
     pid_t pid, sid;
-    sigset_t sigmask;
     size_t argv0_len, procname_len, max_procname_len;
     struct lws_context_creation_info info = {0};
     const char *www_dir = NULL;
@@ -869,35 +880,15 @@ int main(int argc, char **argv)
     dup2(fd, STDIN_FILENO);
     close(fd);
 
-    // redirect stdout to syslog
-    // NB: this works for FILE *, not the underlying STDOUT_FILENO
-    to_syslog("> ", &stdout);
+    // // redirect stdout to syslog
+    // // NB: this works for FILE *, not the underlying STDOUT_FILENO
+    // to_syslog("> ", &stdout);
 
-    if (!log_stderr)
-	to_syslog(">> ", &stderr);  // redirect stderr to syslog
+    // if (!log_stderr)
+    // 	to_syslog(">> ", &stderr);  // redirect stderr to syslog
 
-    // signal handling
-    sigemptyset(&sigmask);
-
-    // block all signal delivery through signal handler
-    // since we're using signalfd()
-    // do this here so child threads inherit the sigmask
-
-    sigfillset(&sigmask);
-    if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
-	perror("sigprocmask");
-
-    // sigset of all the signals that we're interested in
-    // these we want delivered via signalfd()
-    retval = sigemptyset(&sigmask);        assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGINT);  assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGKILL); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGTERM); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGSEGV); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGFPE);  assert(retval == 0);
-
-    if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0)
-	perror("signalfd");
+    signal_fd = setup_signals(sigaction_handler);
+    assert(signal_fd > -1);
 
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()

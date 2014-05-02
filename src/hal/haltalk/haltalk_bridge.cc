@@ -21,7 +21,6 @@
 #include "haltalk.hh"
 #include <arpa/inet.h>
 #include <sys/socket.h>
-// #include "halutil.hh"
 // #include "halpb.hh"
 // #include "pbutil.hh"
 // #include "rtapi_hexdump.h"

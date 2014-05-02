@@ -18,7 +18,6 @@
 
 #include "haltalk.hh"
 #include "hal_iter.h"
-#include "halutil.hh"
 #include "halpb.hh"
 #include "pbutil.hh"
 #include "rtapi_hexdump.h"

@@ -29,6 +29,7 @@
 //   5. optional may bridge to a remote HAL instance through a remote component.
 
 #include "haltalk.hh"
+#include <setup_signals.h>
 
 
 static const char *option_string = "hI:S:dt:Du:r:T:c:pb:C:U:i:";
@@ -87,7 +88,9 @@ handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     switch (fdsi.ssi_signo) {
     default:
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signal %d - '%s' received\n",
-			self->cfg->progname, fdsi.ssi_signo, strsignal(fdsi.ssi_signo));
+			self->cfg->progname,
+			fdsi.ssi_signo,
+			strsignal(fdsi.ssi_signo));
     }
     self->interrupted = true;
     return -1; // exit reactor with -1
@@ -125,35 +128,24 @@ mainloop( htself_t *self)
     return 0;
 }
 
+static void sigaction_handler(int sig, siginfo_t *si, void *uctx)
+{
+    syslog_async(LOG_ERR,"signal %d - '%s' received, dumping core (current dir=%s)",
+		    sig, strsignal(sig), get_current_dir_name());
+    closelog_async(); // let syslog_async drain
+    sleep(1);
+    signal(SIGABRT, SIG_DFL);
+    abort();
+    // not reached
+}
+
 static int
 zmq_init(htself_t *self)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-    sigset_t sigmask;
-    int retval;
-
-    sigemptyset(&sigmask);
-
-    // block all signal delivery through default signal handlers
-    // since we're using signalfd()
-    sigfillset(&sigmask);
-    retval = sigprocmask(SIG_SETMASK, &sigmask, NULL);
-    assert(retval == 0);
-
-    // explicitly enable signals we want delivered via signalfd()
-    retval = sigemptyset(&sigmask); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGINT);  assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGQUIT); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGTERM); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGSEGV); assert(retval == 0);
-    retval = sigaddset(&sigmask, SIGFPE);  assert(retval == 0);
-
-    if ((self->signal_fd = signalfd(-1, &sigmask, 0)) < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signaldfd() failed: %s\n",
-			self->cfg->progname,  strerror(errno));
-	return -1;
-    }
+    self->signal_fd = setup_signals(sigaction_handler);
+    assert(self->signal_fd > -1);
 
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()
@@ -370,9 +362,6 @@ int main (int argc, char *argv[])
 	}
     }
     conf.sd_port = SERVICE_DISCOVERY_PORT;
-
-    // to_syslog("haltalk> ", &stdout); // redirect stdout to syslog
-    // to_syslog("haltalk>> ", &stderr);  // redirect stderr to syslog
 
     if (read_config(&conf))
 	exit(1);

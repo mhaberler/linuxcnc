@@ -23,7 +23,6 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <assert.h>
-#include <sys/signalfd.h>
 #include <errno.h>
 #include <getopt.h>
 #include <uuid/uuid.h>
@@ -44,7 +43,7 @@
 #include <sdpublish.h>
 #include <sdiscover.h>
 #include <inifile.h>
-#include <redirect_log.h>
+#include <syslog_async.h>
 
 #include "halitem.h"
 

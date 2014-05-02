@@ -200,8 +200,7 @@ RTAPI_APP_SRCS := \
 	rtapi/$(threads)/rtapi_app.cc \
 	rtapi/$(threads)/rtapi_compat.c \
 	rtapi/$(threads)/rtapi_hexdump.c \
-	rtapi/$(threads)/rtapi_support.c \
-	rtapi/syslog-async/syslog_async.c
+	rtapi/$(threads)/rtapi_support.c
 
 USERSRCS += $(RTAPI_APP_SRCS)
 
@@ -215,10 +214,13 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 
 ../libexec/rtapi_app_$(threads): \
-		$(call TOOBJS, $(RTAPI_APP_SRCS)) \
-		../lib/liblinuxcncini.so.0 ../lib/liblinuxcncshm.so \
-		../lib/libsdpublish.so.0 \
-		../lib/liblinuxcnc-pb2++.so.0
+	$(call TOOBJS, $(RTAPI_APP_SRCS)) \
+	../lib/liblinuxcncini.so.0 \
+	../lib/liblinuxcncshm.so \
+	../lib/libsdpublish.so.0 \
+	../lib/libsyslog-async.so.0 \
+	../lib/libprotolib.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) -Wl,-rpath,$(EMC2_RTLIB_DIR) $(RTAPI_APP_RPATH) \
@@ -254,8 +256,6 @@ INCLUDES += middleware/wsproxy
 RTAPI_MSGD_SRCS =  \
 	rtapi/rtapi_msgd.cc \
 	rtapi/rtapi_compat.c \
-	rtapi/syslog-async/syslog_async.c \
-	rtapi/redirect_log.c \
 	middleware/wsproxy/zwsproxy.c
 
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
@@ -277,6 +277,8 @@ $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	../lib/liblinuxcncini.so \
 	../lib/libsdpublish.so.0 \
 	../lib/liblinuxcnc-pb2++.so \
+	../lib/libsyslog-async.so.0 \
+	../lib/libprotolib.so.0 \
 	../lib/libjson2pb.so
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)

@@ -1,16 +1,13 @@
 
 PROFILE = #-pg
 HALTALK_SRCS :=  $(addprefix hal/haltalk/, \
-	halutil.cc \
 	haltalk_group.cc \
 	haltalk_rcomp.cc \
 	haltalk_command.cc \
 	haltalk_introspect.cc \
 	haltalk_sdiscover.cc \
 	haltalk_bridge.cc \
-	haltalk_main.cc) \
-	rtapi/redirect_log.c \
-	rtapi/syslog-async/syslog_async.c
+	haltalk_main.cc)
 
 HALTALK_CXXFLAGS := -DULAPI \
 	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \
@@ -27,6 +24,8 @@ $(call TOOBJSDEPS, $(HALTALK_SRCS)) : EXTRAFLAGS += $(HALTALK_CXXFLAGS)
 
 ../bin/haltalk: $(call TOOBJS, $(HALTALK_SRCS)) \
 	../lib/libprotolib.so.0 \
+	../lib/libsyslog-async.so.0 \
+	../lib/libhalprotolib.so.0 \
 	../lib/libjson2pb.so \
 	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnchal.so.0 \

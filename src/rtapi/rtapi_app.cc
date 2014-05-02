@@ -71,7 +71,6 @@ using namespace google::protobuf;
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
 #include <sdpublish.h>  // for UDP service discovery
-#include <redirect_log.h>
 
 #include "rtapi.h"
 #include "rtapi_global.h"
@@ -79,6 +78,7 @@ typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 #include "hal.h"
 #include "hal/hal_priv.h"
 #include "rtapi/shmdrv/shmdrv.h"
+#include "setup_signals.h"
 
 #define BACKGROUND_TIMER 1000
 
@@ -142,7 +142,6 @@ static void exit_actions(int instance);
 static int harden_rt(void);
 static void rtapi_app_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
-static void setup_signals(void);
 
 // raise/drop privilege support
 void save_uid(void);
@@ -849,7 +848,8 @@ static int mainloop(size_t  argc, char **argv)
     // block all signal delivery through signal handler
     // since we're using signalfd()
     // do this here so child threads inherit the sigmask
-    setup_signals();
+    signal_fd = setup_signals(sigaction_handler);
+    assert(signal_fd > -1);
 
     // suppress default handling of signals in zctx_new()
     // since we're using signalfd()
@@ -1001,7 +1001,7 @@ exit_handler(void)
     }
 }
 
-
+#if 0
 static void setup_signals(void)
 {
     // SIGSEGV cannot be delivered via signalfd
@@ -1024,8 +1024,6 @@ static void setup_signals(void)
     if (sigprocmask(SIG_SETMASK, &sigmask, NULL) == -1)
 	perror("sigprocmask");
 
-    sigemptyset(&sigmask);
-
     // delivered via signalfd()
     sigemptyset(&sigmask);
     sigaddset(&sigmask, SIGINT);
@@ -1033,14 +1031,13 @@ static void setup_signals(void)
     sigaddset(&sigmask, SIGKILL);
     sigaddset(&sigmask, SIGTERM);
     sigaddset(&sigmask, SIGFPE);
-    sigaddset(&sigmask, SIGFPE);
     sigaddset(&sigmask, SIGBUS);
     sigaddset(&sigmask, SIGILL);
 
     signal_fd = signalfd(-1, &sigmask, 0);
     assert(signal_fd > -1);
 }
-
+#endif
 static int harden_rt()
 {
     // enable core dumps
