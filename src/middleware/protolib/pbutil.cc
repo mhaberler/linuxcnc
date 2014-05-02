@@ -17,6 +17,7 @@
  */
 
 #include "pbutil.hh"
+#include "syslog_async.h"
 #include <czmq.h>
 
 
@@ -28,7 +29,7 @@ send_pbcontainer(const char *dest, pb::Container &c, void *socket)
 
     f = zframe_new(NULL, c.ByteSize());
     if (f == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - failed to zframe_new(%d)",
+	syslog_async(LOG_ERR,"%s: FATAL - failed to zframe_new(%d)",
 			__func__, c.ByteSize());
 	return -ENOMEM;
     }
@@ -37,21 +38,21 @@ send_pbcontainer(const char *dest, pb::Container &c, void *socket)
     unsigned char *end = c.SerializeWithCachedSizesToArray(buf);
     if ((end - buf) == 0) {
 	// serialize failed
-	rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - SerializeWithCachedSizesToArray() failed",
+	syslog_async(LOG_ERR,"%s: FATAL - SerializeWithCachedSizesToArray() failed",
 			__func__);
 	goto DONE;
     }
     if (dest) {
 	retval = zstr_sendm (socket, dest);
 	if (retval) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - failed to zstr_sendm(%s)",
+	    syslog_async(LOG_ERR,"%s: FATAL - failed to zstr_sendm(%s)",
 			    __func__, dest);
 	    goto DONE;
 	}
     }
     retval = zframe_send(&f, socket, 0);
     if (retval) {
-	rtapi_print_msg(RTAPI_MSG_ERR,"%s: FATAL - failed to zframe_sendm(%d)",
+	syslog_async(LOG_ERR,"%s: FATAL - failed to zframe_sendm(%d)",
 			    __func__, end-buf);
     }
  DONE:
@@ -76,13 +77,13 @@ note_printf(pb::Container &c, const char *fmt, ...)
     va_end(ap);
     c.add_note(buf, n);
 
-    // split into lines to keep rtapi_print_msg happy
+    // split into lines to keep syslog_async happy
     char *save, *token, *s = buf;
     while (1) {
 	token = strtok_r(s, "\n", &save);
 	if (token == NULL)
 	    break;
-	rtapi_print_msg(RTAPI_MSG_ERR, token);
+	syslog_async(LOG_ERR, token);
 	s = NULL;
     }
     return n;
