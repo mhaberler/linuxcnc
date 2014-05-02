@@ -368,6 +368,9 @@ extern int hal_ready(int comp_id);
 */
 extern char* hal_comp_name(int comp_id);
 
+// return the state of a component, or -ENOENT on failure (e.g not existent)
+int hal_comp_state_by_name(const char *name);
+
 /** attach or detach the HAL shared memory segment
  *  this might be needed in using code as there have been issues
  *  in halcmd/RTAI builds.

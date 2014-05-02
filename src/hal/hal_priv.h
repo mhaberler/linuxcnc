@@ -452,6 +452,19 @@ extern hal_param_t *halpr_find_param_by_name(const char *name);
 extern hal_thread_t *halpr_find_thread_by_name(const char *name);
 extern hal_funct_t *halpr_find_funct_by_name(const char *name);
 
+// observers needed in haltalk
+// I guess we better come up with generic iterators for this kind of thing
+
+// return number of pins in a component
+int halpr_pin_count(const char *name);
+
+// return number of params in a component
+int halpr_param_count(const char *name);
+
+// hal mutex scope-locked version of halpr_find_pin_by_name()
+hal_pin_t *
+hal_find_pin_by_name(const char *name);
+
 /** Allocates a HAL component structure */
 extern hal_comp_t *halpr_alloc_comp_struct(void);
 
@@ -518,14 +531,6 @@ void *shmalloc_up(long int size);
 void *shmalloc_dn(long int size);
 
 
-#if 0 // not sure this belongs here..
-#ifdef ULAPI
-// set in hal_lib.c:ulapi_hal_lib_init()
-// needed in using code (halcmd) to do the right thing (eg insmod vs call rtapi_app
-// to load a module)
-extern flavor_ptr flavor;
-#endif
-#endif
 
 RTAPI_END_DECLS
 #endif /* HAL_PRIV_H */
