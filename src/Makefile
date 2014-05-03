@@ -212,7 +212,6 @@ SUBDIRS := \
 	hal/support \
 	hal/drivers/hal_pru_generic \
 	hal/simdrivers \
-	hal/cython \
 	hal/remote \
 	hal/haltalk \
 	hal/cython \
@@ -349,7 +348,9 @@ CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) -DULAPI $(call cc-option,-std=gnu99 -fgnu89
 # enable runtime comparison of GIT_CONFIG_SHA (config.h) and GIT_BUILD_SHA
 CFLAGS += -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
 
-CXXFLAGS := $(INCLUDE) $(CXXFLAGS)   -DULAPI $(DEBUG) $(OPT)
+CXXFLAGS := $(INCLUDE) $(CXXFLAGS) \
+	 -DULAPI $(DEBUG) $(OPT) \
+	 -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
 
 ifeq ($(RUN_IN_PLACE),yes)
 LDFLAGS := -L$(LIB_DIR) -Wl,-rpath,$(LIB_DIR)
