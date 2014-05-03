@@ -52,7 +52,7 @@
 #define canon_debug(...)
 #endif
 
-
+extern EMC_STAT *emcStatus;
 
 static int debug_velacc = 0;
 static double css_maximum, css_numerator; // both always positive
