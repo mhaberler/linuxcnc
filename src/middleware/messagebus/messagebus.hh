@@ -6,3 +6,4 @@
 
 extern int comp_id;
 extern const char *progname;
+
