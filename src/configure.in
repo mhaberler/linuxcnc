@@ -657,7 +657,7 @@ AC_ARG_ENABLE(emcweb,
 
 ##############################################################################
 # Subsection 2.3.1                                                           #
-# protobuf, zmq, websockets, json, uriparse packages                         #
+# protobuf, zmq, websockets, json, uriparse, avahi-client packages           #
 # NML
 ##############################################################################
 
@@ -694,6 +694,12 @@ PKG_CHECK_MODULES([LWS], libwebsockets,
 	USE_LWS=yes
    ],)
 
+PKG_CHECK_MODULES([AVAHI], [avahi-client > 0.6],
+    [
+        AC_DEFINE(HAVE_AVAHI, [], [avahi mDNS client library available])
+	USE_AVAHI=yes
+    ],)
+
 AC_MSG_CHECKING(whether to enable NML-using parts)
 AC_ARG_ENABLE(nml,
     [  --enable-nml      enable NML-using parts],
@@ -705,6 +711,8 @@ AC_ARG_ENABLE(nml,
       AC_MSG_RESULT([not building non-essential NML-using parts])
       BUILD_NMLDEP=no
     ])
+
+
 ##############################################################################
 # Subsection 2.4                                                             #
 # Kernel detection                                                           #
@@ -1457,6 +1465,9 @@ AC_SUBST([CZMQ_LIBS])
 AC_SUBST([PROTOBUF_CFLAGS])
 AC_SUBST([PROTOBUF_LIBS])
 
+AC_SUBST([AVAHI_CFLAGS])
+AC_SUBST([AVAHI_LIBS])
+
 AC_SUBST([JANSSON_CFLAGS])
 AC_SUBST([JANSSON_LIBS])
 
@@ -1471,6 +1482,7 @@ AC_SUBST([USE_PROTOBUF])
 AC_SUBST([USE_JANSSON])
 AC_SUBST([USE_LWS])
 AC_SUBST([USE_URIPARSER])
+AC_SUBST([USE_AVAHI])
 
 
 if test "$with_usermode_pci" = yes; then
