@@ -23,3 +23,23 @@ $(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += $(CONFIGD_CXX_CFLAGS)
 USERSRCS += $(CONFIGD_SRCS)
 
 TARGETS += ../bin/configd
+
+
+# integration test client 
+ifeq "$(USE_AVAHI)" "yes"
+
+AVAHIPUB_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+	avahi-pub.c \
+	)
+
+$(call TOOBJSDEPS, $(AVAHIPUB_SRCS)) : EXTRAFLAGS += $(AVAHI_CFLAGS)
+../bin/avahi-pub: $(call TOOBJS, $(AVAHIPUB_SRCS))
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS)
+
+USERSRCS += $(AVAHIPUB_SRCS)
+TARGETS += ../bin/avahi-pub
+
+endif
+
+
