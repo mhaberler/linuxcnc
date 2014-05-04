@@ -2,12 +2,21 @@ import os,sys,time,uuid
 from stat import *
 import zmq
 import threading
+import pybonjour
+import socket
 
 import ConfigParser
 
 from message_pb2 import Container
 from config_pb2 import *
 from types_pb2 import *
+
+def register_callback(sdRef, flags, errorCode, name, regtype, domain):
+    if errorCode == pybonjour.kDNSServiceErr_NoError:
+        print 'Registered service:'
+        print '  name    =', name
+        print '  regtype =', regtype
+        print '  domain  =', domain
 
 class ConfigServer(threading.Thread):
 
@@ -25,9 +34,13 @@ class ConfigServer(threading.Thread):
         self.topdir = topdir
         self.context = context
         self.socket = context.socket(zmq.ROUTER)
-        self.socket.bind(uri)
+        self.port = self.socket.bind_to_random_port(uri, min_port=49152, max_port=65536, max_tries=100)
+
         self.dsname = self.socket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
-        print "dsname = ", self.dsname
+        print "dsname = ", self.dsname, "port =",self.port
+
+        self.txtrec = pybonjour.TXTRecord({'dsname' : self.dsname })
+
         self.rx = Container()
         self.tx = Container()
 
@@ -95,18 +108,39 @@ class ConfigServer(threading.Thread):
         print "run called"
         poll = zmq.Poller()
         poll.register(self.socket, zmq.POLLIN)
-        while True:
-            s = dict(poll.poll(1000))
-            if self.socket in s:
-                self.process(self.socket)
+        try:
+
+            self.host = socket.gethostname()
+            self.name = 'Machinekit on %s' % self.host
+            self.sdref = pybonjour.DNSServiceRegister(regtype = '_machinekit._tcp',
+                                                      name = self.name,
+                                                      port = self.port,
+                                                      #host = self.host,
+                                                      txtRecord = self.txtrec,
+                                                      callBack = register_callback)
+            self.sd = self.sdref.fileno()
+        except:
+            print 'cannot register DNS service'
+        else:
+            poll.register(self.sd, zmq.POLLIN)
+
+        try:
+            while True:
+                s = dict(poll.poll(1000))
+                if self.socket in s:
+                    self.process(self.socket)
+                if self.sd in s:
+                    pybonjour.DNSServiceProcessResult(self.sdref)
+        except KeyboardInterrupt:
+            self.sd.close()
 
 
 def main():
     context = zmq.Context()
     context.linger = 0
 
-    uri = "tcp://eth0:*"
-    uri = "tcp://127.0.0.1:5590"
+    uri = "tcp://*"
+    uri = "tcp://eth0"
 
     cfg = ConfigServer(context, uri, "apps.ini",topdir="." )
     cfg.setDaemon(True)
