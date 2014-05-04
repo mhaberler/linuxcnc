@@ -124,7 +124,7 @@ static inline int frame_write_end(msgbuffer_t *mb, size_t size)
 {
     if (!mb->_write)
 	return EINVAL;
-    frameheader_t * frame = (frameheader_t *) mb->_write;
+    frameheader_t * frame = (frameheader_t *) mb->_write +  mb->write_off;
     frame->size = size;
     mb->write_off = mb->write_off + sizeof(*frame) + frame->size;
     return 0;
