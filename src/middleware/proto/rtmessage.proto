@@ -1,16 +1,15 @@
 import "nanopb.proto";
 import "types.proto";
+import "emcclass.proto";
 import "value.proto";
 
-// option (nanopb_fileopt).max_size = 20;
 
 package pb;
 
 message RTMessage {
-    //    option (nanopb_msgopt).autowrap = MT_PING;
-    //option (nanopb_msgopt).autowrap = 23;
+    required ContainerType type = 1;
 
-    required ContainerType type = 1; //  [(nanopb).wrap_hint = "MT_FOO" ];
+    optional int32 foo = 2;
+    optional EmcPose dest = 3;
 
-    required int32 blabla = 10;
 }

@@ -174,6 +174,7 @@ enum ServiceAPI {
 
 enum ContainerType {
 
+    MT_RTMESSAGE      = 2;
     MT_MOTCMD         = 3;
     MT_MOTSTATUS      = 4;
     MT_LEGACY_MOTCMD  = 5;
@@ -197,11 +198,20 @@ enum ContainerType {
     MT_STP_UPDATE     = 28;
     MT_STP_NOGROUP     = 27;
 
-    MT_OFFER          = 30;
-    MT_CONFIRM_OFFER  = 35;
-    MT_DISPLAY_MESSAGE = 40;
-    MT_SHUTDOWN        = 45;
-    MT_CONFIRM_SHUTDOWN = 50;
+    // MT_OFFER          = 30;
+    // MT_CONFIRM_OFFER  = 35;
+    // MT_DISPLAY_MESSAGE = 40;
+    // MT_SHUTDOWN        = 45;
+    // MT_CONFIRM_SHUTDOWN = 50;
+
+    // identification of individual RTMessage submessages
+    // field Container.rtmessage
+    MT_RTMESSAGE0     = 30;
+    MT_RTMESSAGE1     = 31;
+    MT_RTMESSAGE2     = 32;
+    MT_RTMESSAGE3     = 33;
+    MT_RTMESSAGE4     = 34;
+
 
     MT_ASCII          = 100;
     MT_UNICODE        = 101;

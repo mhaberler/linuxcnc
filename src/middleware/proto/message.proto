@@ -15,6 +15,7 @@ import "canon.proto";
 import "value.proto";
 import "rtapicommand.proto";
 import "rtapi_message.proto";
+import "rtmessage.proto";
 import "config.proto";
 import "preview.proto";
 
@@ -31,6 +32,11 @@ message Container {
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
 
+    // if Container.type == MT_RTMESSAGE, only the RTMessage array is filled in
+    // individual messages are tagged again with RTMessage.type
+    // this is an optimization which allows messagbus to deserialize/serialize
+    // on behalf of RT components
+    repeated RTMessage     rtmessage      = 7  [(nanopb).max_count = 10];
     repeated Preview       preview        = 8;
 
     optional MotionCommand motcmd         = 9;
