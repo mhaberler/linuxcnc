@@ -4,42 +4,51 @@ CONFIGD_DIR := $(MWDIR)/configd
 
 CONFIGD_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 	configd.cc \
+	mk-zeroconf-reg.cc \
 	)
 
 
 CONFIGD_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 CONFIGD_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
 
-$(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += $(CONFIGD_CXX_CFLAGS)
+$(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += \
+	$(CONFIGD_CXX_CFLAGS)  $(AVAHI_CFLAGS)
+
 
 ../bin/configd: $(call TOOBJS, $(CONFIGD_SRCS)) \
 	../lib/libsyslog-async.so.0 \
+	../lib/liblinuxcnchal.so.0 \
 	../lib/libprotolib.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
-	 $(CONFIGD_CXX_LDFLAGS)
+	 $(CONFIGD_CXX_LDFLAGS)  $(AVAHI_LIBS)
 
 USERSRCS += $(CONFIGD_SRCS)
 
 TARGETS += ../bin/configd
 
 
-# integration test client 
-ifeq "$(USE_AVAHI)" "yes"
+# integration test client
+#ifeq ($(BUILD_EXAMPLES),yes)
+ifeq ($(USE_AVAHI),yes)
 
-AVAHIPUB_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
-	avahi-pub.c \
+TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+	testpublish.cc \
+	mk-zeroconf-reg.cc \
 	)
 
-$(call TOOBJSDEPS, $(AVAHIPUB_SRCS)) : EXTRAFLAGS += $(AVAHI_CFLAGS)
-../bin/avahi-pub: $(call TOOBJS, $(AVAHIPUB_SRCS))
-	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS)
+$(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
 
-USERSRCS += $(AVAHIPUB_SRCS)
-TARGETS += ../bin/avahi-pub
+../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
+	../lib/libsyslog-async.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
+
+USERSRCS += $(TESTPUBLISH_SRCS)
+TARGETS += ../bin/testpublish
 
 endif
+#endif
 
 
