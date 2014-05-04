@@ -18,6 +18,7 @@ pbmsgs-objs := \
 	$(PBGEN)/object.npb.o  \
 	$(PBGEN)/rtapi_message.npb.o \
 	$(PBGEN)/rtapicommand.npb.o \
+	$(PBGEN)/rtmessage.npb.o \
 	$(PBGEN)/task.npb.o \
 	$(PBGEN)/test.npb.o \
 	$(PBGEN)/types.npb.o \
@@ -46,21 +47,21 @@ endif
 	cp $^ $@
 
 
-ifeq ($(BUILD_EXAMPLES),yes)
+# ifeq ($(BUILD_EXAMPLES),yes)
 
-RB_SRCS :=  $(addprefix hal/msgcomponents/, \
-	ringbench.c)
+# RB_SRCS :=  $(addprefix hal/msgcomponents/, \
+# 	ringbench.c)
 
-RB_CCFLAGS := -g
-RB_LDFLAGS := -g -lpthread
+# RB_CCFLAGS := -g
+# RB_LDFLAGS := -g -lpthread
 
-$(call TOOBJSDEPS, $(RB_SRCS)) : EXTRAFLAGS += $(RB_CCFLAGS) -O0
+# $(call TOOBJSDEPS, $(RB_SRCS)) : EXTRAFLAGS += $(RB_CCFLAGS) -O0
 
-../bin/ringbench: $(call TOOBJS, $(RB_SRCS)) \
-	../lib/liblinuxcnchal.so
-	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(RB_LDFLAGS)
+# ../bin/ringbench: $(call TOOBJS, $(RB_SRCS)) \
+# 	../lib/liblinuxcnchal.so
+# 	$(ECHO) Linking $(notdir $@)
+# 	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(RB_LDFLAGS)
 
-USERSRCS += $(RB_SRCS) $(RB_SRCS)
-TARGETS += ../bin/ringbench
-endif
+# USERSRCS += $(RB_SRCS) $(RB_SRCS)
+# TARGETS += ../bin/ringbench
+# endif

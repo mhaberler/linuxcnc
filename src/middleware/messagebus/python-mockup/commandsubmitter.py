@@ -1,5 +1,7 @@
 import os, time
 import zmq
+from message_pb2 import Container
+from types_pb2 import *
 from optparse import OptionParser
 
 parser = OptionParser()
@@ -46,6 +48,23 @@ response.send("\001%s" % (me))
 
 
 i = 0
+tx1 = Container()
+tx1.type = MT_EMCMOT_SET_LINE
+
+tx2 =  Container()
+tx2.type = MT_RTMESSAGE
+rtm = tx2.rtmessage.add()
+rtm.type = MT_RTMESSAGE0
+rtm.foo = 4711
+rtm.dest.tran.x = 2.0
+rtm.dest.tran.y = 1.0
+rtm.dest.tran.x = 3.0
+rtm = tx2.rtmessage.add()
+rtm.type = MT_RTMESSAGE1
+rtm.foo = 815
+rtm.dest.tran.x = 3.14
+rtm.dest.tran.y = 2.718
+rtm.dest.tran.x = 1.1415
 
 time.sleep(1) # let subscriptions stabilize
 for j in range(options.iter):
@@ -53,7 +72,7 @@ for j in range(options.iter):
     for n in range(options.batch):
         msg = "cmd %d" % i
         i += 1
-        mp = [me, options.destination,msg]
+        mp = [me, options.destination,msg,tx1.SerializeToString(),tx2.SerializeToString()]
         if options.verbose:
             print "---%s msg %s" % (me,mp)
         cmd.send_multipart(mp)
@@ -65,4 +84,5 @@ for j in range(options.iter):
     if not options.fast:
         time.sleep(1)
 
+time.sleep(1)
 context.destroy(linger=0)

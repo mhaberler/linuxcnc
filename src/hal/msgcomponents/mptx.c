@@ -4,6 +4,7 @@
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_ring.h"
+#include "multiframe_flag.h"
 
 #include <middleware/include/pb-linuxcnc.h>
 #include <middleware/nanopb/pb_decode.h>
@@ -94,22 +95,18 @@ static void update_pbring(void *arg, long l)
 	 (n < 10) && (frame_readv(&p->to_rt_mrb, &rv[n]) == 0);
 	 n++, frame_shift(&p->to_rt_mrb)) {
 	ringvec_t *v = &rv[n];
+	mflag_t mf;
+	mf.u = v->rv_flags;
 
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"Data[%d]: %zd '%.*s' %d\n", n, v->rv_len, (int) v->rv_len,
-			(const char *) v->rv_base, v->rv_flags);
+			"Data[%d]: %zd '%.*s' t=%d c=%d\n",
+			n, v->rv_len, (int) v->rv_len,
+			(const char *) v->rv_base,
+			mf.f.frametype, mf.f.pbmsgtype);
     }
 
-    /* for (i = 0; i < n; i++) { */
-    /* 	ringvec_t *v = &rv[i]; */
-    /* 	rtapi_print_msg(RTAPI_MSG_ERR, */
-    /* 			"Data[%d]: %zd '%.*s' %d\n", i, v->rv_len, (int) v->rv_len, */
-    /* 			(const char *) v->rv_base, v->rv_flags); */
-    /* } */
-    // swap frames 1 & 2 and return the message
-
-    frame_writev(&p->from_rt_mrb, &rv[1]);
     frame_writev(&p->from_rt_mrb, &rv[0]);
+    frame_writev(&p->from_rt_mrb, &rv[1]);
     for (i = 2; i < n; i++)
 	frame_writev(&p->from_rt_mrb, &rv[i]);
     msg_write_flush(&p->from_rt_mrb);
