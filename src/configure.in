@@ -1934,7 +1934,8 @@ SPATH=$PATH:/usr/local/sbin:/usr/sbin:/sbin
 AC_PROG_CXX
 
 m4_include([m4/ax_cxx_compile_stdcxx_11.m4])
-AX_CXX_COMPILE_STDCXX_11(noext,mandatory)
+# make this optional - it will likely only result in warnings
+AX_CXX_COMPILE_STDCXX_11(noext,optional)
 
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
