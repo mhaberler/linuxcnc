@@ -338,12 +338,12 @@ static rtproxy_t echo, demo, too;
 
 static int rtproxy_setup(msgbusd_self_t *self)
 {
-    echo.flags = ACTOR_ECHO|ACTOR_TRACE;
+    echo.flags = ACTOR_ECHO|TRACE_TO_RT;
     echo.name = "echo";
-    // echo.pipe = zthread_fork (self->context, rtproxy_thread, &echo);
-    // assert (echo.pipe);
+    echo.pipe = zthread_fork (self->context, rtproxy_thread, &echo);
+    assert (echo.pipe);
 
-    demo.flags = ACTOR_RESPONDER|ACTOR_TRACE|DESERIALIZE_TO_RT|SERIALIZE_FROM_RT;
+    demo.flags = ACTOR_RESPONDER|TRACE_FROM_RT|TRACE_TO_RT|DESERIALIZE_TO_RT|SERIALIZE_FROM_RT;
     demo.state = IDLE;
     demo.min_delay = 2;   // msec
     demo.max_delay = 200; // msec

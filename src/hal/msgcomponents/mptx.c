@@ -73,12 +73,19 @@ static int comp_id;
 // if the thread function is called by different threads, rx and tx will have
 // to move to the instance data structure
 static pb_Container rx, tx;
-
+/* bool npb_encode_string(pb_ostream_t *stream, const pb_field_t *field, void * const *arg) */
+/* { */
+/*     char *str = (char *)*arg; */
+/*     if (!pb_encode_tag_for_field(stream, field)) */
+/*         return false; */
+/*     return pb_encode_string(stream, (uint8_t*)str, strlen(str)); */
+/* } */
 static int export_pbring(const char *name, int num, pbring_inst_t *p);
 
 static void update_pbring(void *arg, long l)
 {
     pbring_inst_t *p = (pbring_inst_t *) arg;
+    //    unsigned long long start = rtapi_get_time();
     ring_size_t cmdsize = record_next_size(&p->to_rt_rb);
     if (cmdsize < 0) {
 	// command ring empty
@@ -107,8 +114,40 @@ static void update_pbring(void *arg, long l)
 
     frame_writev(&p->from_rt_mrb, &rv[0]);
     frame_writev(&p->from_rt_mrb, &rv[1]);
-    for (i = 2; i < n; i++)
-	frame_writev(&p->from_rt_mrb, &rv[i]);
+    for (i = 2; i < n; i++) {
+
+	// frame_writev(&p->from_rt_mrb, &rv[i]);
+	tx.has_tsc = true;
+	rx.tsc = rtapi_get_time(); // - start;
+	// process command here
+	// prepare reply
+	tx.has_motstat = true;
+	tx.type =  pb_ContainerType_MT_MOTSTATUS;
+	//	tx.note.funcs.encode = npb_encode_string;
+	tx.note.arg = "hi there!";
+	tx.serial = i;
+	tx.has_serial = true;
+
+	tx.motstat = (pb_MotionStatus) {
+	    .commandEcho = rx.motcmd.command,
+	    .commandNumEcho = rx.motcmd.commandNum,
+	    .commandStatus = pb_cmd_status_t_EMCMOT_COMMAND_OK,
+	    .has_carte_pos_fb = true,
+	    .carte_pos_fb = {
+		.tran = {
+		    .has_x = true,
+		    .x = 42.0,
+		    .has_y = true,
+		    .y = 13.56,
+		    .has_z = true,
+		    .z = 27.12},
+		.has_a = true,
+		.a = 3.14
+	    }
+	};
+	mflag_t mf = { .f.frametype = MF_NPB_CSTRUCT, .f.npbtype = NPB_CONTAINER };
+	frame_write(&p->from_rt_mrb, (void *)&tx, sizeof(tx), mf.u);
+    }
     msg_write_flush(&p->from_rt_mrb);
 
     // dump frames 10..

@@ -61,41 +61,38 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
     self->proxy_response = zsocket_new (ctx, ZMQ_XSUB);
     assert(zsocket_connect(self->proxy_response, proxy_response_uri) == 0);
 
-    if (self->flags & (ACTOR_RESPONDER|ACTOR_ECHO)) {
+    if (self->flags & (ACTOR_RESPONDER|ACTOR_ECHO|ACTOR_SUBSCRIBER)) {
 	retval = send_subscribe(self->proxy_cmd, self->name);
 	assert(retval == 0);
     }
 
-    if (self->flags & ACTOR_INJECTOR) {
+    if (self->flags & (ACTOR_INJECTOR|ACTOR_PUBLISHER)) {
 	retval = send_subscribe(self->proxy_response, self->name);
 	assert(retval == 0);
     }
 
     if (self->to_rt_name) {
 	unsigned flags;
-	if ((retval = hal_ring_attach(self->to_rt_name, &self->to_rt_ring,
-				       &flags))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: hal_ring_attach(%s) failed - %d\n",
+	if ((retval = hal_ring_attach(self->to_rt_name, &self->to_rt_ring, &flags))) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_attach(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
 	    return;
 	}
 	self->to_rt_ring.header->writer = comp_id;
     }
-    msgbuffer_init(&self->to_rt_mframe, &self->to_rt_ring);
-
     if (self->from_rt_name) {
 	unsigned flags;
-
-	if ((retval = hal_ring_attach(self->from_rt_name, &self->from_rt_ring,
-				      &flags))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: hal_ring_attach(%s) failed - %d\n",
+	if ((retval = hal_ring_attach(self->from_rt_name, &self->from_rt_ring, &flags))) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_attach(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);
 	    return;
 	}
 	self->from_rt_ring.header->reader = comp_id;
     }
+    self->buffer = zmalloc(FROMRT_SIZE);
+    assert(self->buffer);
+
+    msgbuffer_init(&self->to_rt_mframe, &self->to_rt_ring);
     msgbuffer_init(&self->from_rt_mframe, &self->from_rt_ring);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s startup", progname, self->name);
@@ -105,121 +102,126 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	    zmsg_t *msg = zmsg_recv(self->proxy_cmd);
 	    if (msg == NULL)
 		break;
-	    if (self->flags & ACTOR_TRACE)
+	    if (self->flags & (TRACE_TO_RT|TRACE_FROM_RT))
 		zmsg_dump_to_stream (msg, stderr);
 	    zmsg_send(&msg, self->proxy_response);
 	}
 	rtapi_print_msg(RTAPI_MSG_DBG, "%s: %s exit", progname, self->name);
     }
 
-    if (self->flags & ACTOR_RESPONDER) {
+    if (self->flags & (ACTOR_RESPONDER|ACTOR_SUBSCRIBER)) {
 	zpoller_t *cmdpoller = zpoller_new (self->proxy_cmd, NULL);
 	zpoller_t *delay = zpoller_new(NULL);
 
 	while (1) {
 	    self->state = WAIT_FOR_COMMAND;
 	    void *cmdsocket = zpoller_wait (cmdpoller, -1);
-	    if (cmdsocket == NULL)
+	    if (cmdsocket == NULL) // terminated
 		goto DONE;
 	    zmsg_t *to_rt = zmsg_recv(cmdsocket);
-
 	    //	    zmsg_fprint (to_rt,stderr);
-
 	    zframe_t *f;
 	    int i;
 	    pb_Container rx;
 
-	    msg_write_abort(&self->to_rt_mframe);
+	    size_t mframe_size;
+	    // compute buffer requirements and block until available
+	    for (i = 0,f = zmsg_first (to_rt);
+		 f != NULL;
+		 f = zmsg_next(to_rt),i++) {
+		switch (i) {
+		case 0:
+		case 1:
+		    // the to/from strings are left untouched
+		    mframe_size += zframe_size(f);
+		    break;
+		default:
+		    if (self->flags & DESERIALIZE_TO_RT)
+			mframe_size += sizeof(pb_Container); // FIXME pb_rt_Container eventually
+		    else
+			mframe_size += zframe_size(f);
+		}
+	    }
+	    // add in the frameheaders
+	    mframe_size += i * sizeof(frameheader_t);
 
+	    // dont overrun to_rt ring
+	    self->current_delay = self->min_delay;
+	    self->state = WAIT_FOR_TO_RT_SPACE;
+
+	    while (record_write_space(self->to_rt_ring.header) - mframe_size < 0) {
+		zpoller_wait (delay, self->current_delay);
+		// exponential backoff
+		self->current_delay <<= 1;
+		self->current_delay = MIN(self->current_delay, self->max_delay);
+	    }
+
+	    // good to go, should not fail due to lack of space
+	    self->state = WRITING_TO_RT;
+
+	    msg_write_abort(&self->to_rt_mframe);
 	    for (i = 0,f = zmsg_first (to_rt);
 		 f != NULL;
 		 f = zmsg_next(to_rt),i++) {
 
 		mflag_t flags = { .u = 0 };
-		void *data;
-		size_t size;
+		void *data = zframe_data(f);
+		size_t size = zframe_size(f);
 
 	    	switch (i) {
 	    	case 0:
-		    flags.f.frametype = MF_TARGET;
-		    data = zframe_data(f);
-		    size = zframe_size(f);
-		    break;
-
 	    	case 1:
-		    flags.f.frametype = MF_ORIGINATOR;
-		    data = zframe_data(f);
-		    size = zframe_size(f);
+		    flags.f.frametype = MF_TRANSPARENT;
 		    break;
 
 	    	default:
 		    if (!(self->flags & DESERIALIZE_TO_RT)) {
-			// as is, no attempt at decoding
-			flags.f.frametype = MF_UNSPECIFIED;
+			// as is, no attempt at deserializing payload frames
+			flags.f.frametype = MF_TRANSPARENT;
 			flags.f.npbtype = NPB_UNSPECIFIED;
-			flags.f.count = 1;
-			data = zframe_data(f);
-			size = zframe_size(f);
 		    } else {
-			// try to deserialize as Container:
+			// try to deserialize as (rt_) Container:  // FIXME rt_
 			pb_istream_t stream = pb_istream_from_buffer(zframe_data(f),
 								     zframe_size(f));
 			if (pb_decode(&stream, pb_Container_fields, &rx)) {
-			    // good, a Container. Check type:
-			    switch (rx.type) {
-
-			    case pb_ContainerType_MT_RTMESSAGE:
-				// send only the deserialized RTMessage array
-				data = (void *) &rx.rtmessage;
-				size = sizeof(pb_RTMessage) * rx.rtmessage_count;
-				flags.f.frametype = MF_NPB_CSTRUCT;
-				flags.f.npbtype = NPB_RTMESSAGE;
-				flags.f.count = rx.rtmessage_count;
-				rtapi_print_msg(RTAPI_MSG_DBG,
-						"%s: sending as deserialized"
-						" RTMessage, count=%d\n",
-						progname, rx.rtmessage_count);
-				break;
-
-			    default:
-				// leave Container as-is
-				data = (void *) &rx;
-				size = sizeof(rx);
-				flags.f.frametype = MF_NPB_CSTRUCT;
-				flags.f.npbtype = NPB_CONTAINER;
-				flags.f.count = 1;
-				rtapi_print_msg(RTAPI_MSG_DBG,
-						"%s: sending as deserialized"
+			    // send the resulting nanopb C struct
+			    data = (void *) &rx;
+			    size = sizeof(rx);
+			    flags.f.frametype = MF_NPB_CSTRUCT;
+			    flags.f.npbtype = NPB_CONTAINER;
+			    rtapi_print_msg(RTAPI_MSG_DBG,
+					    "%s: sending as deserialized"
 						" Container\n",
 						progname);
-				break;
-			    }
 			} else {
-			    // hm, something else.
+			    // hm, decode failed - must be something else.
+			    self->decode_fail++;
 			    rtapi_print_msg(RTAPI_MSG_DBG,
 					    "%s: pb_decode(Container) failed: '%s'\n",
 					progname, PB_GET_ERROR(&stream));
-			    flags.f.frametype = MF_UNSPECIFIED;
+			    flags.f.frametype = MF_TRANSPARENT;
 			    flags.f.npbtype = NPB_UNSPECIFIED;
-			    flags.f.count = 1;
-			    data = zframe_data(f);
-			    size = zframe_size(f);
 			}
 		    }
 		    break;
 		}
 		retval = frame_write(&self->to_rt_mframe, data, size, flags.u);
-		if (retval)
+		if (retval) {
+		    self->rb_txfail++;
 		    rtapi_print_msg(RTAPI_MSG_ERR, "frame_write: %s",
 				    strerror(retval));
-		if (self->flags & ACTOR_TRACE)
+		} else
+		    self->ftx++;
+		if (self->flags & TRACE_TO_RT)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
-					     16,1, data, size, 1,
-					     "%s->%s t=%d c=%d: ",
-					     self->name, self->to_rt_name,
+					     16,1, data, (size > 16) ? 16: size, 1,
+					     "%s->%s size=%d t=%d c=%d: ",
+					     self->name, self->to_rt_name, size,
 					     flags.f.frametype, flags.f.npbtype);
 	    }
+
 	    msg_write_flush(&self->to_rt_mframe);
+	    self->mftx++;
 	    zmsg_destroy(&to_rt);
 
 	    self->state = WAIT_FOR_RT_RESPONSE;
@@ -239,16 +241,13 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 		mflag_t flags;
 		if (frame_read(&self->from_rt_mframe,
 			       &data, &size, &flags.u) == 0) {
-		    if (self->flags & ACTOR_TRACE)
+		    if (self->flags &  TRACE_FROM_RT)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
-					     16,1, data, size, 1,
-					     "%s->%s t=%d c=%d r=%d: ",
-					     self->from_rt_name,self->name,
-					     flags.f.frametype, flags.f.npbtype, flags.f.count);
-
-
+					     16,1, data, (size > 16) ? 16: size, 1,
+					     "%s->%s size=%d t=%d c=%d: ",
+					     self->from_rt_name,self->name, size,
+					     flags.f.frametype, flags.f.npbtype);
 		    pb_ostream_t sstream, ostream;
-		    const pb_field_t *fields;
 
 		    // decide what to do based on flags
 		    switch (flags.f.frametype) {
@@ -257,80 +256,39 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 
 			switch (flags.f.npbtype) {
 			case NPB_CONTAINER:
-			case NPB_RTMESSAGE:
-			    fields = (flags.f.npbtype == NPB_CONTAINER) ?
-				pb_Container_fields : pb_RTMessage_fields;
-			    // determine size
-			    sstream = PB_OSTREAM_SIZING;
-			    if (!pb_encode(&sstream, fields, data)) {
-				rtapi_print_msg(RTAPI_MSG_ERR,
-						"%s: from_rt sizing failed %s type=%d written=%zu\n",
-						progname, PB_GET_ERROR(&sstream), flags.f.npbtype,
-						sstream.bytes_written);
-				// send as-is
-				f = zframe_new (data, size);
-				zmsg_append (from_rt, &f);
-				break;
-			    }
-			    f = zframe_new (NULL,  sstream.bytes_written);
-			    ostream = pb_ostream_from_buffer(zframe_data(f), zframe_size(f));
-			    if (!pb_encode(&ostream, fields, data)) {
+			    ostream = pb_ostream_from_buffer((uint8_t *)self->buffer,FROMRT_SIZE);
+			    if (!pb_encode(&ostream, pb_Container_fields, data)) {
 				rtapi_print_msg(RTAPI_MSG_ERR,
 						"%s: from_rt encoding failed %s type=%d written=%zu\n",
 						progname, PB_GET_ERROR(&sstream),flags.f.npbtype,
 						ostream.bytes_written);
 				// send as-is
 				f = zframe_new (data, size);
-				zmsg_append (from_rt, &f);
-				break;
+			    } else {
+				rtapi_print_msg(RTAPI_MSG_DBG,"%s: sent as protobuf size=%zu\n",
+						progname, ostream.bytes_written);
+				f = zframe_new (self->buffer, ostream.bytes_written);
 			    }
 			    zmsg_append (from_rt, &f);
 			    break;
 
 			default:
 			    rtapi_print_msg(RTAPI_MSG_ERR,
-					    "%s: invalid npbtype from RT: %d\n",
+					    "%s: invalid npbtype from RT: %d, sending as-is\n",
 					    progname, flags.f.npbtype);
 			    zframe_t *f = zframe_new (data, size);
 			    zmsg_append (from_rt, &f);
 			}
 			break;
 
-		    case MF_UNSPECIFIED:
-		    case MF_ORIGINATOR:
-		    case MF_TARGET:
+		    case MF_TRANSPARENT:
 		    case MF_PROTOBUF:
 			// leave as is
 			// zframe_new copies the data
 			zframe_t *f = zframe_new (data, size);
 			zmsg_append (from_rt, &f);
 		    }
-			frame_shift(&self->from_rt_mframe);
-
-		    //    if (!(self->flags & SERIALIZE_FROM_RT)) {
-			// leave as is
-			// zframe_new copies the data
-			// zframe_t *f = zframe_new (data, size);
-			// zmsg_append (from_rt, &f);
-			// frame_shift(&self->from_rt_mframe);
-		    // } else {
-		    // 	// switch (flags.f.frametype) {
-		    // 	// case MF_TARGET:
-		    // 	// case MF_ORIGINATOR:
-		
-// 			    // determine size
-// 			    if (!pb_encode(&sstream, pb_Container_fields, data)) {
-// 				rtapi_print_msg(RTAPI_MSG_ERR,
-// 						"%s: sizing pb_encode(): %s written=%zu\n",
-// 						progname, PB_GET_ERROR(&sstream), sstream.bytes_written);
-// 			    }
-
-// ) {
-// 			    // good, a Container. Check type:	    
-
-		    // 	// }
-
-		    // }
+		    frame_shift(&self->from_rt_mframe);
 
 		} else
 		    break;
@@ -346,52 +304,20 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	zpoller_destroy(&cmdpoller);
 	zpoller_destroy(&delay);
     }
+    if (self->buffer)
+	free(self->buffer);
 
-#if 0
-    zpoller_t *poller = zpoller_new (pipe, self->proxy_cmd, NULL);
-    assert (poller);
-	void *which = zpoller_wait (poller, -1);
-	if (which == pipe) {
-	    char *cmd = zstr_recv(pipe);
-	    if (cmd && (strcmp(cmd, "EXIT") == 0)) {
-		rtapi_print_msg(RTAPI_MSG_ERR, "%s: %s - EXIT command received\n",
-				progname, self->name);
-		free(cmd);
-		break;
-	    }
-	} else {
-	    zmsg_t *msg = zmsg_recv(self->proxy_cmd);
-	    if (msg == NULL) {
-		rtapi_print_msg(RTAPI_MSG_ERR, "%s: %s - context terminated\n",
-				progname, self->name);
-		break;
-	    }
-	    if (debug)
-		zmsg_dump(msg);
-	    char *me = zmsg_popstr (msg);
-	    char *from = zmsg_popstr (msg);
-	    zmsg_pushstr (msg, from);
-	    zmsg_send(&msg, self->proxy_response);
-	    free(me);
-	    free(from);
-	}
-    }
-    zpoller_destroy (&poller);
-#endif
     if (self->to_rt_name) {
 	if ((retval = hal_ring_detach(self->to_rt_name, &self->to_rt_ring))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: hal_ring_detach(%s) failed - %d\n",
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_detach(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
 	    return;
 	}
 	self->to_rt_ring.header->writer = 0;
     }
-
     if (self->from_rt_name) {
 	if ((retval = hal_ring_detach(self->from_rt_name, &self->from_rt_ring))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: hal_ring_detach(%s) failed - %d\n",
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_detach(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);
 	    return;
 	}

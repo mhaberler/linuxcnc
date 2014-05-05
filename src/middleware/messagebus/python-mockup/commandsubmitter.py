@@ -48,25 +48,11 @@ response.send("\001%s" % (me))
 
 
 i = 0
-tx1 = Container()
-tx1.type = MT_EMCMOT_SET_LINE
+tx = Container()
+rx = Container()
+tx.type = MT_EMCMOT_SET_LINE
 
-tx2 =  Container()
-tx2.type = MT_RTMESSAGE
-rtm = tx2.rtmessage.add()
-rtm.type = MT_RTMESSAGE0
-rtm.foo = 4711
-rtm.dest.tran.x = 2.0
-rtm.dest.tran.y = 1.0
-rtm.dest.tran.x = 3.0
-rtm = tx2.rtmessage.add()
-rtm.type = MT_RTMESSAGE1
-rtm.foo = 815
-rtm.dest.tran.x = 3.14
-rtm.dest.tran.y = 2.718
-rtm.dest.tran.x = 1.1415
-rx1 = Container()
-rx2 = Container()
+c = tx.SerializeToString()
 
 time.sleep(1) # let subscriptions stabilize
 for j in range(options.iter):
@@ -74,7 +60,7 @@ for j in range(options.iter):
     for n in range(options.batch):
         msg = "cmd %d" % i
         i += 1
-        mp = [me, options.destination,msg,tx1.SerializeToString(),tx2.SerializeToString()]
+        mp = [me, options.destination,msg,c, c]
         if options.verbose:
             print "---%s msg %s" % (me,mp)
         cmd.send_multipart(mp)
@@ -82,10 +68,12 @@ for j in range(options.iter):
     for n in range(options.batch):
         msg = response.recv_multipart()
         if options.verbose:
-            rx1.ParseFromString(msg[3])
-            rx2.ParseFromString(msg[4])
+
             #print "---%s receive response: %s" %(me, msg)
-            print "---%s receive response: %s %s %s" %(me, msg[0:2],str(rx1),str(rx2))
+            print "---%s receive response: %s" %(me, msg)
+            for m in msg[3:]:
+                rx.ParseFromString(m)
+                print str(rx)
     if not options.fast:
         time.sleep(1)
 
