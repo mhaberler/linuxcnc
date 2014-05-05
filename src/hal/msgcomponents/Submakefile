@@ -18,7 +18,6 @@ pbmsgs-objs := \
 	$(PBGEN)/object.npb.o  \
 	$(PBGEN)/rtapi_message.npb.o \
 	$(PBGEN)/rtapicommand.npb.o \
-	$(PBGEN)/rtmessage.npb.o \
 	$(PBGEN)/task.npb.o \
 	$(PBGEN)/test.npb.o \
 	$(PBGEN)/types.npb.o \
