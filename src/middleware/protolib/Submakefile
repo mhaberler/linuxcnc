@@ -21,7 +21,7 @@ $(call TOOBJSDEPS, $(PROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC $(PROTOLIB_CXXFLAGS)
 
 TARGETS += ../lib/libprotolib.so ../lib/libprotolib.so.0
 
-../lib/libprotolib.so.0: $(patsubst %.cc,objects/%.o,$(PROTOLIB_SRCS)) \
+../lib/libprotolib.so.0: $(call TOOBJS, $(PROTOLIB_SRCS)) \
 	../lib/libsyslog-async.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
@@ -42,7 +42,7 @@ $(call TOOBJSDEPS, $(HALPROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC $(HALPROTOLIB_CXXFLAG
 TARGETS += ../lib/libhalprotolib.so ../lib/libhalprotolib.so.0
 
 ../lib/libhalprotolib.so.0: \
-	$(patsubst %.cc,objects/%.o,$(HALPROTOLIB_SRCS)) \
+	$(call TOOBJS, $(HALPROTOLIB_SRCS)) \
 	 ../lib/liblinuxcnchal.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib

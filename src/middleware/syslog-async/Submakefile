@@ -16,7 +16,7 @@ $(call TOOBJSDEPS, $(SYSLOGASYNC_SRCS)) : EXTRAFLAGS=-fPIC $(SYSLOGASYNC_CFLAGS)
 
 TARGETS += ../lib/libsyslog-async.so ../lib/libsyslog-async.so.0
 
-../lib/libsyslog-async.so.0: $(patsubst %.cc,objects/%.o,$(SYSLOGASYNC_SRCS))
+../lib/libsyslog-async.so.0: $(call TOOBJS, $(SYSLOGASYNC_SRCS))
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
