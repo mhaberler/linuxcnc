@@ -30,7 +30,7 @@ message Container {
     // protobuf-encoded submessages
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
-    optional fixed64 tsc = 7;  // rtapi_get_time
+    optional sfixed64 tsc = 7;  // rtapi_get_time
 
     // if Container.type == MT_RTMESSAGE, only the RTMessage array is filled in
     // individual messages are tagged again with RTMessage.type

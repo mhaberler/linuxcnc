@@ -85,7 +85,6 @@ static int export_pbring(const char *name, int num, pbring_inst_t *p);
 static void update_pbring(void *arg, long l)
 {
     pbring_inst_t *p = (pbring_inst_t *) arg;
-    //    unsigned long long start = rtapi_get_time();
     ring_size_t cmdsize = record_next_size(&p->to_rt_rb);
     if (cmdsize < 0) {
 	// command ring empty
@@ -94,8 +93,9 @@ static void update_pbring(void *arg, long l)
     }
     int n,i;
     ringvec_t rv[10] = { };
+    long long int start = rtapi_get_time();
 
-    rtapi_print_msg(RTAPI_MSG_ERR,"next size = %d\n",cmdsize);
+    //rtapi_print_msg(RTAPI_MSG_ERR,"next size = %d\n",cmdsize);
     msg_read_abort(&p->to_rt_mrb);
 
     for (n = 0;
@@ -105,11 +105,11 @@ static void update_pbring(void *arg, long l)
 	mflag_t mf;
 	mf.u = v->rv_flags;
 
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"Data[%d]: %zd '%.*s' t=%d c=%d\n",
-			n, v->rv_len, (int) v->rv_len,
-			(const char *) v->rv_base,
-			mf.f.frametype, mf.f.npbtype);
+	/* rtapi_print_msg(RTAPI_MSG_ERR, */
+	/* 		"Data[%d]: %zd '%.*s' t=%d c=%d\n", */
+	/* 		n, v->rv_len, (int) v->rv_len, */
+	/* 		(const char *) v->rv_base, */
+	/* 		mf.f.frametype, mf.f.npbtype); */
     }
 
     frame_writev(&p->from_rt_mrb, &rv[0]);
@@ -118,14 +118,14 @@ static void update_pbring(void *arg, long l)
 
 	// frame_writev(&p->from_rt_mrb, &rv[i]);
 	tx.has_tsc = true;
-	rx.tsc = rtapi_get_time(); // - start;
+	tx.tsc = rtapi_get_time() - start;
 	// process command here
 	// prepare reply
 	tx.has_motstat = true;
 	tx.type =  pb_ContainerType_MT_MOTSTATUS;
 	//	tx.note.funcs.encode = npb_encode_string;
 	tx.note.arg = "hi there!";
-	tx.serial = i;
+	tx.serial = rtapi_get_time() -rtapi_get_time();
 	tx.has_serial = true;
 
 	tx.motstat = (pb_MotionStatus) {
