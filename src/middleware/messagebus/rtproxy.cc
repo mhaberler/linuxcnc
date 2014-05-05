@@ -164,7 +164,8 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 		 f != NULL;
 		 f = zmsg_next(to_rt),i++) {
 
-		mflag_t flags = { .u = 0 };
+		mflag_t flags;
+		flags.u = 0;
 		void *data = zframe_data(f);
 		size_t size = zframe_size(f);
 
