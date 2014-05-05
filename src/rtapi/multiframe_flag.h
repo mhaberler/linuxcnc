@@ -23,7 +23,7 @@ typedef enum {
 // disposition of the __u32 flags value
 typedef struct {
     __u32 frametype : 8;
-    __u32 pbmsgtype : 8;
+    __u32 npbtype   : 8;
     __u32 count     : 8;  // if repeated message
     __u32 __unused  : 8;
 } mfields_t;

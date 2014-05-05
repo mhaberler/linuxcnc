@@ -102,7 +102,7 @@ static void update_pbring(void *arg, long l)
 			"Data[%d]: %zd '%.*s' t=%d c=%d\n",
 			n, v->rv_len, (int) v->rv_len,
 			(const char *) v->rv_base,
-			mf.f.frametype, mf.f.pbmsgtype);
+			mf.f.frametype, mf.f.npbtype);
     }
 
     frame_writev(&p->from_rt_mrb, &rv[0]);

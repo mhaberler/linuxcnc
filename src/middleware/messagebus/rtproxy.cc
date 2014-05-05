@@ -134,7 +134,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	    for (i = 0,f = zmsg_first (to_rt);
 		 f != NULL;
 		 f = zmsg_next(to_rt),i++) {
-		int retval;
+
 		mflag_t flags = { .u = 0 };
 		void *data;
 		size_t size;
@@ -156,7 +156,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 		    if (!(self->flags & DESERIALIZE_TO_RT)) {
 			// as is, no attempt at decoding
 			flags.f.frametype = MF_UNSPECIFIED;
-			flags.f.pbmsgtype = NPB_UNSPECIFIED;
+			flags.f.npbtype = NPB_UNSPECIFIED;
 			flags.f.count = 1;
 			data = zframe_data(f);
 			size = zframe_size(f);
@@ -173,7 +173,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 				data = (void *) &rx.rtmessage;
 				size = sizeof(pb_RTMessage) * rx.rtmessage_count;
 				flags.f.frametype = MF_NPB_CSTRUCT;
-				flags.f.pbmsgtype = NPB_RTMESSAGE;
+				flags.f.npbtype = NPB_RTMESSAGE;
 				flags.f.count = rx.rtmessage_count;
 				rtapi_print_msg(RTAPI_MSG_DBG,
 						"%s: sending as deserialized"
@@ -186,7 +186,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 				data = (void *) &rx;
 				size = sizeof(rx);
 				flags.f.frametype = MF_NPB_CSTRUCT;
-				flags.f.pbmsgtype = NPB_CONTAINER;
+				flags.f.npbtype = NPB_CONTAINER;
 				flags.f.count = 1;
 				rtapi_print_msg(RTAPI_MSG_DBG,
 						"%s: sending as deserialized"
@@ -200,7 +200,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 					    "%s: pb_decode(Container) failed: '%s'\n",
 					progname, PB_GET_ERROR(&stream));
 			    flags.f.frametype = MF_UNSPECIFIED;
-			    flags.f.pbmsgtype = NPB_UNSPECIFIED;
+			    flags.f.npbtype = NPB_UNSPECIFIED;
 			    flags.f.count = 1;
 			    data = zframe_data(f);
 			    size = zframe_size(f);
@@ -217,7 +217,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 					     16,1, data, size, 1,
 					     "%s->%s t=%d c=%d: ",
 					     self->name, self->to_rt_name,
-					     flags.f.frametype, flags.f.pbmsgtype);
+					     flags.f.frametype, flags.f.npbtype);
 	    }
 	    msg_write_flush(&self->to_rt_mframe);
 	    zmsg_destroy(&to_rt);
@@ -244,20 +244,89 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 					     16,1, data, size, 1,
 					     "%s->%s t=%d c=%d r=%d: ",
 					     self->from_rt_name,self->name,
-					     flags.f.frametype, flags.f.pbmsgtype, flags.f.count);
+					     flags.f.frametype, flags.f.npbtype, flags.f.count);
+
+
+		    pb_ostream_t sstream, ostream;
+		    const pb_field_t *fields;
 
 		    // decide what to do based on flags
-		    //    if (!(self->flags & SERIALIZE_FROM_RT)) {
+		    switch (flags.f.frametype) {
+
+		    case MF_NPB_CSTRUCT:
+
+			switch (flags.f.npbtype) {
+			case NPB_CONTAINER:
+			case NPB_RTMESSAGE:
+			    fields = (flags.f.npbtype == NPB_CONTAINER) ?
+				pb_Container_fields : pb_RTMessage_fields;
+			    // determine size
+			    sstream = PB_OSTREAM_SIZING;
+			    if (!pb_encode(&sstream, fields, data)) {
+				rtapi_print_msg(RTAPI_MSG_ERR,
+						"%s: from_rt sizing failed %s type=%d written=%zu\n",
+						progname, PB_GET_ERROR(&sstream), flags.f.npbtype,
+						sstream.bytes_written);
+				// send as-is
+				f = zframe_new (data, size);
+				zmsg_append (from_rt, &f);
+				break;
+			    }
+			    f = zframe_new (NULL,  sstream.bytes_written);
+			    ostream = pb_ostream_from_buffer(zframe_data(f), zframe_size(f));
+			    if (!pb_encode(&ostream, fields, data)) {
+				rtapi_print_msg(RTAPI_MSG_ERR,
+						"%s: from_rt encoding failed %s type=%d written=%zu\n",
+						progname, PB_GET_ERROR(&sstream),flags.f.npbtype,
+						ostream.bytes_written);
+				// send as-is
+				f = zframe_new (data, size);
+				zmsg_append (from_rt, &f);
+				break;
+			    }
+			    zmsg_append (from_rt, &f);
+			    break;
+
+			default:
+			    rtapi_print_msg(RTAPI_MSG_ERR,
+					    "%s: invalid npbtype from RT: %d\n",
+					    progname, flags.f.npbtype);
+			    zframe_t *f = zframe_new (data, size);
+			    zmsg_append (from_rt, &f);
+			}
+			break;
+
+		    case MF_UNSPECIFIED:
+		    case MF_ORIGINATOR:
+		    case MF_TARGET:
+		    case MF_PROTOBUF:
 			// leave as is
 			// zframe_new copies the data
 			zframe_t *f = zframe_new (data, size);
 			zmsg_append (from_rt, &f);
+		    }
 			frame_shift(&self->from_rt_mframe);
+
+		    //    if (!(self->flags & SERIALIZE_FROM_RT)) {
+			// leave as is
+			// zframe_new copies the data
+			// zframe_t *f = zframe_new (data, size);
+			// zmsg_append (from_rt, &f);
+			// frame_shift(&self->from_rt_mframe);
 		    // } else {
 		    // 	// switch (flags.f.frametype) {
 		    // 	// case MF_TARGET:
 		    // 	// case MF_ORIGINATOR:
-			    
+		
+// 			    // determine size
+// 			    if (!pb_encode(&sstream, pb_Container_fields, data)) {
+// 				rtapi_print_msg(RTAPI_MSG_ERR,
+// 						"%s: sizing pb_encode(): %s written=%zu\n",
+// 						progname, PB_GET_ERROR(&sstream), sstream.bytes_written);
+// 			    }
+
+// ) {
+// 			    // good, a Container. Check type:	    
 
 		    // 	// }
 

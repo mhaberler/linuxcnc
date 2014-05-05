@@ -65,6 +65,8 @@ rtm.foo = 815
 rtm.dest.tran.x = 3.14
 rtm.dest.tran.y = 2.718
 rtm.dest.tran.x = 1.1415
+rx1 = Container()
+rx2 = Container()
 
 time.sleep(1) # let subscriptions stabilize
 for j in range(options.iter):
@@ -80,7 +82,10 @@ for j in range(options.iter):
     for n in range(options.batch):
         msg = response.recv_multipart()
         if options.verbose:
-            print "---%s receive response: %s" %(me, msg)
+            rx1.ParseFromString(msg[3])
+            rx2.ParseFromString(msg[4])
+            #print "---%s receive response: %s" %(me, msg)
+            print "---%s receive response: %s %s %s" %(me, msg[0:2],str(rx1),str(rx2))
     if not options.fast:
         time.sleep(1)
 
