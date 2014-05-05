@@ -59,9 +59,9 @@ PROTOC_C := $(shell which protoc-c)
 PROTOC_FLAGS :=
 PROTOC_C_FLAGS := -fPIC
 PROTOC_C_LDFLAGS := -lprotobuf-c
-PROTOCXX_LDFLAGS := -lprotobuf
+PROTOCXX_LDFLAGS := $(PROTOBUF_LIBS) 
 PROTOCXX_FLAGS :=
-PROTOCXX_CXX_FLAGS := -fPIC
+PROTOCXX_CXX_FLAGS := -fPIC $(PROTOBUF_CFLAGS)
 
 # tell protobuf to use compiled C for Python bindings
 # not available in 2.4.1/jessie
@@ -300,8 +300,8 @@ $(PROTOCXXLIB).0: $(patsubst %.cc,objects/%.o,$(PROTO_CXX_SRCS))
 PB2JSONLIB := ../lib/libjson2pb.so
 PB2JSON = $(MWDIR)/json2pb
 PB2JSONLIB_SRCS = $(PB2JSON)/json2pb.cc
-PB2JSONLIB_CCXFLAGS :=  -g -O3 -shared -Wall -fPIC
-PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) -ljansson
+PB2JSONLIB_CCXFLAGS :=  -g -O3 -shared -Wall -fPIC  $(PROTOBUF_CFLAGS)
+PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) -ljansson 
 
 $(call TOOBJSDEPS, $(PB2JSONLIB_SRCS)) : EXTRAFLAGS += $(PB2JSONLIB_CCXFLAGS)
 
