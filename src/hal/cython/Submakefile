@@ -1,4 +1,3 @@
-ifeq ($(HAVE_CYTHON),yes)
 
 HALNGDIR := hal/cython
 INCLUDES += $(HALNGDIR)
@@ -17,8 +16,7 @@ TARGETS += ../lib/python/machinekit/hal.so
 
 $(call TOOBJSDEPS, $(HALNGSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
 
-$(HALNGDIR)/machinekit/hal.c: $(addprefix $(HALNGDIR)/machinekit/, hal.pyx hal.pxd)
-	cython -o $@ $<
+
 
 ../lib/python/machinekit/hal.so: 	../lib/liblinuxcnchal.so.0 \
 	$(patsubst %.c,objects/%.o,$(HALNGSRCS))
@@ -34,20 +32,19 @@ TARGETS += ../lib/python/machinekit/pyring.so
 USERSRCS += $(RINGSRCS)
 $(call TOOBJSDEPS,  $(RINGSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
 
-$(HALNGDIR)/machinekit/pyring.c: $(addprefix $(HALNGDIR)/machinekit/, pyring.pyx libring.pxd)
-	cython -o $@ $<
 
 ../lib/python/machinekit/pyring.so: $(patsubst %.c,objects/%.o,$(RINGSRCS)) ../lib/liblinuxcnchal.so.0
 	$(ECHO) Linking $($@)
 	@mkdir -p $(dir $@)
 	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS)
 
-endif
 
-# Makefile.inc says on Pytjon..
-# PYTHON = /usr/bin/python
-# BUILD_PYTHON=yes
-# LIBPYTHON=python2.7
-# BOOST_PYTHON_LIBS=-lboost_python
-# PYTHON_CPPFLAGS=-I/usr/include/python2.7
-# PYTHON_LIBS=-lpthread -ldl  -lutil
+# enable re-cythoning only if cython is installed
+
+ifeq ($(HAVE_CYTHON),yes)
+$(HALNGDIR)/machinekit/hal.c: $(addprefix $(HALNGDIR)/machinekit/, hal.pyx hal.pxd)
+	cython -o $@ $<
+
+$(HALNGDIR)/machinekit/pyring.c: $(addprefix $(HALNGDIR)/machinekit/, pyring.pyx libring.pxd)
+	cython -o $@ $<
+endif
