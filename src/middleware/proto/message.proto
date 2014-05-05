@@ -15,7 +15,6 @@ import "canon.proto";
 import "value.proto";
 import "rtapicommand.proto";
 import "rtapi_message.proto";
-import "rtmessage.proto";
 import "config.proto";
 import "preview.proto";
 
@@ -31,12 +30,13 @@ message Container {
     // protobuf-encoded submessages
     // tags with values in the range 1 through 15 take one byte to encode
     // so place the frequently used compound messages here
+    optional fixed64 tsc = 7;  // rtapi_get_time
 
     // if Container.type == MT_RTMESSAGE, only the RTMessage array is filled in
     // individual messages are tagged again with RTMessage.type
     // this is an optimization which allows messagbus to deserialize/serialize
     // on behalf of RT components
-    repeated RTMessage     rtmessage      = 7  [(nanopb).max_count = 10];
+
     repeated Preview       preview        = 8;
 
     optional MotionCommand motcmd         = 9;
@@ -59,6 +59,8 @@ message Container {
     // obtain with clock_gettime(CLOCK_REALTIME, &spec);
     optional int32              tv_sec    = 21;  // can be used with ctime(3)
     optional int32              tv_nsec   = 22;
+
+
 
     // this is for messages going over pub/sub streams and wind up in JSON frames
     // duplicating the topic here allows us to drop the topic frame
@@ -136,20 +138,20 @@ message Container {
     // MT_RETRIEVE_APPLICATION message
     repeated Application app       = 120;
 
-    // miscellanous typed objects
-    optional string        ascii          = 140;
-    optional bytes         unicode        = 141;
-    optional string        gcode          = 142;
-    optional string        python         = 143;
-    optional bytes         pickle         = 144;
-    optional string        tcl            = 145;
-    optional string        xml            = 146;
-    optional string        json           = 147;
-    optional bytes         jpeg           = 148;
-    optional bytes         png            = 149;
-    optional bytes         tiff           = 150;
-    optional bytes         postscript     = 151;
-    optional bytes         svg            = 152;
+    // // miscellanous typed objects
+    // optional string        ascii          = 140;
+    // optional bytes         unicode        = 141;
+    // optional string        gcode          = 142;
+    // optional string        python         = 143;
+    // optional bytes         pickle         = 144;
+    // optional string        tcl            = 145;
+    // optional string        xml            = 146;
+    // optional string        json           = 147;
+    // optional bytes         jpeg           = 148;
+    // optional bytes         png            = 149;
+    // optional bytes         tiff           = 150;
+    // optional bytes         postscript     = 151;
+    // optional bytes         svg            = 152;
 
     // infrequent compound messages
     optional bytes         wou            = 160;  // Arais Wishbone-over-USB
@@ -198,16 +200,16 @@ message Container {
 
     // less commonly used types
 
-    // firmware types. Add as needed
-    optional bytes         pru_firmware   = 2048;
+    // // firmware types. Add as needed
+    // optional bytes         pru_firmware   = 2048;
 
-    // Mesanet firmware types: 3000 - 4000
-    optional bytes         mesa_5i20_firmware   = 3000;
+    // // Mesanet firmware types: 3000 - 4000
+    // optional bytes         mesa_5i20_firmware   = 3000;
 
-    // test message range: 5000-5100 - never used by core code
-    optional Test1         test1          = 5001;
-    optional Test2         test2          = 5002;
-    optional Test3         test3          = 5003;
+    // // test message range: 5000-5100 - never used by core code
+    // optional Test1         test1          = 5001;
+    // optional Test2         test2          = 5002;
+    // optional Test3         test3          = 5003;
 
 
     // NB: do not use the numbers 19000 though 19999
