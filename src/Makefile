@@ -134,7 +134,7 @@ ifeq ($(RUN_IN_PLACE)+$(BUILD_DRIVERS),yes+yes)
 		\( `stat -c %u ../libexec/linuxcnc_module_helper` -ne 0 -o \
 		    ! -u ../libexec/linuxcnc_module_helper \) \
 	    && need_setuid=1; \
-	for f in $(BUILD_THREAD_FLAVORS); do \
+	for f in $(filter-out %-kernel,$(BUILD_THREAD_FLAVORS)); do \
 	    test -f ../libexec/rtapi_app_$$f -a \
 		    \( 0`stat -c %u ../libexec/rtapi_app_$$f 2>/dev/null` \
 			-ne 0 -o ! -u ../libexec/rtapi_app_$$f \) \
@@ -715,7 +715,7 @@ setuid:
 	$(call fix_perms,../libexec/linuxcnc_module_helper)
 	$(call fix_perms,../libexec/pci_read)
 	$(call fix_perms,../libexec/pci_write)
-	$(foreach f,$(BUILD_THREAD_FLAVORS),\
+	$(foreach f,$(filter-out %-kernel,$(BUILD_THREAD_FLAVORS)),\
 	    $(call fix_perms,../libexec/rtapi_app_$(f));)
 # check system configuration:  logging, ulimits, udev
 	@-../scripts/check-system-configuration.sh $(CHECK_KFLAV_SWITCH)
@@ -728,10 +728,8 @@ endif
 # ../include.  A pair of rules like these will exist in the Submakefile
 # of each file that contains headers.
 ../include/%.h: %.h
-	@mkdir -p $(dir $@)
 	$(Q)-cp $^ $@
 ../include/%.hh: %.hh
-	@mkdir -p $(dir $@)
 	$(Q)-cp $^ $@
 
 
