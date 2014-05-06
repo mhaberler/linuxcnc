@@ -1,0 +1,2 @@
+
+probe2stl -z50 -i /home/mah/workspace/emc-fraese-hm2/fraese-f12.ini <f12.txt | stlcorr --load
