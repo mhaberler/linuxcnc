@@ -525,6 +525,7 @@ HEADERS := \
     rtapi/rtapi_bitops.h \
     rtapi/rtapi_byteorder.h \
     rtapi/rtapi_export.h \
+    rtapi/rtapi_int.h \
     rtapi/rtapi_limits.h \
     rtapi/rtapi_math.h \
     rtapi/rtapi_math_i386.h \
