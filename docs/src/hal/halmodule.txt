@@ -155,6 +155,31 @@ exit in a short time, or call the '.exit()' method on the component
 if substantial work (such as reading or 
 writing files) must be done to complete the shutdown process.
 
+== The HAL shared memory interface
+
+HAL shared memory segments are 'owned' by a particular component, and
+therefore must be created using a component id.
+
+Create a new shared memory segment given a key and size like so ('key' is an
+integer value. For key conventions, see 'rtapi_shmkeys.h'):
+
+----
+def get_buffer():
+    c = hal.component("notused")
+    sm = hal.shm(c,key, size)
+    return sm.getbuffer()
+----
+
+To attach an existing segment, call without size parameter:
+
+----
+def get_buffer():
+    c = hal.component("notused")
+    sm = hal.shm(c,key)
+    return sm.getbuffer()
+----
+
+
 == Project ideas
 
 * Create an external control panel with buttons, switches, and
