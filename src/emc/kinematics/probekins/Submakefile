@@ -1,0 +1,41 @@
+PROBEKINSDIR := emc/kinematics/probekins
+
+INCLUDES += $(PROBEKINSDIR)
+
+
+PYTARGETS += ../bin/stlcorr ../bin/probe2stl ../bin/stlvis ../lib/python/stltool.py ../lib/python/voronoi.py
+
+../lib/python/stltool.py: $(PROBEKINSDIR)/stltool.py
+	@$(ECHO) Syntax checking python script $(notdir $@)
+	$(Q)$(PYTHON) -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' $<
+	$(ECHO) Copying python script $(notdir $@)
+	$(Q)cp $< $@
+
+../lib/python/voronoi.py: $(PROBEKINSDIR)/voronoi.py
+	@$(ECHO) Syntax checking python script $(notdir $@)
+	$(Q)$(PYTHON) -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' $<
+	$(ECHO) Copying python script $(notdir $@)
+	$(Q)cp $< $@
+
+../bin/stlcorr: $(PROBEKINSDIR)/stlcorr.py
+	@$(ECHO) Syntax checking python script $(notdir $@)
+	$(Q)$(PYTHON) -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' $<
+	$(ECHO) Copying python script $(notdir $@)
+	$(Q)(echo '#!$(PYTHON)'; sed '1 { /^#!/d; }' $<) > $@.tmp && chmod +x $@.tmp && mv -f $@.tmp $@
+
+../bin/stlvis: $(PROBEKINSDIR)/stlvis.py
+	@$(ECHO) Syntax checking python script $(notdir $@)
+	$(Q)$(PYTHON) -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' $<
+	$(ECHO) Copying python script $(notdir $@)
+	$(Q)(echo '#!$(PYTHON)'; sed '1 { /^#!/d; }' $<) > $@.tmp && chmod +x $@.tmp && mv -f $@.tmp $@
+
+../bin/probe2stl: $(PROBEKINSDIR)/probe2stl.py
+	@$(ECHO) Syntax checking python script $(notdir $@)
+	$(Q)$(PYTHON) -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' $<
+	$(ECHO) Copying python script $(notdir $@)
+	$(Q)(echo '#!$(PYTHON)'; sed '1 { /^#!/d; }' $<) > $@.tmp && chmod +x $@.tmp && mv -f $@.tmp $@
+
+../include/%.h: ./$(PROBEKINSDIR)/%.h
+	cp $^ $@
+../include/%.hh: ./$(PROBEKINSDIR)/%.hh
+	cp $^ $@

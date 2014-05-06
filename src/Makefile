@@ -215,6 +215,7 @@ SUBDIRS := \
 	emc/task \
 	emc/iotask \
 	emc/kinematics \
+	emc/kinematics/probekins \
 	emc/canterp \
 	emc/motion \
 	emc/tp \
@@ -1301,6 +1302,8 @@ hal_lib-objs := hal/hal_lib.o $(MATHSTUB)
 obj-m += trivkins.o
 trivkins-objs := emc/kinematics/trivkins.o
 
+obj-m += probekins.o
+probekins-objs := emc/kinematics/probekins/probekins.o
 obj-m += 5axiskins.o
 5axiskins-objs := emc/kinematics/5axiskins.o
 
@@ -1508,6 +1511,7 @@ $(RTLIBDIR)/genserkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genserkins-objs))
 $(RTLIBDIR)/pumakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pumakins-objs))
 $(RTLIBDIR)/scarakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scarakins-objs))
 $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
+$(RTLIBDIR)/probekins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probekins-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
 READ_RTDEPS = $(wildcard $(RTDEPS))
