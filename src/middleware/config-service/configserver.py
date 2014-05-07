@@ -169,7 +169,7 @@ def main():
     context.linger = 0
 
     uri = "tcp://*"
-    uri = "tcp://eth0"
+#   uri = "tcp://eth0"
 
     cfg = ConfigServer(context, uri, "apps.ini",topdir=".", services=result )
     cfg.setDaemon(True)
