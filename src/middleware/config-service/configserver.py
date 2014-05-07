@@ -4,6 +4,7 @@ import zmq
 import threading
 import pybonjour
 import socket
+import sdiscover
 
 import ConfigParser
 
@@ -20,9 +21,10 @@ def register_callback(sdRef, flags, errorCode, name, regtype, domain):
 
 class ConfigServer(threading.Thread):
 
-    def __init__(self, context, uri, inifile,  topdir="."):
+    def __init__(self, context, uri, inifile,  topdir=".",services={}):
         threading.Thread.__init__(self)
         self.inifile = inifile
+        self.services = services
 
         self.cfg = ConfigParser.ConfigParser()
         self.cfg.read(self.inifile)
@@ -80,6 +82,16 @@ class ConfigServer(threading.Thread):
         app.description = self.cfg.get(name, 'description')
         app.type = self.cfg.getint(name, 'type')
         self.add_files(self.cfg.get(name, 'files'), app)
+
+        for k,v in self.services.iteritems():
+            sa = self.tx.service_announcement.add()
+            sa.instance = 0 # FIXME
+            sa.stype = k
+            sa.version = v.version
+            sa.uri = v.uri
+            sa.api = v.api
+            sa.description = v.description
+
         self.send_msg(origin, MT_APPLICATION_DETAIL)
 
     def process(self,s):
@@ -136,13 +148,30 @@ class ConfigServer(threading.Thread):
 
 
 def main():
+    sd = sdiscover.ServiceDiscover(trace=True)
+    sd.add(ST_STP_HALGROUP)
+    sd.add(ST_STP_HALRCOMP)
+    sd.add(ST_HAL_RCOMMAND)
+    sd.add(ST_RTAPI_COMMAND)
+    sd.add(ST_LOGGING)
+    #sd.add(ST_WEBSOCKET)
+
+    result = sd.discover()
+    if result:
+        print "result:"
+        for k,v in result.iteritems():
+            print "service", k, v.uri, v.description, v.api
+    else:
+        print "failed to discover all requested services"
+        sys.exit(1)
+
     context = zmq.Context()
     context.linger = 0
 
     uri = "tcp://*"
     uri = "tcp://eth0"
 
-    cfg = ConfigServer(context, uri, "apps.ini",topdir="." )
+    cfg = ConfigServer(context, uri, "apps.ini",topdir=".", services=result )
     cfg.setDaemon(True)
     cfg.start()
 
