@@ -30,6 +30,7 @@
 
 #include "haltalk.hh"
 #include <setup_signals.h>
+#include <select_interface.h>
 
 
 static const char *option_string = "hI:S:dt:Du:r:T:c:pb:C:U:i:";
@@ -58,9 +59,11 @@ static htconf_t conf = {
     NULL,
     "HALTALK",
     "haltalk",
-    "tcp://127.0.0.1:*", // localhost, use ephemeral port
-    "tcp://127.0.0.1:*",
-    "tcp://127.0.0.1:*",
+    "localhost",
+    "127.0.0.1",
+    "tcp://%s:*", // as per preferred interface, use ephemeral port
+    "tcp://%s:*",
+    "tcp://%s:*",
     NULL,
     NULL,
     NULL,
@@ -254,6 +257,39 @@ read_config(htconf_t *conf)
 			conf->progname, conf->inifile);
 	return -1;
     }
+
+    if ((s = iniFind(inifp, "INTERFACES", conf->section))) {
+
+	char ifname[100], ip[100];
+
+	// pick a preferred interface
+	if (parse_interface_prefs(s,  ifname, ip) == 0) {
+	    conf->interface = strdup(ifname);
+	    conf->ipaddr = strdup(ip);
+	    rtapi_print_msg(RTAPI_MSG_INFO, "%s %s: using preferred interface %s/%s\n",
+			    conf->progname, conf->inifile,
+			    conf->interface, conf->ipaddr);
+	} else {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s %s: INTERFACES='%s'"
+			    " - cant determine preferred interface, using %s/%s\n",
+			    conf->progname, conf->inifile, s,
+			    conf->interface, conf->ipaddr);
+	}
+    }
+
+    // finalize the URI's
+    char uri[100];
+    snprintf(uri, sizeof(uri), conf->group_status, conf->ipaddr);
+    conf->group_status = strdup(uri);
+
+    snprintf(uri, sizeof(uri), conf->rcomp_status, conf->ipaddr);
+    conf->rcomp_status = strdup(uri);
+
+    snprintf(uri, sizeof(uri), conf->command, conf->ipaddr);
+    conf->command = strdup(uri);
+
+    // bridge: TBD
+
     if ((s = iniFind(inifp, "GROUP_STATUS_URI", conf->section)))
 	conf->group_status = strdup(s);
     if ((s = iniFind(inifp, "RCOMP_STATUS_URI", conf->section)))
@@ -310,6 +346,7 @@ int main (int argc, char *argv[])
 
     conf.progname = argv[0];
     conf.inifile = getenv("INI_FILE_NAME");
+
     while ((opt = getopt_long(argc, argv, option_string,
 			      long_options, NULL)) != -1) {
 	switch(opt) {

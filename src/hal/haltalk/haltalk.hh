@@ -105,6 +105,8 @@ typedef struct htconf {
     const char *inifile;
     const char *section;
     const char *modname;
+    const char *interface;
+    const char *ipaddr;
     const char *group_status;
     const char *rcomp_status;
     const char *command;
