@@ -5,6 +5,7 @@
 # License: MIT
 
 from .hal cimport *
+from .hal_priv cimport *
 from os import strerror
 
 class hal_type(int):

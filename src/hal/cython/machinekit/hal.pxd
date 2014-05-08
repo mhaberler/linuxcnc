@@ -1,5 +1,6 @@
 # vim: sts=4 sw=4 et
 
+
 # Copyright Pavel Shramov, 4/2014
 # see http://psha.org.ru/cgit/psha/emc2.git/commit/?h=wip-cython
 # License: MIT
@@ -21,6 +22,7 @@ cdef extern from "hal.h":
     int hal_acquire(const char *comp, int pid)
     int hal_release(const char *comp_name)
 
+    int  HAL_NAME_LEN
 
     ctypedef enum hal_type_t:
         HAL_TYPE_UNSPECIFIED
@@ -66,6 +68,7 @@ cdef extern from "hal.h":
 
     int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
         void **data_ptr_addr, int comp_id)
+
 
 # XXX ops for remote components
 # cdef extern from "hal_rcomp.h":
