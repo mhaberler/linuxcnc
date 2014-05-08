@@ -5,6 +5,7 @@ import threading
 import pybonjour
 import socket
 import sdiscover
+import netifaces
 
 import ConfigParser
 
@@ -21,10 +22,13 @@ def register_callback(sdRef, flags, errorCode, name, regtype, domain):
 
 class ConfigServer(threading.Thread):
 
-    def __init__(self, context, uri, inifile,  topdir=".",services={}):
+    def __init__(self, context, uri, inifile,  topdir=".",
+                 services={}, interface="", ipv4=""):
         threading.Thread.__init__(self)
         self.inifile = inifile
         self.services = services
+        self.interface = interface
+        self.ipv4 = ipv4
 
         self.cfg = ConfigParser.ConfigParser()
         self.cfg.read(self.inifile)
@@ -36,7 +40,7 @@ class ConfigServer(threading.Thread):
         self.topdir = topdir
         self.context = context
         self.socket = context.socket(zmq.ROUTER)
-        self.port = self.socket.bind_to_random_port(uri, min_port=49152, max_port=65536, max_tries=100)
+        self.port = self.socket.bind_to_random_port(uri)
 
         self.dsname = self.socket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
         print "dsname = ", self.dsname, "port =",self.port
@@ -146,9 +150,53 @@ class ConfigServer(threading.Thread):
         except KeyboardInterrupt:
             self.sd.close()
 
+def choose_ip(pref):
+    '''
+    given an interface preference list, return a tuple (interface, IPv4)
+    or None if no match found
+    If an interface has several IPv4 addresses, the first one is picked.
+    pref is a list of interface names or prefixes:
+
+    pref = ['eth0','usb3']
+    or
+    pref = ['wlan','eth', 'usb']
+    '''
+
+    # retrieve list of network interfaces
+    interfaces = netifaces.interfaces()
+
+    # delete localhost type interfaces
+    netifs = [i for i in interfaces if not i.startswith('lo')]
+
+    # find a match in preference oder
+    for p in pref:
+        for i in netifs:
+            if i.startswith(p):
+                ifcfg = netifaces.ifaddresses(i)
+                # we want the first IPv4 address
+                try:
+                    ip = ifcfg[netifaces.AF_INET][0]['addr']
+                except KeyError:
+                    continue
+                return (i, ip)
+    return None
+
 
 def main():
-    sd = sdiscover.ServiceDiscover(trace=True)
+    debug = True
+    trace = False
+
+    prefs = ['wlan','eth','usb']
+
+    iface = choose_ip(prefs)
+    if not iface:
+       print >> sys.stderr, "failed to determine preferred interface (preference = %s)" % prefs
+       sys.exit(1)
+
+    if debug:
+        print "announcing configserver on ",iface
+
+    sd = sdiscover.ServiceDiscover(trace=trace)
     sd.add(ST_STP_HALGROUP)
     sd.add(ST_STP_HALRCOMP)
     sd.add(ST_HAL_RCOMMAND)
@@ -157,21 +205,24 @@ def main():
     #sd.add(ST_WEBSOCKET)
 
     result = sd.discover()
-    if result:
-        print "result:"
-        for k,v in result.iteritems():
-            print "service", k, v.uri, v.description, v.api
-    else:
-        print "failed to discover all requested services"
+    if not result:
+        print >> sys.stderr,"failed to discover all requested services"
         sys.exit(1)
+    else:
+        if False:
+            for k,v in result.iteritems():
+                if debug:
+                    print "service", k, v.uri, v.description, v.api
 
     context = zmq.Context()
     context.linger = 0
 
-    uri = "tcp://*"
-#   uri = "tcp://eth0"
+    uri = "tcp://" + iface[0]
 
-    cfg = ConfigServer(context, uri, "apps.ini",topdir=".", services=result )
+    cfg = ConfigServer(context, uri, "apps.ini",
+                       topdir=".", services=result,
+                       interface = iface[0],
+                       ipv4 = iface[0])
     cfg.setDaemon(True)
     cfg.start()
 
