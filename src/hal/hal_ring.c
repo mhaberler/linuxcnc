@@ -103,7 +103,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int flags)
 
 	    // map the segment now so we can fill in the ringheader details
 	    if ((retval = rtapi_shmem_getptr(shmid,
-					     (void **)&rhptr)) < 0) {
+					     (void **)&rhptr, 0)) < 0) {
 		rtapi_print_msg(RTAPI_MSG_ERR,
 				"HAL: hal_ring_new: rtapi_shmem_getptr for %d failed %d\n",
 				shmid, retval);
@@ -201,7 +201,7 @@ int hal_ring_delete(const char *name)
 		    return shmid;
 		}
 	    }
-	    if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr))) {
+	    if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr, 0))) {
 		rtapi_print_msg(RTAPI_MSG_ERR,
 				"HAL: hal_ring_delete: rtapi_shmem_getptr %d failed %d\n",
 				shmid, retval);
@@ -297,7 +297,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr,unsigned *flags)
 	    shmid = retval;
 
 	    // make it accessible
-	    if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr))) {
+	    if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr, 0))) {
 		rtapi_print_msg(RTAPI_MSG_ERR,
 				"HAL: hal_ring_attach: rtapi_shmem_getptr %d failed %d\n",
 				shmid, retval);
