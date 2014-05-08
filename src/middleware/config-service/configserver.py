@@ -127,7 +127,7 @@ class ConfigServer(threading.Thread):
         try:
 
             self.host = socket.gethostname()
-            self.name = 'Machinekit on %s' % self.host
+            self.name = 'Machinekit on %s' % self.ipv4
             self.sdref = pybonjour.DNSServiceRegister(regtype = '_machinekit._tcp',
                                                       name = self.name,
                                                       port = self.port,
@@ -222,7 +222,7 @@ def main():
     cfg = ConfigServer(context, uri, "apps.ini",
                        topdir=".", services=result,
                        interface = iface[0],
-                       ipv4 = iface[0])
+                       ipv4 = iface[1])
     cfg.setDaemon(True)
     cfg.start()
 
