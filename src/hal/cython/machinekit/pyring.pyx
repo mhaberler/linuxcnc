@@ -4,34 +4,14 @@ from libc.errno cimport EAGAIN
 from libc.string cimport memcpy
 from cpython.buffer cimport PyBuffer_FillInfo
 from cpython.bytes cimport PyBytes_AsString, PyBytes_Size, PyBytes_FromStringAndSize
+from posix.unistd import getpid
 
 from libring cimport *
 from .hal cimport *
-
-from os import getpid  # XXX I just want use getpid(), not export it?
+from .hal_ring cimport *
 
 cdef extern int lib_module_id
 cdef int comp_id = -1
-
-cdef extern from "hal_ring.h" :
-
-    # XXX this is roughly as from: http://goo.gl/Rb28IZ
-    # XXX how do I expose this?
-    ctypedef struct hal_ring_t:
-        const char *name   # XXX a char array - is this right?
-        int next_ptr
-        int ring_id
-        int ring_shmkey
-        int total_size
-        unsigned ring_offset
-        unsigned flags
-        int handle
-
-    int hal_ring_new(const char *name, int size, int spsize, int mode)
-    int hal_ring_delete(const char *name)
-    int hal_ring_attach(const char *name, ringbuffer_t *rb, unsigned *flags)
-    int hal_ring_detach(const char *name, ringbuffer_t *rb)
-
 
 # attach to HAL only if needed
 def pyring_hal_init():
