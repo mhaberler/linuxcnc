@@ -6,6 +6,7 @@ INCLUDES += $(PROTOLIB_DIR)
 # protobuf support functions - usable without HAL (eg remotely)
 PROTOLIB_SRCS := $(addprefix $(PROTOLIB_DIR)/, \
 	pbutil.cc \
+	select_interface.c \
 	setup_signals.c)
 
 # protobuf support functions which depend on HAL - on RT host only
