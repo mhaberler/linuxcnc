@@ -288,7 +288,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr,unsigned *flags)
 		if (retval != -EEXIST)  {
 		    rtapi_print_msg(RTAPI_MSG_WARN,
 				    "HAL: hal_ring_attach(%s): rtapi_shmem_new_inst() failed %d\n",
-				    name, shmid);
+				    name, retval);
 		    return retval;
 		}
 		// tried to map shm again. May happen in halcmd_commands:print_ring_info().
