@@ -7,24 +7,21 @@
 
 #include <inttypes.h>
 #include <avahi-common/strlst.h>
+#include <avahi-common/address.h>
 
 #ifdef __cplusplus
-#define BEGIN_DECLS extern "C" {
-#define END_DECLS }
-#else
-#define BEGIN_DECLS
-#define END_DECLS
+extern "C" {
 #endif
 
-BEGIN_DECLS
 
 #define MACHINEKIT_DNS_SERVICE_TYPE "_machinekit._tcp"
 
 typedef struct {
-    char *name;
-    int ipv6;   // if 0 - IPV4 only announcements
+    const char *name;
+    AvahiProtocol proto; //  AVAHI_PROTO_INET6,  AVAHI_PROTO_INET, AVAHI_PROTO_UNSPEC
     int port;
     const char *type;
+    AvahiIfIndex interface; // usually AVAHI_IF_UNSPEC
     AvahiStringList *txt;
 } zservice_t;
 
@@ -32,6 +29,8 @@ void *mk_zeroconf_register(const zservice_t *s);
 int   mk_zeroconf_unregister(void *);
 
 
-END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
 #endif

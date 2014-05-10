@@ -41,12 +41,29 @@ TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 $(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
 
 ../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
+	../lib/libprotolib.so.0 \
 	../lib/libsyslog-async.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
 
 USERSRCS += $(TESTPUBLISH_SRCS)
 TARGETS += ../bin/testpublish
+
+
+
+TESTBROWSE_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+	testbrowse.cc	)
+
+$(call TOOBJSDEPS, $(TESTBROWSE_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
+
+../bin/testbrowse: $(call TOOBJS, $(TESTBROWSE_SRCS)) \
+	../lib/libsyslog-async.so.0 \
+	../lib/libprotolib.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
+
+USERSRCS += $(TESTBROWSE_SRCS)
+TARGETS += ../bin/testbrowse
 
 endif
 #endif

@@ -60,10 +60,9 @@ static void register_stuff(struct context *ctx)
     }
     if (avahi_entry_group_is_empty(ctx->group)) {
 	// Register our service
-        if (avahi_entry_group_add_service_strlst(
-						 ctx->group,
-						 AVAHI_IF_UNSPEC,
-						 ctx->service->ipv6 ?  AVAHI_PROTO_INET:AVAHI_PROTO_UNSPEC,
+        if (avahi_entry_group_add_service_strlst(ctx->group,
+						 ctx->service->interface,
+						 ctx->service->proto,
 						 (AvahiPublishFlags) 0,
 						 ctx->name,
 						 ctx->service->type,

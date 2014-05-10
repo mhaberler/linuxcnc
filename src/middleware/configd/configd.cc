@@ -123,7 +123,8 @@ int main(int argc, char **argv)
     if (opt_zeroconf) {
 
 	zs.name = "foo service on host bar";
-	zs.ipv6 = 0;
+	zs.proto =  AVAHI_PROTO_INET;
+	zs.interface = AVAHI_IF_UNSPEC;
 	zs.port = 4711;
 	zs.type = MACHINEKIT_DNS_SERVICE_TYPE;
 	zs.txt = NULL;
