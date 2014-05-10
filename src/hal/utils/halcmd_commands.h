@@ -64,6 +64,7 @@ extern int do_newinst_cmd(char *comp_name, char *inst_name);
 extern int do_net_cmd(char *signame, char *pins[]);
 extern int do_setp_cmd(char *name, char *value);
 extern int do_getp_cmd(char *name);
+extern int do_sete_cmd(char *pos, char *value);
 extern int do_sets_cmd(char *name, char *value);
 extern int do_gets_cmd(char *name);
 extern int do_ptype_cmd(char *name);

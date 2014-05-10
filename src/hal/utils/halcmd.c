@@ -174,6 +174,7 @@ struct halcmd_command halcmd_commands[] = {
     {"setexact_for_test_suite_only", FUNCT(do_setexact_cmd), A_ZERO },
     {"setp",    FUNCT(do_setp_cmd),    A_TWO },
     {"sets",    FUNCT(do_sets_cmd),    A_TWO },
+    {"sete",    FUNCT(do_sete_cmd),    A_TWO },
     {"show",    FUNCT(do_show_cmd),    A_ONE | A_OPTIONAL | A_PLUS},
     {"shutdown",FUNCT(do_shutdown_cmd), A_ZERO },
     {"source",  FUNCT(do_source_cmd),  A_ONE | A_TILDE },

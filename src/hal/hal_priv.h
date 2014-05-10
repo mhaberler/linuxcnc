@@ -113,6 +113,9 @@
 
 RTAPI_BEGIN_DECLS
 
+#define MAX_EPSILON 5   // canned epsilon values for double pin/signal change detection
+#define DEFAULT_EPSILON 0.00001  // epsiolon[0]
+
 // extending this beyond 255 might require adapting rtapi_shmkeys.h
 #define HAL_MAX_RINGS	        255
 
@@ -233,6 +236,8 @@ typedef struct {
 
     int member_list_ptr;	/* list of member structs */
     int member_free_ptr;	/* list of free member structs */
+
+    double epsilon[MAX_EPSILON];
 } hal_data_t;
 
 
@@ -275,10 +280,8 @@ typedef struct {
     hal_type_t type;		/* data type */
     hal_pin_dir_t dir;		/* pin direction */
     int handle;                 // unique ID
-#ifdef USE_PIN_USER_ATTRIBUTES
     int flags;
-    double epsilon;
-#endif
+    __u8 eps_index;
     char name[HAL_NAME_LEN + 1];	/* pin name */
 } hal_pin_t;
 

@@ -298,7 +298,7 @@ int hal_retrieve_pinstate(const char *comp_name,
 		    pinstate.value = SHMPTR(pin->data_ptr_addr);
 		    pinstate.type = pin->type;
 		    pinstate.dir = pin->dir;
-		    pinstate.epsilon = pin->epsilon;
+		    pinstate.epsilon = hal_data->epsilon[pin->eps_index];
 		    pinstate.flags = pin->flags;
 		    strncpy(pinstate.name, pin->name, sizeof(pin->name));
 		    strncpy(pinstate.owner_name, owner->name, sizeof(owner->name));
@@ -457,7 +457,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	case HAL_FLOAT:
 	    halfloat = *((hal_float_t *) data_ptr);
 	    delta = HAL_FABS(halfloat - cc->tracking[i].f);
-	    if (delta > pin->epsilon) {
+	    if (delta > hal_data->epsilon[pin->eps_index]) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
 		cc->tracking[i].f = halfloat;

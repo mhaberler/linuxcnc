@@ -145,11 +145,6 @@ RTAPI_BEGIN_DECLS
 
 #define HAL_LOCK_ALL      255   /* locks every action */
 
-
-// FIXME: move these paramters to a warm place
-#define USE_PIN_USER_ATTRIBUTES
-#define CHANGE_DETECT_EPSILON 0.0001
-
 /***********************************************************************
 *                   GENERAL PURPOSE FUNCTIONS                          *
 ************************************************************************/
@@ -264,10 +259,8 @@ typedef struct {
     int dir;		/* pin direction */
     char name[HAL_NAME_LEN + 1];	/* pin name */
     char owner_name[HAL_NAME_LEN + 1];	/* owning comp name */
-#ifdef USE_PIN_USER_ATTRIBUTES
     double epsilon;
     int flags;
-#endif
 } hal_pinstate_t;
 
 

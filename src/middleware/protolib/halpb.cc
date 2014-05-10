@@ -11,7 +11,7 @@ int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin)
 #ifdef USE_PIN_USER_ATTRIBUTES
     pbpin->set_flags(pin->flags);
     if (pin->type == HAL_FLOAT)
-	pbpin->set_epsilon(pin->epsilon);
+	pbpin->set_epsilon(hal_data->epsilon[pin->eps_index]);
 #endif
     return 0;
 }
@@ -127,7 +127,7 @@ int halpr_describe_member(hal_member_t *member, pb::Member *pbmember)
 	pbmember->set_mtype(pb::HAL_MEMBER_SIGNAL);
 	pbmember->set_userarg1(member->userarg1);
 	if (sig->type == HAL_FLOAT)
-	    pbmember->set_epsilon(member->epsilon);
+	    pbmember->set_epsilon(hal_data->epsilon[member->eps_index]);
 	pb::Signal *pbsig = pbmember->mutable_signal();
 	halpr_describe_signal(sig, pbsig);
     } else {

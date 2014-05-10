@@ -82,6 +82,7 @@ static void print_funct_names(char **patterns);
 static void print_thread_names(char **patterns);
 static void print_group_names(char **patterns);
 static void print_ring_names(char **patterns);
+static void print_eps_info(char **patterns);
 
 static void print_lock_status();
 static int count_list(int list_root);
@@ -766,6 +767,36 @@ int do_setp_cmd(char *name, char *value)
 
 }
 
+int do_sete_cmd(char *pos, char *value)
+{
+    char *cp = pos;
+
+    unsigned index = strtoul(pos, &cp, 0);
+    if ((*cp != '\0') && (!isspace(*cp))) {
+	/* invalid chars in string */
+	halcmd_error("value '%s' invalid for index\n", value);
+	return -EINVAL;
+    }
+    if (index > MAX_EPSILON-1) {
+	halcmd_error("index %u out of range (0..%d)\n", index, MAX_EPSILON-1);
+	return -EINVAL;
+    }
+
+    double epsilon = strtod ( value, &cp );
+    if ((*cp != '\0') && (!isspace(*cp))) {
+	    /* invalid character(s) in string */
+	halcmd_error("value '%s' invalid for float\n", value);
+	return -EINVAL;
+    }
+    halcmd_info("setting epsilon[%u] = %f\n", index, epsilon);
+
+    rtapi_mutex_get(&(hal_data->mutex));
+    hal_data->epsilon[index] = epsilon;
+    rtapi_mutex_give(&(hal_data->mutex));
+    return 0;
+}
+
+
 int do_ptype_cmd(char *name)
 {
     hal_param_t *param;
@@ -1009,6 +1040,7 @@ int do_show_cmd(char *type, char **patterns)
 	print_thread_info(NULL);
 	print_group_info(NULL);
 	print_ring_info(NULL);
+	print_eps_info(NULL);
     } else if (strcmp(type, "all") == 0) {
 	/* print everything, using the pattern */
 	print_comp_info(patterns);
@@ -1021,6 +1053,7 @@ int do_show_cmd(char *type, char **patterns)
 	print_thread_info(patterns);
 	print_group_info(patterns);
 	print_ring_info(patterns);
+	print_eps_info(patterns);
     } else if (strcmp(type, "comp") == 0) {
 	print_comp_info(patterns);
 
@@ -1049,6 +1082,8 @@ int do_show_cmd(char *type, char **patterns)
 	print_group_info(patterns);
     } else if (strcmp(type, "ring") == 0) {
 	print_ring_info(patterns);
+    } else if (strcmp(type, "eps") == 0) {
+	print_eps_info(patterns);
     } else if (strcmp(type, "alias") == 0) {
 	print_pin_aliases(patterns);
 	print_param_aliases(patterns);
@@ -1748,11 +1783,7 @@ static void print_pin_info(int type, char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Component Pins:\n");
-#ifdef USE_PIN_USER_ATTRIBUTES
 	halcmd_output("Owner   Type  Dir         Value  Name\tEpsilon\t\tFlags\n");
-#else
-	halcmd_output("Owner   Type  Dir         Value  Name\n");
-#endif
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->pin_list_ptr;
@@ -1768,29 +1799,31 @@ static void print_pin_info(int type, char **patterns)
 		dptr = &(pin->dummysig);
 	    }
 	    if (scriptmode == 0) {
-#ifdef USE_PIN_USER_ATTRIBUTES
-		halcmd_output(" %5d  %5s %-3s  %9s  %s\t%f\t%d",
-			      comp->comp_id,
-			      data_type((int) pin->type),
-			      pin_data_dir((int) pin->dir),
-			      data_value((int) pin->type, dptr),
-			      pin->name,
-			      pin->epsilon, pin->flags);
-#else
-		halcmd_output(" %5d  %5s %-3s  %9s  %s",
-		    comp->comp_id,
-		    data_type((int) pin->type),
-		    pin_data_dir((int) pin->dir),
-		    data_value((int) pin->type, dptr),
-		    pin->name);
-#endif
+		if (pin->type == HAL_FLOAT) {
+		    halcmd_output(" %5d  %5s %-3s  %9s  %s\t%f\t%d",
+				  comp->comp_id,
+				  data_type((int) pin->type),
+				  pin_data_dir((int) pin->dir),
+				  data_value((int) pin->type, dptr),
+				  pin->name,
+				  hal_data->epsilon[pin->eps_index],
+				  pin->flags);
+		} else {
+		    halcmd_output(" %5d  %5s %-3s  %9s  %s\t\t\t%d",
+				  comp->comp_id,
+				  data_type((int) pin->type),
+				  pin_data_dir((int) pin->dir),
+				  data_value((int) pin->type, dptr),
+				  pin->name,
+				  pin->flags);
+		}
 	    } else {
 		halcmd_output("%s %s %s %s %s",
-		    comp->name,
-		    data_type((int) pin->type),
-		    pin_data_dir((int) pin->dir),
-		    data_value2((int) pin->type, dptr),
-		    pin->name);
+			      comp->name,
+			      data_type((int) pin->type),
+			      pin_data_dir((int) pin->dir),
+			      data_value2((int) pin->type, dptr),
+			      pin->name);
 	    } 
 	    if (sig == 0) {
 		halcmd_output("\n");
@@ -2702,7 +2735,7 @@ int do_newm_cmd(char *group, char *member, char **opt)
 {
     int arg1 = MEMBER_MONITOR_CHANGE, retval;
     char *cp;
-    double epsilon = CHANGE_DETECT_EPSILON;
+    int eps_index = 0;
     hal_sig_t *sig;
     hal_group_t *grp;
 
@@ -2731,13 +2764,13 @@ int do_newm_cmd(char *group, char *member, char **opt)
 		    // args of the form key=value
 		    if (!strcmp(s1, "epsilon")) {
 			cp = s2;
-			epsilon = strtod(s2, &cp);
+			eps_index = strtoul(s2, &cp, 0);
 			if ((*cp != '\0') && (!isspace(*cp))) {
-			    halcmd_error("value '%s' invalid for epsilon=<float> (float required)\n", s2);
+			    halcmd_error("value '%s' invalid for epsilon=<int> (integer value required)\n", s2);
 			    return -EINVAL;
 			}
 			if (sig && (sig->type != HAL_FLOAT)) {
-			    halcmd_error("epsilon=<float> only makes sense for float signals\n");
+			    halcmd_error("epsilon=<int> only makes sense for float signals\n");
 			    return -EINVAL;
 			}
 
@@ -2762,7 +2795,7 @@ int do_newm_cmd(char *group, char *member, char **opt)
 	    }
 	}
     }
-    retval = hal_member_new(group, member, arg1, epsilon);
+    retval = hal_member_new(group, member, arg1, eps_index);
     if (retval)
 	halcmd_error("'newm %s %s' failed\n", group, member);
     return retval;
@@ -2802,7 +2835,7 @@ static int print_member_cb(int level, hal_group_t **groups, hal_member_t *member
 		  data_type((int) sig->type),
 		  data_value((int) sig->type, dptr),
 		  member->userarg1,
-		  member->epsilon);
+		  hal_data->epsilon[member->eps_index]);
 
     // print stack of nested group references
     while (level) {
@@ -2842,6 +2875,19 @@ static void print_group_info(char **patterns)
 	}
 	next_group = gptr->next_ptr;
     }
+    rtapi_mutex_give(&(hal_data->mutex));
+    halcmd_output("\n");
+}
+
+
+static void print_eps_info(char **patterns)
+{
+    rtapi_mutex_get(&(hal_data->mutex));
+    int i;
+
+    halcmd_output("Epsilon\tValue\n");
+    for (i = 0; i < MAX_EPSILON; i++)
+	halcmd_output("%-d\t%f\n", i, hal_data->epsilon[i]);
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");
 }
@@ -3150,8 +3196,8 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
     hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
     hal_pin_t *pin;
     char *s,*cp;
-    double epsilon  = CHANGE_DETECT_EPSILON;
     int flags = 0;
+    int eps_index = 0;
     int i;
     void *p;
 
@@ -3193,11 +3239,14 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 	    dir = HAL_OUT;
 	}  else if  (!strcasecmp(s,"inout") || !strcasecmp(s,"io")) {
 	    dir = HAL_IO;
-#ifdef USE_PIN_USER_ATTRIBUTES
 	} else if (!strncasecmp(s, EPSILON, strlen(EPSILON))) {
-	    epsilon = strtod(strchr(s,'=') + 1, &cp);
+	    if (type != HAL_FLOAT) {
+		halcmd_error("%s make no sense for non-float pins\n", s);
+		return -EINVAL;
+	    }
+	    eps_index = strtoul(strchr(s,'=') + 1, &cp, 0);
 	    if ((*cp != '\0') && (!isspace(*cp))) {
-		halcmd_error("value '%s' invalid for epsilon (float required)\n", cp);
+		halcmd_error("value '%s' invalid for epsilon (int required)\n", cp);
 		return -EINVAL;
 	    }
 	} else if (!strncasecmp(s, FLAGS, strlen(FLAGS))) {
@@ -3206,7 +3255,6 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 		halcmd_error("value '%s' invalid for flags (int required)\n", cp);
 		return -EINVAL;
 	    }
-#endif
 	} else {
 	    halcmd_error("newpin: invalid option '%s' "
 			 "(use one or several of: in out io eps=<flaot> flags=<int>)",s);
@@ -3233,17 +3281,16 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 	return -EINVAL;
     }
     rtapi_mutex_get(&(hal_data->mutex));
-#ifdef USE_PIN_USER_ATTRIBUTES
+
     pin = halpr_find_pin_by_name(pin_name);
     if (pin) {
-	pin->epsilon = epsilon;
+	pin->eps_index = eps_index;
 	pin->flags = flags;
     } else {
 	halcmd_error("FATAL: cant find new pin '%s':  %s\n",
 		     pin_name, strerror(-retval));
 	return -EINVAL;
     }
-#endif
     return 0;
 }
 

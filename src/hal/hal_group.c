@@ -434,7 +434,7 @@ hal_group_t *halpr_find_group_of_member(const char *name)
 }
 
 int hal_member_new(const char *group, const char *member,
-		     int arg1, double epsilon)
+		   int arg1, int eps_index)
 {
     if (hal_data == 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -471,8 +471,8 @@ int hal_member_new(const char *group, const char *member,
 	return -EPERM;
     }
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating member '%s' arg1=%d epsilon=%f\n",
-		    rtapi_instance, member, arg1, epsilon);
+    rtapi_print_msg(RTAPI_MSG_DBG, "HAL:%d creating member '%s' arg1=%d epsilon[%d]=%f\n",
+		    rtapi_instance, member, arg1, eps_index, hal_data->epsilon[eps_index]);
 
     {
 	hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -521,7 +521,7 @@ int hal_member_new(const char *group, const char *member,
 	}
 	/* initialize the structure */
 	new->userarg1 = arg1;
-	new->epsilon = epsilon;
+	new->eps_index = eps_index;
 	new->handle = rtapi_next_handle();
 	if (sig) {
 	    new->sig_member_ptr =  SHMOFF(sig);
@@ -850,7 +850,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 	    case HAL_FLOAT:
 		halfloat = *((hal_float_t *) SHMPTR(sig->data_ptr));
 		delta = HAL_FABS(halfloat - cg->tracking[m].f);
-		if (delta > cg->member[i]->epsilon) {
+		if (delta > hal_data->epsilon[cg->member[i]->eps_index]) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
 		    cg->tracking[m].f = halfloat;
@@ -976,7 +976,7 @@ static hal_member_t *alloc_member_struct(void)
 	p->sig_member_ptr = 0;
 	p->group_member_ptr = 0;
 	p->userarg1 = 0;
-	p->epsilon = CHANGE_DETECT_EPSILON;
+	p->eps_index = 0;
     }
     return p;
 }

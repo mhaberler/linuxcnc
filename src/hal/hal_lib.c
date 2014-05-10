@@ -2913,6 +2913,12 @@ static int init_hal_data(void)
     hal_data->shmem_bot = sizeof(hal_data_t);
     hal_data->shmem_top = global_data->hal_size;
     hal_data->lock = HAL_LOCK_NONE;
+
+    int i;
+    for (i = 0; i < MAX_EPSILON; i++)
+	hal_data->epsilon[i] = 0.0;
+    hal_data->epsilon[0] = DEFAULT_EPSILON;
+
     /* done, release mutex */
     rtapi_mutex_give(&(hal_data->mutex));
     return 0;
@@ -3031,7 +3037,7 @@ static hal_pin_t *alloc_pin_struct(void)
 	memset(&p->dummysig, 0, sizeof(hal_data_u));
 	p->name[0] = '\0';
 #ifdef USE_PIN_USER_ATTRIBUTES
-	p->epsilon = 0.0;
+	p->eps_index = 0;
 	p->flags = 0;
 #endif
     }
@@ -3330,10 +3336,8 @@ static void free_pin_struct(hal_pin_t * pin)
     pin->signal = 0;
     memset(&pin->dummysig, 0, sizeof(hal_data_u));
     pin->name[0] = '\0';
-#ifdef USE_PIN_USER_ATTRIBUTES
-    pin->epsilon = 0.0;
+    pin->eps_index = 0;
     pin->flags = 0;
-#endif
     /* add it to free list */
     pin->next_ptr = hal_data->pin_free_ptr;
     hal_data->pin_free_ptr = SHMOFF(pin);

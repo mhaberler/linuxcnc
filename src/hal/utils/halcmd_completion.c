@@ -50,7 +50,7 @@ static int argno;
 static const char *command_table[] = {
     "loadrt", "loadusr", "unload", "lock", "unlock",
     "linkps", "linksp", "linkpp", "unlinkp",
-    "net", "newsig", "delsig", "getp", "gets", "setp", "sets", "ptype", "stype",
+    "net", "newsig", "delsig", "getp", "gets", "setp", "sets", "sete", "ptype", "stype",
     "addf", "delf", "show", "list", "status", "save", "source",
     "start", "stop", "quit", "exit", "help", "alias", "unalias", 
     "newg"," delg", "newm", "delm",
@@ -72,7 +72,7 @@ static const char *alias_table[] = {
 
 static const char *show_table[] = {
     "all", "alias", "comp", "pin", "sig", "param", "funct", "thread", "group", "member",
-    "ring",
+    "ring", "eps",
     NULL,
 };
 

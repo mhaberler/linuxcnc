@@ -11,8 +11,9 @@ typedef struct {
     int sig_member_ptr;          /* offset of hal_signal_t  */
     int group_member_ptr;        /* offset of hal_group_t (nested) */
     int userarg1;                /* interpreted by using layer */
-    double epsilon;             // delta for float change detection
+    //double epsilon;             // delta for float change detection
     int handle;                 // unique ID
+    __u8 eps_index;             // index into haldata->epsilon[]; default 0
 } hal_member_t;
 
 typedef struct {
@@ -50,7 +51,7 @@ typedef int (*hal_group_callback_t)(hal_group_t *group,  void *cb_data);
 extern int hal_group_new(const char *group, int arg1, int arg2);
 extern int hal_group_delete(const char *group);
 
-extern int hal_member_new(const char *group, const char *member, int arg1, double epsilon);
+extern int hal_member_new(const char *group, const char *member, int arg1, int eps_index);
 extern int hal_member_delete(const char *group, const char *member);
 
 extern int hal_cgroup_report(hal_compiled_group_t *cgroup,
@@ -234,9 +235,9 @@ extern int halpr_foreach_member(const char *group,
 #define MEMBER_MONITOR_CHANGE  1
 // halcmd keyword: monitor
 
-// member.epsilon: consider as changed iff:
+// member.eps_index: consider as changed iff:
 //                 (type(member) == HAL_FLOAT) &&
-//                 (abs(value - previous-value) > epsilon)
+//                 (abs(value - previous-value) > hal_data->epsilon[eps_index]
 
 
 

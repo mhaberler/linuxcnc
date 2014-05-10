@@ -286,7 +286,7 @@ public:
     int get_type()         { return pin->type; }
     int get_dir()          { return pin->dir; }
     int  get_flags()       { return pin->flags; }
-    double get_epsilon()   { return pin->epsilon; }
+    double get_epsilon()   { return hal_data->epsilon[pin->eps_index]; }
     // just use the offset of the pin data struct
     // the handle just needs to be unique
     int get_handle()       { return SHMOFF(pin); }
@@ -963,8 +963,8 @@ class HalMember {
 public:
     HalMember(hal_member_t *member) : hm(member) {}
     int  get_userarg1()          { return hm->userarg1; }
-    double get_epsilon()         { return hm->epsilon; }
-    void set_epsilon(double eps) { hm->epsilon = eps; }
+    double get_epsilon()         { return hal_data->epsilon[hm->eps_index]; }
+    void set_epsilon(int eps)    { hm->eps_index = eps; }
     void set_userarg1(int arg)   { hm->userarg1 = arg; }
     int get_handle()             { return SHMOFF(hm); }
     int get_type() {

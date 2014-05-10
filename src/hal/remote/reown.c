@@ -105,9 +105,7 @@ int pin_state_cb(hal_pinstate_t *ps,  void *cb_data)
 {
     printf("pin='%s', type=%d dir=%d ownedby='%s' ",
 	   ps->name, ps->type,ps->dir, ps->owner_name);
-#ifdef USE_PIN_USER_ATTRIBUTES
-    printf("epsilon=%f flags=%d ", ps->epsilon, ps->flags);
-#endif
+    printf("epsilon=%f flags=%d ", hal_data->epsilon[ps->eps_index], ps->flags);
     printf("pin location ptr=%p\n", ps->value);
     return 0; // continue iterating
 }
