@@ -5,7 +5,7 @@
 #include <sdiscover.h>
 
 
-#include <middleware/generated/message.pb.h>
+#include <machinetalk/generated/message.pb.h>
 using namespace google::protobuf;
 
 static pb::Container command, reply;

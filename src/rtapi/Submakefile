@@ -251,11 +251,11 @@ TARGETS += ../libexec/kdetect
 #                     the rtapi message demon
 ##################################################################
 
-INCLUDES += middleware/wsproxy
+INCLUDES += machinetalk/wsproxy
 RTAPI_MSGD_SRCS =  \
 	rtapi/rtapi_msgd.cc \
 	rtapi/rtapi_compat.c \
-	middleware/wsproxy/zwsproxy.c
+	machinetalk/wsproxy/zwsproxy.c
 
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
 

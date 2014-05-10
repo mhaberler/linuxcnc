@@ -65,7 +65,7 @@
 #include <czmq.h>
 #include <google/protobuf/text_format.h>
 
-#include <middleware/generated/message.pb.h>
+#include <machinetalk/generated/message.pb.h>
 
 using namespace google::protobuf;
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;

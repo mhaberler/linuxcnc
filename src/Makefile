@@ -171,17 +171,17 @@ TARGETS :=
 PYTARGETS :=
 
 # Submakefiles from each of these directories will be included if they exist
-#	middleware/stp
+#	machinetalk/stp
 SUBDIRS := \
 	\
-	middleware \
-	middleware/syslog-async \
-	middleware/support \
-	middleware/service-discovery \
-	middleware/stp \
-	middleware/messagebus \
-	middleware/protolib \
-	middleware/configd \
+	machinetalk \
+	machinetalk/syslog-async \
+	machinetalk/support \
+	machinetalk/service-discovery \
+	machinetalk/stp \
+	machinetalk/messagebus \
+	machinetalk/protolib \
+	machinetalk/configd \
 	libnml/linklist \
 	libnml/cms \
 	libnml/rcs \
@@ -432,7 +432,7 @@ default: $(INFILES)
 # in ../include is used when building external components of linuxcnc.
 HEADERS := \
     config.h \
-    middleware/nanopb/pb.h \
+    machinetalk/nanopb/pb.h \
     emc/ini/emcIniFile.hh \
     emc/ini/iniaxis.hh \
     emc/ini/initool.hh \
@@ -547,13 +547,13 @@ HEADERS := \
 
 ifeq ($(USE_PROTOBUF),yes)
 HEADERS += \
-	middleware/include/pb-linuxcnc.h \
-	middleware/include/container.h \
-	middleware/json2pb/json2pb.hh \
-	middleware/json2pb/bin2ascii.hh \
-	middleware/nanopb/pb.h \
-	middleware/nanopb/pb_encode.h \
-	middleware/nanopb/pb_decode.h
+	machinetalk/include/pb-linuxcnc.h \
+	machinetalk/include/container.h \
+	machinetalk/json2pb/json2pb.hh \
+	machinetalk/json2pb/bin2ascii.hh \
+	machinetalk/nanopb/pb.h \
+	machinetalk/nanopb/pb_encode.h \
+	machinetalk/nanopb/pb_decode.h
 endif
 
 # need to do ths separately because the subdirectory is required
@@ -658,7 +658,7 @@ endif  # BUILD_SYS == 'kbuild'
 #
 # Then in the above 'modules:' target, cd to the link tree and call
 # kbuild.
-MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround middleware
+MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround machinetalk
 MODULE_SOURCES = Makefile* config* modsilent.py
 $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp:
 	mkdir -p $(OBJDIR)
@@ -1029,7 +1029,7 @@ ifneq ($(KERNELRELEASE),)
 #
 # When the Submakefile is included in the kbuild Makefile, the
 # module's obj-m and foo-objs definitions may remain in the Submakefile
-include $(BASEPWD)/middleware/Submakefile
+include $(BASEPWD)/machinetalk/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
@@ -1059,7 +1059,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/emc/kinematics \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
-	-I$(BASEPWD)/middleware/nanopb \
+	-I$(BASEPWD)/machinetalk/nanopb \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
@@ -1341,9 +1341,9 @@ hal_lib-objs := hal/hal_lib.o $(MATHSTUB)
 hal_lib-objs += hal/hal_group.o
 hal_lib-objs += hal/hal_ring.o
 hal_lib-objs += hal/hal_rcomp.o
-hal_lib-objs += middleware/support/nanopb.o
-hal_lib-objs += middleware/nanopb/pb_decode.o
-hal_lib-objs += middleware/nanopb/pb_encode.o
+hal_lib-objs += machinetalk/support/nanopb.o
+hal_lib-objs += machinetalk/nanopb/pb_decode.o
+hal_lib-objs += machinetalk/nanopb/pb_encode.o
 
 obj-m += trivkins.o
 trivkins-objs := emc/kinematics/trivkins.o
@@ -1573,9 +1573,9 @@ endif  # build kernel RTAPI modules
 NOTAGSIN := \
 	depends \
 	objects \
-	middleware/ring \
-	middleware/generated \
-	middleware/nanopb
+	machinetalk/ring \
+	machinetalk/generated \
+	machinetalk/nanopb
 
 CTAGOPTS := $(addprefix --exclude=,$(NOTAGSIN))
 ETAGOPTS := $(CTAGOPTS)

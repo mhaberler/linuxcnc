@@ -28,8 +28,8 @@
 
 #include <google/protobuf/message_lite.h>
 
-#include <middleware/generated/types.pb.h>
-#include <middleware/generated/message.pb.h>
+#include <machinetalk/generated/types.pb.h>
+#include <machinetalk/generated/message.pb.h>
 using namespace google::protobuf;
 
 #include "czmq.h"

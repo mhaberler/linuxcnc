@@ -7,10 +7,10 @@
 #include "multiframe_flag.h"
 
 
-#include <middleware/include/pb-linuxcnc.h>
-#include <middleware/nanopb/pb_decode.h>
-#include <middleware/nanopb/pb_encode.h>
-#include <middleware/include/container.h>
+#include <machinetalk/include/pb-linuxcnc.h>
+#include <machinetalk/nanopb/pb_decode.h>
+#include <machinetalk/nanopb/pb_encode.h>
+#include <machinetalk/include/container.h>
 
 
 MODULE_AUTHOR("Michael Haberler");

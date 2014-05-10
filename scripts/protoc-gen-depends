@@ -6,11 +6,11 @@
 # call example:
 #
 # /usr/bin/protoc --proto_path=/usr/include \
-# 	--proto_path=/home/mah/linuxcnc/src/middleware/nanopb/generator/proto \
-# 	--proto_path=/home/mah/linuxcnc/src/middleware/proto \
+# 	--proto_path=/home/mah/linuxcnc/src/machinetalk/nanopb/generator/proto \
+# 	--proto_path=/home/mah/linuxcnc/src/machinetalk/proto \
 # 	--plugin=protoc-gen-depends=./protoc-gen-depends \
-# 	--depends_out="--debug --cgen=/home/mah/linuxcnc/src/middleware/generated --vpath=/home/mah/linuxcnc/src/middleware/proto --vpath=/usr/include --vpath=/home/mah/linuxcnc/src/middleware/nanopb/generator/proto --pygen=/home/mah/linuxcnc/lib/python":objects \
-# 	/home/mah/linuxcnc/src/middleware/proto/canon.proto
+# 	--depends_out="--debug --cgen=/home/mah/linuxcnc/src/machinetalk/generated --vpath=/home/mah/linuxcnc/src/machinetalk/proto --vpath=/usr/include --vpath=/home/mah/linuxcnc/src/machinetalk/nanopb/generator/proto --pygen=/home/mah/linuxcnc/lib/python":objects \
+# 	/home/mah/linuxcnc/src/machinetalk/proto/canon.proto
 #
 # option example: --depends-out="--debug --vpath=foo --vpath=bar --cgen=baz --pygen=barf":/outputpath"
 

@@ -55,6 +55,6 @@ oprofile*
 position.txt
 *.9
 **/DOTGIT
-src/middleware/generated/*
+src/machinetalk/generated/*
 lib/python/*_pb2.py
 lib/python/pb2json.py

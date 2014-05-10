@@ -47,7 +47,7 @@
 
 #include "halitem.h"
 
-#include <middleware/generated/message.pb.h>
+#include <machinetalk/generated/message.pb.h>
 namespace gpb = google::protobuf;
 
 // announced protocol versions
@@ -56,7 +56,7 @@ namespace gpb = google::protobuf;
 #define HAL_RCOMMAND_VERSION     2
 
 #if JSON_TIMING
-#include <middleware/json2pb/json2pb.h>
+#include <machinetalk/json2pb/json2pb.h>
 #include <jansson.h>
 #endif
 
