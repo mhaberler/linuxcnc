@@ -263,7 +263,7 @@ read_config(htconf_t *conf)
 	char ifname[100], ip[100];
 
 	// pick a preferred interface
-	if (parse_interface_prefs(s,  ifname, ip) == 0) {
+	if (parse_interface_prefs(s,  ifname, ip, 0) == 0) {
 	    conf->interface = strdup(ifname);
 	    conf->ipaddr = strdup(ip);
 	    rtapi_print_msg(RTAPI_MSG_INFO, "%s %s: using preferred interface %s/%s\n",
