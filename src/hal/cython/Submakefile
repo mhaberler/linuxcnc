@@ -39,6 +39,22 @@ $(call TOOBJSDEPS,  $(RINGSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
 	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS)
 
 
+
+RTAPIMOD_SRCS := $(addprefix $(HALNGDIR)/, \
+	machinekit/rtapi.c )
+TARGETS += ../lib/python/machinekit/rtapi.so 
+USERSRCS += $(RTAPIMOD_SRCS)
+$(call TOOBJSDEPS,  $(RTAPIMOD_SRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
+
+
+../lib/python/machinekit/rtapi.so: $(patsubst %.c,objects/%.o,$(RTAPIMOD_SRCS)) ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS)
+
+
+
+
 # enable re-cythoning only if cython is installed
 
 ifeq ($(HAVE_CYTHON),yes)
@@ -46,5 +62,9 @@ $(HALNGDIR)/machinekit/hal.c: $(addprefix $(HALNGDIR)/machinekit/, hal.pyx hal.p
 	cython -o $@ $<
 
 $(HALNGDIR)/machinekit/pyring.c: $(addprefix $(HALNGDIR)/machinekit/, pyring.pyx libring.pxd)
+	cython -o $@ $<
+
+
+$(HALNGDIR)/machinekit/rtapi.c: $(addprefix $(HALNGDIR)/machinekit/, rtapi.pyx rtapi.pxd)
 	cython -o $@ $<
 endif

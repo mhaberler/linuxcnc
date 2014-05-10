@@ -1,9 +1,11 @@
 # hal_priv.h bindings
 from .hal cimport *
-cdef int:
-    HAL_NAME_SIZE = HAL_NAME_LEN + 1
+#cdef int:
+
 
 cdef extern from "hal_priv.h":
+#int HAL_NAME_SIZE = HAL_NAME_LEN + 1
+
     ctypedef struct hal_comp_t:
         int next_ptr
         int comp_id
@@ -15,7 +17,8 @@ cdef extern from "hal_priv.h":
         long int last_unbound
         int pid
         void *shmem_base
-        char name[HAL_NAME_SIZE]
+        #char name[HAL_NAME_SIZE]
+        char *name
 #        constructor make
         int insmod_args
         int userarg1
