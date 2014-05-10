@@ -11,10 +11,13 @@
 #include <errno.h>
 #include <linux/if_link.h>
 
+unsigned int if_nametoindex(const char *ifname);
+
 #include "select_interface.h"
 
 
-int select_interface(int npref, const char **pref, char *ifname, char *ip)
+int select_interface(int npref, const char **pref, char *ifname,
+		     char *ip, unsigned int *ifindex)
 {
     struct ifaddrs *ifaddr, *ifa;
     int family, s, n,i;
@@ -51,7 +54,13 @@ int select_interface(int npref, const char **pref, char *ifname, char *ip)
 	    if (!strncmp(ifa->ifa_name, p, strlen(p))) {
 
 		// printf("MATCH %s address: %s\n", ifa->ifa_name, host);
-
+		unsigned int ii = if_nametoindex(ifa->ifa_name);
+		if (ii) {
+		    if (ifindex)
+			*ifindex = ii;
+		} else {
+		    fprintf(stderr, "if_nametoindex() failed: %s\n", strerror(errno));
+		}
 		strcpy(ifname, ifa->ifa_name);
 		strcpy(ip, host);
 		freeifaddrs(ifaddr);
@@ -66,7 +75,7 @@ int select_interface(int npref, const char **pref, char *ifname, char *ip)
 }
 
 #define MAX_IFS 100
-int parse_interface_prefs(const char *line,  char *ifname, char *ip)
+int parse_interface_prefs(const char *line,  char *ifname, char *ip, unsigned int *ifindex)
 {
     const char *argv[MAX_IFS];
     int argc = 0;
@@ -90,7 +99,7 @@ int parse_interface_prefs(const char *line,  char *ifname, char *ip)
 	return -1;
     }
     argv[argc] = NULL;
-    return select_interface(argc, argv, ifname, ip);
+    return select_interface(argc, argv, ifname, ip, ifindex);
 }
 
 
@@ -101,7 +110,7 @@ int main(int argc, const char *argv[])
     memset(ifname, 0, 100);
     memset(ipv4, 0, 100);
 
-    int retval =  select_interface(argc-1, &argv[1],ifname, ipv4);
+    int retval =  select_interface(argc-1, &argv[1],ifname, ipv4, int *ifindex);
 
     printf("rc=%d if %s ip %s\n",retval, ifname, ipv4);
     exit(EXIT_SUCCESS);
