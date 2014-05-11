@@ -15,9 +15,6 @@ USERSRCS += $(HALNGSRCS)
 TARGETS += ../lib/python/machinekit/hal.so
 
 $(call TOOBJSDEPS, $(HALNGSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
-
-
-
 ../lib/python/machinekit/hal.so: 	../lib/liblinuxcnchal.so.0 \
 	$(patsubst %.c,objects/%.o,$(HALNGSRCS))
 	$(ECHO) Linking $($@)
@@ -53,6 +50,17 @@ $(call TOOBJSDEPS,  $(RTAPIMOD_SRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
 	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS)
 
 
+# HALRCOMPSRCS := $(addprefix $(HALNGDIR)/, \
+# 	machinekit/hal_rcomp.c)
+# USERSRCS += $(HALRCOMPSRCS)
+# TARGETS += ../lib/python/machinekit/halrcomp.so
+
+# $(call TOOBJSDEPS, $(HALRCOMPSRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
+# ../lib/python/machinekit/halrcomp.so: 	../lib/liblinuxcnchal.so.0 \
+# 	$(patsubst %.c,objects/%.o,$(HALRCOMPSRCS))
+# 	$(ECHO) Linking $($@)
+# 	@mkdir -p $(dir $@)
+# 	$(CC) -g $(LDFLAGS) -shared -o $@ $^ $(PYTHON_LIBS)
 
 
 # enable re-cythoning only if cython is installed
@@ -60,6 +68,11 @@ $(call TOOBJSDEPS,  $(RTAPIMOD_SRCS)) : EXTRAFLAGS=-fPIC -I$(PYTHON_CPPFLAGS)
 ifeq ($(HAVE_CYTHON),yes)
 $(HALNGDIR)/machinekit/hal.c: $(addprefix $(HALNGDIR)/machinekit/, hal.pyx hal.pxd)
 	cython -o $@ $<
+
+# $(HALNGDIR)/machinekit/hal_rcomp.c: $(addprefix $(HALNGDIR)/machinekit/, \
+# 	hal.pyx hal.pxd \
+# 	hal_rcomp.pyx hal_rcomp.pxd)
+# 	cython -o $@ $<
 
 $(HALNGDIR)/machinekit/pyring.c: $(addprefix $(HALNGDIR)/machinekit/, pyring.pyx libring.pxd)
 	cython -o $@ $<

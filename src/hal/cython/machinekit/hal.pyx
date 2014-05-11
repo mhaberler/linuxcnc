@@ -5,7 +5,9 @@
 # License: MIT
 
 from .hal cimport *
+from .rtapi cimport *
 from .hal_priv cimport *
+from .hal_rcomp cimport *
 from os import strerror
 
 class hal_type(int):
@@ -121,19 +123,62 @@ class Signal:
 cdef class Component:
     cdef int _id
     cdef object _name
-    def __cinit__(self, name):
+    cdef hal_compiled_comp_t *_cc
+    cdef hal_comp_t *_comp
+
+    def __cinit__(self, name, mode=TYPE_USER, userarg1=0, int userarg2=0):
         self._name = name
         self._id = -1
-        self._id = hal_init(name)
+        self._id = hal_init_mode(name,mode,userarg1,userarg2)
         if self._id < 0:
             raise RuntimeError("Fail to create comp: %s" % strerror(-self._id))
+        self._cc = NULL
+        rtapi_mutex_get(&hal_data.mutex)
+        self._comp = halpr_find_comp_by_name(name)
+        rtapi_mutex_give(&hal_data.mutex)
+        if self._comp == NULL:
+            raise RuntimeError("halpr_find_comp_by_name(%s) failed" % name)
 
     def __dealloc__(self):
+        if self._cc != NULL:
+            hal_ccomp_free(self._cc)
         if self._id > 0:
             hal_exit(self._id)
 
     def ready(self):
         hal_ready(self._id)
+
+    def bind(self):
+        rc = hal_bind(self._name)
+        if rc < 0:
+            raise RuntimeError("Fail to bind comp: %s" % strerror(-rc))
+
+    def unbind(self):
+        rc = hal_unbind(self._name)
+        if rc < 0:
+            raise RuntimeError("Fail to unbind comp: %s" % strerror(-rc))
+
+    def acquire(self, int pid):
+        rc = hal_acquire(self._name, pid)
+        if rc < 0:
+            raise RuntimeError("Fail to acquire comp: %s" % strerror(-rc))
+
+    def release(self):
+        rc = hal_release(self._name)
+        if rc < 0:
+            raise RuntimeError("Fail to release comp: %s" % strerror(-rc))
+
+    def changed(self):
+        if self._cc == NULL:
+            rc = hal_compile_comp(self._name, &self._cc)
+            if rc < 0:
+                raise RuntimeError("Failed to compile comp: %s" % strerror(-rc))
+        rc = hal_ccomp_match(self._cc)
+        if rc < 0:
+            raise RuntimeError("hal_ccomp_match failed: %s" % strerror(-rc))
+        if rc == 0:
+            return []
+        #hal_ccomp_report(self._cc, report_cb, void *cb_data, 0)
 
     def pin(self, *a):
         return Pin(self, *a)
@@ -145,3 +190,18 @@ cdef class Component:
 
     property name:
         def __get__(self): return self._name
+
+    property type:
+        def __get__(self): return self._comp.type
+
+    property state:
+        def __get__(self): return self._comp.state
+
+    property userarg1:
+        def __get__(self): return self._comp.userarg1
+        def __set__(self, int value): self._comp.userarg1 = value
+
+    property userarg2:
+        def __get__(self): return self._comp.userarg2
+        def __set__(self, int value): self._comp.userarg2 = value
+
