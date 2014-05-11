@@ -710,6 +710,7 @@ int do_setp_cmd(char *name, char *value)
     hal_pin_t *pin;
     hal_type_t type;
     void *d_ptr;
+    hal_comp_t *comp; // owning component
 
     halcmd_info("setting parameter '%s' to '%s'\n", name, value);
     /* get mutex before accessing shared data */
@@ -723,9 +724,10 @@ int do_setp_cmd(char *name, char *value)
             halcmd_error("parameter or pin '%s' not found\n", name);
             return -EINVAL;
         } else {
+	    comp = SHMPTR(pin->owner_ptr);
             /* found it */
             type = pin->type;
-            if(pin->dir == HAL_OUT) {
+            if ((pin->dir == HAL_OUT) && (comp->state != COMP_UNBOUND)) {
                 rtapi_mutex_give(&(hal_data->mutex));
                 halcmd_error("pin '%s' is not writable\n", name);
                 return -EINVAL;
