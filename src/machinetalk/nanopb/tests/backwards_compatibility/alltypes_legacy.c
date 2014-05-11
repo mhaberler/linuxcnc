@@ -90,3 +90,4 @@ const pb_field_t AllTypes_fields[53] = {
     PB_FIELD( 99, INT32   , REQUIRED, STATIC, AllTypes, end, opt_enum, 0),
     PB_LAST_FIELD
 };
+

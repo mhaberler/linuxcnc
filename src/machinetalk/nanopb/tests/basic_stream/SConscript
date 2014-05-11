@@ -9,3 +9,4 @@ env.RunTest(enc)
 env.RunTest([dec, "encode_stream.output"])
 env.Decode(["encode_stream.output", "$COMMON/person.proto"], MESSAGE = "Person")
 env.Compare(["decode_stream.output", "encode_stream.decoded"])
+

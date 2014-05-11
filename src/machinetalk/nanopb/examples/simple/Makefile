@@ -18,3 +18,4 @@ simple: $(CSRC)
 # Build rule for the protocol
 simple.pb.c: simple.proto
 	$(PROTOC) $(PROTOC_OPTS) --nanopb_out=. simple.proto
+

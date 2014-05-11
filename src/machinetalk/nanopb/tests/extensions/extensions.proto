@@ -1,7 +1,7 @@
 import 'alltypes.proto';
 
 extend AllTypes {
-    optional int32 AllTypes_extensionfield1 = 255;
+    optional int32 AllTypes_extensionfield1 = 255 [default = 5];
 }
 
 message ExtensionMessage {
@@ -10,7 +10,8 @@ message ExtensionMessage {
 	required ExtensionMessage AllTypes_extensionfield3 = 253;
 	repeated ExtensionMessage AllTypes_extensionfield4 = 252;
     }
-
+    
     required string test1 = 1;
     required int32 test2 = 2;
 }
+

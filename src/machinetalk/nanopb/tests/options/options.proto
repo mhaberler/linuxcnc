@@ -70,3 +70,4 @@ message Message6
     required int32 field1 = 1;
     optional int32 field2 = 2 [(nanopb).type = FT_IGNORE];
 }
+

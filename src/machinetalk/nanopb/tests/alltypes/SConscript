@@ -31,3 +31,5 @@ env.Encode("optionals.output.recoded",
            ["optionals.output.decoded", "alltypes.proto"],
            MESSAGE='AllTypes')
 env.Compare(["optionals.output", "optionals.output.recoded"])
+
+

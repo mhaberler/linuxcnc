@@ -20,7 +20,7 @@ endif
 ifneq "$(wildcard $(NANOPB_DIR)/generator-bin)" ""
 	# Binary package
 	PROTOC = $(NANOPB_DIR)/generator-bin/protoc
-	PROTOC_OPTS =
+	PROTOC_OPTS = 
 else
 	# Source only or git checkout
 	PROTOC = protoc
@@ -34,3 +34,4 @@ endif
 # Rule for building .pb.c and .pb.h
 %.pb.c %.pb.h: %.proto $(wildcard %.options)
 	$(PROTOC) $(PROTOC_OPTS) --nanopb_out=. $<
+

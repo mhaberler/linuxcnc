@@ -13,3 +13,4 @@ dec = incpath.Program(["decode_extensions.c", "extensions.pb.c", "$BUILD/alltype
 
 env.RunTest(enc)
 env.RunTest([dec, "encode_extensions.output"])
+

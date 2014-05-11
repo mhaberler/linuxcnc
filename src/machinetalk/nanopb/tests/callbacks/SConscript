@@ -11,3 +11,4 @@ env.RunTest([dec, "encode_callbacks.output"])
 
 env.Decode(["encode_callbacks.output", "callbacks.proto"], MESSAGE = "TestMessage")
 env.Compare(["decode_callbacks.output", "encode_callbacks.decoded"])
+

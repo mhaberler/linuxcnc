@@ -8,3 +8,4 @@ dec = env.Program(["decode_legacy.c", "alltypes_legacy.c", "$COMMON/pb_decode.o"
 
 env.RunTest(enc)
 env.RunTest([dec, "encode_legacy.output"])
+

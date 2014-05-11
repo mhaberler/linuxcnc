@@ -40,7 +40,7 @@ struct _pb_ostream_t
     void *state;          /* Free field for use by callback implementation. */
     size_t max_size;      /* Limit number of output bytes written (or use SIZE_MAX). */
     size_t bytes_written; /* Number of bytes written so far. */
-
+    
 #ifndef PB_NO_ERRMSG
     const char *errmsg;
 #endif
@@ -71,6 +71,10 @@ bool pb_encode(pb_ostream_t *stream, const pb_field_t fields[], const void *src_
  */
 bool pb_encode_delimited(pb_ostream_t *stream, const pb_field_t fields[], const void *src_struct);
 
+/* Encode the message to get the size of the encoded data, but do not store
+ * the data. */
+bool pb_get_encoded_size(size_t *size, const pb_field_t fields[], const void *src_struct);
+
 /**************************************
  * Functions for manipulating streams *
  **************************************/
@@ -86,7 +90,7 @@ pb_ostream_t pb_ostream_from_buffer(uint8_t *buf, size_t bufsize);
 
 /* Pseudo-stream for measuring the size of a message without actually storing
  * the encoded data.
- *
+ * 
  * Example usage:
  *    MyMessage msg = {};
  *    pb_ostream_t stream = PB_OSTREAM_SIZING;
