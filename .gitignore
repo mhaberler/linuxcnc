@@ -55,3 +55,4 @@ oprofile*
 position.txt
 *.9
 lib/python/machinekit/__init__.py
+objects/*
