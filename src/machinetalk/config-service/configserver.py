@@ -76,10 +76,10 @@ class ConfigServer(threading.Thread):
             if S_ISREG(mode):
                 print "add", pathname
                 buffer = open(pathname, 'rU').read()
-                f = app.file.add()
-                f.name = str(f)
-                f.encoding = CLEARTEXT
-                f.blob = str(buffer)
+                file = app.file.add()
+                file.name = str(f)
+                file.encoding = CLEARTEXT
+                file.blob = str(buffer)
 
     def retrieve_app(self, origin, name):
         print "retrieve app", name
