@@ -1,9 +1,11 @@
 import QtQuick 2.1
 import QtQuick.Controls 1.1
-import Hal 1.0 as HAL
+import Machinekit.HalRemote 1.0
+import Machinekit.HalRemoteControls 1.0
 
-ApplicationWindow {
+HalApplicationWindow {
     title: qsTr("Hello World")
+    name: "motorctrl"
     width: 500
     height: 800
 
