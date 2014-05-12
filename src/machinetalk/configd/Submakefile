@@ -65,6 +65,27 @@ $(call TOOBJSDEPS, $(TESTBROWSE_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFL
 USERSRCS += $(TESTBROWSE_SRCS)
 TARGETS += ../bin/testbrowse
 
+
+
+TESTBROWSE_ZMQ_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+	testbrowsezmq.cc \
+	czmq-watch.c )
+
+#	zavahipoll.cc )
+
+$(call TOOBJSDEPS, $(TESTBROWSE_ZMQ_SRCS)) : EXTRAFLAGS += \
+	-g -std=c++0x $(AVAHI_CFLAGS) \
+	$(CZMQ_CFLAGS)
+
+../bin/testbrowsezmq: $(call TOOBJS, $(TESTBROWSE_ZMQ_SRCS)) \
+	../lib/libsyslog-async.so.0 \
+	../lib/libprotolib.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++
+
+USERSRCS += $(TESTBROWSE_ZMQ_SRCS)
+TARGETS += ../bin/testbrowsezmq
+
 endif
 #endif
 

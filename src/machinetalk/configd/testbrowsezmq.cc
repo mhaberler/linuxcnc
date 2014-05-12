@@ -25,16 +25,17 @@
 #include <avahi-client/client.h>
 #include <avahi-client/lookup.h>
 
-#include <avahi-common/simple-watch.h>
+#include <avahi-common/timeval.h>
+#include <avahi-common/watch.h>
 #include <avahi-common/malloc.h>
 #include <avahi-common/error.h>
 
-#include "config.h"
-#include "mk-zeroconf.hh"
-#include "syslog_async.h"
+#define MACHINEKIT_DNS_SERVICE_TYPE "_machinekit._tcp"
 
-static AvahiSimplePoll *simple_poll = NULL;
+#include "czmq.h"
+#include "czmq-watch.h"
 
+static AvahiCzmqPoll *czmq_poll = NULL;
 
 static void resolve_callback(AvahiServiceResolver *r,
 			     AVAHI_GCC_UNUSED AvahiIfIndex interface,
@@ -56,10 +57,10 @@ static void resolve_callback(AvahiServiceResolver *r,
     switch (event) {
 
     case AVAHI_RESOLVER_FAILURE:
-	syslog_async(LOG_ERR,"%s: (Resolver) Failed to resolve service"
-		     " '%s' of type '%s' in domain '%s': %s\n",
-		     __func__, name, type, domain,
-		     avahi_strerror(avahi_client_errno(avahi_service_resolver_get_client(r))));
+	fprintf(stderr,"%s: (Resolver) Failed to resolve service"
+		" '%s' of type '%s' in domain '%s': %s\n",
+		__func__, name, type, domain,
+		avahi_strerror(avahi_client_errno(avahi_service_resolver_get_client(r))));
 	break;
 
     case AVAHI_RESOLVER_FOUND: {
@@ -68,8 +69,8 @@ static void resolve_callback(AvahiServiceResolver *r,
 
 	avahi_address_snprint(a, sizeof(a), address);
 	t = avahi_string_list_to_string(txt);
-	syslog_async(LOG_INFO,"%s: Service '%s' of type '%s' in domain '%s' %s:%u %s TXT=%s\n",
-		     __func__, name, type, domain,  host_name, port, a,  t);
+	fprintf(stderr,"%s: Service '%s' of type '%s' in domain '%s' %s:%u %s TXT=%s\n",
+		__func__, name, type, domain,  host_name, port, a,  t);
 
 	// !!(flags & AVAHI_LOOKUP_RESULT_LOCAL),
 	// !!(flags & AVAHI_LOOKUP_RESULT_OUR_OWN),
@@ -100,20 +101,22 @@ static void browse_callback(AvahiServiceBrowser *b,
     // Called whenever a new services becomes available on the LAN or is removed from the LAN
     switch (event) {
     case AVAHI_BROWSER_FAILURE:
-	syslog_async(LOG_ERR,"%s: (Browser) %s\n",
-		     __func__, 
-		     avahi_strerror(avahi_client_errno(avahi_service_browser_get_client(b))));
-	avahi_simple_poll_quit(simple_poll);
+	fprintf(stderr,"%s: (Browser) %s\n",
+		__func__,
+		avahi_strerror(avahi_client_errno(avahi_service_browser_get_client(b))));
+
+
+	avahi_czmq_poll_quit(czmq_poll);
 	return;
 
     case AVAHI_BROWSER_NEW:
-	syslog_async(LOG_DEBUG,"%s: (Browser) NEW: service '%s' of type '%s' in domain '%s' ifindex=%d protocol=%d\n",
-		     __func__,name, type, domain, interface, protocol);
+	fprintf(stderr,"%s: (Browser) NEW: service '%s' of type '%s' in domain '%s' ifindex=%d protocol=%d\n",
+		__func__,name, type, domain, interface, protocol);
 
-	 // We ignore the returned resolver object. In the callback
-	 // function we free it. If the server is terminated before
-	 // the callback function is called the server will free
-	 // the resolver for us.
+	// We ignore the returned resolver object. In the callback
+	// function we free it. If the server is terminated before
+	// the callback function is called the server will free
+	// the resolver for us.
 	if (!(avahi_service_resolver_new(c,
 					 interface,
 					 protocol,
@@ -123,21 +126,21 @@ static void browse_callback(AvahiServiceBrowser *b,
 					 AVAHI_PROTO_UNSPEC,
 					 (AvahiLookupFlags)0,
 					 resolve_callback, c)))
-	    syslog_async(LOG_ERR,"%s: Failed to resolve service '%s': %s\n",
-			 __func__, name, avahi_strerror(avahi_client_errno(c)));
+	    fprintf(stderr,"%s: Failed to resolve service '%s': %s\n",
+		    __func__, name, avahi_strerror(avahi_client_errno(c)));
 	break;
 
     case AVAHI_BROWSER_REMOVE:
 	memset(ifname, 0, sizeof(ifname));
 	if_indextoname(interface, ifname);
-	syslog_async(LOG_DEBUG,"%s: (Browser) REMOVE: service '%s' of type '%s' in domain '%s' if=%s\n",
-		     __func__, name, type, domain, ifname);
+	fprintf(stderr,"%s: (Browser) REMOVE: service '%s' of type '%s' in domain '%s' if=%s\n",
+		__func__, name, type, domain, ifname);
 	break;
 
     case AVAHI_BROWSER_ALL_FOR_NOW:
     case AVAHI_BROWSER_CACHE_EXHAUSTED:
-	syslog_async(LOG_DEBUG,"%s: (Browser) %s\n",
-		     __func__, event == AVAHI_BROWSER_CACHE_EXHAUSTED ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");
+	fprintf(stderr,"%s: (Browser) %s\n",
+		__func__, event == AVAHI_BROWSER_CACHE_EXHAUSTED ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");
 	break;
     }
 }
@@ -149,9 +152,9 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
 
     // Called whenever the client or server state changes
     if (state == AVAHI_CLIENT_FAILURE) {
-	syslog_async(LOG_ERR,"%s: Server connection failure: %s\n",
-	       __func__, avahi_strerror(avahi_client_errno(c)));
-        avahi_simple_poll_quit(simple_poll);
+	fprintf(stderr,"%s: Server connection failure: %s\n",
+		__func__, avahi_strerror(avahi_client_errno(c)));
+	avahi_czmq_poll_quit(czmq_poll);
     }
 }
 
@@ -159,23 +162,26 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
 {
     AvahiClient *client = NULL;
     AvahiServiceBrowser *sb = NULL;
+    zctx_t *context = zctx_new ();
+    assert(context);
+    zloop_t *loop= zloop_new();
+    assert(loop);
+    zloop_set_verbose (loop, argc > 1);
+
     int error;
     int ret = 1;
 
-    openlog_async(argv[0], LOG_NDELAY, LOG_LOCAL1);
-    setlogmask_async(LOG_UPTO(LOG_DEBUG));
-
     /* Allocate main loop object */
-    if (!(simple_poll = avahi_simple_poll_new())) {
-        fprintf(stderr, "Failed to create simple poll object.\n");
+    if (!(czmq_poll = avahi_czmq_poll_new(loop))) {
+        fprintf(stderr, "Failed to create za poll object.\n");
         goto fail;
     }
 
     /* Allocate a new client */
-    client = avahi_client_new(avahi_simple_poll_get(simple_poll),
+    client = avahi_client_new(avahi_czmq_poll_get(czmq_poll),
 			      (AvahiClientFlags)0,
 			      client_callback,
-			      NULL,
+			      loop,
 			      &error);
 
     /* Check wether creating the client object succeeded */
@@ -198,10 +204,10 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
         goto fail;
     }
 
-    /* Run the main loop */
-    avahi_simple_poll_loop(simple_poll);
 
-    ret = 0;
+    do {
+	ret = zloop_start(loop);
+    } while  (!(ret || zctx_interrupted));
 
  fail:
 
@@ -212,8 +218,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
     if (client)
         avahi_client_free(client);
 
-    if (simple_poll)
-        avahi_simple_poll_free(simple_poll);
+    if (czmq_poll)
+        avahi_czmq_poll_free(czmq_poll);
 
     return ret;
 }
