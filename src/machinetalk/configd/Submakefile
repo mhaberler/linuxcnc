@@ -68,10 +68,7 @@ TARGETS += ../bin/testbrowse
 
 
 TESTBROWSE_ZMQ_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
-	testbrowsezmq.cc \
-	czmq-watch.c )
-
-#	zavahipoll.cc )
+	testbrowsezmq.cc)
 
 $(call TOOBJSDEPS, $(TESTBROWSE_ZMQ_SRCS)) : EXTRAFLAGS += \
 	-g -std=c++0x $(AVAHI_CFLAGS) \
