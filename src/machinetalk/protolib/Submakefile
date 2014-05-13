@@ -7,6 +7,7 @@ INCLUDES += $(PROTOLIB_DIR)
 PROTOLIB_SRCS := $(addprefix $(PROTOLIB_DIR)/, \
 	pbutil.cc \
 	select_interface.c \
+	czmq-watch.c \
 	setup_signals.c)
 
 # protobuf support functions which depend on HAL - on RT host only
@@ -18,7 +19,10 @@ USERSRCS += $(PROTOLIB_SRCS) $(HALPROTOLIB_SRCS)
 PROTOLIB_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 PROTOLIB_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
 
-$(call TOOBJSDEPS, $(PROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC $(PROTOLIB_CXXFLAGS)
+$(call TOOBJSDEPS, $(PROTOLIB_SRCS)) : EXTRAFLAGS=-fPIC \
+	$(PROTOLIB_CXXFLAGS) \
+	$(AVAHI_CFLAGS) \
+	$(CZMQ_CFLAGS)
 
 TARGETS += ../lib/libprotolib.so ../lib/libprotolib.so.0
 
@@ -27,7 +31,8 @@ TARGETS += ../lib/libprotolib.so ../lib/libprotolib.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
-	$(Q)$(CXX) -g $(PROTOLIB_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
+	$(Q)$(CXX) -g $(PROTOLIB_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ \
+	$(AVAHI_LIBS) $(CZMQ_LIBS)
 
 ../include/%.h: ./$(PROTOLIB_DIR)/%.h
 	cp $^ $@
