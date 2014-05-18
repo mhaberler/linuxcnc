@@ -3,7 +3,7 @@
 ifeq ($(USE_PROTOBUF),yes)
 
 #ifeq ($(BUILD_EXAMPLES),yes)
-PBEX := $(MWDIR)/support
+PBEX := $(MACHINETALK)/support
 
 ENCDEC_SRCS :=  $(addprefix $(PBEX)/, \
 	encdec.cc)
@@ -69,7 +69,7 @@ $(call TOOBJSDEPS, $(RTPRINTF_SRCS)) : EXTRAFLAGS += $(RTPRINTF_CCFLAGS)
 
 
 RAWREAD_SRCS :=  $(PBEX)/rawread.c \
-		 $(MWDIR)/nanopb/pb_decode.c
+		 $(MACHINETALK)/nanopb/pb_decode.c
 RAWREAD_CCFLAGS := -g -O0 -DPB_FIELD_32BIT
 RAWREAD_LDFLAGS := -g
 
@@ -90,7 +90,7 @@ $(call TOOBJSDEPS, $(RAWREAD_SRCS)) : EXTRAFLAGS += $(RAWREAD_CCFLAGS)
 
 
 UNIONREAD_SRCS :=  $(PBEX)/unionread.c \
-		 $(MWDIR)/nanopb/pb_decode.c
+		 $(MACHINETALK)/nanopb/pb_decode.c
 UNIONREAD_CCFLAGS := -g -O0 -DPB_FIELD_32BIT
 UNIONREAD_LDFLAGS := -g
 
@@ -134,7 +134,7 @@ TARGETS += \
 
 #	../bin/rawread
 
-../lib/python/%.py: $(MWDIR)/support/%.py
+../lib/python/%.py: $(MACHINETALK)/support/%.py
 	@$(ECHO) Syntax checking python script $(notdir $@)
 	$(Q)$(PYTHON) -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' $<
 	$(ECHO) Copying python script $(notdir $@)

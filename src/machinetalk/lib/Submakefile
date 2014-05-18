@@ -1,0 +1,56 @@
+LIBMTALK_DIR := $(MACHINETALK)/lib
+
+INCLUDES += $(LIBMTALK_DIR)
+
+
+# protobuf support functions - usable without HAL (eg remotely)
+LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
+	pbutil.cc \
+	select_interface.c \
+	czmq-watch.c \
+	setup_signals.c)
+
+# protobuf support functions which depend on HAL - on RT host only
+HALLIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
+	halpb.cc)
+
+USERSRCS += $(LIBMTALK_SRCS) $(HALLIBMTALK_SRCS)
+
+LIBMTALK_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+LIBMTALK_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
+
+$(call TOOBJSDEPS, $(LIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC \
+	$(LIBMTALK_CXXFLAGS) \
+	$(AVAHI_CFLAGS) \
+	$(CZMQ_CFLAGS)
+
+TARGETS += ../lib/libmtalk.so ../lib/libmtalk.so.0
+
+../lib/libmtalk.so.0: $(call TOOBJS, $(LIBMTALK_SRCS)) \
+	../lib/libsyslog-async.so.0
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CXX) -g $(LIBMTALK_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ \
+	$(AVAHI_LIBS) $(CZMQ_LIBS)
+
+../include/%.h: ./$(LIBMTALK_DIR)/%.h
+	cp $^ $@
+
+../include/%.hh: ./$(LIBMTALK_DIR)/%.hh
+	cp $^ $@
+
+HALLIBMTALK_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+HALLIBMTALK_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
+
+$(call TOOBJSDEPS, $(HALLIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC $(HALLIBMTALK_CXXFLAGS)
+
+TARGETS += ../lib/libhalmtalk.so ../lib/libhalmtalk.so.0
+
+../lib/libhalmtalk.so.0: \
+	$(call TOOBJS, $(HALLIBMTALK_SRCS)) \
+	 ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CXX) -g $(HALLIBMTALK_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^

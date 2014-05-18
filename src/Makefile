@@ -181,7 +181,7 @@ SUBDIRS := \
 	machinetalk/stp \
 	machinetalk/messagebus \
 	machinetalk/protolib \
-	machinetalk/configd \
+	machinetalk/lib \
 	libnml/linklist \
 	libnml/cms \
 	libnml/rcs \

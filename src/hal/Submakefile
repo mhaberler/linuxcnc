@@ -9,9 +9,9 @@ HALLIBSRCS := hal/hal_lib.c \
 	hal/hal_ring.c \
 	hal/hal_iter.c \
 	hal/hal_rcomp.c \
-	$(MWDIR)/support/nanopb.c \
-	$(MWDIR)/nanopb/pb_decode.c \
-	$(MWDIR)/nanopb/pb_encode.c
+	$(MACHINETALK)/support/nanopb.c \
+	$(MACHINETALK)/nanopb/pb_decode.c \
+	$(MACHINETALK)/nanopb/pb_encode.c
 
 
 # ULAPI: all thread-specific code now comes in through the ulapi library

@@ -1,6 +1,6 @@
 
 
-CONFIGD_DIR := $(MWDIR)/configd
+CONFIGD_DIR := $(MACHINETALK)/configd
 
 CONFIGD_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 	configd.cc \

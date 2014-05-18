@@ -1,4 +1,4 @@
-SDDIR :=  $(MWDIR)/service-discovery
+SDDIR :=  $(MACHINETALK)/service-discovery
 
 ../lib/python/sdiscover.py: $(SDDIR)/sdiscover.py
 	cp $^ $@

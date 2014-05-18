@@ -27,10 +27,10 @@
 # Michael Haberler 2/2013
 
 
-MWDIR=machinetalk
-PBGEN=$(MWDIR)/generated
-PROTODIR=$(MWDIR)/proto/proto
-NANOPB := $(MWDIR)/nanopb
+MACHINETALK=machinetalk
+PBGEN=$(MACHINETALK)/generated
+PROTODIR=$(MACHINETALK)/proto/proto
+NANOPB := $(MACHINETALK)/nanopb
 NPBPROTODIR :=  $(NANOPB)/generator/proto
 
 # the directory where descriptor.proto lives:
@@ -69,8 +69,8 @@ PROTOCXX_CXX_FLAGS := -fPIC $(PROTOBUF_CFLAGS)
 
 # NANOPB_CFLAGS are also passed to module build through
 # RTFLAGS - see hal/msgcomponents/Submakefile
-NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<'$(MWDIR)'/include/pb-linuxcnc.h>'
-NANOPB_OPTIONS := $(MWDIR)/nanopb.options
+NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<'$(MACHINETALK)'/include/pb-linuxcnc.h>'
+NANOPB_OPTIONS := $(MACHINETALK)/nanopb.options
 
 # any extra flags to C compile nanopb bindings
 PROTO_NANOPB_CFLAGS := $(NANOPB_CFLAGS) #-fPIC
@@ -153,16 +153,16 @@ INSTALL_INCS += \
 	../include/machinetalk/nanopb/pb_decode.h
 
 # generate emctypes.proto from emc/nml_intf/emc.hh
-$(PBGEN)/emctypes.proto: emc/nml_intf/emc.hh $(MWDIR)/scripts/extract-nmltypes
+$(PBGEN)/emctypes.proto: emc/nml_intf/emc.hh $(MACHINETALK)/scripts/extract-nmltypes
 	$(ECHO) "extracting protobuf message types for NML from" $<
 	@mkdir -p $(PBGEN)
-	$(Q)$(MWDIR)/scripts/extract-nmltypes $< >$@
+	$(Q)$(MACHINETALK)/scripts/extract-nmltypes $< >$@
 
 # generate mottypes.proto from emc/motion/motion.h
-$(PBGEN)/mottypes.proto: emc/motion/motion.h $(MWDIR)/scripts/extract-mottypes
+$(PBGEN)/mottypes.proto: emc/motion/motion.h $(MACHINETALK)/scripts/extract-mottypes
 	$(ECHO) "extracting protobuf message types for Motion from" $<
 	@mkdir -p $(PBGEN)
-	$(Q)$(MWDIR)/scripts/extract-mottypes $< >$@
+	$(Q)$(MACHINETALK)/scripts/extract-mottypes $< >$@
 
 TARGETS += $(PBGEN)/emctypes.proto $(PBGEN)/mottypes.proto
 
@@ -175,7 +175,7 @@ PROTO_DEPS :=  $(patsubst %,objects/%,$(patsubst %.proto,%.d,$(PROTO_SPECS)))
 # options to the dependency generator protoc plugin
 PBDEP_OPT :=
 #PBDEP_OPT += --debug
-PBDEP_OPT += --cgen=$(MWDIR)/generated
+PBDEP_OPT += --cgen=$(MACHINETALK)/generated
 PBDEP_OPT += --pygen=lib/python
 # this path must match the vpath arrangement exactly or the deps will be wrong
 # unfortunately there is no way to extract the proto path in the code
@@ -230,7 +230,7 @@ $(PBGEN)/%.npb.c $(PBGEN)/%.npb.h: %.proto $(NANOPB_SUPPORT)
 	@mkdir -p $(PBGEN)
 	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
 	--plugin=protoc-gen-nanopb=../lib/python/protoc-gen-nanopb \
-	--nanopb_out="--generated-include-format='#include <"$(PBGEN)"/%s>' --extension=npb --options-file=$(MWDIR)/nanopb.options":$(PBGEN) \
+	--nanopb_out="--generated-include-format='#include <"$(PBGEN)"/%s>' --extension=npb --options-file=$(MACHINETALK)/nanopb.options":$(PBGEN) \
 	--proto_path=$(PROTODIR)/ \
 	--proto_path=$(GPBINCLUDE) \
 	--proto_path=${NPBPROTODIR} \
@@ -298,7 +298,7 @@ $(PROTOCXXLIB).0: $(patsubst %.cc,objects/%.o,$(PROTO_CXX_SRCS))
 
 # pb2json translation library
 PB2JSONLIB := ../lib/libjson2pb.so
-PB2JSON = $(MWDIR)/json2pb
+PB2JSON = $(MACHINETALK)/json2pb
 PB2JSONLIB_SRCS = $(PB2JSON)/json2pb.cc
 PB2JSONLIB_CCXFLAGS :=  -g -O3 -shared -Wall -fPIC  $(PROTOBUF_CFLAGS)
 PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) -ljansson 
@@ -330,10 +330,10 @@ $(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))  $(PROTOCXXLIB)
 	@mkdir -p $(dir $@)
 	cp $^ $@
 
-../include/%.h: ./$(MWDIR)/%.h
+../include/%.h: ./$(MACHINETALK)/%.h
 	cp $^ $@
 
-../include/%.h: ./$(MWDIR)/include/%.h
+../include/%.h: ./$(MACHINETALK)/include/%.h
 	@mkdir -p $(dir $@)
 	cp $^ $@
 
@@ -346,13 +346,13 @@ USERSRCS +=  $(NANOPB_C_SRCS) \
 ifeq ($(BUILD_PROTOC_C),yes)
 
 USERSRCS += $(PROTO_C_SRCS) \
-	$(MWDIR)/generated/descriptor.pb-c.h \
-	$(MWDIR)/generated/descriptor.pb-c.c
+	$(MACHINETALK)/generated/descriptor.pb-c.h \
+	$(MACHINETALK)/generated/descriptor.pb-c.c
 endif
 
 GENERATED += $(PROTO_PY_TARGETS) \
-	$(MWDIR)/generated/nanopb.pb.h	\
-	$(MWDIR)/generated/nanopb.pb.cc \
+	$(MACHINETALK)/generated/nanopb.pb.h	\
+	$(MACHINETALK)/generated/nanopb.pb.cc \
 	$(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
 	$(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS)
 
@@ -360,8 +360,8 @@ ifeq ($(BUILD_PROTOC_C),yes)
 GENERATED += \
 	$(PROTO_C_SRCS) $(PROTO_CXX_SRCS) $(PROTO_NANOPB_C_SRCS) \
 	$(PROTO_C_INCS) $(PROTO_CXX_INCS) $(PROTO_NANOPB_C_INCS) \
-	$(MWDIR)/generated/nanopb.pb-c.h  \
-	$(MWDIR)/generated/nanopb.pb-c.c
+	$(MACHINETALK)/generated/nanopb.pb-c.h  \
+	$(MACHINETALK)/generated/nanopb.pb-c.c
 endif
 
 PYTARGETS += $(PROTO_PY_TARGETS)

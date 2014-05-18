@@ -1,6 +1,6 @@
 
 
-MBDIR := $(MWDIR)/messagebus
+MBDIR := $(MACHINETALK)/messagebus
 
 MESSAGEBUS_SRCS :=  $(addprefix $(MBDIR)/, \
 	messagebus.cc \
@@ -14,7 +14,7 @@ $(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
 
 ../bin/messagebus: $(call TOOBJS, $(MESSAGEBUS_SRCS)) \
 	../lib/libsyslog-async.so.0 \
-	../lib/libprotolib.so.0 \
+	../lib/libmtalk.so.0 \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
 	../lib/libsdpublish.so.0 \

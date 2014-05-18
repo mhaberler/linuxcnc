@@ -1,5 +1,5 @@
 
-STPDIR=$(MWDIR)/stp
+STPDIR=$(MACHINETALK)/stp
 
 INCLUDES += $(STPDIR)
 LIBSTPSRCS := $(addprefix  $(STPDIR)/, \
