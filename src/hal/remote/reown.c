@@ -105,13 +105,13 @@ int pin_state_cb(hal_pinstate_t *ps,  void *cb_data)
 {
     printf("pin='%s', type=%d dir=%d ownedby='%s' ",
 	   ps->name, ps->type,ps->dir, ps->owner_name);
-    printf("epsilon=%f flags=%d ", hal_data->epsilon[ps->eps_index], ps->flags);
+    printf("epsilon=%f flags=%d ", ps->epsilon, ps->flags);
     printf("pin location ptr=%p\n", ps->value);
     return 0; // continue iterating
 }
 
 int report_callback(int phase, hal_compiled_comp_t *cc, hal_pin_t *pin,
-		    int handle, void *data, void *cb_data)
+		     hal_data_u *value, void *cb_data)
 {
     switch (phase) {
 
@@ -122,7 +122,7 @@ int report_callback(int phase, hal_compiled_comp_t *cc, hal_pin_t *pin,
 
     case REPORT_PIN:
 	// per-reported-pin action
-	printf("\tpin %s  %s\n",pin->name,strhal(pin->type,data));
+	printf("\tpin %s  %s\n",pin->name,strhal(pin->type,value));
 	break;
 
     case REPORT_END:

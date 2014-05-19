@@ -76,7 +76,7 @@ typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 #include "rtapi_global.h"
 #include "rtapi_compat.h"
 #include "hal.h"
-#include "hal/hal_priv.h"
+#include "hal_priv.h"
 #include "rtapi/shmdrv/shmdrv.h"
 #include "setup_signals.h"
 

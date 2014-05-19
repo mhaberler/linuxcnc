@@ -1,4 +1,3 @@
-
 # see http://www.cmcrossroads.com/ask-mr-make/6535-tracing-rule-execution-in-gnu-make
 # to trace make execution of make in more detail:
 #     make VV=1
@@ -197,6 +196,7 @@ SUBDIRS := \
 	rtapi \
 	rtapi/shmdrv \
 	\
+	hal/lib \
 	hal/components \
 	hal/msgcomponents \
 	hal/drivers \
@@ -469,9 +469,10 @@ HEADERS := \
     emc/rs274ngc/interp_internal.hh \
     emc/rs274ngc/interp_base.hh \
     emc/rs274ngc/rs274ngc.hh \
-    hal/hal.h \
-    hal/hal_parport.h \
-    hal/config_module.h \
+    hal/lib/hal.h \
+    hal/lib/hal_priv.h \
+    hal/lib/hal_parport.h \
+    hal/lib/config_module.h \
     hal/drivers/hal_gpiomap.h \
     hal/drivers/hal_spi.h \
     libnml/buffer/locmem.hh \
@@ -1054,7 +1055,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/libnml/posemath \
 	-I$(BASEPWD)/protobuf/nanopb \
 	-I$(BASEPWD)/rtapi \
-	-I$(BASEPWD)/hal \
+	-I$(BASEPWD)/hal/lib \
 	-I$(BASEPWD)/emc/nml_intf \
 	-I$(BASEPWD)/emc/kinematics \
 	-I$(BASEPWD)/emc/motion \
@@ -1337,10 +1338,10 @@ obj-m += scope_rt.o
 scope_rt-objs := hal/utils/scope_rt.o $(MATHSTUB)
 
 obj-m += hal_lib.o
-hal_lib-objs := hal/hal_lib.o $(MATHSTUB)
-hal_lib-objs += hal/hal_group.o
-hal_lib-objs += hal/hal_ring.o
-hal_lib-objs += hal/hal_rcomp.o
+hal_lib-objs := hal/lib/hal_lib.o $(MATHSTUB)
+hal_lib-objs += hal/lib/hal_group.o
+hal_lib-objs += hal/lib/hal_ring.o
+hal_lib-objs += hal/lib/hal_rcomp.o
 hal_lib-objs += machinetalk/support/nanopb.o
 hal_lib-objs += machinetalk/nanopb/pb_decode.o
 hal_lib-objs += machinetalk/nanopb/pb_encode.o
