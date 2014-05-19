@@ -199,8 +199,7 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcncshm.so \
 	../lib/libsdpublish.so.0 \
-	../lib/libsyslog-async.so.0 \
-	../lib/libprotolib.so.0 \
+	../lib/libmtalk.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
@@ -276,9 +275,7 @@ $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	../lib/liblinuxcncini.so \
 	../lib/libsdpublish.so.0 \
 	../lib/liblinuxcnc-pb2++.so \
-	../lib/libsyslog-async.so.0 \
-	../lib/libprotolib.so.0 \
-	../lib/libjson2pb.so
+	../lib/libmtalk.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ $(RTAPI_MSGD_LDFLAGS) -lrt
