@@ -16,9 +16,8 @@ $(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += \
 
 
 ../bin/configd: $(call TOOBJS, $(CONFIGD_SRCS)) \
-	../lib/libsyslog-async.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/libprotolib.so.0 \
+	../lib/libmtalk.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
@@ -41,8 +40,7 @@ TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 $(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
 
 ../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
-	../lib/libprotolib.so.0 \
-	../lib/libsyslog-async.so.0
+	../lib/libmtalk.so.0 
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
 
@@ -57,8 +55,7 @@ TESTBROWSE_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 $(call TOOBJSDEPS, $(TESTBROWSE_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
 
 ../bin/testbrowse: $(call TOOBJS, $(TESTBROWSE_SRCS)) \
-	../lib/libsyslog-async.so.0 \
-	../lib/libprotolib.so.0
+	../lib/libmtalk.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
 
@@ -75,8 +72,7 @@ $(call TOOBJSDEPS, $(TESTBROWSE_ZMQ_SRCS)) : EXTRAFLAGS += \
 	$(CZMQ_CFLAGS)
 
 ../bin/testbrowsezmq: $(call TOOBJS, $(TESTBROWSE_ZMQ_SRCS)) \
-	../lib/libsyslog-async.so.0 \
-	../lib/libprotolib.so.0
+	../lib/libmtalk.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++
 

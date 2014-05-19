@@ -13,7 +13,6 @@ MESSAGEBUS_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ 
 $(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
 
 ../bin/messagebus: $(call TOOBJS, $(MESSAGEBUS_SRCS)) \
-	../lib/libsyslog-async.so.0 \
 	../lib/libmtalk.so.0 \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \

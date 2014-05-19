@@ -28,6 +28,7 @@
 
 
 MACHINETALK=machinetalk
+MTINCLUDES=$(MACHINETALK)/include
 PBGEN=$(MACHINETALK)/generated
 PROTODIR=$(MACHINETALK)/proto/proto
 NANOPB := $(MACHINETALK)/nanopb
@@ -139,15 +140,21 @@ PROTO_CXX_SRCS  +=  $(subst $(PROTODIR)/, \
 	$(patsubst %.proto, %.pb.cc, $(PROTO_SPECS)))
 
 # headers which are to go into ../include
-INSTALL_INCS := $(subst $(PBGEN), \
+MT_INSTALL_INCS := $(subst $(PBGEN), \
 	../include/$(PBGEN),  \
 	$(PROTO_CXX_INCS) $(PROTO_C_INCS) $(PROTO_NANOPB_C_INCS))
 
-INSTALL_INCS += \
+MT_INSTALL_INCS += \
 	../include/machinetalk/include/pb-linuxcnc.h \
 	../include/machinetalk/include/container.h \
-	../include/machinetalk/json2pb/json2pb.hh \
-	../include/machinetalk/json2pb/bin2ascii.hh \
+	../include/machinetalk/include/json2pb.hh \
+	../include/machinetalk/include/bin2ascii.hh \
+	../include/machinetalk/include/pbutil.hh \
+	../include/machinetalk/include/halpb.hh \
+	../include/machinetalk/include/czmq-watch.h \
+	../include/machinetalk/include/select_interface.h \
+	../include/machinetalk/include/syslog_async.h \
+	../include/machinetalk/include/setup_signals.h \
 	../include/machinetalk/nanopb/pb.h \
 	../include/machinetalk/nanopb/pb_encode.h \
 	../include/machinetalk/nanopb/pb_decode.h
@@ -296,26 +303,6 @@ $(PROTOCXXLIB).0: $(patsubst %.cc,objects/%.o,$(PROTO_CXX_SRCS))
 	@rm -f $@
 	$(Q)$(CXX) $(LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
 
-# pb2json translation library
-PB2JSONLIB := ../lib/libjson2pb.so
-PB2JSON = $(MACHINETALK)/json2pb
-PB2JSONLIB_SRCS = $(PB2JSON)/json2pb.cc
-PB2JSONLIB_CCXFLAGS :=  -g -O3 -shared -Wall -fPIC  $(PROTOBUF_CFLAGS)
-PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) -ljansson 
-
-$(call TOOBJSDEPS, $(PB2JSONLIB_SRCS)) : EXTRAFLAGS += $(PB2JSONLIB_CCXFLAGS)
-
-$(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))  $(PROTOCXXLIB)
-	$(ECHO) Linking $(notdir $@)
-	@mkdir -p ../lib
-	@rm -f $@
-	$(Q)$(CXX)  -Wl,-soname,$(notdir $@) -shared -o $@ $^ $(PB2JSONLIB_LDFLAGS)
-
-# pb2json headers
-../include/%.hh: ./$(PB2JSON)/%.hh
-	@mkdir -p $(dir $@)
-	cp $^ $@
-
 # protoc/protoc-c generated headers are exported to ../include
 ../include/%.h: ./$(PBGEN)/%.h
 	@mkdir -p $(dir $@)
@@ -337,11 +324,14 @@ $(PB2JSONLIB).0: $(call TOOBJS, $(PB2JSONLIB_SRCS))  $(PROTOCXXLIB)
 	@mkdir -p $(dir $@)
 	cp $^ $@
 
+../include/%.hh: ./$(MACHINETALK)/include/%.hh
+	@mkdir -p $(dir $@)
+	cp $^ $@
+
 # those will be compiled
 USERSRCS +=  $(NANOPB_C_SRCS) \
 	$(PROTO_CXX_SRCS) \
-	$(PROTO_NANOPB_C_SRCS) \
-	$(PB2JSONLIB_SRCS)
+	$(PROTO_NANOPB_C_SRCS)
 
 ifeq ($(BUILD_PROTOC_C),yes)
 
@@ -368,13 +358,13 @@ PYTARGETS += $(PROTO_PY_TARGETS)
 
 INCLUDES += $(PBGEN)
 INCLUDES += $(NANOPB)
-INCLUDES += $(PB2JSON)
+INCLUDES += $(MTINCLUDES)
 
 TARGETS += $(PROTO_CXX_INCS) $(PROTO_C_INCS) $(PROTO_NANOPB_C_INCS)
-TARGETS += $(INSTALL_INCS)
+TARGETS += $(MT_INSTALL_INCS)
 TARGETS += $(NANOPROTOCLIB) $(NANOPROTOCLIB).0 \
-	$(PROTOCXXLIB) $(PROTOCXXLIB).0 \
-	$(PB2JSONLIB) $(PB2JSONLIB).0
+	$(PROTOCXXLIB) $(PROTOCXXLIB).0
+
 
 ifeq ($(BUILD_PROTOC_C),yes)
 TARGETS += $(PROTOCLIB) $(PROTOCLIB).0

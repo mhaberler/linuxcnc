@@ -174,13 +174,12 @@ PYTARGETS :=
 SUBDIRS := \
 	\
 	machinetalk \
-	machinetalk/syslog-async \
 	machinetalk/support \
 	machinetalk/service-discovery \
 	machinetalk/stp \
 	machinetalk/messagebus \
-	machinetalk/protolib \
 	machinetalk/lib \
+	machinetalk/configd \
 	libnml/linklist \
 	libnml/cms \
 	libnml/rcs \
@@ -546,16 +545,9 @@ HEADERS := \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
 
-ifeq ($(USE_PROTOBUF),yes)
-HEADERS += \
-	machinetalk/include/pb-linuxcnc.h \
-	machinetalk/include/container.h \
-	machinetalk/json2pb/json2pb.hh \
-	machinetalk/json2pb/bin2ascii.hh \
-	machinetalk/nanopb/pb.h \
-	machinetalk/nanopb/pb_encode.h \
-	machinetalk/nanopb/pb_decode.h
-endif
+
+HEADERS += $(MT_INSTALL_INCS)
+
 
 # need to do ths separately because the subdirectory is required
 # ../include/string.h would wreak havoc because it's the 

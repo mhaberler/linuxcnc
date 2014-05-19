@@ -14,7 +14,7 @@
 #include <machinetalk/generated/message.pb.h>
 #include <machinetalk/generated/object.pb.h>
 
-#include <machinetalk/json2pb/json2pb.hh>
+#include <json2pb.hh>
 
 using namespace pb;
 using namespace std;

@@ -64,7 +64,7 @@ using namespace std;
 #include <machinetalk/generated/message.pb.h>
 using namespace google::protobuf;
 
-#include <machinetalk/json2pb/json2pb.hh>
+#include <json2pb.hh>
 #include <jansson.h> // just for library version tag
 
 #include <zwsproxy.h>

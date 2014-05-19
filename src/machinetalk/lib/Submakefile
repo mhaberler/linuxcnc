@@ -8,49 +8,41 @@ LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
 	pbutil.cc \
 	select_interface.c \
 	czmq-watch.c \
-	setup_signals.c)
+	setup_signals.c \
+	syslog_async.c \
+	json2pb.cc)
 
-# protobuf support functions which depend on HAL - on RT host only
-HALLIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
-	halpb.cc)
 
-USERSRCS += $(LIBMTALK_SRCS) $(HALLIBMTALK_SRCS)
+
+USERSRCS += $(LIBMTALK_SRCS) # $(HALLIBMTALK_SRCS)
+
+SYSLOGASYNC_CFLAGS :=
+SYSLOGASYNC_LDFLAGS :=  $(PROFILE)
+
+PB2JSONLIB_CCXFLAGS :=  -g -O3 -shared -Wall -fPIC  $(PROTOBUF_CFLAGS) $(JANSSON_CFLAGS)
+PB2JSONLIB_LDFLAGS := $(PROTOCXXLIB) $(JANSSON_LIBS)
 
 LIBMTALK_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
 LIBMTALK_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
 
-$(call TOOBJSDEPS, $(LIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC \
+$(call TOOBJSDEPS, $(LIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC -g -O3 \
 	$(LIBMTALK_CXXFLAGS) \
 	$(AVAHI_CFLAGS) \
-	$(CZMQ_CFLAGS)
+	$(CZMQ_CFLAGS) \
+	$(SYSLOGASYNC_CFLAGS) \
+	$(PB2JSONLIB_CXXFLAGS)
 
 TARGETS += ../lib/libmtalk.so ../lib/libmtalk.so.0
 
-../lib/libmtalk.so.0: $(call TOOBJS, $(LIBMTALK_SRCS)) \
-	../lib/libsyslog-async.so.0
+../lib/libmtalk.so.0: $(call TOOBJS, $(LIBMTALK_SRCS))
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
-	$(Q)$(CXX) -g $(LIBMTALK_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^ \
-	$(AVAHI_LIBS) $(CZMQ_LIBS)
+	$(Q)$(CXX) -g  -Wl,-soname,$(notdir $@) -shared -o $@ $^ \
+	$(AVAHI_LIBS) $(CZMQ_LIBS) $(LIBMTALK_LDFLAGS) $(PB2JSONLIB_LDFLAGS)
 
 ../include/%.h: ./$(LIBMTALK_DIR)/%.h
 	cp $^ $@
 
 ../include/%.hh: ./$(LIBMTALK_DIR)/%.hh
 	cp $^ $@
-
-HALLIBMTALK_CXXFLAGS := -DULAPI $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
-HALLIBMTALK_LDFLAGS := $(PROTOBUF_LIBS) $(CZMQ_LIBS) $(PROFILE)
-
-$(call TOOBJSDEPS, $(HALLIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC $(HALLIBMTALK_CXXFLAGS)
-
-TARGETS += ../lib/libhalmtalk.so ../lib/libhalmtalk.so.0
-
-../lib/libhalmtalk.so.0: \
-	$(call TOOBJS, $(HALLIBMTALK_SRCS)) \
-	 ../lib/liblinuxcnchal.so.0
-	$(ECHO) Linking $(notdir $@)
-	@mkdir -p ../lib
-	@rm -f $@
-	$(Q)$(CXX) -g $(HALLIBMTALK_LDFLAGS) -Wl,-soname,$(notdir $@) -shared -o $@ $^
