@@ -46,7 +46,8 @@ $(HALLIB).0: \
 	$(call TOOBJS, $(ULAPI_AUTOLOAD_SRCS)) \
 	$(call TOOBJS, $(SHMDRVAPISRCS)) \
 	$(call TOOBJS, $(HALLIBMTALK_SRCS)) \
-	$(call TOOBJS, $(LIBINISRCS))
+	$(call TOOBJS, $(LIBINISRCS)) \
+	../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Creating shared library $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
