@@ -31,7 +31,7 @@ zeroconf_announce(htself_t *self)
     snprintf(name,sizeof(name), "HAL Group service on %s pid %d", self->cfg->ipaddr, getpid());
     self->zsgroup.name = strdup(name);
     self->zsgroup.proto =  AVAHI_PROTO_INET;
-    self->zsgroup.interface = self->cfg->ifIndex;
+    self->zsgroup.interface =  AVAHI_IF_UNSPEC;
     self->zsgroup.type =  MACHINEKIT_DNSSD_SERVICE_TYPE;
     self->zsgroup.port = self->z_group_port;
     self->zsgroup.txt = avahi_string_list_add_printf(self->zsgroup.txt,
@@ -53,7 +53,7 @@ zeroconf_announce(htself_t *self)
     snprintf(name,sizeof(name), "HAL Rcomp service on %s pid %d", self->cfg->ipaddr, getpid());
     self->zsrcomp.name = strdup(name);
     self->zsrcomp.proto =  AVAHI_PROTO_INET;
-    self->zsrcomp.interface = self->cfg->ifIndex;
+    self->zsrcomp.interface = AVAHI_IF_UNSPEC;
     self->zsrcomp.type =  MACHINEKIT_DNSSD_SERVICE_TYPE;
     self->zsrcomp.port = self->z_rcomp_port;
     self->zsrcomp.txt = avahi_string_list_add_printf(self->zsrcomp.txt,
@@ -75,7 +75,7 @@ zeroconf_announce(htself_t *self)
     snprintf(name,sizeof(name), "HAL Rcommand service on %s pid %d", self->cfg->ipaddr, getpid());
     self->zscommand.name = strdup(name);
     self->zscommand.proto =  AVAHI_PROTO_INET;
-    self->zscommand.interface = self->cfg->ifIndex;
+    self->zscommand.interface = AVAHI_IF_UNSPEC;
     self->zscommand.type =  MACHINEKIT_DNSSD_SERVICE_TYPE;
     self->zscommand.port = self->z_command_port;
     self->zscommand.txt = avahi_string_list_add_printf(self->zscommand.txt,

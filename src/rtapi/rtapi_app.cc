@@ -1333,7 +1333,7 @@ static int rtapi_zeroconf_announce(const char *ifpref)
     snprintf(name,sizeof(name), "RTAPI service on %s pid %d", ipaddr, getpid());
     zs.name = strdup(name);
     zs.proto =  AVAHI_PROTO_INET;
-    zs.interface = ifindex; // AVAHI_IF_UNSPEC
+    zs.interface = AVAHI_IF_UNSPEC;
     zs.type =  MACHINEKIT_DNSSD_SERVICE_TYPE;
     zs.port = z_port;
     zs.txt = avahi_string_list_add_printf(zs.txt, "dsn=%s", z_uri_dsn);
