@@ -50,7 +50,7 @@ TARGETS += ../bin/testpublish
 TESTBROWSE_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 	testbrowse.cc	)
 
-$(call TOOBJSDEPS, $(TESTBROWSE_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
+$(call TOOBJSDEPS, $(TESTBROWSE_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS) $(CZMQ_CFLAGS)
 
 ../bin/testbrowse: $(call TOOBJS, $(TESTBROWSE_SRCS)) \
 	../lib/libmtalk.so.0
