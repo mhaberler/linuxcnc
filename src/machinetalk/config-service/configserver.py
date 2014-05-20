@@ -6,6 +6,7 @@ import pybonjour
 import socket
 import sdiscover
 import netifaces
+import uuid
 
 import ConfigParser
 
@@ -23,10 +24,9 @@ def register_callback(sdRef, flags, errorCode, name, regtype, domain):
 class ConfigServer(threading.Thread):
 
     def __init__(self, context, uri, inifile,  topdir=".",
-                 services={}, interface="", ipv4=""):
+                 interface="", ipv4="", svc_uuid=None):
         threading.Thread.__init__(self)
         self.inifile = inifile
-        self.services = services
         self.interface = interface
         self.ipv4 = ipv4
 
@@ -44,9 +44,11 @@ class ConfigServer(threading.Thread):
 
         self.dsname = self.socket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
         print "dsname = ", self.dsname, "port =",self.port
-
-        self.txtrec = pybonjour.TXTRecord({'dsname' : self.dsname })
-
+        me = uuid.uuid1()
+        self.txtrec = pybonjour.TXTRecord({'dsname' : self.dsname,
+                                           'uuid': svc_uuid,
+                                           'service' : 'config',
+                                           'instance' : str(me) })
         self.rx = Container()
         self.tx = Container()
 
@@ -87,15 +89,6 @@ class ConfigServer(threading.Thread):
         app.type = self.cfg.getint(name, 'type')
         self.add_files(self.cfg.get(name, 'files'), app)
 
-        for k,v in self.services.iteritems():
-            sa = self.tx.service_announcement.add()
-            sa.instance = 0 # FIXME
-            sa.stype = k
-            sa.version = v.version
-            sa.uri = v.uri
-            sa.api = v.api
-            sa.description = v.description
-
         self.send_msg(origin, MT_APPLICATION_DETAIL)
 
     def process(self,s):
@@ -128,7 +121,7 @@ class ConfigServer(threading.Thread):
 
             self.host = socket.gethostname()
             self.name = 'Machinekit on %s' % self.ipv4
-            self.sdref = pybonjour.DNSServiceRegister(regtype = '_machinekit._tcp',
+            self.sdref = pybonjour.DNSServiceRegister(regtype = '_machinekit._tcp,_config',
                                                       name = self.name,
                                                       port = self.port,
                                                       #host = self.host,
@@ -185,6 +178,11 @@ def choose_ip(pref):
 def main():
     debug = True
     trace = False
+    uuid = os.getenv("MKUUID")
+    if uuid is None:
+        print >> sys.stderr, "no MKUUID environemnt variable set"
+        print >> sys.stderr, "run export MKUUID=`uuidgen` first"
+        sys.exit(1)
 
     prefs = ['wlan','eth','usb']
 
@@ -196,23 +194,6 @@ def main():
     if debug:
         print "announcing configserver on ",iface
 
-    sd = sdiscover.ServiceDiscover(trace=trace)
-    sd.add(ST_STP_HALGROUP)
-    sd.add(ST_STP_HALRCOMP)
-    sd.add(ST_HAL_RCOMMAND)
-    sd.add(ST_RTAPI_COMMAND)
-    sd.add(ST_LOGGING)
-    #sd.add(ST_WEBSOCKET)
-
-    result = sd.discover()
-    if not result:
-        print >> sys.stderr,"failed to discover all requested services"
-        sys.exit(1)
-    else:
-        if False:
-            for k,v in result.iteritems():
-                if debug:
-                    print "service", k, v.uri, v.description, v.api
 
     context = zmq.Context()
     context.linger = 0
@@ -220,7 +201,8 @@ def main():
     uri = "tcp://" + iface[0]
 
     cfg = ConfigServer(context, uri, "apps.ini",
-                       topdir=".", services=result,
+                       svc_uuid=uuid,
+                       topdir=".",
                        interface = iface[0],
                        ipv4 = iface[1])
     cfg.setDaemon(True)
