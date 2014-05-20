@@ -85,7 +85,11 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
                   , help='connect to remote haltalk server by giving its RTAPI instance number (default 0)')
 
           , Option( '-S', dest='svc_uuid', default=None, metavar='UUID of remote HAL instance'
-                  , help='connect to remote haltalk server by giving its UUID')
+                    , help='connect to remote haltalk server by giving its UUID')
+
+          , Option( '-E', action='store_true', dest='use_env'
+                    , metavar='use MKUUID from environment as instance'
+                    , help='local case - use the curren MKUUID')
 
           , Option( '-C', dest='cmd_uri', default=None, metavar='zmq URI of remote HALrcmd service'
                   , help='connect to remote haltalk server by giving its HALrcmd URI')
@@ -245,7 +249,7 @@ def main():
         print >> sys.stderr, "*** GLADE VCP ERROR: use either -s<uuid> or -C/-M, but not both"
         sys.exit(0)
 
-    if not (opts.svc_uuid or opts.cmd_uri or opts.update_uri): # local
+    if not (opts.svc_uuid or opts.use_env or opts.cmd_uri or opts.update_uri): # local
         try:
             import hal
             halcomp = hal.component(opts.component)
@@ -257,15 +261,23 @@ def main():
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
     else:
         if opts.rcdebug: print "remote uuid=%s cmd=%s update=%s" % (opts.svc_uuid,opts.cmd_uri,opts.update_uri)
-        halcomp = GRemoteComponent(opts.component, builder,
-                                   cmd_uri=opts.cmd_uri,update_uri=opts.update_uri,
-                                   uuid=opts.svc_uuid,
+        if opts.use_env:
+            uuid = os.getenv("MKUUID")
+        else:
+            uuid = opts.svc_uuid
+        halcomp = GRemoteComponent(opts.component,
+                                   builder,
+                                   cmd_uri=opts.cmd_uri,
+                                   update_uri=opts.update_uri,
+                                   uuid=uuid,
                                    instance=opts.instance,
                                    period=int(opts.pinginterval),
                                    debug=int(opts.rcdebug))
+
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
+
         # no discovery, so bind right away
-        if not opts.svc_uuid:
+        if not (opts.use_env or opts.svc_uuid):
             halcomp.bind()
         # else bind() is called once all URI's discovered and connected
         # this should really be done with a signal, and bind() done in reaction to
