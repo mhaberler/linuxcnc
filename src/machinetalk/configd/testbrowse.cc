@@ -81,6 +81,8 @@ static void resolve_callback(AvahiServiceResolver *r,
     }
 
     avahi_service_resolver_free(r);
+        avahi_simple_poll_quit(simple_poll);
+
 }
 
 static void browse_callback(AvahiServiceBrowser *b,
@@ -188,7 +190,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
     if (!(sb = avahi_service_browser_new(client,
 					 AVAHI_IF_UNSPEC,
 					 AVAHI_PROTO_UNSPEC,
-					 MACHINEKIT_DNS_SERVICE_TYPE,
+				 "_rtapi._sub._machinekit._tcp",// MACHINEKIT_DNS_SERVICE_TYPE,
+					 //		 MACHINEKIT_DNSSD_SERVICE_TYPE,
 					 NULL,
 					 (AvahiLookupFlags)0,
 					 browse_callback,

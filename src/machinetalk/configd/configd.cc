@@ -126,15 +126,22 @@ int main(int argc, char **argv)
 	zs.proto =  AVAHI_PROTO_INET;
 	zs.interface = AVAHI_IF_UNSPEC;
 	zs.port = 4711;
-	zs.type = MACHINEKIT_DNS_SERVICE_TYPE;
+	zs.type = MACHINEKIT_DNSSD_SERVICE_TYPE;
 	zs.txt = NULL;
 	zs.txt = avahi_string_list_add(zs.txt, "foo=bar");
 	zs.txt = avahi_string_list_add(zs.txt, "blah=fasel");
 	zs.txt = avahi_string_list_add_pair(zs.txt, "key", "value");
 	zs.txt = avahi_string_list_add_printf(zs.txt, "version=%s", GIT_VERSION);
 
-        if (!(avahi = mk_zeroconf_register(&zs)))
-            return -1; //EXIT_CONNECT_FAILED;
+	AvahiCzmqPoll *av_loop;
+    zloop_t *loop = zloop_new();
+
+	// register poll adapter
+	if (!(av_loop = avahi_czmq_poll_new(loop))) {
+	    return -1;
+	}
+        // if (!(avahi = mk_zeroconf_register(&zs, av_loop)))
+        //     return -1; //EXIT_CONNECT_FAILED;
     }
 #endif
     sleep(10);

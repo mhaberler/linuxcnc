@@ -15,6 +15,7 @@
 //   License along with avahi; if not, write to the Free Software
 //   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.
 
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -63,22 +64,23 @@ static void resolve_callback(AvahiServiceResolver *r,
 		avahi_strerror(avahi_client_errno(avahi_service_resolver_get_client(r))));
 	break;
 
-    case AVAHI_RESOLVER_FOUND: {
+    case AVAHI_RESOLVER_FOUND:
+	{
 
-	char a[AVAHI_ADDRESS_STR_MAX], *t;
+	    char a[AVAHI_ADDRESS_STR_MAX], *t;
 
-	avahi_address_snprint(a, sizeof(a), address);
-	t = avahi_string_list_to_string(txt);
-	fprintf(stderr,"%s: Service '%s' of type '%s' in domain '%s' %s:%u %s TXT=%s\n",
-		__func__, name, type, domain,  host_name, port, a,  t);
+	    avahi_address_snprint(a, sizeof(a), address);
+	    t = avahi_string_list_to_string(txt);
+	    fprintf(stderr,"%s: Service '%s' of type '%s' in domain '%s' %s:%u %s TXT=%s\n",
+		    __func__, name, type, domain,  host_name, port, a,  t);
 
-	// !!(flags & AVAHI_LOOKUP_RESULT_LOCAL),
-	// !!(flags & AVAHI_LOOKUP_RESULT_OUR_OWN),
-	// !!(flags & AVAHI_LOOKUP_RESULT_WIDE_AREA),
-	// !!(flags & AVAHI_LOOKUP_RESULT_MULTICAST),
-	// !!(flags & AVAHI_LOOKUP_RESULT_CACHED));
-	avahi_free(t);
-    }
+	    // !!(flags & AVAHI_LOOKUP_RESULT_LOCAL),
+	    // !!(flags & AVAHI_LOOKUP_RESULT_OUR_OWN),
+	    // !!(flags & AVAHI_LOOKUP_RESULT_WIDE_AREA),
+	    // !!(flags & AVAHI_LOOKUP_RESULT_MULTICAST),
+	    // !!(flags & AVAHI_LOOKUP_RESULT_CACHED));
+	    avahi_free(t);
+	}
     }
 
     avahi_service_resolver_free(r);
@@ -194,7 +196,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
     if (!(sb = avahi_service_browser_new(client,
 					 AVAHI_IF_UNSPEC,
 					 AVAHI_PROTO_UNSPEC,
-					 MACHINEKIT_DNS_SERVICE_TYPE,
+					 "_rtapi._sub._machinekit._tcp",// MACHINEKIT_DNS_SERVICE_TYPE,
 					 NULL,
 					 (AvahiLookupFlags)0,
 					 browse_callback,

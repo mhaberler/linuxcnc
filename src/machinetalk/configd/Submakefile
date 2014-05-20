@@ -33,16 +33,14 @@ TARGETS += ../bin/configd
 ifeq ($(USE_AVAHI),yes)
 
 TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
-	testpublish.cc \
-	mk-zeroconf-reg.cc \
-	)
+	testpublish.cc )
 
 $(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
 
 ../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
 	../lib/libmtalk.so.0 
 	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
+	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
 
 USERSRCS += $(TESTPUBLISH_SRCS)
 TARGETS += ../bin/testpublish
@@ -79,7 +77,7 @@ $(call TOOBJSDEPS, $(TESTBROWSE_ZMQ_SRCS)) : EXTRAFLAGS += \
 USERSRCS += $(TESTBROWSE_ZMQ_SRCS)
 TARGETS += ../bin/testbrowsezmq
 
-endif
 #endif
+endif
 
 
