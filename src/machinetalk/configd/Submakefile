@@ -35,7 +35,7 @@ ifeq ($(USE_AVAHI),yes)
 TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 	testpublish.cc )
 
-$(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
+$(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)  $(CZMQ_CFLAGS)
 
 ../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
 	../lib/libmtalk.so.0 
