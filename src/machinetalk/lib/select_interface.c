@@ -39,8 +39,8 @@ int select_interface(int npref, const char **pref, char *ifname,
 	    family = ifa->ifa_addr->sa_family;
 	    if (family != AF_INET)	    // IPv4 only for now
 		continue;
-	    if (ifa->ifa_flags & IFF_LOOPBACK) // skip loopback interface
-		continue;
+	    /* if (ifa->ifa_flags & IFF_LOOPBACK) // skip loopback interface */
+	    /* 	continue; */
 
 	    s = getnameinfo(ifa->ifa_addr,
 			    (family == AF_INET) ? sizeof(struct sockaddr_in) :
