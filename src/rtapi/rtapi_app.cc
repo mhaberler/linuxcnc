@@ -70,8 +70,6 @@
 using namespace google::protobuf;
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
-#include <sdpublish.h>  // for UDP service discovery
-
 #include "rtapi.h"
 #include "rtapi_global.h"
 #include "rtapi_compat.h"
@@ -79,6 +77,8 @@ typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 #include "hal_priv.h"
 #include "rtapi/shmdrv/shmdrv.h"
 #include "setup_signals.h"
+#include "mk-zeroconf.hh"
+#include "select_interface.h"
 
 #define BACKGROUND_TIMER 1000
 
@@ -112,13 +112,18 @@ static bool interrupted;
 int shmdrv_loaded;
 long page_size;
 static const char *progname;
-static const char *z_uri = "tcp://127.0.0.1:*";
+static const char *z_uri; 
 static const char *z_uri_dsn;
 static int z_port;
 static pb::Container command, reply;
-static int sd_port = SERVICE_DISCOVERY_PORT;
-static spub_t *sd_publisher;
 static uuid_t uuid;
+static zservice_t zs;
+static AvahiCzmqPoll *av_loop;
+static void *rtapi_publisher;
+static const char *service_uuid;
+static const char *ipaddr = "127.0.0.1";
+static const char *interfaces;
+static int ifindex =  AVAHI_IF_UNSPEC;
 
 // the following two variables, despite extern, are in fact private to rtapi_app
 // in the sense that they are not visible in the RT space (the namespace 
@@ -142,6 +147,8 @@ static void exit_actions(int instance);
 static int harden_rt(void);
 static void rtapi_app_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
+static int rtapi_zeroconf_announce(const char *ifpref);
+static int rtapi_zeroconf_withdraw(void);
 
 // raise/drop privilege support
 void save_uid(void);
@@ -855,6 +862,27 @@ static int mainloop(size_t  argc, char **argv)
     // since we're using signalfd()
     zsys_handler_set(NULL);
 
+    // determine interface to bind to (default localhost)
+    if (interfaces) {
+	char ifname[100], ip[100];
+	unsigned index;
+	// rtapi_print_msg(RTAPI_MSG_INFO, "rtapi_app: ifpref='%s'\n",interfaces);
+	if (parse_interface_prefs(interfaces,  ifname, ip, &index) == 0) {
+	    rtapi_print_msg(RTAPI_MSG_INFO, "rtapi_app: using preferred interface %s/%s\n",
+			    ifname, ip);
+	    ifindex = (int) index;
+	    ipaddr = strdup(ip);
+	} else {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app: INTERFACES='%s'"
+			    " - cant determine preferred interface, using %s/%s\n",
+			    interfaces, ifname, ipaddr);
+	}
+    }
+    if (z_uri == NULL) { // not given on command line - finalize the URI
+	char uri[100];
+	snprintf(uri, sizeof(uri), "tcp://%s:*" , ipaddr);
+	z_uri = strdup(uri);
+    }
     zctx_t *z_context = zctx_new ();
 
     void *z_command = zsocket_new (z_context, ZMQ_ROUTER);
@@ -887,17 +915,18 @@ static int mainloop(size_t  argc, char **argv)
 
     zloop_timer (z_loop, BACKGROUND_TIMER, 0, s_handle_timer, NULL);
 
-    // start the service announcement responder
-    sd_publisher = sp_new( z_context, sd_port, instance_id, uuid);
-    assert(sd_publisher);
-    sp_log(sd_publisher, getenv("SDDEBUG") != NULL);
+   if (!(av_loop = avahi_czmq_poll_new(z_loop))) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app:%d: zeroconf: Failed to create avahi event loop object.",
+			instance_id);
+	return -1;
+    }
 
-    retval = sp_add(sd_publisher, (int) pb::ST_RTAPI_COMMAND,
-		1, NULL, 0, z_uri_dsn,
-		(int) pb::SA_ZMQ_PROTOBUF,
-		"RTAPI command socket");
-    assert(retval == 0);
-    assert(sp_start(sd_publisher) == 0);
+    retval = rtapi_zeroconf_announce(interfaces);
+    if (retval) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app:%d: zeroconf register failed",
+		    instance_id);
+	return -1;
+    }
 
     // report success
     rtapi_print_msg(RTAPI_MSG_INFO, "rtapi_app:%d ready flavor=%s gcc=%s git=%s",
@@ -921,8 +950,7 @@ static int mainloop(size_t  argc, char **argv)
 		    "exiting mainloop (%s)\n",
 		    interrupted ? "interrupted": "by remote command");
 
-    // stop  the service announcement responder
-    sp_destroy(&sd_publisher);
+    rtapi_zeroconf_withdraw();
 
     // shutdown zmq context
     zctx_destroy(&z_context);
@@ -1154,6 +1182,8 @@ static struct option long_options[] = {
     {"drivers",   required_argument, 0, 'D'},
     {"uri",   required_argument,    0, 'U'},
     {"debug",   no_argument,    0, 'd'},
+    {"svcuuid", required_argument, 0, 'R'},
+    {"interfaces", required_argument, 0, 'n'},
     {0, 0, 0, 0}
 };
 
@@ -1176,7 +1206,7 @@ int main(int argc, char **argv)
     while (1) {
 	int option_index = 0;
 	int curind = optind;
-	c = getopt_long (argc, argv, "hH:m:I:f:r:U:NFd",
+	c = getopt_long (argc, argv, "hH:m:I:f:r:U:NFdR:n:",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
@@ -1217,6 +1247,13 @@ int main(int argc, char **argv)
 	    z_uri = optarg;
 	    break;
 
+	case 'n':
+	    interfaces = strdup(optarg);
+	    break;
+
+	case 'R':
+	    service_uuid = strdup(optarg);
+	    break;
 	case '?':
 	    if (optopt)  fprintf(stderr, "bad short opt '%c'\n", optopt);
 	    else  fprintf(stderr, "bad long opt \"%s\"\n", argv[curind]);
@@ -1228,6 +1265,14 @@ int main(int argc, char **argv)
 	    usage(argc, argv);
 	    exit(0);
 	}
+    }
+
+    if (service_uuid == NULL)
+	service_uuid = getenv("MKUUID");
+
+    if (service_uuid == NULL) {
+	fprintf(stderr, "rtapi: no service UUID (-R <uuid> or environment MKUUID) present\n");
+	exit(-1);
     }
 
     // sanity
@@ -1280,6 +1325,38 @@ static void stderr_rtapi_msg_handler(msg_level_t level,
     vfprintf(stderr, fmt, ap);
 }
 
+static int rtapi_zeroconf_announce(const char *ifpref)
+{
+    char name[100];
+
+    zs = {0};
+    snprintf(name,sizeof(name), "RTAPI service on %s pid %d", ipaddr, getpid());
+    zs.name = strdup(name);
+    zs.proto =  AVAHI_PROTO_INET;
+    zs.interface = ifindex; // AVAHI_IF_UNSPEC
+    zs.type =  MACHINEKIT_DNSSD_SERVICE_TYPE;
+    zs.port = z_port;
+    zs.txt = avahi_string_list_add_printf(zs.txt, "dsn=%s", z_uri_dsn);
+    zs.txt = avahi_string_list_add_printf(zs.txt, "uuid=%s", service_uuid);
+    char buf[40];
+    uuid_unparse(uuid, buf);
+    zs.txt = avahi_string_list_add_printf(zs.txt, "instance=%s", buf);
+    zs.txt = avahi_string_list_add_printf(zs.txt, "service=rtapi");
+    zs.subtypes = avahi_string_list_add(zs.subtypes,
+					RTAPI_DNSSD_SUBTYPE
+					MACHINEKIT_DNSSD_SERVICE_TYPE);
+
+    if ((rtapi_publisher = mk_zeroconf_register(&zs, av_loop)) == NULL)
+	return -1;
+
+    return 0;
+}
+
+
+static int rtapi_zeroconf_withdraw(void)
+{
+    return 0;
+}
 
 static uid_t euid, ruid;
 

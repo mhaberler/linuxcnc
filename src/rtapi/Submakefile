@@ -198,14 +198,13 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	$(call TOOBJS, $(RTAPI_APP_SRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcncshm.so \
-	../lib/libsdpublish.so.0 \
 	../lib/libmtalk.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) -Wl,-rpath,$(EMC2_RTLIB_DIR) $(RTAPI_APP_RPATH) \
 	    -o $@ $^ $(RT_LDFLAGS) \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ -ldl -luuid
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) -lstdc++ -ldl -luuid
 
 modules:  ../libexec/rtapi_app_$(threads)
 endif # BUILD_THREAD_MODULES
