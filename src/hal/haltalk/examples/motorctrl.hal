@@ -29,16 +29,17 @@ start
 # in this case no waiting required
 # pin count, name, type, direction must match exactly what
 # is in the GUI
+sete 0 0.001
 newcomp motorctrl timer=100 acceptdefaults
 newpin motorctrl motorctrl.cmd_maxacc    float out
 newpin motorctrl motorctrl.cmd_maxvel    float out
 newpin motorctrl motorctrl.cmd_pos       float out
-newpin motorctrl motorctrl.fb_acc        float in eps=0.01
-newpin motorctrl motorctrl.fb_acc.scale  float in eps=0.01
-newpin motorctrl motorctrl.fb_pos        float in eps=0.01
-newpin motorctrl motorctrl.fb_pos.scale  float in eps=0.01
-newpin motorctrl motorctrl.fb_vel        float in eps=0.01
-newpin motorctrl motorctrl.fb_vel.scale  float in eps=0.01
+newpin motorctrl motorctrl.fb_acc        float in eps=1
+newpin motorctrl motorctrl.fb_acc.scale  float in eps=1
+newpin motorctrl motorctrl.fb_pos        float in eps=1
+newpin motorctrl motorctrl.fb_pos.scale  float in eps=1
+newpin motorctrl motorctrl.fb_vel        float in eps=1
+newpin motorctrl motorctrl.fb_vel.scale  float in eps=1
 newpin motorctrl motorctrl.led1          bit in
 newpin motorctrl motorctrl.lowpass_gain  float out
 newpin motorctrl motorctrl.scope_trigger bit out
