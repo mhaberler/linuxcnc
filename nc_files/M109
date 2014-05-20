@@ -7,7 +7,7 @@
 # Example: M109 S185 
 
 temp_required=$1
-temp_actual=$(halcmd getp Therm.temp0)
+temp_actual=$(halcmd gets e0.temp.meas)
 
 halcmd sets e0.temp.set $temp_required
 #bash cannot do floating point comparison
@@ -16,7 +16,7 @@ T_extruder_smaller_than_T_required=`echo "scale=3; ($temp_actual < $temp_require
 while [ "$T_extruder_smaller_than_T_required" != "0" ]
 do
 #  echo enter while loop
-  temp_actual=$(halcmd getp Therm.temp0)
+  temp_actual=$(halcmd gets e0.temp.meas)
 #  echo temp_actual= $temp_actual
   sleep 1
   T_extruder_smaller_than_T_required=`echo "scale=3; ($temp_actual < $temp_required)"| bc -l`

@@ -208,7 +208,8 @@ def main():
     cfg.setDaemon(True)
     cfg.start()
 
-    time.sleep(300)
+    while True:
+        time.sleep(1)
 
 
 if __name__ == "__main__":
