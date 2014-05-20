@@ -149,14 +149,14 @@ LINMOVE_SRCS :=  $(addprefix $(PBEX)/, \
 	linmove.cc)
 LINMOVE_CXX_CFLAGS = -g $(PROTOBUF_CFLAGS)  $(JANSSON_CFLAGS)  -DPB_FIELD_32BIT
 LINMOVE_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS)  $(JANSSON_LIBS) \
-	../lib/libjson2pb.so  \
+	../lib/libmtalk.so  \
 	 ../lib/liblinuxcnc-pb2++.so \
 	-lstdc++
 
 $(call TOOBJSDEPS, $(LINMOVE_SRCS)) : EXTRAFLAGS += $(LINMOVE_CXX_CFLAGS)
 
 ../bin/linmove: $(call TOOBJS, $(LINMOVE_SRCS)) \
-	../lib/libjson2pb.so ../lib/liblinuxcnc-pb2++.so
+	../lib/libmtalk.so ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
 	 $(LINMOVE_CXX_LDFLAGS) $(PBJSONLIB)
