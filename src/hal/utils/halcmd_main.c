@@ -79,7 +79,8 @@ int main(int argc, char **argv)
     char raw_buf[MAX_CMD_LEN+1];
     int linenumber = 1;
     char *cf=NULL, *cw=NULL, *cl=NULL;
-    const char *uri = NULL; // NULL - use service discovery
+    char *uri = NULL; // NULL - use service discovery
+    char *svc_uuid = NULL; // must have a global uuid
 
     if (argc < 2) {
 	/* no args specified, print help */
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
     keep_going = 0;
     /* start parsing the command line, options first */
     while(1) {
-        c = getopt(argc, argv, "+RCfi:kqQsvVhu:");
+        c = getopt(argc, argv, "+RCfi:kqQsvVhu:U:");
         if(c == -1) break;
         switch(c) {
             case 'R':
@@ -142,6 +143,8 @@ int main(int argc, char **argv)
 	    case 'f':
                 filemode = 1;
 		break;
+
+
 	    case 'C':
                 cl = getenv("COMP_LINE");
                 cw = getenv("COMP_POINT");
@@ -159,7 +162,7 @@ int main(int argc, char **argv)
                             break;
                         }
                     }
-                    halcmd_startup(1, uri);
+                    halcmd_startup(1, uri, svc_uuid);
                     propose_completion(cl, cf, n);
                 }
                 if (comp_id >= 0) halcmd_shutdown();
@@ -188,7 +191,9 @@ int main(int argc, char **argv)
 	    case 'u':
 		uri = optarg;
 		break;
-
+	    case 'U':
+                svc_uuid = optarg;
+		break;
 	    case '?':
 		/* option not in getopt() list
 		   getopt already printed an error message */
@@ -201,6 +206,15 @@ int main(int argc, char **argv)
 		break;
         }
     }
+    if (svc_uuid == NULL)
+	svc_uuid = getenv("MKUUID");
+    if (svc_uuid == NULL) {
+	fprintf(stderr,
+		"need a service UUID - either '-U <uuid>' or environment MKUUID'\n");
+	exit(-1);
+    }
+
+
     if(filemode) {
         /* it's the first -f (ignore repeats) */
         if (argc > optind) {
@@ -225,7 +239,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if ( halcmd_startup(0, uri) != 0 ) return 1;
+    if ( halcmd_startup(0, uri, svc_uuid) != 0 ) return 1;
 
     errorcount = 0;
     /* HAL init is OK, let's process the command(s) */

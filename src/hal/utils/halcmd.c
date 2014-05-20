@@ -95,7 +95,7 @@ flavor_ptr current_flavor;
 
 static void quit(int);
 
-int halcmd_startup(int quiet, const char *uri) {
+int halcmd_startup(int quiet, char *uri, const char *svc_uuid) {
     int msg_lvl_save=rtapi_get_msg_level();
     /* register signal handlers - if the process is killed
        we need to call hal_exit() to free the shared memory */
@@ -125,7 +125,7 @@ int halcmd_startup(int quiet, const char *uri) {
 
     current_flavor = flavor_byid(global_data->rtapi_thread_flavor);
     int retval;
-    if ((retval = rtapi_connect(rtapi_instance, uri))) {
+    if ((retval = rtapi_connect(rtapi_instance, uri, svc_uuid))) {
         if (!quiet) {
             fprintf(stderr, "halcmd: cant connect to rtapi_app: %d\n", retval );
         }

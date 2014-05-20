@@ -2,7 +2,9 @@
 
 #include <czmq.h>
 #include <string.h>
-#include <sdiscover.h>
+#include "mk-zeroconf.hh"
+#include "mk-zeroconf-types.h"
+#include <avahi-common/malloc.h>
 
 
 #include <machinetalk/generated/message.pb.h>
@@ -13,7 +15,6 @@ static pb::Container command, reply;
 static zctx_t *z_context;
 static void *z_command;
 static int timeout = 1000;
-static  sdreq_t *sd;
 static std::string errormsg;
 
 int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
@@ -137,33 +138,46 @@ const char *rtapi_rpcerror(void)
     return errormsg.c_str();
 }
 
-int rtapi_connect(int instance, const char *uri)
+int rtapi_connect(int instance, char *uri, const char *svc_uuid)
 {
-    int retval;
-
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
     if (uri == NULL) {
-	// use service discovery to retrieve rtapi_app command URI
-	sd = sd_new(0, instance);
-	assert(sd);
-	retval = sd_add(sd,  pb::ST_RTAPI_COMMAND,
-			0,   pb::SA_ZMQ_PROTOBUF);
-	assert(retval == 0);
-	retval = sd_query(sd, 3000);
+	char uuid[50];
+	snprintf(uuid, sizeof(uuid),"uuid=%s", svc_uuid);
 
-	if (retval) {
+	zresolve_t res = {0};
+	res.proto =	 AVAHI_PROTO_UNSPEC;
+	res.interface = AVAHI_IF_UNSPEC;
+	res.type =  (char *) RTAPI_DNSSD_SUBTYPE   MACHINEKIT_DNSSD_SERVICE_TYPE;
+	res.match = uuid;
+	res.domain = NULL;
+	res.name = (char *)"";
+	res.timeout_ms = 3000;
+	res.result = SD_UNSET;
+
+	void *p  = mk_zeroconf_resolve(&res);
+
+	if (res.result == SD_OK) {
+	    // fish out the dsn=<uri> TXT record
+
+	    AvahiStringList *dsn = avahi_string_list_find(res.txt, "dsn");
+	    char *key;
+	    size_t vlen;
+
+	    if (avahi_string_list_get_pair(dsn, &key, &uri, &vlen)) {
+		fprintf(stderr,
+			"halcmd: service discovery failed - no dsn= key\n");
+		return -1;
+	    }
+
+	} else {
 	    fprintf(stderr,
 		    "halcmd: service discovery failed - cant retrieve rtapi_app command uri: %d\n",
-		    retval );
-	    return retval;
+		    res.result );
+	    return -1;
 	}
-	uri = sd_uri(sd, pb::ST_RTAPI_COMMAND);
-	if (uri == NULL) {
-	    fprintf(stderr, "halcmd: BUG - service discovery retrieved invalid URI\n");
-	    sd_dump("after query: ", sd);
-	    return -ENOENT;
-	}
+	mk_zeroconf_resolve_free(p);
     }
 
     z_context = zctx_new ();

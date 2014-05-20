@@ -43,7 +43,7 @@ static void shutdown(void) {
 static int init() {
     int result = 0;
     if(refcount == 0) {
-        result = halcmd_startup(0, NULL);
+        result = halcmd_startup(0, NULL, getenv("MKUUID"));
         atexit(shutdown);
     }
     if(result == 0) {

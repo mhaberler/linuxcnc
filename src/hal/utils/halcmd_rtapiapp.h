@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-    int rtapi_connect(int instance, const char *uri);
+    int rtapi_connect(int instance, char *uri, const char *svc_uuid);
     int rtapi_loadrt(int instance, const char *modname, const char **args);
     int rtapi_unloadrt(int instance, const char *modname);
     int rtapi_shutdown(int instance);

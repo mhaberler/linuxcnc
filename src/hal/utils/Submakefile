@@ -21,10 +21,10 @@ $(call TOOBJSDEPS, $(HALCMDCCSRCS)) : EXTRAFLAGS =  \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0 \
-	../lib/libsdiscover.so.0
+	../lib/libmtalk.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(READLINE_LIBS) \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) -lstdc++
 TARGETS += ../bin/halcmd
 
 HALRMTSRCS := hal/utils/halrmt.c
