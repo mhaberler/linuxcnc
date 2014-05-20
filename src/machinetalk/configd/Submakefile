@@ -38,7 +38,7 @@ TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 $(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)  $(CZMQ_CFLAGS)
 
 ../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
-	../lib/libmtalk.so.0 
+	../lib/libmtalk.so.0  ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
 
@@ -53,7 +53,7 @@ TESTBROWSE_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
 $(call TOOBJSDEPS, $(TESTBROWSE_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS) $(CZMQ_CFLAGS)
 
 ../bin/testbrowse: $(call TOOBJS, $(TESTBROWSE_SRCS)) \
-	../lib/libmtalk.so.0
+	../lib/libmtalk.so.0  ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
 
@@ -70,7 +70,7 @@ $(call TOOBJSDEPS, $(TESTBROWSE_ZMQ_SRCS)) : EXTRAFLAGS += \
 	$(CZMQ_CFLAGS)
 
 ../bin/testbrowsezmq: $(call TOOBJS, $(TESTBROWSE_ZMQ_SRCS)) \
-	../lib/libmtalk.so.0
+	../lib/libmtalk.so.0  ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++
 
