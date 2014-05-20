@@ -10,6 +10,8 @@ LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
 	czmq-watch.c \
 	setup_signals.c \
 	syslog_async.c \
+	zeroconf_register.cc \
+	zeroconf_resolve.cc \
 	json2pb.cc)
 
 
@@ -46,3 +48,16 @@ TARGETS += ../lib/libmtalk.so ../lib/libmtalk.so.0
 
 ../include/%.hh: ./$(LIBMTALK_DIR)/%.hh
 	cp $^ $@
+
+# ZRES_SRCS :=  $(addprefix $(LIBMTALK_DIR)/, \
+# 	zeroconf_resolve.cc	)
+
+# $(call TOOBJSDEPS, $(ZRES_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
+
+# ../bin/zres: $(call TOOBJS, $(ZRES_SRCS)) \
+# 	../lib/libmtalk.so.0
+# 	$(ECHO) Linking $(notdir $@)
+# 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
+
+# USERSRCS += $(ZRES_SRCS)
+# TARGETS += ../bin/zres
