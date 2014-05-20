@@ -7,7 +7,6 @@ import sys
 import os
 import time
 import zmq
-import sdiscover
 import uuid
 
 import gtk.gdk
@@ -19,8 +18,6 @@ import socket
 
 from message_pb2 import Container
 from types_pb2 import *
-
-HAL_RCOMP_VERSION = 2
 
 class GPin(gobject.GObject, hal.Pin):
     __gtype_name__ = 'GPin'
@@ -84,7 +81,7 @@ class GComponent:
     def __setitem__(self, k, v): self.comp[k] = v
 
 
-# ------------------------------
+# ----------- remote versions of the above -------------------
 
 class GRemotePin(gobject.GObject):
     __gtype_name__ = 'GRPin'
@@ -172,29 +169,30 @@ class GRemoteComponent(gobject.GObject):
             return
         txt = pybonjour.TXTRecord.parse(txtRecord)
         if not 'uuid' in txt:
-            print "service",fullname, "without UUID"
+            if self.debug: print "service",fullname, "without UUID"
             return
 
         if txt['uuid'] != self.instance_uuid:
-            print "uuid's dont match:", txt['uuid'], self.instance_uuid
+            if self.debug: print "uuid's dont match:", txt['uuid'], self.instance_uuid
             return
 
         if not 'dsn' in txt:
-            print "service",fullname, "without dsn"
+            if self.debug: print "service",fullname, "without dsn"
             return
 
-        print 'Resolved service:', txt['service'], txt['dsn'], txt['uuid']
+        if self.debug: print 'Resolved service:', txt['service'], txt['dsn'], txt['uuid']
         svc = txt['service']
         if svc in self.needed:
             self.dsns[svc] = txt['dsn']
             self.needed.remove(svc)
             gobject.source_remove(self.sources[svc])
             sdRef.close()
-        print "left:", self.needed
+        if self.debug: print "left:", self.needed
 
         if not self.needed: # we're done
-            print "connecting.."
+            if self.debug: print "connecting.."
             self.establish(self.dsns['halrcmd'],self.dsns['halrcomp'])
+            self.bind()
 
     def browse_callback(self, sdRef, flags, interfaceIndex, errorCode, serviceName,
                         regtype, replyDomain):
@@ -202,9 +200,9 @@ class GRemoteComponent(gobject.GObject):
             return
 
         if not (flags & pybonjour.kDNSServiceFlagsAdd):
-            print 'Service removed'
+            if self.debug: print 'Service removed'
             return
-        print 'Service added; resolving', serviceName
+        if self.debug: print 'Service added; resolving', serviceName
         resolve_sdRef = pybonjour.DNSServiceResolve(0,
                                                     interfaceIndex,
                                                     serviceName,
@@ -219,6 +217,8 @@ class GRemoteComponent(gobject.GObject):
 
     # either uri's were passed in, or discovered - good to go:
     def establish(self, cmd_uri, update_uri):
+        if self.debug: print "establish cmd=%s update=%s" % (cmd_uri,update_uri)
+
         if not GRemoteComponent.CONTEXT:
             ctx = zmq.Context()
             ctx.linger = 0
@@ -245,13 +245,12 @@ class GRemoteComponent(gobject.GObject):
             GRemoteComponent.UPDATE = update
             GRemoteComponent.CMD = cmd
         GRemoteComponent.COUNT += 1
-        self.bind()
 
     def set_uuid(self, u):
         if self.server_uuid != u:
             self.server_uuid = u
             self.emit('server-instance', str(uuid.UUID(bytes=self.server_uuid)))
-            print "haltalk uuid:",uuid.UUID(bytes=self.server_uuid)
+            if self.debug: print "haltalk uuid:",uuid.UUID(bytes=self.server_uuid)
 
     def __init__(self, name, builder,cmd_uri=None, update_uri=None, uuid=None,
                  period=3,debug=False,instance=None):
@@ -264,9 +263,10 @@ class GRemoteComponent(gobject.GObject):
         self.sstate = states.DOWN
         self.server_uuid = -1
 
-        # eventually pass in from gladevcp, or via menu selection of instance
-        #self.instance_uuid = uuid
-        self.instance_uuid = os.getenv("MKUUID")
+        if uuid:
+            self.instance_uuid = uuid
+        else:
+            self.instance_uuid = os.getenv("MKUUID")
 
         self.ping_outstanding = False
         self.name = name

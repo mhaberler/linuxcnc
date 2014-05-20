@@ -79,10 +79,22 @@ use -g WIDTHxHEIGHT for just setting size or -g +XOFFSET+YOFFSET for just positi
                   , help="Reparent gladevcp into an existing window XID instead of creating a new top level window")
           , Option( '-u', dest='usermod', action='append', default=[], metavar='FILE'
                   , help='Use FILEs as additional user defined modules with handlers')
+
+
           , Option( '-I', dest='instance', default=-1, metavar='remote HAL instance to connect to'
                   , help='connect to remote haltalk server by giving its RTAPI instance number (default 0)')
+
+          , Option( '-S', dest='svc_uuid', default=None, metavar='UUID of remote HAL instance'
+                  , help='connect to remote haltalk server by giving its UUID')
+
+          , Option( '-C', dest='cmd_uri', default=None, metavar='zmq URI of remote HALrcmd service'
+                  , help='connect to remote haltalk server by giving its HALrcmd URI')
+
+          , Option( '-M', dest='update_uri', default=None, metavar='zmq URI of remote HALrcomp service'
+                  , help='connect to remote haltalk server by giving its HALrcomp URI')
+
           , Option( '-D', dest='rcdebug', default=0, metavar='debug level for remote components'
-                  , help='set to > to trace message exchange for remote components')
+                    , help='set to > to trace message exchange for remote components')
           , Option( '-P', dest='pinginterval', default=3, metavar='seconds to ping haltalk'
                   , help='normally 3 secs')
            , Option( '-U', dest='useropts', action='append', metavar='USEROPT', default=[]
@@ -223,7 +235,17 @@ def main():
 
     window.set_title(opts.component)
 
-    if opts.instance == -1: # local
+    if opts.instance != -1:
+        print >> sys.stderr, "*** GLADE VCP ERROR: the -I option is deprecated, either use:"
+        print >> sys.stderr, "-s <uuid> for zeroconf lookup, or"
+        print >> sys.stderr, "-C <cmd_uri> -M <update_uri> for explicit URI's "
+        sys.exit(0)
+
+    if opts.svc_uuid and (opts.cmd_uri or opts.update_uri):
+        print >> sys.stderr, "*** GLADE VCP ERROR: use either -s<uuid> or -C/-M, but not both"
+        sys.exit(0)
+
+    if not (opts.svc_uuid or opts.cmd_uri or opts.update_uri): # local
         try:
             import hal
             halcomp = hal.component(opts.component)
@@ -234,19 +256,20 @@ def main():
 
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
     else:
-        print "remote to instance: ", opts.instance
-        # explicitly configured sockets
-        #cmd_uri="tcp://127.0.0.1:4711"
-        #update_uri="tcp://127.0.0.1:4712"
-        cmd_uri = None
-        update_uri = None
-        print "remote debug=",int(opts.rcdebug)
+        if opts.rcdebug: print "remote uuid=%s cmd=%s update=%s" % (opts.svc_uuid,opts.cmd_uri,opts.update_uri)
         halcomp = GRemoteComponent(opts.component, builder,
-                                   cmd_uri=cmd_uri,update_uri=update_uri,
+                                   cmd_uri=opts.cmd_uri,update_uri=opts.update_uri,
+                                   uuid=opts.svc_uuid,
                                    instance=opts.instance,
                                    period=int(opts.pinginterval),
                                    debug=int(opts.rcdebug))
         panel = gladevcp.makepins.GladePanel( halcomp, xmlname, builder, None)
+        # no discovery, so bind right away
+        if not opts.svc_uuid:
+            halcomp.bind()
+        # else bind() is called once all URI's discovered and connected
+        # this should really be done with a signal, and bind() done in reaction to
+        # the signal
 
     # at this point, any glade HL widgets and their pins are set up.
     handlers = load_handlers(opts.usermod,halcomp,builder,opts.useropts,opts.component)
