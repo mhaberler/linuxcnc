@@ -68,7 +68,8 @@ net led motorctrl.led1 <== motorctrl.togglebutton1
 net scope-trigger motorctrl.scope_trigger
 
 # start the gladevcp version
-loadusr -Wn motorctrl gladevcp -I 0 motorctrl.ui
+# use the environment UUID as target (local case)
+loadusr -Wn motorctrl gladevcp -E motorctrl.ui
 
 # load scope only now - because all sigs are now defined:
 loadusr halscope
