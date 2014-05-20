@@ -36,7 +36,7 @@ $(call TOOBJSDEPS, $(LIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC -g -O3 \
 
 TARGETS += ../lib/libmtalk.so ../lib/libmtalk.so.0
 
-../lib/libmtalk.so.0: $(call TOOBJS, $(LIBMTALK_SRCS))
+../lib/libmtalk.so.0: $(call TOOBJS, $(LIBMTALK_SRCS)) ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
 	@rm -f $@
