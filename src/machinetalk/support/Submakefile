@@ -18,7 +18,7 @@ $(call TOOBJSDEPS, $(ENCDEC_SRCS)) : EXTRAFLAGS += $(ENCDEC_CXX_CFLAGS)
 	$(PB2CXX_PROTOLIB)  ../lib/libmtalk.so ../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
-	 $(ENCDEC_CXX_LDFLAGS) $<
+	 $(ENCDEC_CXX_LDFLAGS)
 
 #----
 POSITION_SRCS :=  $(addprefix $(PBEX)/, \
@@ -26,16 +26,15 @@ POSITION_SRCS :=  $(addprefix $(PBEX)/, \
 POSITION_CXX_CFLAGS = -g  $(PROTOBUF_CFLAGS) $(JANSSON_CFLAGS)  -DPB_FIELD_32BIT
 POSITION_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(JANSSON_LIBS) -lstdc++
 
-PBJSONLIB = ../lib/libjson2pb.so
 PB2CXX_PROTOLIB = ../lib/liblinuxcnc-pb2++.so
 
 $(call TOOBJSDEPS, $(POSITION_SRCS)) : EXTRAFLAGS += $(POSITION_CXX_CFLAGS)
 
 ../bin/position: $(call TOOBJS, $(POSITION_SRCS)) \
-	$(PB2CXX_PROTOLIB) $(PBJSONLIB)
+	 ../lib/libmtalk.so $(PB2CXX_PROTOLIB)
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
-	 $(POSITION_CXX_LDFLAGS) $(PBJSONLIB)
+	 $(POSITION_CXX_LDFLAGS) 
 
 #---
 

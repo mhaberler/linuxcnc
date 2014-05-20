@@ -289,7 +289,7 @@ int mk_zeroconf_resolve_free(void *p)
 }
 
 
-#ifdef TEST
+#if 0
 int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
 {
     openlog_async(argv[0], LOG_NDELAY|LOG_ERR, LOG_LOCAL1);
