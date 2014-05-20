@@ -13,6 +13,9 @@ import uuid
 import gtk.gdk
 import gobject
 import glib
+import pybonjour
+import select
+import socket
 
 from message_pb2 import Container
 from types_pb2 import *
@@ -163,61 +166,68 @@ class GRemoteComponent(gobject.GObject):
     CMD = None
     COUNT = 0 # instance counter
 
-    def discover(self,servicelist, trace=False):
-        sd = sdiscover.ServiceDiscover(trace=trace)
-        for s in servicelist:
-            sd.add(s)
-        services = sd.discover()
-        if not services:
-            print "failed to discover all services, found only:"
-            sd.detail(True)
-        return services
+    def resolve_callback(self, sdRef, flags, interfaceIndex, errorCode, fullname,
+                         hosttarget, port, txtRecord):
+        if errorCode != pybonjour.kDNSServiceErr_NoError:
+            return
+        txt = pybonjour.TXTRecord.parse(txtRecord)
+        if not 'uuid' in txt:
+            print "service",fullname, "without UUID"
+            return
 
-    def set_uuid(self, u):
-        if self.uuid != u:
-            self.uuid = u
-            self.emit('server-instance', str(uuid.UUID(bytes=self.uuid)))
-            print "haltalk uuid:",uuid.UUID(bytes=self.uuid)
+        if txt['uuid'] != self.instance_uuid:
+            print "uuid's dont match:", txt['uuid'], self.instance_uuid
+            return
 
-    def __init__(self, name, builder,cmd_uri=None, update_uri=None, instance=0,
-                 period=3,debug=False):
-        gobject.GObject.__init__(self)
-        self.builder = builder
-        self.debug = debug
-        self.period = period
-        self.cstate = states.DOWN
-        self.sstate = states.DOWN
-        self.uuid = -1
+        if not 'dsn' in txt:
+            print "service",fullname, "without dsn"
+            return
 
-        self.ping_outstanding = False
-        self.name = name
-        self.pinsbyname = {}
-        self.pinsbyhandle = {}
-        self.synced = False
-        # more efficient to reuse a protobuf Message
-        self.rx = Container()
-        self.tx = Container()
+        print 'Resolved service:', txt['service'], txt['dsn'], txt['uuid']
+        svc = txt['service']
+        if svc in self.needed:
+            self.dsns[svc] = txt['dsn']
+            self.needed.remove(svc)
+            gobject.source_remove(self.sources[svc])
+            sdRef.close()
+        print "left:", self.needed
 
+        if not self.needed: # we're done
+            print "connecting.."
+            self.establish(self.dsns['halrcmd'],self.dsns['halrcomp'])
+
+    def browse_callback(self, sdRef, flags, interfaceIndex, errorCode, serviceName,
+                        regtype, replyDomain):
+        if errorCode != pybonjour.kDNSServiceErr_NoError:
+            return
+
+        if not (flags & pybonjour.kDNSServiceFlagsAdd):
+            print 'Service removed'
+            return
+        print 'Service added; resolving', serviceName
+        resolve_sdRef = pybonjour.DNSServiceResolve(0,
+                                                    interfaceIndex,
+                                                    serviceName,
+                                                    regtype,
+                                                    replyDomain,
+                                                    self.resolve_callback)
+        self.resolve_notify = gobject.io_add_watch(resolve_sdRef.fileno(),
+                                                   gobject.IO_IN,
+                                                   self.bonjour_readable,
+                                                   resolve_sdRef,
+                                                   pybonjour.DNSServiceProcessResult)
+
+    # either uri's were passed in, or discovered - good to go:
+    def establish(self, cmd_uri, update_uri):
         if not GRemoteComponent.CONTEXT:
             ctx = zmq.Context()
             ctx.linger = 0
             update = ctx.socket(zmq.XSUB)
             cmd = ctx.socket(zmq.DEALER)
-            cmd.identity = "%s-%d" % (name,os.getpid())
+            cmd.identity = "%s-%d" % (self.name,os.getpid())
 
-            if not (cmd_uri and update_uri):
-                self.services = self.discover([ST_STP_HALRCOMP,ST_HAL_RCOMMAND])
-                if not self.services:
-                    raise RuntimeError, "Service Discovery failed"
-                print "discovered HALrcomp uri %s" % (self.services[ST_STP_HALRCOMP].uri)
-                update.connect(self.services[ST_STP_HALRCOMP].uri)
-
-                print "discovered HALrcommand uri %s" % (self.services[ST_HAL_RCOMMAND].uri)
-                cmd.connect(self.services[ST_HAL_RCOMMAND].uri)
-            else:
-                update.connect(update_uri)
-                cmd.connect(cmd_uri)
-
+            update.connect(update_uri)
+            cmd.connect(cmd_uri)
             self.cmd_notify = gobject.io_add_watch(cmd.get(zmq.FD),
                                                    gobject.IO_IN,
                                                    self.zmq_readable, cmd,
@@ -235,7 +245,63 @@ class GRemoteComponent(gobject.GObject):
             GRemoteComponent.UPDATE = update
             GRemoteComponent.CMD = cmd
         GRemoteComponent.COUNT += 1
+        self.bind()
 
+    def set_uuid(self, u):
+        if self.server_uuid != u:
+            self.server_uuid = u
+            self.emit('server-instance', str(uuid.UUID(bytes=self.server_uuid)))
+            print "haltalk uuid:",uuid.UUID(bytes=self.server_uuid)
+
+    def __init__(self, name, builder,cmd_uri=None, update_uri=None, uuid=None,
+                 period=3,debug=False,instance=None):
+
+        gobject.GObject.__init__(self)
+        self.builder = builder
+        self.debug = debug
+        self.period = period
+        self.cstate = states.DOWN
+        self.sstate = states.DOWN
+        self.server_uuid = -1
+
+        # eventually pass in from gladevcp, or via menu selection of instance
+        #self.instance_uuid = uuid
+        self.instance_uuid = os.getenv("MKUUID")
+
+        self.ping_outstanding = False
+        self.name = name
+        self.pinsbyname = {}
+        self.pinsbyhandle = {}
+        self.synced = False
+        # more efficient to reuse a protobuf Message
+        self.rx = Container()
+        self.tx = Container()
+
+        if cmd_uri is None and update_uri is None: # autodiscover
+
+            # browse for all needed service subtypes
+            self.needed = ['halrcmd', 'halrcomp']
+            self.dsns = dict()
+            self.sources = dict()
+
+            for n in self.needed:
+                b =  pybonjour.DNSServiceBrowse(regtype =  '_machinekit._tcp,_' + n,
+                                                callBack = self.browse_callback)
+                src = gobject.io_add_watch(b.fileno(),
+                                           gobject.IO_IN,
+                                           self.bonjour_readable,
+                                           b,
+                                           pybonjour.DNSServiceProcessResult)
+                self.sources[n] = src
+
+        else: # passed in from gladevcp
+            self.establish(cmd_uri, update_uri)
+
+
+    # activity on bonjour sockets:
+    def bonjour_readable(self, eventfd, condition, sdref, callback):
+        callback(sdref)
+        return True
 
     # activity on one of the zmq sockets:
     def zmq_readable(self, eventfd, condition, socket, callback):
@@ -353,6 +419,8 @@ class GRemoteComponent(gobject.GObject):
         print "----------- UNKNOWN server message type ", str(self.rx)
 
     def timer_tick(self):
+        if not GRemoteComponent.CMD:
+            return
         if self.ping_outstanding:
             self.cstate = states.TRYING
             self.emit('protocol-status', self.cstate,self.sstate)
@@ -407,7 +475,7 @@ class GRemoteComponent(gobject.GObject):
         glib.timeout_add_seconds(self.period, self._tick)
         self.cstate = states.TRYING
         self.emit('protocol-status', self.cstate,self.sstate)
-        self.bind()
+        #self.bind()
 
     def exit(self, *a, **kw):
         GRemoteComponent.COUNT -= 1
