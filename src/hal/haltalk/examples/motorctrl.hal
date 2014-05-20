@@ -30,7 +30,7 @@ start
 # pin count, name, type, direction must match exactly what
 # is in the GUI
 sete 0 0.001
-newcomp motorctrl timer=100 acceptdefaults
+newcomp motorctrl timer=100 #cceptdefaults
 newpin motorctrl motorctrl.cmd_maxacc    float out
 newpin motorctrl motorctrl.cmd_maxvel    float out
 newpin motorctrl motorctrl.cmd_pos       float out
@@ -46,6 +46,14 @@ newpin motorctrl motorctrl.scope_trigger bit out
 newpin motorctrl motorctrl.togglebutton1 bit out
 newpin motorctrl motorctrl.togglebutton1-not bit out
 ready  motorctrl
+
+# set default pin values here
+# setting acceptdefaults on the newcomp statement would enable
+# accepting default values from the remote component
+# however, this will cause a jump of values on connect
+setp motorctrl.lowpass_gain 0.1
+setp motorctrl.cmd_maxacc 25
+setp motorctrl.cmd_maxvel 25
 
 # at this stage, the component and its pins exist
 # and can be linked to
