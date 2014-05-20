@@ -40,12 +40,12 @@
 #include <hal_priv.h>
 #include <hal_group.h>
 #include <hal_rcomp.h>
-#include <sdpublish.h>
-#include <sdiscover.h>
 #include <inifile.h>
 #include <syslog_async.h>
 
 #include "halitem.h"
+#include "mk-zeroconf.hh"
+#include "select_interface.h"
 
 #include <machinetalk/generated/message.pb.h>
 namespace gpb = google::protobuf;
@@ -82,7 +82,6 @@ typedef struct {
 
 typedef struct htbridge {
     int state;
-    sdreq_t *sdiscover;
     void *z_bridge_status;
     void *z_bridge_cmd;
     int timer_id;
@@ -110,6 +109,7 @@ typedef struct htconf {
     const char *group_status;
     const char *rcomp_status;
     const char *command;
+    const char *interfaces;
     const char *bridgecomp;
     const char *bridgecomp_cmduri;
     const char *bridgecomp_updateuri;
@@ -117,15 +117,16 @@ typedef struct htconf {
 
     int paranoid; // extensive runtime checks - may be costly
     int debug;
-    int sddebug;
     int default_group_timer; // msec
     int default_rcomp_timer; // msec
-    int sd_port;
+    unsigned ifIndex;
+    char *service_uuid;
 } htconf_t;
 
 typedef struct htself {
     htconf_t *cfg;
-    uuid_t uuid;
+    uuid_t uuid;      // server instance (this process)
+    uuid_t svc_uuid;  // service instance (set of running server processes)
     int comp_id;
     int signal_fd;
     bool interrupted;
@@ -139,16 +140,23 @@ typedef struct htself {
 
     groupmap_t groups;
     void *z_group_status;
+    int z_group_port;
     const char *z_group_status_dsn;
 
-    spub_t *sd_publisher;
+    AvahiCzmqPoll *av_loop;
+    void *group_publisher;
+    void *rcomp_publisher;
+    void *command_publisher;
+    zservice_t zsgroup, zsrcomp, zscommand;
 
     void *z_rcomp_status;
     const char *z_rcomp_status_dsn;
+    int z_rcomp_port;
     compmap_t rcomps;
 
     void *z_command;
     const char *z_command_dsn;
+    int z_command_port;
 
     itemmap_t items;
 
@@ -168,9 +176,9 @@ int release_comps(htself_t *self);
 int handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 int handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg);
 
-// haltalk_sdiscover.cc:
-int service_discovery_start(htself_t *self);
-int service_discovery_stop(htself_t *self);
+// haltalk_zeroconf.cc:
+int zeroconf_announce(htself_t *self);
+int zeroconf_withdraw(htself_t *self);
 
 // haltalk_command.cc:
 int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);

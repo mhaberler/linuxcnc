@@ -86,12 +86,12 @@ handle_sd_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     socklen_t addrlen = sizeof(remote_addr);
     unsigned char buffer[8192];
 
-    if (poller->revents & ZMQ_POLLIN) {
-	size_t len = recvfrom(sd_socket(self->bridge->sdiscover), buffer, sizeof(buffer), 0,
-			      (struct sockaddr *)&remote_addr, &addrlen);
+    // if (poller->revents & ZMQ_POLLIN) {
+    // 	size_t len = recvfrom(sd_socket(self->bridge->sdiscover), buffer, sizeof(buffer), 0,
+    // 			      (struct sockaddr *)&remote_addr, &addrlen);
 
 
-    }
+    // }
 
     return 0;
 }
@@ -110,19 +110,19 @@ prepare_discovery(htself_t *self)
     htbridge_t *bridge = self->bridge;
     int retval;
 
-    bridge->sdiscover = sd_new(0, self->cfg->bridge_target_instance);
-    retval = sd_add(bridge->sdiscover,  pb::ST_HAL_RCOMMAND, 0, pb::SA_ZMQ_PROTOBUF);
-    assert(retval == 0);
-    retval = sd_add(bridge->sdiscover,  pb::ST_STP_HALRCOMP, 0, pb::SA_ZMQ_PROTOBUF);
-    assert(retval == 0);
-    sd_log(bridge->sdiscover, self->cfg->debug > 1);
+    // bridge->sdiscover = sd_new(0, self->cfg->bridge_target_instance);
+    // retval = sd_add(bridge->sdiscover,  pb::ST_HAL_RCOMMAND, 0, pb::SA_ZMQ_PROTOBUF);
+    // assert(retval == 0);
+    // retval = sd_add(bridge->sdiscover,  pb::ST_STP_HALRCOMP, 0, pb::SA_ZMQ_PROTOBUF);
+    // assert(retval == 0);
+    // sd_log(bridge->sdiscover, self->cfg->debug > 1);
 
-    zmq_pollitem_t sd_poller = { 0, sd_socket(bridge->sdiscover), ZMQ_POLLIN };
-    zloop_poller(self->z_loop, &sd_poller, handle_sd_input, self);
-    bridge->timer_id = zloop_timer(self->z_loop, 500, 1, handle_sd_timer, (void *)self); // one shot
-    assert(bridge->timer_id > -1);
+    // zmq_pollitem_t sd_poller = { 0, sd_socket(bridge->sdiscover), ZMQ_POLLIN };
+    // zloop_poller(self->z_loop, &sd_poller, handle_sd_input, self);
+    // bridge->timer_id = zloop_timer(self->z_loop, 500, 1, handle_sd_timer, (void *)self); // one shot
+    // assert(bridge->timer_id > -1);
 
-    return sd_send_probe(bridge->sdiscover);
+    // return sd_send_probe(bridge->sdiscover);
 }
 
 static int bridge_fsm(htself_t *self, bridgeevent_t event)

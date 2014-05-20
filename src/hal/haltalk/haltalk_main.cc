@@ -33,14 +33,13 @@
 #include <select_interface.h>
 
 
-static const char *option_string = "hI:S:dt:Du:r:T:c:pb:C:U:i:";
+static const char *option_string = "hI:S:dt:u:r:T:c:pb:C:U:i:N:R:";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"paranoid", no_argument, 0, 'p'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
     {"debug", required_argument, 0, 'd'},
-    {"sddebug", required_argument, 0, 'D'},
     {"gtimer", required_argument, 0, 't'},
     {"ctimer", required_argument, 0, 'T'},
     {"stpuri", required_argument, 0, 'u'},
@@ -50,6 +49,8 @@ static struct option long_options[] = {
     {"bridgecmduri", required_argument, 0, 'C'},
     {"bridgeupdateuri", required_argument, 0, 'U'},
     {"bridgeinstance", required_argument, 0, 'i'},
+    {"interfaces", required_argument, 0, 'N'},
+    {"svcuuid", required_argument, 0, 'R'},
     {0,0,0,0}
 };
 
@@ -67,13 +68,14 @@ static htconf_t conf = {
     NULL,
     NULL,
     NULL,
+    NULL,
     -1,
     0,
     0,
+    100,
+    100,
     0,
-    100,
-    100,
-    0
+    NULL,
 };
 
 
@@ -109,8 +111,6 @@ mainloop( htself_t *self)
     zmq_pollitem_t rcomp_poller =  { self->z_rcomp_status, 0, ZMQ_POLLIN };
     zmq_pollitem_t cmd_poller   =  { self->z_command,      0, ZMQ_POLLIN };
 
-    self->z_loop = zloop_new();
-    assert (self->z_loop);
 
     zloop_set_verbose (self->z_loop, self->cfg->debug > 1);
 
@@ -158,12 +158,15 @@ zmq_init(htself_t *self)
     self->z_context = zctx_new ();
     assert(self->z_context);
 
+    self->z_loop = zloop_new();
+    assert (self->z_loop);
+
     self->z_group_status = zsocket_new (self->z_context, ZMQ_XPUB);
     assert(self->z_group_status);
     zsocket_set_linger (self->z_group_status, 0);
     zsocket_set_xpub_verbose (self->z_group_status, 1);
-    int rc = zsocket_bind(self->z_group_status, self->cfg->group_status);
-    assert (rc != 0);
+    self->z_group_port = zsocket_bind(self->z_group_status, self->cfg->group_status);
+    assert (self->z_group_port != 0);
     self->z_group_status_dsn = zsocket_last_endpoint (self->z_group_status);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALGroup on '%s'",
@@ -173,8 +176,8 @@ zmq_init(htself_t *self)
     assert(self->z_rcomp_status);
     zsocket_set_linger (self->z_rcomp_status, 0);
     zsocket_set_xpub_verbose (self->z_rcomp_status, 1);
-    rc = zsocket_bind(self->z_rcomp_status, self->cfg->rcomp_status);
-    assert (rc != 0);
+    self->z_rcomp_port = zsocket_bind(self->z_rcomp_status, self->cfg->rcomp_status);
+    assert (self->z_rcomp_port != 0);
     self->z_rcomp_status_dsn = zsocket_last_endpoint (self->z_rcomp_status);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALRcomp on '%s'",
@@ -186,12 +189,19 @@ zmq_init(htself_t *self)
     zsocket_set_linger (self->z_command, 0);
     zsocket_set_identity (self->z_command, self->cfg->modname);
 
-    rc = zsocket_bind(self->z_command, self->cfg->command);
-    assert (rc != 0);
+    self->z_command_port = zsocket_bind(self->z_command, self->cfg->command);
+    assert (self->z_command_port != 0);
     self->z_command_dsn = zsocket_last_endpoint (self->z_command);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALComannd on '%s'",
 		    conf.progname, self->z_command_dsn);
+
+    // register Avahi poll adapter
+    if (!(self->av_loop = avahi_czmq_poll_new(self->z_loop))) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: zeroconf: Failed to create avahi event loop object.",
+			conf.progname);
+	return -1;
+    }
 
     usleep(200 *1000); // avoid slow joiner syndrome
     return 0;
@@ -247,14 +257,51 @@ static int
 read_config(htconf_t *conf)
 {
     const char *s;
+    char *env_uuid = getenv("MKUUID");
     FILE *inifp;
+    uuid_t uutmp;
 
-    if (!conf->inifile)
+    if (conf->service_uuid == NULL)
+	conf->service_uuid = env_uuid;
+
+    if (!conf->inifile) {
+	// if no ini, must have a service UUID as arg or in environment
+	if (conf->service_uuid == NULL) {
+		rtapi_print_msg(RTAPI_MSG_ERR, "%s: no service UUID given (-R <uuid> or env MKUUID)\n",
+				conf->progname);
+		return -1;
+	}
+	if (uuid_parse(conf->service_uuid, uutmp)) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "%s: service UUID: syntax error: '%s'",
+			    conf->progname,conf->service_uuid);
+	    return -1;
+	}
 	return 0; // use compiled-in defaults
+    }
 
     if ((inifp = fopen(conf->inifile,"r")) == NULL) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: cant open inifile '%s'\n",
 			conf->progname, conf->inifile);
+	return -1;
+    }
+    // insist on service UUID
+    if (conf->service_uuid == NULL) {
+	if ((s = iniFind(inifp, "MKUUID", conf->section))) {
+	    conf->service_uuid = strdup(s);
+	} else {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "%s: no service UUID on command line, environment "
+			    "or inifile (-R <uuid> or env MKUUID or [%s]MKUUID=)\n",
+			    conf->progname,conf->section);
+	    return -1;
+	}
+    }
+    // validate uuid
+    if (uuid_parse(conf->service_uuid, uutmp)) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: service UUID syntax error: '%s'",
+			conf->progname, conf->service_uuid);
 	return -1;
     }
 
@@ -263,7 +310,7 @@ read_config(htconf_t *conf)
 	char ifname[100], ip[100];
 
 	// pick a preferred interface
-	if (parse_interface_prefs(s,  ifname, ip, 0) == 0) {
+	if (parse_interface_prefs(s,  ifname, ip, &conf->ifIndex) == 0) {
 	    conf->interface = strdup(ifname);
 	    conf->ipaddr = strdup(ip);
 	    rtapi_print_msg(RTAPI_MSG_INFO, "%s %s: using preferred interface %s/%s\n",
@@ -308,8 +355,6 @@ read_config(htconf_t *conf)
     iniFindInt(inifp, "GROUPTIMER", conf->section, &conf->default_group_timer);
     iniFindInt(inifp, "RCOMPTIMER", conf->section, &conf->default_rcomp_timer);
     iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
-    iniFindInt(inifp, "SDDEBUG", conf->section, &conf->sddebug);
-    iniFindInt(inifp, "SDPORT", conf->section, &conf->sd_port);
     iniFindInt(inifp, "PARANOID", conf->section, &conf->paranoid);
     fclose(inifp);
     return 0;
@@ -353,9 +398,6 @@ int main (int argc, char *argv[])
 	case 'd':
 	    conf.debug++;
 	    break;
-	case 'D':
-	    conf.sddebug = 1;
-	    break;
 	case 'S':
 	    conf.section = optarg;
 	    break;
@@ -392,13 +434,18 @@ int main (int argc, char *argv[])
 	case 'U':
 	    conf.bridgecomp_updateuri = optarg;
 	    break;
+	case 'N':
+	    conf.interfaces = optarg;
+	    break;
+	case 'R':
+	    conf.service_uuid = optarg;
+	    break;
 	case 'h':
 	default:
 	    usage();
 	    exit(0);
 	}
     }
-    conf.sd_port = SERVICE_DISCOVERY_PORT;
 
     if (read_config(&conf))
 	exit(1);
@@ -414,15 +461,16 @@ int main (int argc, char *argv[])
     retval = zmq_init(&self);
     if (retval) exit(retval);
 
-    retval = service_discovery_start(&self);
+    retval = bridge_init(&self);
     if (retval) exit(retval);
 
-    retval = bridge_init(&self);
+    retval = zeroconf_announce(&self);
     if (retval) exit(retval);
 
     mainloop(&self);
 
-    service_discovery_stop(&self);
+    zeroconf_withdraw(&self);
+    // probably should run zloop here until deregister complete
 
     // shutdown zmq context
     zctx_destroy(&self.z_context);

@@ -5,7 +5,7 @@ HALTALK_SRCS :=  $(addprefix hal/haltalk/, \
 	haltalk_rcomp.cc \
 	haltalk_command.cc \
 	haltalk_introspect.cc \
-	haltalk_sdiscover.cc \
+	haltalk_zeroconf.cc \
 	haltalk_bridge.cc \
 	haltalk_main.cc)
 
@@ -15,7 +15,7 @@ HALTALK_CXXFLAGS := -DULAPI \
 
 HALTALK_LDFLAGS := \
 	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
-	$(JANSSON_LIBS) \
+	$(JANSSON_LIBS)  $(AVAHI_LIBS) \
 	-lstdc++ \
 	-luuid \
 	$(PROFILE)
@@ -26,8 +26,6 @@ $(call TOOBJSDEPS, $(HALTALK_SRCS)) : EXTRAFLAGS += $(HALTALK_CXXFLAGS)
 	../lib/libmtalk.so.0 \
 	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/libsdpublish.so.0 \
-	../lib/libsdiscover.so.0 \
 	../lib/liblinuxcncini.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(HALTALK_LDFLAGS)
