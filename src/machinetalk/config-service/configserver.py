@@ -45,7 +45,7 @@ class ConfigServer(threading.Thread):
         self.dsname = self.socket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
         print "dsname = ", self.dsname, "port =",self.port
         me = uuid.uuid1()
-        self.txtrec = pybonjour.TXTRecord({'dsname' : self.dsname,
+        self.txtrec = pybonjour.TXTRecord({'dsn' : self.dsname,
                                            'uuid': svc_uuid,
                                            'service' : 'config',
                                            'instance' : str(me) })
@@ -130,8 +130,6 @@ class ConfigServer(threading.Thread):
             self.sd = self.sdref.fileno()
         except:
             print 'cannot register DNS service'
-        else:
-            poll.register(self.sd, zmq.POLLIN)
 
         try:
             while True:
@@ -158,12 +156,9 @@ def choose_ip(pref):
     # retrieve list of network interfaces
     interfaces = netifaces.interfaces()
 
-    # delete localhost type interfaces
-    netifs = [i for i in interfaces if not i.startswith('lo')]
-
     # find a match in preference oder
     for p in pref:
-        for i in netifs:
+        for i in interfaces:
             if i.startswith(p):
                 ifcfg = netifaces.ifaddresses(i)
                 # we want the first IPv4 address
