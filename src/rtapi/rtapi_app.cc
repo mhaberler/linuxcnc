@@ -149,12 +149,6 @@ static int harden_rt(void);
 static void rtapi_app_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 
-// raise/drop privilege support
-void save_uid(void);
-void do_setuid (void);
-void undo_setuid (void);
-
-
 static int do_one_item(char item_type_char, const string &param_name,
 		       const string &param_value, void *vitem, int idx=0)
 {
@@ -336,15 +330,12 @@ static int do_load_cmd(int instance, string name, pbstringarray_t args)
 
 	    // need to call rtapi_app_main with as root
 	    // RT thread creation and hardening requires this
-	    //do_setuid();
 	    if ((result = start()) < 0) {
-		undo_setuid();
 		rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app_main(%s): %d %s\n",
 				name.c_str(), result, strerror(-result));
 		modules.erase(modules.find(name));
 		return result;
 	    }
-	    //undo_setuid();
 	    loading_order.push_back(name);
 	    rtapi_print_msg(RTAPI_MSG_DBG, "%s: loaded from %s\n",
 			    name.c_str(), module_name);
@@ -820,8 +811,6 @@ static int mainloop(size_t  argc, char **argv)
 
     // make sure we're setuid root when we need to
     if (use_drivers || (flavor->flags & FLAVOR_DOES_IO)) {
-	if (geteuid() != 0)
-	    do_setuid();
 	if (geteuid() != 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "rtapi_app:%d need to"
@@ -830,7 +819,6 @@ static int mainloop(size_t  argc, char **argv)
 	    global_data->rtapi_app_pid = 0;
 	    exit(EXIT_FAILURE);
 	}
-	undo_setuid();
     }
 
     // assorted RT incantations - memory locking, prefaulting etc
@@ -940,12 +928,6 @@ static int mainloop(size_t  argc, char **argv)
 
     // the RT stack is now set up and good for use
     global_data->rtapi_app_pid = getpid();
-
-    // cant reliably drop privs when using xenomai-user or rt-preempt
-    // task creation fails
-    if ((flavor->id == RTAPI_XENOMAI_ID) ||
-	(flavor->id == RTAPI_RT_PREEMPT_ID))
-	do_setuid();
 
     // main loop
     do {
@@ -1163,14 +1145,12 @@ static int harden_rt()
     // the same process which starts the RT threads, causing hal_parport
     // thread functions to fail on inb/outb
     if (use_drivers || (flavor->flags & FLAVOR_DOES_IO)) {
-	do_setuid();
 	if (iopl(3) < 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "cannot gain I/O privileges - "
 			    "forgot 'sudo make setuid'?\n");
 	    return -EPERM;
 	}
-	undo_setuid();
     }
 #endif
     return 0;
@@ -1202,10 +1182,6 @@ int main(int argc, char **argv)
     inifile = getenv("INI_FILE_NAME");
 
     uuid_generate_time(process_uuid);
-
-    // drop privs unless needed
-    save_uid();
-    undo_setuid();
 
     rtapi_set_msg_handler(rtapi_app_msg_handler);
     openlog_async(argv[0], LOG_NDELAY, LOG_LOCAL1);
@@ -1355,42 +1331,6 @@ static void stderr_rtapi_msg_handler(msg_level_t level,
 				     const char *fmt, va_list ap)
 {
     vfprintf(stderr, fmt, ap);
-}
-
-static uid_t euid, ruid;
-
-void save_uid(void)
-{
-    ruid = getuid();
-    euid = geteuid();
-}
-
-// Restore the effective UID to its original value.
-void do_setuid (void)
-{
-    int status = seteuid(euid);
-    if (status < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"FATAL: do_setuid(): cannot set uid to %d - %s\n",
-			euid, strerror(errno));
-	if (global_data)
-	    global_data->rtapi_app_pid = 0;
-	exit(1);
-    }
-}
-
-// Set the effective UID to the real UID.
-void undo_setuid (void)
-{
-    int status = seteuid (ruid);
-    if (status < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"FATAL: undo_setuid(): - could not set uid to %d - %s\n",
-			ruid, strerror(errno));
-	if (global_data)
-	    global_data->rtapi_app_pid = 0;
-	exit(1);
-    }
 }
 
 static void remove_module(std::string name)
