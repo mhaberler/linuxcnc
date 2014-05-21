@@ -43,9 +43,9 @@
 #include <hal.h>
 #include <hal_priv.h>
 #include <hal_ring.h>
-#include <sdpublish.h>  // for UDP service discovery
 #include <setup_signals.h>
-
+#include <mk-zeroconf.hh>
+#include <select_interface.h>
 #include <inifile.h>
 
 #include <machinetalk/generated/message.pb.h>
@@ -59,14 +59,13 @@ using namespace google::protobuf;
 typedef std::unordered_set<std::string> actormap_t;
 typedef actormap_t::iterator actormap_iterator;
 
-static const char *option_string = "hI:S:dr:c:tp:DP:";
+static const char *option_string = "hI:S:dr:c:tp:D";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
     {"debug", no_argument, 0, 'd'},
     {"sddebug", no_argument, 0, 'D'},
-    {"sdport", required_argument, 0, 'P'},
     {"textreply", no_argument, 0, 't'},
     {"response", required_argument, 0, 'r'},
     {"cmd", required_argument, 0, 'c'},
@@ -75,20 +74,14 @@ static struct option long_options[] = {
 };
 
 
-static int sd_port = SERVICE_DISCOVERY_PORT;
-
-const char *progname = "messagebus";
 static const char *inifile;
 static const char *section = "MSGBUS";
-
-// default to local operation only, ephemeral TCP port numbers
-// announced via service discovery
-static const char *cmd_uri = "tcp://127.0.0.1:*";
-static const char *response_uri = "tcp://127.0.0.1:*";
 
 // inproc variant for comms with RT proxy threads (not announced)
 const char *proxy_cmd_uri = "inproc://messagebus.cmd";
 const char *proxy_response_uri = "inproc://messagebus.response";
+
+const char *progname = "";
 
 static int debug;
 static int sddebug;
@@ -100,15 +93,23 @@ static int signal_fd;
 typedef struct {
     void *response;
     void *cmd;
-    uuid_t uuid;
+    uuid_t process_uuid;
+    const char *service_uuid;
+    const char *ipaddr;
+    const char *interface;
+    const char *cmd_uri,*response_uri;
     const char *command_dsn, *response_dsn;
+    int command_port, response_port;
     actormap_t *cmd_subscribers;
     actormap_t *response_subscribers;
     int comp_id;
     zctx_t *context;
     zloop_t *loop;
-    spub_t *sd_publisher;
+    register_context_t *command_publisher;
+    register_context_t *response_publisher;
     bool interrupted;
+    FILE *inifp;
+    AvahiCzmqPoll *av_loop;
 } msgbusd_self_t;
 
 
@@ -238,10 +239,6 @@ static int mainloop(msgbusd_self_t *self)
 {
     int retval;
 
-    self->loop = zloop_new();
-    assert(self->loop);
-    zloop_set_verbose (self->loop, debug);
-
     zmq_pollitem_t signal_poller =        { 0, signal_fd, ZMQ_POLLIN };
     zmq_pollitem_t cmd_poller =           { self->cmd, 0, ZMQ_POLLIN };
     zmq_pollitem_t response_poller =      { self->response, 0, ZMQ_POLLIN };
@@ -278,7 +275,9 @@ static int zmq_setup(msgbusd_self_t *self)
     self->cmd = zsocket_new (self->context, ZMQ_XPUB);
     assert(self->cmd);
     zsocket_set_xpub_verbose (self->cmd, 1);
-    assert(zsocket_bind(self->cmd, cmd_uri));
+    self->command_port = zsocket_bind(self->cmd, self->cmd_uri);
+    assert(self->command_port > 0);
+
     self->command_dsn = zsocket_last_endpoint (self->cmd);
 
     assert(zsocket_bind(self->cmd, proxy_cmd_uri) > -1);
@@ -286,7 +285,8 @@ static int zmq_setup(msgbusd_self_t *self)
     self->response = zsocket_new (self->context, ZMQ_XPUB);
     assert(self->response);
     zsocket_set_xpub_verbose (self->response, 1);
-    assert(zsocket_bind(self->response, response_uri));
+    self->response_port = zsocket_bind(self->response, self->response_uri);
+    assert(self->response_port >  0);
     self->response_dsn = zsocket_last_endpoint (self->response);
 
     assert(zsocket_bind(self->response, proxy_response_uri) > -1);
@@ -296,42 +296,77 @@ static int zmq_setup(msgbusd_self_t *self)
     self->cmd_subscribers = new actormap_t();
     self->response_subscribers = new actormap_t();
 
+    self->loop = zloop_new();
+    assert(self->loop);
+    zloop_set_verbose (self->loop, debug);
+
+    // register Avahi poll adapter
+    if (!(self->av_loop = avahi_czmq_poll_new(self->loop))) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: zeroconf: Failed to create avahi event loop object.",
+			progname);
+	return -1;
+    }
     return 0;
 }
 
-static int sd_init(msgbusd_self_t *self, int port)
+static int mb_zeroconf_announce(msgbusd_self_t *self)
 {
-    if (!port)
-	return 0;  // service discovery disabled
+    char name[100];
+    char puuid[40];
+    uuid_unparse(self->process_uuid, puuid);
 
-    self->sd_publisher = sp_new(self->context, port,
-				rtapi_instance, self->uuid);
+    snprintf(name,sizeof(name), "Messagebus command service on %s pid %d",
+	     self->ipaddr, getpid());
+    self->command_publisher = zeroconf_service_announce(name,
+							MSGBUSCMD_DNSSD_SUBTYPE
+							MACHINEKIT_DNSSD_SERVICE_TYPE,
+							self->command_port,
+							(char *)self->command_dsn,
+							self->service_uuid,
+							self->process_uuid,
+							"mbcmd",
+							self->av_loop);
+    if (self->command_publisher == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: failed to start zeroconf Messagebus command publisher\n",
+			progname);
+	return -1;
+    }
 
-    assert(self->sd_publisher != NULL);
-    sp_log(self->sd_publisher, sddebug);
-
-    assert(sp_add(self->sd_publisher,
-		  (int) pb::ST_MESSAGEBUS_COMMAND, //type
-		  MESSAGEBUS_VERSION, // version
-		  NULL, // ip
-		  0, // port
-		  self->command_dsn,
-		  (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "Messagebus command") == 0);  // descr
-
-    assert(sp_add(self->sd_publisher,
-		  (int) pb::ST_MESSAGEBUS_RESPONSE, //type
-		  MESSAGEBUS_VERSION, // version
-		  NULL, // ip
-		  0, // port
-		  self->response_dsn,
-		  (int) pb::SA_ZMQ_PROTOBUF, // api
-		  "Messagebus response") == 0);  // descr
-
-    // start the service announcement responder thread
-    assert(sp_start(self->sd_publisher) == 0);
+    snprintf(name,sizeof(name), "Messagebus response service on %s pid %d",
+	     self->ipaddr, getpid());
+    self->response_publisher = zeroconf_service_announce(name,
+							 MSGBUSRESP_DNSSD_SUBTYPE
+							 MACHINEKIT_DNSSD_SERVICE_TYPE,
+							 self->response_port,
+							 (char *)self->response_dsn,
+							 self->service_uuid,
+							 self->process_uuid,
+							 "mbresp",
+							 self->av_loop);
+    if (self->response_publisher == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: failed to start zeroconf Messagebus response publisher\n",
+			progname);
+	return -1;
+    }
     return 0;
 }
+
+int
+mb_zeroconf_withdraw(msgbusd_self_t *self)
+{
+    if (self->command_publisher)
+	zeroconf_service_withdraw(self->command_publisher);
+    if (self->response_publisher)
+	zeroconf_service_withdraw(self->response_publisher);
+
+    // deregister poll adapter
+    if (self->av_loop)
+        avahi_czmq_poll_free(self->av_loop);
+    return 0;
+}
+
 
 static rtproxy_t echo, demo, too;
 
@@ -406,29 +441,72 @@ static void sigaction_handler(int sig, siginfo_t *si, void *uctx)
     // not reached
 }
 
-static int read_config(void )
+static int read_config(msgbusd_self_t *self, const char *inifile)
 {
     const char *s;
-    FILE *inifp;
 
     if (!inifile)
 	return 0; // use compiled-in defaults
 
-    if ((inifp = fopen(inifile,"r")) == NULL) {
+    if ((self->inifp = fopen(inifile,"r")) == NULL) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "%s: cant open inifile '%s'\n",
 			progname, inifile);
 	return -1;
     }
 
-    if ((s = iniFind(inifp, "CMD", section)))
-	cmd_uri = strdup(s);
+    // insist on service UUID
+    if (self->service_uuid == NULL) {
+	if ((s = iniFind(self->inifp, "MKUUID", "GLOBAL"))) {
+	    self->service_uuid = strdup(s);
+	}
+    }
+    if (self->service_uuid == NULL)
+	self->service_uuid = getenv("MKUUID");
 
-    if ((s = iniFind(inifp, "RESPONSE", section)))
-	response_uri = strdup(s);
+    if (self->service_uuid == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: no service UUID on command line, environment "
+			"or inifile (-R <uuid> or env MKUUID or [GLOBAL]MKUUID=)\n",
+			progname);
+	return -1;
+    }
+    if ((s = iniFind(self->inifp, "INTERFACES","GLOBAL"))) {
+	char ifname[100], ip[100];
 
-    iniFindInt(inifp, "DEBUG", section, &debug);
-    iniFindInt(inifp, "TEXTREPLIES", section, &textreplies);
-    fclose(inifp);
+	// pick a preferred interface
+	if (parse_interface_prefs(s,  ifname, ip, NULL) == 0) {
+	    self->ipaddr = strdup(ip);
+	    self->interface = strdup(ifname);
+	    rtapi_print_msg(RTAPI_MSG_DBG, "%s %s: using preferred interface %s/%s\n",
+			    progname, inifile, self->interface, self->ipaddr);
+	} else {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s %s: INTERFACES='%s'"
+			    " - cant determine preferred interface, using %s/%s\n",
+			    progname, inifile, s,
+			    self->interface, self->ipaddr);
+	}
+    }
+
+    iniFindInt(self->inifp, "DEBUG", section, &debug);
+    iniFindInt(self->inifp, "TEXTREPLIES", section, &textreplies);
+
+    if ((self->cmd_uri == NULL) && (s = iniFind(self->inifp, "CMD", section)))
+	self->cmd_uri = strdup(s);
+
+    if ((self->response_uri == NULL) && (s = iniFind(self->inifp, "RESPONSE", section)))
+	self->response_uri = strdup(s);
+
+
+    // finalize the URI's if ephemeral to be used
+    char uri[100];
+    if (self->cmd_uri == NULL) {
+	snprintf(uri, sizeof(uri), "tcp://%s:*",self->ipaddr);
+	self->cmd_uri = strdup(uri);
+    }
+    if (self->response_uri == NULL) {
+	snprintf(uri, sizeof(uri), "tcp://%s:*",self->ipaddr);
+	self->response_uri = strdup(uri);
+    }
     return 0;
 }
 
@@ -462,6 +540,11 @@ int main (int argc, char *argv[])
 {
     int opt;
     int logopt = LOG_LOCAL1;
+    msgbusd_self_t self = {0};
+
+    self.ipaddr = "127.0.0.1";
+    self.interface = "";
+    progname = argv[0];
 
     inifile = getenv("INI_FILE_NAME");
 
@@ -480,17 +563,14 @@ int main (int argc, char *argv[])
 	case 'S':
 	    section = optarg;
 	    break;
-	case 'P':
-	    sd_port = atoi(optarg);
-	    break;
 	case 'I':
 	    inifile = optarg;
 	    break;
 	case 'r':
-	    response_uri = optarg;
+	    self.response_uri = optarg;
 	    break;
 	case 'c':
-	    cmd_uri = optarg;
+	    self.cmd_uri = optarg;
 	    break;
 	case 'p':
 	    parse_proxy(optarg);
@@ -504,23 +584,21 @@ int main (int argc, char *argv[])
     }
     openlog("", LOG_NDELAY , logopt);
 
-    if (read_config())
+    if (read_config(&self, inifile))
 	exit(1);
 
-    msgbusd_self_t self = {0};
-    uuid_generate_time(self.uuid);
+    uuid_generate_time(self.process_uuid);
 
     if (!zmq_setup(&self) &&
 	!hal_setup(&self) &&
 	((signal_fd = setup_signals(sigaction_handler)) > -1)  &&
-	!sd_init(&self, sd_port) &&
+	!mb_zeroconf_announce(&self) &&
 	!rtproxy_setup(&self)) {
 
 	mainloop(&self);
     }
 
-    // stop  the service announcement responder
-    sp_destroy(&self.sd_publisher);
+    mb_zeroconf_withdraw(&self);
 
     // shutdown zmq context
     zctx_destroy (&self.context);
