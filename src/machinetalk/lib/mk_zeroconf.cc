@@ -4,30 +4,36 @@
 #include "mk-zeroconf.hh"
 
 
+
 register_context_t *zeroconf_service_announce(const char *name,
+					      const char *type,
 					      const char *subtype,
 					      int port,
 					      char *dsn,
 					      const char *service_uuid,
-					      uuid_t process_uuid,
+					      const char *process_uuid,
 					      const char *tag,
+					      const char *path,
 					      AvahiCzmqPoll *av_loop)
 {
     zservice_t *zs = (zservice_t *) calloc(sizeof(zservice_t), 1);
     zs->name = name;
     zs->proto =  AVAHI_PROTO_INET;
     zs->interface = AVAHI_IF_UNSPEC;
-    zs->type =  MACHINEKIT_DNSSD_SERVICE_TYPE;
+    zs->type = type;
     zs->port = port;
-    zs->txt = avahi_string_list_add_printf(zs->txt, "dsn=%s", dsn);
+    if (dsn)
+	zs->txt = avahi_string_list_add_printf(zs->txt, "dsn=%s", dsn);
     zs->txt = avahi_string_list_add_printf(zs->txt, "uuid=%s", service_uuid);
-    char buf[40];
-    uuid_unparse(process_uuid, buf);
-    zs->txt = avahi_string_list_add_printf(zs->txt, "instance=%s", buf);
+    if (process_uuid)
+	zs->txt = avahi_string_list_add_printf(zs->txt, "instance=%s", process_uuid);
     if (tag)
 	zs->txt = avahi_string_list_add_printf(zs->txt, "service=%s", tag);
     if (subtype)
-	zs->subtypes = avahi_string_list_add(zs->subtypes, subtype);
+	zs->subtypes = avahi_string_list_add_printf(zs->subtypes,"%s%s", subtype, type);
+    if (path)
+	zs->txt = avahi_string_list_add_printf(zs->txt, "path=%s", path);
+
 
     return ll_zeroconf_register(zs, av_loop);
 }

@@ -118,6 +118,7 @@ static const char *z_uri_dsn;
 static int z_port;
 static pb::Container command, reply;
 static uuid_t process_uuid;
+static char process_uuid_str[40];
 static AvahiCzmqPoll *av_loop;
 static register_context_t *rtapi_publisher;
 static const char *service_uuid;
@@ -908,13 +909,14 @@ static int mainloop(size_t  argc, char **argv)
        char name[255];
        snprintf(name, sizeof(name), "RTAPI service on %s pid %d", ipaddr, getpid());
        rtapi_publisher = zeroconf_service_announce(name,
-						 RTAPI_DNSSD_SUBTYPE MACHINEKIT_DNSSD_SERVICE_TYPE,
-						 z_port,
-						 (char *)z_uri_dsn,
-						 service_uuid,
-						 process_uuid,
-						 "rtapi",
-						 av_loop);
+						   MACHINEKIT_DNSSD_SERVICE_TYPE,
+						   RTAPI_DNSSD_SUBTYPE,
+						   z_port,
+						   (char *)z_uri_dsn,
+						   service_uuid,
+						   process_uuid_str,
+						   "rtapi", NULL,
+						   av_loop);
        if (rtapi_publisher == NULL) {
 	   rtapi_print_msg(RTAPI_MSG_ERR, "rtapi_app:%d: failed to start zeroconf publisher",
 			   instance_id);
@@ -1182,6 +1184,7 @@ int main(int argc, char **argv)
     inifile = getenv("INI_FILE_NAME");
 
     uuid_generate_time(process_uuid);
+    uuid_unparse(process_uuid, process_uuid_str);
 
     rtapi_set_msg_handler(rtapi_app_msg_handler);
     openlog_async(argv[0], LOG_NDELAY, LOG_LOCAL1);

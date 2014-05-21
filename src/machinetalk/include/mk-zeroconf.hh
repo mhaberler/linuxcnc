@@ -16,13 +16,16 @@ extern "C" {
 #endif
 
     register_context_t * zeroconf_service_announce(const char *name,
-						   const char *subtype,
+						   const char *type,
+						   const char *subtype,      // may be NULL
 						   int port,
-						   char *dsn,
-						   const char *service_uuid,
-						   uuid_t process_uuid,
-						   const char *tag,
+						   char *dsn,                // may be NULL
+						   const char *service_uuid, // must be valid
+						   const char *process_uuid,
+						   const char *tag,        // may be NULL
+						   const char *path,       // for _http._tcp, else NULL
 						   AvahiCzmqPoll *av_loop);
+
     int zeroconf_service_withdraw( register_context_t *publisher);
 
 #ifdef __cplusplus

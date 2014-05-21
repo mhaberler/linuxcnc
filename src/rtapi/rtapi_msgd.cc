@@ -73,7 +73,7 @@ using namespace google::protobuf;
 static void lwsl_emit_rtapilog(int level, const char *line);
 static int json_policy(zwsproxy_t *self, zws_session_t *wss, zwscb_type type);
 
-static register_context_t *logpub_publisher;
+static register_context_t *logpub_publisher, *http_publisher;
 
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
@@ -95,6 +95,7 @@ static const char *instance_name;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static int signal_fd;
 static uuid_t process_uuid;
+static char process_uuid_str[40];
 static const char *interfaces;
 static const char *service_uuid;
 static const char *ipaddr = "127.0.0.1";
@@ -662,6 +663,7 @@ int main(int argc, char **argv)
     inifile = getenv("INI_FILE_NAME");
 
     uuid_generate_time(process_uuid);
+    uuid_unparse(process_uuid, process_uuid_str);
 
     info.port = 7681; // move to config.h DEFAULT_HTTP_PORT
     info.gid = -1;
@@ -986,15 +988,17 @@ int main(int argc, char **argv)
 	    char name[255];
 	    snprintf(name,sizeof(name), "Log service on %s pid %d", ipaddr, getpid());
 	    logpub_publisher = zeroconf_service_announce(name,
-						 LOG_DNSSD_SUBTYPE MACHINEKIT_DNSSD_SERVICE_TYPE,
-						 logpub_port,
-						 (char *)dsn,
-						 service_uuid,
-						 process_uuid,
-						 "log",
-						 av_loop);
+							 MACHINEKIT_DNSSD_SERVICE_TYPE,
+							 LOG_DNSSD_SUBTYPE,
+							 logpub_port,
+							 (char *)dsn,
+							 service_uuid,
+							 process_uuid_str,
+							 "log",
+							 NULL,
+							 av_loop);
 	    if (logpub_publisher == NULL)
-		syslog_async(LOG_ERR, "%s: failed to start zeroconf publisher\n", progname);
+		syslog_async(LOG_ERR, "%s: failed to start Log zeroconf publisher\n", progname);
 	}
 
 	lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
@@ -1008,7 +1012,22 @@ int main(int argc, char **argv)
 
 	// start serving
 	zwsproxy_start(zws);
-
+	if (av_loop) {
+	    char name[255];
+	    snprintf(name,sizeof(name), "Machinekit on %s", ipaddr);
+	    http_publisher = zeroconf_service_announce(name,
+						       "_http._tcp",
+						       NULL,
+						       info.port,
+						       NULL,
+						       service_uuid,
+						       process_uuid_str,
+						       NULL,
+						       www_dir ? "/index.html" : NULL,
+						       av_loop);
+	    if (http_publisher == NULL)
+		syslog_async(LOG_ERR, "%s: failed to start HTTP zeroconf publisher\n", progname);
+	}
     } else {
 	syslog_async(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
 		     logpub_uri, strerror(errno));
@@ -1037,6 +1056,7 @@ int main(int argc, char **argv)
 
     // stop the service announcement
     zeroconf_service_withdraw(logpub_publisher);
+    zeroconf_service_withdraw(http_publisher);
 
     // deregister poll adapter
     if (av_loop) 

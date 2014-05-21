@@ -13,8 +13,8 @@
 #define HTTPS_DNSSD_SUBTYPE           "_https._sub."
 #define WS_DNSSD_SUBTYPE              "_ws._sub."
 #define WSS_DNSSD_SUBTYPE             "_wss._sub."
-#define MSGBUSCMD_DNSSD_SUBTYPE       "_messagebus_cmd._sub."
-#define MSGBUSRESP_DNSSD_SUBTYPE      "_messagebus_resp._sub."
+#define MSGBUSCMD_DNSSD_SUBTYPE       "_mbcmd._sub."
+#define MSGBUSRESP_DNSSD_SUBTYPE      "_mbresp._sub."
 #define REDIS_DNSSD_SUBTYPE           "_redis._sub."
 
 

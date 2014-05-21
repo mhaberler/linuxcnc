@@ -28,12 +28,13 @@ ht_zeroconf_announce(htself_t *self)
 
     snprintf(name,sizeof(name), "HAL Group service on %s pid %d", self->cfg->ipaddr, getpid());
     self->group_publisher = zeroconf_service_announce(name,
-						      HALGROUP_DNSSD_SUBTYPE MACHINEKIT_DNSSD_SERVICE_TYPE,
+						      MACHINEKIT_DNSSD_SERVICE_TYPE,
+						      HALGROUP_DNSSD_SUBTYPE,
 						      self->z_group_port,
 						      (char *)self->z_group_status_dsn,
 						      self->cfg->service_uuid,
-						      self->process_uuid,
-						      "halgroup",
+						      puuid,
+						      "halgroup", NULL,
 						      self->av_loop);
     if (self->group_publisher == NULL) {
 	syslog_async(LOG_ERR, "%s: failed to start zeroconf HAL Group publisher\n",
@@ -43,12 +44,13 @@ ht_zeroconf_announce(htself_t *self)
 
     snprintf(name,sizeof(name), "HAL Rcomp service on %s pid %d", self->cfg->ipaddr, getpid());
     self->rcomp_publisher = zeroconf_service_announce(name,
-						      HALRCOMP_DNSSD_SUBTYPE MACHINEKIT_DNSSD_SERVICE_TYPE,
+						      MACHINEKIT_DNSSD_SERVICE_TYPE,
+						      HALRCOMP_DNSSD_SUBTYPE,
 						      self->z_rcomp_port,
 						      (char *)self->z_rcomp_status_dsn,
 						      self->cfg->service_uuid,
-						      self->process_uuid,
-						      "halrcomp",
+						      puuid,
+						      "halrcomp", NULL,
 						      self->av_loop);
     if (self->rcomp_publisher == NULL) {
 	syslog_async(LOG_ERR, "%s: failed to start zeroconf HAL Rcomp publisher\n",
@@ -58,12 +60,13 @@ ht_zeroconf_announce(htself_t *self)
 
     snprintf(name,sizeof(name),  "HAL Rcommand service on %s pid %d", self->cfg->ipaddr, getpid());
     self->command_publisher = zeroconf_service_announce(name,
-							HALRCMD_DNSSD_SUBTYPE MACHINEKIT_DNSSD_SERVICE_TYPE,
+							MACHINEKIT_DNSSD_SERVICE_TYPE,
+							HALRCMD_DNSSD_SUBTYPE,
 							self->z_command_port,
 							(char *)self->z_command_dsn,
 							self->cfg->service_uuid,
-							self->process_uuid,
-							"halrcmd",
+							puuid,
+							"halrcmd", NULL,
 							self->av_loop);
     if (self->command_publisher == NULL) {
 	syslog_async(LOG_ERR, "%s: failed to start zeroconf HAL Rcomp publisher\n",

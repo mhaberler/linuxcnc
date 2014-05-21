@@ -94,6 +94,7 @@ typedef struct {
     void *response;
     void *cmd;
     uuid_t process_uuid;
+    char process_uuid_str[40];
     const char *service_uuid;
     const char *ipaddr;
     const char *interface;
@@ -318,13 +319,14 @@ static int mb_zeroconf_announce(msgbusd_self_t *self)
     snprintf(name,sizeof(name), "Messagebus command service on %s pid %d",
 	     self->ipaddr, getpid());
     self->command_publisher = zeroconf_service_announce(name,
-							MSGBUSCMD_DNSSD_SUBTYPE
 							MACHINEKIT_DNSSD_SERVICE_TYPE,
+							MSGBUSCMD_DNSSD_SUBTYPE,
 							self->command_port,
 							(char *)self->command_dsn,
 							self->service_uuid,
-							self->process_uuid,
+							self->process_uuid_str,
 							"mbcmd",
+							NULL,
 							self->av_loop);
     if (self->command_publisher == NULL) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -336,13 +338,14 @@ static int mb_zeroconf_announce(msgbusd_self_t *self)
     snprintf(name,sizeof(name), "Messagebus response service on %s pid %d",
 	     self->ipaddr, getpid());
     self->response_publisher = zeroconf_service_announce(name,
-							 MSGBUSRESP_DNSSD_SUBTYPE
 							 MACHINEKIT_DNSSD_SERVICE_TYPE,
+							 MSGBUSRESP_DNSSD_SUBTYPE,
 							 self->response_port,
 							 (char *)self->response_dsn,
 							 self->service_uuid,
-							 self->process_uuid,
+							 self->process_uuid_str,
 							 "mbresp",
+							 NULL,
 							 self->av_loop);
     if (self->response_publisher == NULL) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -588,6 +591,7 @@ int main (int argc, char *argv[])
 	exit(1);
 
     uuid_generate_time(self.process_uuid);
+    uuid_unparse(self.process_uuid, self.process_uuid_str);
 
     if (!zmq_setup(&self) &&
 	!hal_setup(&self) &&
