@@ -49,16 +49,18 @@
 #include <vector>
 #include <poll.h>
 #include <assert.h>
+#include <inifile.h>
 
 using namespace std;
 
 #include <rtapi.h>
 #include <rtapi/shmdrv/shmdrv.h>
 #include <ring.h>
-#include <sdpublish.h>  // for UDP service discovery
 #include <setup_signals.h>
 
 #include <czmq.h>
+#include "mk-zeroconf.hh"
+#include "select_interface.h"
 
 #include <google/protobuf/text_format.h>
 #include <machinetalk/generated/message.pb.h>
@@ -71,12 +73,17 @@ using namespace google::protobuf;
 static void lwsl_emit_rtapilog(int level, const char *line);
 static int json_policy(zwsproxy_t *self, zws_session_t *wss, zwscb_type type);
 
+static register_context_t *logpub_publisher;
+
 #ifndef SYSLOG_FACILITY
 #define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
 #endif
 #define GRACE_PERIOD 2000 // ms to wait after rtapi_app exit detected
 
 int rtapi_instance;
+
+static const char *inifile;
+static FILE *inifp;
 static int log_stderr;
 static int foreground;
 static int use_shmdrv;
@@ -87,9 +94,11 @@ static int halsize = HAL_SIZE;
 static const char *instance_name;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static int signal_fd;
-static int sd_port = SERVICE_DISCOVERY_PORT;
-static spub_t *sd_publisher;
-static uuid_t uuid;
+static uuid_t process_uuid;
+static const char *interfaces;
+static const char *service_uuid;
+static const char *ipaddr = "127.0.0.1";
+static AvahiCzmqPoll *av_loop;
 
 // messages tend to come bunched together, e.g during startup and shutdown
 // poll faster if a message was read, and decay the poll timer up to msg_poll_max
@@ -106,10 +115,10 @@ static int shutdowntimer_id;
 static zloop_t* loop;
 static void *logpub;  // zeromq log publisher socket
 static zctx_t *zctx;
-static const char *logpub_uri = "tcp://127.0.0.1:5550";
+static const char *logpub_uri; 
+static int logpub_port;
 static zwsproxy_t *zws;    // zeroMQ/websockets proxy instance
 static int wsdebug = 0;    // websockets
-static int sddebug = 0;    // service discover
 static bool have_json_subs;
 
 int shmdrv_loaded;
@@ -626,15 +635,18 @@ static struct option long_options[] = {
     { "rtmsglevel", required_argument, 0, 'r'},
     { "instance", required_argument, 0, 'I'},
     { "instance_name", required_argument, 0, 'i'},
+    { "ini",      required_argument, 0, 'M'},     // default: getenv(INI_FILE_NAME)
     { "flavor",   required_argument, 0, 'f'},
     { "halsize",  required_argument, 0, 'H'},
-    { "halstacksize",  required_argument, 0, 'R'},
+    { "halstacksize",  required_argument, 0, 'T'},
     { "shmdrv",  no_argument,        0, 'S'},
     { "uri", required_argument,	 NULL, 'U' },
     { "wwwdir", required_argument,      NULL, 'w' },
     { "port",	required_argument,	NULL, 'p' },
     { "wsdebug",required_argument,	NULL, 'W' },
-    { "sddebug",no_argument,	NULL, 'D' },
+    { "svcuuid", required_argument, 0, 'R'},
+    { "interfaces", required_argument, 0, 'n'},
+
     {0, 0, 0, 0}
 };
 
@@ -647,7 +659,9 @@ int main(int argc, char **argv)
     struct lws_context_creation_info info = {0};
     const char *www_dir = NULL;
 
-    uuid_generate_time(uuid);
+    inifile = getenv("INI_FILE_NAME");
+
+    uuid_generate_time(process_uuid);
 
     info.port = 7681; // move to config.h DEFAULT_HTTP_PORT
     info.gid = -1;
@@ -663,7 +677,7 @@ int main(int argc, char **argv)
     while (1) {
 	int option_index = 0;
 	int curind = optind;
-	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W:eu:r:D",
+	c = getopt_long (argc, argv, "hI:sFf:i:SU:w:p:W:eu:r:n:T:M:",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
@@ -671,20 +685,23 @@ int main(int argc, char **argv)
 	case 'e':
 	    info.extensions = libwebsocket_get_internal_extensions();
 	    break;
-	case 'D':
-	    sddebug++;
-	    break;
 	case 'F':
 	    foreground++;
 	    break;
 	case 'I':
 	    rtapi_instance = atoi(optarg);
 	    break;
-	case 'R':
+	case 'T':
 	    hal_thread_stack_size = atoi(optarg);
 	    break;
 	case 'i':
-	    instance_name = optarg;
+	    instance_name = strdup(optarg);
+	    break;
+	case 'n':
+	    interfaces = strdup(optarg);
+	    break;
+	case 'M':
+	    inifile = strdup(optarg);
 	    break;
 	case 'f':
 	    if ((flavor = flavor_byname(optarg)) == NULL) {
@@ -722,6 +739,9 @@ int main(int argc, char **argv)
 	case 'p':
 	    info.port = atoi(optarg);
 	    break;
+	case 'R':
+	    service_uuid = strdup(optarg);
+	    break;
 	case 'W':
 	    wsdebug = atoi(optarg);
 	    break;
@@ -733,6 +753,31 @@ int main(int argc, char **argv)
 	default:
 	    usage(argc, argv);
 	    exit(0);
+	}
+    }
+    if (inifile && ((inifp = fopen(inifile,"r")) == NULL)) {
+	fprintf(stderr,"msgd: cant open inifile '%s'\n", inifile);
+    }
+
+    // must have a MKUUID one way or the other
+    if (service_uuid == NULL) {
+	const char *s;
+	if ((s = iniFind(inifp, "MKUUID", "GLOBAL"))) {
+	    service_uuid = strdup(s);
+	}
+    }
+    if (service_uuid == NULL)
+	service_uuid = getenv("MKUUID");
+
+    if (service_uuid == NULL) {
+	fprintf(stderr, "rtapi: no service UUID (-R <uuid> or environment MKUUID) present\n");
+	exit(-1);
+    }
+
+    if (interfaces == NULL) {
+	const char *s;
+	if ((s = iniFind(inifp, "INTERFACES", "GLOBAL"))) {
+	    interfaces = strdup(s);
 	}
     }
 
@@ -878,13 +923,6 @@ int main(int argc, char **argv)
     dup2(fd, STDIN_FILENO);
     close(fd);
 
-    // // redirect stdout to syslog
-    // // NB: this works for FILE *, not the underlying STDOUT_FILENO
-    // to_syslog("> ", &stdout);
-
-    // if (!log_stderr)
-    // 	to_syslog(">> ", &stderr);  // redirect stderr to syslog
-
     signal_fd = setup_signals(sigaction_handler);
     assert(signal_fd > -1);
 
@@ -892,71 +930,92 @@ int main(int argc, char **argv)
     // since we're using signalfd()
     zsys_handler_set(NULL);
 
+    // determine interface to bind to (default localhost)
+    {
+	char ifname[100], ip[100];
+	if (interfaces) {
+	    if (parse_interface_prefs(interfaces,  ifname, ip, NULL) == 0) {
+		syslog_async(LOG_INFO, "%s: using preferred interface %s/%s\n",
+			     progname, ifname, ip);
+		ipaddr = strdup(ip);
+	    } else {
+		syslog_async(LOG_INFO, "%s: INTERFACES='%s'"
+			     " - cant determine preferred interface, using %s/%s\n",
+			     progname, interfaces, ifname, ipaddr);
+	    }
+	}
+	if (logpub_uri == NULL) {
+	    // use an ephemeral URI with whatever the preferred address is
+	    snprintf(ifname, sizeof(ifname), "tcp://%s:*", ipaddr);
+	    logpub_uri = strdup(ifname);
+	}
+    }
+
     // zeroMQ context
     zctx  = zctx_new();
 
-    // start the service announcement responder
-    sd_publisher = sp_new( zctx, sd_port, rtapi_instance, uuid);
-    assert(sd_publisher);
-    sp_log(sd_publisher, sddebug);
+    loop = zloop_new();
+    assert (loop);
 
-    if (logpub_uri) {
-	int major, minor, patch;
-	zmq_version (&major, &minor, &patch);
-	syslog_async(LOG_DEBUG,
-	       "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d jansson=%s libwebsockets=%s\n",
-	       major, minor, patch,
-	       CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
-	       GOOGLE_PROTOBUF_VERSION / 1000000,
-	       (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
-	       GOOGLE_PROTOBUF_VERSION % 1000,
-	       JANSSON_VERSION, lws_get_library_version());
+    if (!(av_loop = avahi_czmq_poll_new(loop))) {
+	syslog_async(LOG_ERR, "%s: zeroconf: Failed to create avahi event loop object.",
+		     progname);
+    }
 
-	// start the zeromq log publisher socket
-	logpub = zsocket_new(zctx, ZMQ_XPUB);
+    int major, minor, patch;
+    zmq_version (&major, &minor, &patch);
+    syslog_async(LOG_DEBUG,
+		 "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d jansson=%s libwebsockets=%s\n",
+		 major, minor, patch,
+		 CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
+		 GOOGLE_PROTOBUF_VERSION / 1000000,
+		 (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
+		 GOOGLE_PROTOBUF_VERSION % 1000,
+		 JANSSON_VERSION, lws_get_library_version());
 
-	zsocket_set_xpub_verbose (logpub, 1);  // enable reception
-	if (zsocket_bind(logpub, logpub_uri) > 0) {
-	    syslog_async(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n",
-		   logpub_uri);
-	    retval = sp_add(sd_publisher,
-			    (int) pb::ST_LOGGING, //type
-			    1, // version
-			    NULL, // ip
-			    0, // port
-			    logpub_uri, // uri
-			    (int) pb::SA_ZMQ_PROTOBUF, // api
-			    "zmq/protobuf log socket");  // descr
-	    assert(retval == 0);
+    // start the zeromq log publisher socket
+    logpub = zsocket_new(zctx, ZMQ_XPUB);
 
-	    lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
+    zsocket_set_xpub_verbose (logpub, 1);  // enable reception
+    logpub_port = zsocket_bind(logpub, logpub_uri);
+    if (logpub_port > 0) {
+	const char *dsn = zsocket_last_endpoint(logpub);
+	syslog_async(LOG_DEBUG, "publishing ZMQ/protobuf log messages at %s\n", dsn);
 
-	    if ((zws = zwsproxy_new(zctx, www_dir, &info)) == NULL) {
-		syslog_async(LOG_ERR, "failed to start websockets proxy\n");
-		goto nows;
-	    }
-	    // add a user-defined relay policy
-	    zwsproxy_add_policy(zws, "json", json_policy);
-
-	    // start serving
-	    zwsproxy_start(zws);
-
-	    retval = sp_add(sd_publisher, (int) pb::ST_WEBSOCKET,
-		1, NULL, info.port, "fixme",
-		(int) pb::SA_WS_JSON,
-		"ws/JSON log socket");
-	    assert(retval == 0);
-
-	} else {
-	    syslog_async(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
-		   logpub_uri, strerror(errno));
-	    logpub = NULL;
+	if (av_loop) {
+	    char name[255];
+	    snprintf(name,sizeof(name), "Log service on %s pid %d", ipaddr, getpid());
+	    logpub_publisher = zeroconf_service_announce(name,
+						 LOG_DNSSD_SUBTYPE MACHINEKIT_DNSSD_SERVICE_TYPE,
+						 logpub_port,
+						 (char *)dsn,
+						 service_uuid,
+						 process_uuid,
+						 "log",
+						 av_loop);
+	    if (logpub_publisher == NULL)
+		syslog_async(LOG_ERR, "%s: failed to start zeroconf publisher\n", progname);
 	}
+
+	lws_set_log_level(wsdebug, lwsl_emit_rtapilog);
+
+	if ((zws = zwsproxy_new(zctx, www_dir, &info)) == NULL) {
+	    syslog_async(LOG_ERR, "%s: failed to start websockets proxy\n", progname);
+	    goto nows;
+	}
+	// add a user-defined relay policy
+	zwsproxy_add_policy(zws, "json", json_policy);
+
+	// start serving
+	zwsproxy_start(zws);
+
+    } else {
+	syslog_async(LOG_INFO,"zsocket_bind(%s) failed: %s\n",
+		     logpub_uri, strerror(errno));
+	logpub = NULL;
     }
  nows:
 
-    loop = zloop_new();
-    assert (loop);
 
     zmq_pollitem_t signal_poller =  { 0, signal_fd,   ZMQ_POLLIN };
     zloop_poller (loop, &signal_poller, s_handle_signal, NULL);
@@ -969,9 +1028,6 @@ int main(int argc, char **argv)
     global_data->rtapi_msgd_pid = getpid();
     global_data->magic = GLOBAL_READY;
 
-    if ((retval = sp_start(sd_publisher))) {
-	syslog_async(LOG_ERR, "failed to start service publisher: %d\n", retval);
-    }
 
     do {
 	retval = zloop_start(loop);
@@ -979,8 +1035,12 @@ int main(int argc, char **argv)
 
     zwsproxy_exit(&zws);
 
-    // stop  the service announcement responder
-    sp_destroy(&sd_publisher);
+    // stop the service announcement
+    zeroconf_service_withdraw(logpub_publisher);
+
+    // deregister poll adapter
+    if (av_loop) 
+        avahi_czmq_poll_free(av_loop);
 
     // shutdown zmq context
     zctx_destroy(&zctx);
@@ -1121,3 +1181,4 @@ json_policy(zwsproxy_t *self,
     }
     return 0;
 }
+

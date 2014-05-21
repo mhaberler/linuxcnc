@@ -2,6 +2,7 @@
 
 #include <czmq.h>
 #include <string.h>
+#include "ll-zeroconf.hh"
 #include "mk-zeroconf.hh"
 #include "mk-zeroconf-types.h"
 #include <avahi-common/malloc.h>
@@ -156,7 +157,7 @@ int rtapi_connect(int instance, char *uri, const char *svc_uuid)
 	res.timeout_ms = 3000;
 	res.result = SD_UNSET;
 
-	void *p  = mk_zeroconf_resolve(&res);
+	resolve_context_t *p  = ll_zeroconf_resolve(&res);
 
 	if (res.result == SD_OK) {
 	    // fish out the dsn=<uri> TXT record
@@ -177,7 +178,7 @@ int rtapi_connect(int instance, char *uri, const char *svc_uuid)
 		    res.result );
 	    return -1;
 	}
-	mk_zeroconf_resolve_free(p);
+	ll_zeroconf_resolve_free(p);
     }
 
     z_context = zctx_new ();

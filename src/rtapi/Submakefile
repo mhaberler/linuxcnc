@@ -259,10 +259,10 @@ RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
 
 RTAPI_MSGD_CFLAGS := \
 	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) \
-	$(JANSSON_CFLAGS) $(URIPARSER_CFLAGS) $(LWS_CFLAGS)
+	$(JANSSON_CFLAGS) $(URIPARSER_CFLAGS) $(LWS_CFLAGS) $(AVAHI_CFLAGS)
 
 RTAPI_MSGD_LDFLAGS := \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS) \
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) \
 	$(JANSSON_LIBS) $(URIPARSER_LIBS) $(LWS_LIBS) \
 	-lstdc++ -lssl -lcrypto -ldl -lz -luuid
 
@@ -273,8 +273,8 @@ $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	../lib/liblinuxcncshm.so \
 	../lib/liblinuxcncini.so \
 	../lib/libsdpublish.so.0 \
-	../lib/liblinuxcnc-pb2++.so \
-	../lib/libmtalk.so.0
+	../lib/libmtalk.so.0 \
+	../lib/liblinuxcnc-pb2++.so
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ $(RTAPI_MSGD_LDFLAGS) -lrt

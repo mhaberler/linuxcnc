@@ -26,7 +26,9 @@
 //
 //   4. Reports a HAL instance through the DESCRIBE operation.
 //
-//   5. optional may bridge to a remote HAL instance through a remote component.
+//   5. Announce services via zeroconf.
+//
+//   6. [notyet] optional may bridge to a remote HAL instance through a remote component.
 
 #include "haltalk.hh"
 #include <setup_signals.h>
@@ -223,7 +225,7 @@ hal_setup(htself_t *self)
     zmq_version (&major, &minor, &patch);
 
     char buf[40];
-    uuid_unparse(self->uuid, buf);
+    uuid_unparse(self->process_uuid, buf);
 
     rtapi_print_msg(RTAPI_MSG_DBG,
 		    "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d uuid=%s\n",
@@ -287,7 +289,7 @@ read_config(htconf_t *conf)
     }
     // insist on service UUID
     if (conf->service_uuid == NULL) {
-	if ((s = iniFind(inifp, "MKUUID", conf->section))) {
+	if ((s = iniFind(inifp, "MKUUID", "GLOBAL"))) {
 	    conf->service_uuid = strdup(s);
 	} else {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
@@ -305,7 +307,7 @@ read_config(htconf_t *conf)
 	return -1;
     }
 
-    if ((s = iniFind(inifp, "INTERFACES", conf->section))) {
+    if ((s = iniFind(inifp, "INTERFACES","GLOBAL"))) {
 
 	char ifname[100], ip[100];
 
@@ -453,7 +455,7 @@ int main (int argc, char *argv[])
     htself_t self = {0};
     self.cfg = &conf;
     self.pid = getpid();
-    uuid_generate_time(self.uuid);
+    uuid_generate_time(self.process_uuid);
 
     retval = hal_setup(&self);
     if (retval) exit(retval);
@@ -464,12 +466,12 @@ int main (int argc, char *argv[])
     retval = bridge_init(&self);
     if (retval) exit(retval);
 
-    retval = zeroconf_announce(&self);
+    retval = ht_zeroconf_announce(&self);
     if (retval) exit(retval);
 
     mainloop(&self);
 
-    zeroconf_withdraw(&self);
+    ht_zeroconf_withdraw(&self);
     // probably should run zloop here until deregister complete
 
     // shutdown zmq context

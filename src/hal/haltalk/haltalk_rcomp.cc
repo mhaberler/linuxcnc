@@ -80,7 +80,7 @@ handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		// compiled component found, schedule a full update
 		rcomp_t *g = self->rcomps[topic];
 		self->tx.set_type(pb::MT_HALRCOMP_FULL_UPDATE);
-		self->tx.set_uuid(self->uuid, sizeof(self->uuid));
+		self->tx.set_uuid(self->process_uuid, sizeof(self->process_uuid));
 		self->tx.set_serial(g->serial++);
 		describe_comp(self, topic, topic, poller->socket);
 

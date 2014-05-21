@@ -58,12 +58,15 @@
 #include <time.h>
 #include <fnmatch.h>
 #include <search.h>
+#include <inifile.h>
 
 static int get_input(FILE *srcfile, char *buf, size_t bufsize);
 static void print_help_general(int showR);
 static int release_HAL_mutex(void);
 static int propose_completion(char *all, char *fragment, int start);
 
+static const char *inifile;
+static FILE *inifp;
 
 /***********************************************************************
 *                   LOCAL FUNCTION DEFINITIONS                         *
@@ -80,7 +83,9 @@ int main(int argc, char **argv)
     int linenumber = 1;
     char *cf=NULL, *cw=NULL, *cl=NULL;
     char *uri = NULL; // NULL - use service discovery
-    char *svc_uuid = NULL; // must have a global uuid
+    char *service_uuid = NULL; // must have a global uuid
+
+    inifile = getenv("INI_FILE_NAME");
 
     if (argc < 2) {
 	/* no args specified, print help */
@@ -162,7 +167,7 @@ int main(int argc, char **argv)
                             break;
                         }
                     }
-                    halcmd_startup(1, uri, svc_uuid);
+                    halcmd_startup(1, uri, service_uuid);
                     propose_completion(cl, cf, n);
                 }
                 if (comp_id >= 0) halcmd_shutdown();
@@ -192,7 +197,7 @@ int main(int argc, char **argv)
 		uri = optarg;
 		break;
 	    case 'U':
-                svc_uuid = optarg;
+                service_uuid = optarg;
 		break;
 	    case '?':
 		/* option not in getopt() list
@@ -206,11 +211,23 @@ int main(int argc, char **argv)
 		break;
         }
     }
-    if (svc_uuid == NULL)
-	svc_uuid = getenv("MKUUID");
-    if (svc_uuid == NULL) {
-	fprintf(stderr,
-		"need a service UUID - either '-U <uuid>' or environment MKUUID'\n");
+
+    if (inifile && ((inifp = fopen(inifile,"r")) == NULL)) {
+	fprintf(stderr,"halcmd: cant open inifile '%s'\n", inifile);
+    }
+
+    // must have a MKUUID one way or the other
+    if (service_uuid == NULL) {
+	const char *s;
+	if ((s = iniFind(inifp, "MKUUID", "GLOBAL"))) {
+	    service_uuid = strdup(s);
+	}
+    }
+    if (service_uuid == NULL)
+	service_uuid = getenv("MKUUID");
+
+    if (service_uuid == NULL) {
+	fprintf(stderr, "halcmd: no service UUID (-R <uuid> or environment MKUUID) present\n");
 	exit(-1);
     }
 
@@ -239,7 +256,7 @@ int main(int argc, char **argv)
         }
     }
 
-    if ( halcmd_startup(0, uri, svc_uuid) != 0 ) return 1;
+    if ( halcmd_startup(0, uri, service_uuid) != 0 ) return 1;
 
     errorcount = 0;
     /* HAL init is OK, let's process the command(s) */

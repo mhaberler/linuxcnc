@@ -61,7 +61,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 		group_t *g = gi->second;
 		self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
-		self->tx.set_uuid(self->uuid, sizeof(self->uuid));
+		self->tx.set_uuid(self->process_uuid, sizeof(self->process_uuid));
 		self->tx.set_serial(g->serial++);
 		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
 
@@ -86,7 +86,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	    if (gi != self->groups.end()) {
 		group_t *g = gi->second;
 		self->tx.set_type(pb::MT_HALGROUP_FULL_UPDATE);
-		self->tx.set_uuid(self->uuid, sizeof(self->uuid));
+		self->tx.set_uuid(self->process_uuid, sizeof(self->process_uuid));
 		self->tx.set_serial(g->serial++);
 		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
 		rtapi_print_msg(RTAPI_MSG_DBG,

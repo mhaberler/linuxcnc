@@ -125,7 +125,7 @@ typedef struct htconf {
 
 typedef struct htself {
     htconf_t *cfg;
-    uuid_t uuid;      // server instance (this process)
+    uuid_t process_uuid;      // server instance (this process)
     uuid_t svc_uuid;  // service instance (set of running server processes)
     int comp_id;
     int signal_fd;
@@ -144,9 +144,9 @@ typedef struct htself {
     const char *z_group_status_dsn;
 
     AvahiCzmqPoll *av_loop;
-    void *group_publisher;
-    void *rcomp_publisher;
-    void *command_publisher;
+    register_context_t *group_publisher;
+    register_context_t *rcomp_publisher;
+    register_context_t *command_publisher;
     zservice_t zsgroup, zsrcomp, zscommand;
 
     void *z_rcomp_status;
@@ -177,8 +177,8 @@ int handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
 int handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg);
 
 // haltalk_zeroconf.cc:
-int zeroconf_announce(htself_t *self);
-int zeroconf_withdraw(htself_t *self);
+int ht_zeroconf_announce(htself_t *self);
+int ht_zeroconf_withdraw(htself_t *self);
 
 // haltalk_command.cc:
 int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
