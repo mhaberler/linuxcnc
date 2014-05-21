@@ -10,8 +10,9 @@ LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
 	czmq-watch.c \
 	setup_signals.c \
 	syslog_async.c \
-	zeroconf_register.cc \
+	ll_zeroconf_register.cc \
 	zeroconf_resolve.cc \
+	mk_zeroconf.cc \
 	json2pb.cc)
 
 

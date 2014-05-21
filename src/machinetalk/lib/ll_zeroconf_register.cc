@@ -1,5 +1,5 @@
 /*
- * zeroconf register interface
+ * zeroconf register interface / low level register/unregister
  * czmq reactor compatible
  *
  * Michael Haberler 2014
@@ -25,24 +25,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <avahi-common/error.h>
-#include <avahi-common/alternative.h>
-#include <avahi-common/malloc.h>
-#include <avahi-client/publish.h>
 
 #include "config.h"
-#include "mk-zeroconf.hh"
+#include "ll-zeroconf.hh"
 #include "syslog_async.h"
 #include "czmq.h"
 #include "czmq-watch.h"
-
-typedef struct  {
-    AvahiCzmqPoll *czmq_poll;
-    AvahiClient *client;
-    AvahiEntryGroup *group;
-    const zservice_t *service;
-    char *name;
-} register_context_t;
 
 static void publish_reply(AvahiEntryGroup *g,
                           AvahiEntryGroupState state,
@@ -205,7 +193,7 @@ static void client_callback(AvahiClient *client,
 }
 
 // register a service in DNS-SD/mDNS
-void *mk_zeroconf_register(const zservice_t *s, AvahiCzmqPoll *av_loop)
+register_context_t *ll_zeroconf_register(zservice_t *s, AvahiCzmqPoll *av_loop)
 {
     register_context_t *rctx = NULL;
     int error;
@@ -236,20 +224,19 @@ void *mk_zeroconf_register(const zservice_t *s, AvahiCzmqPoll *av_loop)
 
  fail:
     if (rctx)
-        mk_zeroconf_unregister(rctx);
+        ll_zeroconf_unregister(rctx);
     return NULL;
 }
 
 // Unregister this server from DNS-SD/mDNS
-int mk_zeroconf_unregister(void *u)
+int ll_zeroconf_unregister(register_context_t *rctx)
 {
-    register_context_t *rctx = (register_context_t *)u;
-    syslog_async(LOG_INFO, "zeroconf: unregistering '%s'\n", rctx->name);
+    if (rctx == NULL)
+	return 0;
 
+    syslog_async(LOG_INFO, "zeroconf: unregistering '%s'\n", rctx->name);
     if (rctx->client)
         avahi_client_free(rctx->client);
 
-    avahi_free(rctx->name);
-    free(rctx);
     return 0;
 }

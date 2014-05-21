@@ -1,6 +1,7 @@
-//   Michael Haberler, 2014
 //   client resolve API for the rest of us
+//   blocking API with timout, no czmq integration
 //
+//   Michael Haberler, 2014
 //
 //   avahi is free software; you can redistribute it and/or modify it
 //   under the terms of the GNU Lesser General Public License as
@@ -23,29 +24,13 @@
 #include <string.h>
 #include <net/if.h>
 
-#include <avahi-client/client.h>
-#include <avahi-client/lookup.h>
-
-#include <avahi-common/simple-watch.h>
-#include <avahi-common/malloc.h>
-#include <avahi-common/error.h>
-#include <avahi-common/timeval.h>
 
 #include "config.h"
-#include "mk-zeroconf.hh"
+#include "ll-zeroconf.hh"
 #include "syslog_async.h"
 
 #define DEFAUL_TIMEOUT 3000 // msec to resolution
 
-
-
-typedef struct  {
-    AvahiSimplePoll *simple_poll;
-    AvahiClient *client;
-    AvahiServiceResolver *resolver;
-    AvahiServiceBrowser *browser;
-    zresolve_t *resolve;
-} resolve_context_t;
 
 
 static void resolve_callback(AvahiServiceResolver *r,
@@ -198,7 +183,7 @@ static void resolve_timeout(AvahiTimeout *timeout, void* userdata)
     avahi_simple_poll_quit(rctx->simple_poll);
 }
 
-void *mk_zeroconf_resolve(zresolve_t *res)
+resolve_context_t *ll_zeroconf_resolve(zresolve_t *res)
 {
     int error;
 
@@ -259,11 +244,10 @@ void *mk_zeroconf_resolve(zresolve_t *res)
 
 }
 
-int mk_zeroconf_resolve_free(void *p)
+int ll_zeroconf_resolve_free(resolve_context_t *rctx)
 {
-    if (p == NULL)
+    if (rctx == NULL)
 	return -1;
-    resolve_context_t *rctx = (resolve_context_t *)p;
 
     if (rctx->resolve->txt)
 	avahi_string_list_free(rctx->resolve->txt);
@@ -305,7 +289,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
     res.timeout_ms = 3000;
     res.result = SD_UNSET;
 
-    void *p  = mk_zeroconf_resolve(&res);
+    void *p  = ll_zeroconf_resolve(&res);
 
     fprintf(stderr, "result = %d\n",res.result);
     if (res.result == SD_OK) {
@@ -327,7 +311,7 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char*argv[])
 	fprintf(stderr, "port=%d\n", res.port);
 	fprintf(stderr, "flags=0x%x\n", res.flags);
     }
-    mk_zeroconf_resolve_free(p);
+    ll_zeroconf_resolve_free(p);
 
 }
 #endif
