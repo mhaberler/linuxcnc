@@ -1,0 +1,4 @@
+# run this script as:
+
+export INI_FILE_NAME=motorctrl.ini
+halrun -I motorctrl.hal

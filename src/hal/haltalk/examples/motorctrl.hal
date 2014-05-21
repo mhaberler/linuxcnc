@@ -1,4 +1,5 @@
 # run this script as:
+# export INI_FILE_NAME=motorctrl.ini
 # halrun -I motorctrl.hal
 # in directory src/hal/haltalk/examples
 
@@ -7,7 +8,7 @@ log rt 5
 log user 5
 
 # start haltalk server
-loadusr -W haltalk --ini haltalk.ini
+loadusr -W haltalk
 
 # the control setup
 loadrt threads period1=1000000 name1=thread
