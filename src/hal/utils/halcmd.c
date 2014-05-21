@@ -127,7 +127,8 @@ int halcmd_startup(int quiet, char *uri, const char *svc_uuid) {
     int retval;
     if ((retval = rtapi_connect(rtapi_instance, uri, svc_uuid))) {
         if (!quiet) {
-            fprintf(stderr, "halcmd: cant connect to rtapi_app: %d\n", retval );
+            fprintf(stderr, "halcmd: cant connect to rtapi_app: %d (uri=%s uuid=%s)\n",
+		    retval, uri, svc_uuid);
         }
 	return -EINVAL;
     }
