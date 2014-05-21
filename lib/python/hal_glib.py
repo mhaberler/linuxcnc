@@ -186,7 +186,7 @@ class GRemoteComponent(gobject.GObject):
             self.dsns[svc] = txt['dsn']
             self.needed.remove(svc)
             gobject.source_remove(self.sources[svc])
-            sdRef.close()
+            #sdRef.close()
         if self.debug: print "left:", self.needed
 
         if not self.needed: # we're done
