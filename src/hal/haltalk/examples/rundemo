@@ -1,4 +1,9 @@
 # run this script as:
 
 export INI_FILE_NAME=motorctrl.ini
+
+# to get the MKUUID to gladevcp via environment (might be remote after all)
+export MKUUID=`inivar -var MKUUID -sec GLOBAL -ini motorctrl.ini`
+
 halrun -I motorctrl.hal
+#DEBUG=5 halrun -I motorctrl.hal
