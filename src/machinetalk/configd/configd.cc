@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 #endif
     int opt_zeroconf = 1;
 #ifdef HAVE_AVAHI
-    void *avahi = NULL;
+    register_context_t*avahi = NULL;
 #endif
 
 #ifdef HAVE_AVAHI

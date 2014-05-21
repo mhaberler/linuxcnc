@@ -2,48 +2,48 @@
 
 CONFIGD_DIR := $(MACHINETALK)/configd
 
-CONFIGD_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
-	configd.cc \
-	mk-zeroconf-reg.cc \
-	)
+# CONFIGD_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+# 	configd.cc \
+# 	mk-zeroconf-reg.cc \
+# 	)
 
 
-CONFIGD_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
-CONFIGD_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
+# CONFIGD_CXX_CFLAGS = -g -std=c++0x $(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+# CONFIGD_CXX_LDFLAGS=  $(CXX_PROTOLIB) $(PROTOBUF_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
 
-$(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += \
-	$(CONFIGD_CXX_CFLAGS)  $(AVAHI_CFLAGS)
+# $(call TOOBJSDEPS, $(CONFIGD_SRCS)) : EXTRAFLAGS += \
+# 	$(CONFIGD_CXX_CFLAGS)  $(AVAHI_CFLAGS)
 
 
-../bin/configd: $(call TOOBJS, $(CONFIGD_SRCS)) \
-	../lib/liblinuxcnchal.so.0 \
-	../lib/libmtalk.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0
-	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) -o $@ $^  \
-	 $(CONFIGD_CXX_LDFLAGS)  $(AVAHI_LIBS)
+# ../bin/configd: $(call TOOBJS, $(CONFIGD_SRCS)) \
+# 	../lib/liblinuxcnchal.so.0 \
+# 	../lib/libmtalk.so.0 \
+# 	../lib/liblinuxcnc-pb2++.so.0
+# 	$(ECHO) Linking $(notdir $@)
+# 	$(Q)$(CC) -o $@ $^  \
+# 	 $(CONFIGD_CXX_LDFLAGS)  $(AVAHI_LIBS)
 
-USERSRCS += $(CONFIGD_SRCS)
+# USERSRCS += $(CONFIGD_SRCS)
 
-TARGETS += ../bin/configd
+# TARGETS += ../bin/configd
 
 
 # integration test client
 #ifeq ($(BUILD_EXAMPLES),yes)
 ifeq ($(USE_AVAHI),yes)
 
-TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
-	testpublish.cc )
+# TESTPUBLISH_SRCS :=  $(addprefix $(CONFIGD_DIR)/, \
+# 	testpublish.cc )
 
-$(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)  $(CZMQ_CFLAGS)
+# $(call TOOBJSDEPS, $(TESTPUBLISH_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)  $(CZMQ_CFLAGS)
 
-../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
-	../lib/libmtalk.so.0  ../lib/liblinuxcnc-pb2++.so
-	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
+# ../bin/testpublish: $(call TOOBJS, $(TESTPUBLISH_SRCS)) \
+# 	../lib/libmtalk.so.0  ../lib/liblinuxcnc-pb2++.so
+# 	$(ECHO) Linking $(notdir $@)
+# 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) $(CZMQ_LIBS) -lstdc++ -luuid
 
-USERSRCS += $(TESTPUBLISH_SRCS)
-TARGETS += ../bin/testpublish
+# USERSRCS += $(TESTPUBLISH_SRCS)
+# TARGETS += ../bin/testpublish
 
 
 
