@@ -259,12 +259,8 @@ static int
 read_config(htconf_t *conf)
 {
     const char *s;
-    char *env_uuid = getenv("MKUUID");
     FILE *inifp;
     uuid_t uutmp;
-
-    if (conf->service_uuid == NULL)
-	conf->service_uuid = env_uuid;
 
     if (!conf->inifile) {
 	// if no ini, must have a service UUID as arg or in environment
@@ -287,18 +283,24 @@ read_config(htconf_t *conf)
 			conf->progname, conf->inifile);
 	return -1;
     }
+
     // insist on service UUID
     if (conf->service_uuid == NULL) {
 	if ((s = iniFind(inifp, "MKUUID", "GLOBAL"))) {
 	    conf->service_uuid = strdup(s);
-	} else {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "%s: no service UUID on command line, environment "
-			    "or inifile (-R <uuid> or env MKUUID or [%s]MKUUID=)\n",
-			    conf->progname,conf->section);
-	    return -1;
 	}
     }
+    if (conf->service_uuid == NULL)
+	conf->service_uuid = getenv("MKUUID");
+
+    if (conf->service_uuid == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: no service UUID on command line, environment "
+			"or inifile (-R <uuid> or env MKUUID or [GLOBAL]MKUUID=)\n",
+			conf->progname);
+	return -1;
+    }
+
     // validate uuid
     if (uuid_parse(conf->service_uuid, uutmp)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
@@ -315,7 +317,7 @@ read_config(htconf_t *conf)
 	if (parse_interface_prefs(s,  ifname, ip, &conf->ifIndex) == 0) {
 	    conf->interface = strdup(ifname);
 	    conf->ipaddr = strdup(ip);
-	    rtapi_print_msg(RTAPI_MSG_INFO, "%s %s: using preferred interface %s/%s\n",
+	    rtapi_print_msg(RTAPI_MSG_DBG, "%s %s: using preferred interface %s/%s\n",
 			    conf->progname, conf->inifile,
 			    conf->interface, conf->ipaddr);
 	} else {
