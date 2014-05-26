@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import os,sys,time,uuid
 from stat import *
 import zmq
@@ -31,11 +32,13 @@ class ConfigServer(threading.Thread):
         self.ipv4 = ipv4
 
         self.cfg = ConfigParser.ConfigParser()
-        self.cfg.read(self.inifile)
-        # print "apps:", self.cfg.sections()
-        # for n in self.cfg.sections():
-        #     print "comment:", self.cfg.get(n, 'comment')
-        #     print "type:", self.cfg.getint(n, 'type')
+
+        if (inifile != ''):
+            self.cfg.read(self.inifile)
+            # print "apps:", self.cfg.sections()
+            # for n in self.cfg.sections():
+            #     print "comment:", self.cfg.get(n, 'comment')
+            #     print "type:", self.cfg.getint(n, 'type')
 
         self.topdir = topdir
         self.context = context
@@ -195,7 +198,12 @@ def main():
 
     uri = "tcp://" + iface[0]
 
-    cfg = ConfigServer(context, uri, "apps.ini",
+    inifile = ''
+    if (len(sys.argv) > 1):
+        inifile = sys.argv[1]
+        print(('using inifile ' + inifile))
+
+    cfg = ConfigServer(context, uri, inifile,
                        svc_uuid=uuid,
                        topdir=".",
                        interface = iface[0],
