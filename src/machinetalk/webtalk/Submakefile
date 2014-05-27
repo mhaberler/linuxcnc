@@ -1,0 +1,47 @@
+WEBTALK_DIR := machinetalk/webtalk
+
+PROFILE = #-pg
+WEBTALK_SRCS :=  $(addprefix $(WEBTALK_DIR)/, \
+	webtalk_zeroconf.cc 	\
+	webtalk_wsproxy.cc	\
+	webtalk_defaultpolicy.cc	\
+	webtalk_jsonpolicy.cc	\
+	webtalk_echo.cc 	\
+	webtalk_main.cc)
+
+WEBTALK_CXXFLAGS := 		\
+	$(PROTOBUF_CFLAGS) 	\
+	$(CZMQ_CFLAGS) 		\
+	$(JANSSON_CFLAGS)	\
+	$(LWS_CFLAGS)		\
+	$(SSL_CFLAGS)		\
+	$(UUID_CFLAGS) 		\
+	$(AVAHI_CFLAGS) 	\
+	$(URIPARSER_CFLAGS)
+
+WEBTALK_LDFLAGS := 		\
+	$(PROTOBUF_LIBS)	\
+	$(CZMQ_LIBS) 		\
+	$(JANSSON_LIBS) 	\
+	$(LWS_LIBS) 		\
+	$(SSL_LIBS) 		\
+	$(UUID_LIBS) 		\
+	$(AVAHI_LIBS) 		\
+	$(URIPARSER_LIBS)	\
+	-lstdc++ 		\
+	$(PROFILE)
+
+$(call TOOBJSDEPS, $(WEBTALK_SRCS)) : EXTRAFLAGS += $(WEBTALK_CXXFLAGS)
+
+../bin/webtalk: $(call TOOBJS, $(WEBTALK_SRCS)) \
+	../lib/libmtalk.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/libmtalk.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(WEBTALK_LDFLAGS)
+
+USERSRCS += $(WEBTALK_SRCS)
+TARGETS += ../bin/webtalk
+
+INCLUDES += $(WEBTALK_DIR)
