@@ -38,7 +38,7 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     htself_t *self = (htself_t *) arg;
     zmsg_t *msg = zmsg_recv(poller->socket);
 
-    if (self->cfg->debug)
+    if (self->cfg->debug  > 4)
 	zmsg_dump(msg);
 
     char *origin = zmsg_popstr (msg);
@@ -52,6 +52,11 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 				 16, 1, zframe_data(f), zframe_size(f), true,
 				 "%s: invalid pb ", origin);
 	} else {
+	    if (self->cfg->debug) {
+		std::string s;
+		gpb::TextFormat::PrintToString(self->rx, &s);
+		fprintf(stderr,"%s: req=%s\n",__func__,s.c_str());
+	    }
 	    // a valid protobuf. Interpret and reply as needed.
 	    dispatch_request(self, origin, poller->socket);
 	}

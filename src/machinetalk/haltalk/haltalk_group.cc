@@ -112,7 +112,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		     g != self->groups.end(); g++) {
 		    note_printf(self->tx, "    %s", g->first.c_str());
 		}
-		int retval = send_pbcontainer(topic, self->tx, self->z_group_status);
+		int retval = send_pbcontainer(topic, self->tx, self->z_halgroup);
 		assert(retval == 0);
 	    }
 	}
@@ -275,7 +275,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 	break;
 
     case REPORT_END: // finalize & send
-	retval = send_pbcontainer(cgroup->group->name, self->tx, self->z_group_status);
+	retval = send_pbcontainer(cgroup->group->name, self->tx, self->z_halgroup);
 	assert(retval == 0);
 
 #if JSON_TIMING
