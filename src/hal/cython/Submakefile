@@ -1,4 +1,4 @@
-ifeq ($(HAVE_CYTHON),yes)
+
 
 HALNGDIR := hal/cython
 
@@ -25,7 +25,10 @@ TARGETS += ../lib/python/machinekit/hal.so
 	@mkdir -p $(dir $@)
 	$(CC) -g $(LDFLAGS) -shared -o $@ $^
 
-$(HALNGDIR)/machinekit/hal.c: $(addprefix $(HALNGDIR)/machinekit/, hal.pyx hal.pxd)
-	cython -o $@ $<
-
+$(HALNGDIR)/machinekit/%.c: $(addprefix $(HALNGDIR)/machinekit/, %.pyx %.pxd)
+ifeq ($(HAVE_CYTHON),yes)
+	$(CYTHON) -o $@ $<
+else
+	$(ECHO) cannot re-cython - you need to install cython minimum version 0.19
+	@exit 1
 endif
