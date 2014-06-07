@@ -3679,7 +3679,7 @@ int do_newthread_cmd(char *name, char *period, char *args[])
     bool use_fp = false;
     int cpu = -1;
     const char *s;
-    int per = atoi(period) * 1000; // 1mS default
+    int per = atoi(period);
 
     if (per < 10000)
 	halcmd_warning("a period < 10uS is unlikely to work\n");
