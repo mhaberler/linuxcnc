@@ -15,7 +15,7 @@ $(call TOOBJSDEPS, hal/utils/halsh.c) : EXTRAFLAGS += $(TCL_CFLAGS)
 TARGETS += ../tcl/hal.so
 
 $(call TOOBJSDEPS, $(HALCMDCCSRCS)) : EXTRAFLAGS =  \
-	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) -fPIC
 
 ../bin/halcmd: $(call TOOBJS, $(HALCMDSRCS))  $(call TOOBJS, $(HALCMDCCSRCS)) \
 	../lib/liblinuxcncini.so.0 \
