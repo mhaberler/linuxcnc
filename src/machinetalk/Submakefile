@@ -128,7 +128,7 @@ PROTO_C_SRCS :=
 endif
 
 # generated C++ includes
-PROTO_CXX_INCS :=  $(PBGEN)/nanopb.pb.h
+PROTO_CXX_INCS :=
 PROTO_CXX_INCS += $(subst $(PROTODIR)/, \
 	$(PBGEN)/,  \
 	$(patsubst %.proto, %.pb.h, $(PROTO_SPECS)))
