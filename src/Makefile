@@ -429,7 +429,6 @@ default: $(INFILES)
 # in ../include is used when building external components of linuxcnc.
 HEADERS := \
     config.h \
-    machinetalk/nanopb/pb.h \
     emc/ini/emcIniFile.hh \
     emc/ini/iniaxis.hh \
     emc/ini/initool.hh \
