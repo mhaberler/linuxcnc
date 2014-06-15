@@ -1652,3 +1652,8 @@ cscope:
 cscopeclean:
 	bash -c 'for f in `find ./ -name "cscope.*out"`;do rm $$f;done'
 # vim:ts=8:sts=8:sw=8:noet:
+
+
+# still broken
+#nosetest:
+#	nosetests -v ../nosetests/*.py
