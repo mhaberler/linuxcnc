@@ -494,7 +494,7 @@ class GRemoteComponent(gobject.GObject):
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_REJECT:
-            self.emit('state', fsm.ERROR, str(self.rx.note))
+            self.emit('state', self.state,fsm.ERROR, str(self.rx.note))
             print "bind rejected: %s" % (str(self.rx.note))
             self.emit('state',self.state, fsm.ERROR,"bind rejected: %s" % (str(self.rx.note)))
             self.state = fsm.ERROR
