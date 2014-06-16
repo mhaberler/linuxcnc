@@ -16,7 +16,7 @@ cdef extern from "rtapi_shmkeys.h":
 cdef extern from "rtapi_bitops.h":
     ctypedef unsigned long rtapi_atomic_type
     int RTAPI_BIT_TEST(rtapi_atomic_type *a, int b)
-
+    int RTAPI_BIT(int b)
 
 cdef extern from "rtapi.h":
     int rtapi_init(const char *name)

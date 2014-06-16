@@ -21,22 +21,21 @@ cdef extern from "rtapi_compat.h":
         int id
         unsigned long flags
 
-    int is_module_loaded(const char *module)
-    int load_module(const char *module, const char *modargs)
-    int run_module_helper(const char *format)
-    long int simple_strtol(const char *nptr, char **endptr, int base)
+    int c_is_module_loaded "is_module_loaded" (const char *module)
+    int c_load_module "load_module" (const char *module, const char *modargs)
+    int c_run_module_helper "run_module_helper" (const char *format)
 
-    int kernel_is_xenomai()
-    int kernel_is_rtai()
-    int kernel_is_rtpreempt()
+    int c_kernel_is_xenomai "kernel_is_xenomai" ()
+    int c_kernel_is_rtai "kernel_is_rtai" ()
+    int c_kernel_is_rtpreempt "kernel_is_rtpreempt" ()
 
-    int xenomai_gid()
-    int user_in_xenomai_group()
-    int kernel_instance_id()
+    int c_xenomai_gid "xenomai_gid" ()
+    int c_user_in_xenomai_group "user_in_xenomai_group" ()
+    int c_kernel_instance_id "kernel_instance_id" ()
 
     flavor_t flavors[]
-    flavor_t *flavor_byname(const char *flavorname)
-    flavor_t *flavor_byid(int flavor_id)
-    flavor_t *default_flavor()
-    int module_path(char *result, const char *basename)
-    int get_rtapi_config(char *result, const char *param, int n)
+    flavor_t *c_flavor_byname "flavor_byname" (const char *flavorname)
+    flavor_t *c_flavor_byid "flavor_byid" (int flavor_id)
+    flavor_t *c_default_flavor "default_flavor"()
+    int c_module_path "module_path" (char *result, const char *basename)
+    int c_get_rtapi_config "get_rtapi_config" (char *result, const char *param, int n)

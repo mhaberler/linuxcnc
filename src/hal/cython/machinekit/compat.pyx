@@ -1,5 +1,6 @@
 # rtapi_compat.c  python bindings
 
+#
 from .compat cimport *
 
 from os import strerror, getpid
@@ -33,61 +34,61 @@ cdef class Flavor:
     property flags:
         def __get__(self): return self._f.flags
 
-def module_loaded(m):
-    return is_module_loaded(m)
+def is_module_loaded(m):
+    return c_is_module_loaded(m)
 
-def is_xenomai():
-    return bool(kernel_is_xenomai())
+def kernel_is_xenomai():
+    return bool(c_kernel_is_xenomai())
 
-def is_rtai():
-    return bool(kernel_is_rtai())
+def kernel_is_rtai():
+    return bool(c_kernel_is_rtai())
 
-def is_rtpreempt():
-    return bool(kernel_is_rtpreempt())
+def kernel_is_rtpreempt():
+    return bool(c_kernel_is_rtpreempt())
 
-def xenomai_group_id():
-    return xenomai_gid()
+def xenomai_gid():
+    return c_xenomai_gid()
 
-def in_xenomai_group():
-    return bool(user_in_xenomai_group())
+def user_in_xenomai_group():
+    return bool(c_user_in_xenomai_group())
 
-def kernel_instance():
-    return kernel_instance_id()
+def kernel_instance_id():
+    return c_kernel_instance_id()
 
-def flavor_by_name(name):
-    cdef flavor_t *f = flavor_byname(name)
+def flavor_byname(name):
+    cdef flavor_t *f = c_flavor_byname(name)
     if f == NULL:
         raise RuntimeError("flavor_byname: no such flavor: %s" % name)
     return Flavor_Init(f)
 
-def flavor_by_id(id):
-    cdef flavor_t *f = flavor_byid(id)
+def flavor_byid(id):
+    cdef flavor_t *f = c_flavor_byid(id)
     if f == NULL:
         raise RuntimeError("flavor_byid: no such flavor: %d" % id)
     return Flavor_Init(f)
 
 
-def flavor():
-    cdef flavor_t *f = default_flavor()
+def default_flavor():
+    cdef flavor_t *f = c_default_flavor()
     if f == NULL:
         raise RuntimeError("BUG: flavor() failed")
     return Flavor_Init(f)
 
-def module_helper(name):
-    rc = run_module_helper(name)
+def run_module_helper(name):
+    rc = c_run_module_helper(name)
     if rc:
         raise RuntimeError("module_helper(%s) failed: %d %s " % (name, rc, strerror(rc)))
 
-def modpath(basename):
+def module_path(basename):
     cdef char result[1024]
-    rc = module_path(result, basename)
+    rc = c_module_path(result, basename)
     if rc:
         raise RuntimeError("modpath(%s) failed: %d %s " % (basename, rc, strerror(-rc)))
     return str(<char *>result)
 
-def get_rtapiconfig(param):
+def get_rtapi_config(param):
     cdef char result[1024]
-    rc = get_rtapi_config(result, param, 1024)
+    rc = c_get_rtapi_config(result, param, 1024)
     if rc:
         raise RuntimeError("get_rtapiconfig(%s) failed: %d %s " % (param, rc, strerror(-rc)))
     return str(<char *>result)
