@@ -264,6 +264,16 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
     }
     hal_ready(comp_id); // XXX check return value
 
+    if ((retval = hal_acquire(cname, getpid())) < 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"%s: create_rcomp:hal_acquire(%s)"
+			" failed - skipping component: %s",
+			self->cfg->progname,
+			cname, hal_lasterror());
+	note_printf(self->tx, "hal_acquire(%s) failed: %s",cname, hal_lasterror());
+	goto EXIT_COMP;
+    }
+
     // compile the component
     hal_compiled_comp_t *cc;
     if ((retval = hal_compile_comp(cname, &cc))) {
