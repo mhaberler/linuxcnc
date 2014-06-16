@@ -439,7 +439,6 @@ class GRemoteComponent(gobject.GObject):
             return
 
         if self.rx.type == MT_HALRCOMP_FULL_UPDATE: # full update
-
             if self.rx.uuid:
                 self.set_uuid(self.rx.uuid)
             for c in self.rx.comp:
@@ -452,6 +451,13 @@ class GRemoteComponent(gobject.GObject):
                     self.pinsbyhandle[rp.handle] = lp
                     self.pin_update(rp,lp)
                 self.synced = True
+            return
+
+        if self.rx.type == MT_PING:
+            # for now, ignore
+            # TBD: add a timer, reset on any message received
+            # if timeout, emit "rcomp channel down" signal
+            if self.debug: print "halrcomp ping"
             return
 
         if self.rx.type == MT_HALRCOMP_ERROR:
@@ -494,7 +500,7 @@ class GRemoteComponent(gobject.GObject):
             return
 
         if self.rx.type == MT_HALRCOMP_BIND_REJECT:
-            self.emit('state', fsm.ERROR, str(self.rx.note))
+            self.emit('state', self.state,fsm.ERROR, str(self.rx.note))
             print "bind rejected: %s" % (str(self.rx.note))
             self.emit('state',self.state, fsm.ERROR,"bind rejected: %s" % (str(self.rx.note)))
             self.state = fsm.ERROR
