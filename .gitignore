@@ -66,3 +66,4 @@ lib/python/machinekit/config.py
 tests/*/*/*/NUM_PINS_FOUND
 src/machinekitcfg.py-tmp
 scripts/machinekit.ini.tmpl
+debian/linuxcnc-*.files
