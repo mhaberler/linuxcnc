@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ "x$IS_VM" == "xyes" ] ; then
+   echo disabling test due to IS_VM=yes
+   exit 1
+fi
+exit 0
