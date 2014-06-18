@@ -67,8 +67,10 @@ cdef class Signal:
         cdef hal_pin_t *p = NULL
 
         self._alive_check()
-        # need to do this two-step due to HALmutxex
-        # pins.__get_item__ will aquire the lock
+        # need to do this two-step due to HALmutex
+        # pins.__get_item__ will aquire the lock, and if we do so again
+        # by calling  pins.__get_item_ we'll produce a deadlock
+        # solution: collect the names under mutex, then collect wrappers from names
         pinnames = []
         with HALMutex():
             p = halpr_find_pin_by_sig(self._sig,p)
