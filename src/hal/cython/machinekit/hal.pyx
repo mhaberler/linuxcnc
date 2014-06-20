@@ -8,6 +8,7 @@
 
 cimport cython
 cimport hal_const
+cimport ring
 from .hal cimport *
 from .rtapi cimport *
 from .hal_priv cimport *
@@ -55,6 +56,14 @@ COMP_UNBOUND = hal_const.COMP_UNBOUND
 COMP_BOUND = hal_const.COMP_BOUND
 COMP_READY = hal_const.COMP_READY
 
+RINGTYPE_RECORD = ring.RINGTYPE_RECORD
+RINGTYPE_MULTIPART = ring.RINGTYPE_MULTIPART
+RINGTYPE_STREAM = ring.RINGTYPE_STREAM
+RINGTYPE_MASK = ring.RINGTYPE_MASK
+
+USE_RMUTEX = ring.USE_RMUTEX
+USE_WMUTEX = ring.USE_WMUTEX
+ALLOC_HALMEM = ring.ALLOC_HALMEM
 
 # allow out pin reads
 relaxed = True
