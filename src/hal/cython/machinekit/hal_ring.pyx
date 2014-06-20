@@ -177,7 +177,7 @@ cdef class ringvec:
     property flags:
         def __get__(self): return self.flags
 
-cdef class BufRing:
+cdef class MultiframeRing:
     cdef msgbuffer_t _rb
     cdef object _pyring
 
