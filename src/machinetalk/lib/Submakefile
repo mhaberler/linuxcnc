@@ -1,6 +1,6 @@
 LIBMTALK_DIR := $(MACHINETALK)/lib
 
-INCLUDES += $(addprefix ../include/, \
+MT_INSTALL_INCS +=  $(addprefix $(MACHINETALK)/include/, \
 	bin2ascii.hh  \
 	halpb.hh    \
 	ll-zeroconf.hh   \
@@ -16,7 +16,6 @@ INCLUDES += $(addprefix ../include/, \
 	mk-zeroconf-types.h \
 	select_interface.h)
 
-TARGETS += $(INCLUDES)
 
 # protobuf support functions - usable without HAL (eg remotely)
 LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \

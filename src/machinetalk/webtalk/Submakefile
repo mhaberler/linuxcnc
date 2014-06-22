@@ -1,5 +1,10 @@
 WEBTALK_DIR := machinetalk/webtalk
 
+# install this so out of tree policy plugins can compile against this
+INCLUDES +=  $(WEBTALK_DIR)
+
+MT_INSTALL_INCS +=  machinetalk/webtalk/webtalk.hh
+
 PROFILE = #-pg
 WEBTALK_SRCS :=  $(addprefix $(WEBTALK_DIR)/, \
 	webtalk_zeroconf.cc 	\
@@ -45,7 +50,12 @@ $(call TOOBJSDEPS, $(WEBTALK_SRCS)) : EXTRAFLAGS += $(WEBTALK_CXXFLAGS)
 USERSRCS += $(WEBTALK_SRCS)
 TARGETS += ../bin/webtalk
 
-INCLUDES += $(WEBTALK_DIR)
+
+../include/%.h: ./$(WEBTALK_DIR)/%.h
+	cp $^ $@
+
+../include/%.hh: ./$(WEBTALK_DIR)/%.hh
+	cp $^ $@
 
 # DEMOPLUGIN_SRCS := $(addprefix $(WEBTALK_DIR)/, \
 # 	webtalk_demopolicy.cc) \
