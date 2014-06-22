@@ -108,8 +108,8 @@ static int set_policy(zws_session_t *wss, wtself_t *self)
 	     p != NULL;
 	     p = (zwspolicy_t *) zlist_next(self->policies)) {
 	    if (!strcmp(q->value, p->name)) {
-		lwsl_debug("%s: setting policy '%s'\n",
-			   __func__, p->name);
+		lwsl_uri("%s: setting policy '%s' callback=%p\n",
+			 __func__, p->name, p->callback);
 		wss->policy = p->callback;
 		break;
 	    }
