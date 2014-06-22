@@ -1,6 +1,20 @@
 LIBMTALK_DIR := $(MACHINETALK)/lib
 
-INCLUDES += $(LIBMTALK_DIR)
+INCLUDES += $(addprefix $(MACHINETALK)/include/, \
+	bin2ascii.hh  \
+	halpb.hh    \
+	ll-zeroconf.hh   \
+	pb-linuxcnc.h   \
+	setup_signals.h \
+	container.h  \
+	inihelp.hh \
+	mk-zeroconf.hh    \
+	pbutil.hh       \
+	syslog_async.h \
+	czmq-watch.h \
+	json2pb.hh \
+	mk-zeroconf-types.h \
+	select_interface.h)
 
 
 # protobuf support functions - usable without HAL (eg remotely)
@@ -47,10 +61,10 @@ TARGETS += ../lib/libmtalk.so ../lib/libmtalk.so.0
 	$(Q)$(CXX) -g  -Wl,-soname,$(notdir $@) -shared -o $@ $^ \
 	$(AVAHI_LIBS) $(CZMQ_LIBS) $(LIBMTALK_LDFLAGS) $(PB2JSONLIB_LDFLAGS)
 
-../include/%.h: ./$(LIBMTALK_DIR)/%.h
+../include/%.h: ./$(MACHINETALK)/include/%.h
 	cp $^ $@
 
-../include/%.hh: ./$(LIBMTALK_DIR)/%.hh
+../include/%.hh: ./$(MACHINETALK)/include/%.hh
 	cp $^ $@
 
 # ZRES_SRCS :=  $(addprefix $(LIBMTALK_DIR)/, \
