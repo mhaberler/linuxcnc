@@ -65,7 +65,7 @@ cdef class Ring:
         cdef int r = record_write_begin(&self._rb, &ptr, size)
         if r:
             if r != EAGAIN:
-                raise RuntimeError("Ring %s write failed: %d %s" %
+                raise IOError("Ring %s write failed: %d %s" %
                                    (r,self._hr.name))
             return False
         memcpy(ptr, PyBytes_AsString(s), size)
@@ -79,7 +79,7 @@ cdef class Ring:
         cdef int r = record_read(&self._rb, &ptr, &size)
         if r:
             if r != EAGAIN:
-                raise RuntimeError("Ring %s read failed: %d %s" %
+                raise IOError("Ring %s read failed: %d %s" %
                                    (r,self._hr.name))
             return None
         return memoryview(mview(<long>ptr, size))
@@ -144,7 +144,7 @@ cdef class RingIter:
         cdef int r = record_iter_read(&self._iter, &ptr, &size)
         if r:
             if r != EAGAIN:
-                raise RuntimeError("Ring read failed")
+                raise IOError("Ring read failed")
             return None
         return memoryview(mview(<long>ptr, size))
 
@@ -215,8 +215,7 @@ cdef class StreamRing:
         stream_read_advance(self._rb, nbytes);
 
     def next(self):
-        '''returns the number of bytes readable or -1 if no data is available.'''
-
+        '''returns the number of bytes readable or 0 if no data is available.'''
         return stream_read_space(self._rb.header)
 
     def write(self, s):
@@ -226,8 +225,8 @@ cdef class StreamRing:
 
         return stream_write(self._rb,  PyBytes_AsString(s), PyBytes_Size(s))
 
-
     def read(self):
+        ''' return all bytes readable as a string, or None'''
         cdef ringvec_t v[2]
         stream_get_read_vector(self._rb, v)
 
@@ -272,7 +271,7 @@ cdef class MultiframeRing:
         if not r:
             return True
         if r != EAGAIN:
-            raise RuntimeError("Ring write failed")
+            raise IOError("Ring write failed")
         return False
 
     def flush(self):
