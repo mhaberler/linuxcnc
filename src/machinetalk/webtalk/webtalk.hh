@@ -91,12 +91,6 @@ typedef  int (*zwscvt_cb)(wtself_t *self,         // server instance
 			  zws_session_t *s,       // session
 			  zwscb_type type);       // which callback
 
-struct policy {
-    const char *name;
-    zwscvt_cb callback;
-};
-
-
 // per-session data
 typedef struct zws_session_data {
     void *socket; // zmq destination

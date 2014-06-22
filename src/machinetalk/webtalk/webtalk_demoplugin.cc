@@ -129,5 +129,5 @@ demo_policy(wtself_t *self,
 
 // export plugin descriptor structure
 // see webtalk_plugin.cc
-struct policy policy { "demo", demo_policy };
+zwspolicy_t proxy_policy { "demo", demo_policy };
 

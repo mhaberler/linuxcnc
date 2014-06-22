@@ -27,7 +27,7 @@ int wt_add_plugin(wtself_t *self, const char *sopath)
 	return -EINVAL;
     }
 
-    struct policy *p = (struct policy *)  dlsym(libhandle, "policy");
+    zwspolicy_t *p = (zwspolicy_t *)  dlsym(libhandle, "proxy_policy");
     if (p == NULL) {
 	syslog_async(LOG_ERR, "error resolving symbol 'policy' in %s: %s\n",sopath, dlerror());
 	// 
