@@ -211,16 +211,10 @@ read_config(wtconf_t *conf)
     } else
 	return 0;
 
-    if (!conf->debug)
-	iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
-
-    if (!conf->info.port)
-	iniFindInt(inifp, "PORT", conf->section, &conf->info.port);
-
-    if (!conf->info.extensions) {
-	iniFindInt(inifp, "EXTENSIONS",  conf->section, &flag);
-	if (flag) conf->info.extensions = libwebsocket_get_internal_extensions();
-    }
+    iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
+    iniFindInt(inifp, "PORT", conf->section, &conf->info.port);
+    iniFindInt(inifp, "EXTENSIONS",  conf->section, &flag);
+    if (flag) conf->info.extensions = libwebsocket_get_internal_extensions();
 
     str_inidefault(&conf->index_html, inifp, "INDEX_HTML", conf->section);
     str_inidefault(&conf->www_dir, inifp, "WWW_DIR", conf->section);
@@ -242,34 +236,37 @@ read_config(wtconf_t *conf)
     // debug defaults -  emit those always regardless of flags
     conf->debug |= (LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_CONFIG);
 
-    if (!conf->info.port)
-	conf->info.port = PROXY_PORT;
-
     return 0;
 }
 
 static void
 usage(void)
 {
-    printf("Usage:  wttalk [options]\n");
-    printf("This is a userspace HAL program, typically loaded "
-	   "using the halcmd \"loadusr\" command:\n"
-	   "    loadusr haltalk [options]\n"
+    printf("Usage:  webtalk [options]\n");
+    printf("This is a normal userspace program and need not run on the same host as RT.\n"
 	   "Options are:\n"
 	   "-I or --ini <inifile>\n"
 	   "    Use <inifile> (default: take ini filename from environment"
 	   " variable INI_FILE_NAME)\n"
 	   "-S or --section <section-name> (default 8)\n"
 	   "    Read parameters from <section_name> (default 'HALTALK')\n"
-	   "-u or --uri <uri>\n"
-	   "    zeroMQ URI for status reporting socket\n"
-	   "-m or --rtapi-msg-level <level>\n"
-	   "    set the RTAPI message level.\n"
-	   "-t or --timer <msec>\n"
-	   "    set the default group scan timer (100mS).\n"
-	   "-p or --paranoid <msec>\n"
-	   "    turn on extensive runtime checks (may be costly).\n"
-	   "-d or --debug\n"
+	   "-R or --mkuuid <uuid>\n"
+	   "    use as service uuid\n"
+	   "-X or --index <announce>\n"
+	   "    as path to toplevel html file>\n"
+	   "-p or --port <portnumber>\n"
+	   "    to use for http/https\n"
+	   "-w or --wwwdir <directory>\n"
+	   "    to serve html files from\n"
+	   "-C or --certpath <path>\n"
+	   "    to to SSL cert\n"
+	   "-K or --keypath <path>\n"
+	   "    to to SSL key\n"
+	   "-s or --stderr\n"
+	   "    log to stderr besides syslog\n"
+	   "-F or --foreground\n"
+	   "    stay in foreground - dont fork\n"
+	   "-d or --debug <mask>\n"
 	   "    Turn on event debugging messages.\n");
 }
 
@@ -302,10 +299,41 @@ int main (int argc, char *argv[])
     conf.info.uid = -1;
     conf.ipaddr = "127.0.0.1";
     conf.index_html = "/";
+    conf.info.port = PROXY_PORT;
 
     int logopt = LOG_NDELAY;
     int opt, retval;
 
+    // first pass - only read opts relevant for logging and inifile
+    while ((opt = getopt_long(argc, argv, option_string,
+			      long_options, NULL)) != -1) {
+	switch(opt) {
+	case 'S':
+	    conf.section = optarg;
+	case 'I':
+	    conf.inifile = optarg;
+	    break;
+	case 'F':
+	    conf.foreground = true;
+	    break;
+	case 's':
+	    conf.log_stderr = true;
+	    logopt |= LOG_PERROR;
+	    break;
+	default:
+	    ;
+	}
+    }
+
+    openlog_async(conf.progname, logopt , SYSLOG_FACILITY);
+
+    if (read_global_config(&conf))
+	exit(1);
+
+    if (read_config(&conf))
+	exit(1);
+
+    // second pass: override ini opts by command line
     while ((opt = getopt_long(argc, argv, option_string,
 			      long_options, NULL)) != -1) {
 	switch(opt) {
@@ -324,26 +352,17 @@ int main (int argc, char *argv[])
 	case 'K':
 	    conf.info.ssl_private_key_filepath  = optarg;
 	    break;
-	case 'S':
-	    conf.section = optarg;
 	case 'w':
 	    conf.www_dir = optarg;
 	    break;
 	case 'X':
 	    conf.index_html = optarg;
 	    break;
-	case 'I':
-	    conf.inifile = optarg;
-	    break;
 	case 'R':
 	    conf.service_uuid = optarg;
 	    break;
 	case 'F':
 	    conf.foreground = true;
-	    break;
-	case 's':
-	    conf.log_stderr = true;
-	    logopt |= LOG_PERROR;
 	    break;
 	case 'h':
 	default:
@@ -352,7 +371,6 @@ int main (int argc, char *argv[])
 	}
     }
 
-#if 1
     // good to go
     if (!conf.foreground) {
         pid_t pid = fork();
@@ -371,16 +389,7 @@ int main (int argc, char *argv[])
 	//     exit(EXIT_FAILURE);
         // }
     }
-#endif
-
-    openlog_async(conf.progname, logopt , SYSLOG_FACILITY);
     wt_hello(&conf);
-
-    if (read_global_config(&conf))
-	exit(1);
-
-    if (read_config(&conf))
-	exit(1);
 
     wtself_t self = {0};
     self.cfg = &conf;
