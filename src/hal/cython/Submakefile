@@ -69,6 +69,20 @@ TARGETS += ../lib/python/machinekit/compat.so
 	$(CC) -g $(LDFLAGS) -shared -o $@ $^
 
 
+SHMCOMMONSO_CSRCS := $(addprefix $(HALNGMKDIR)/, \
+	shmcommon.c ) \
+	rtapi/shmdrv/shmdrvapi.c
+
+USERSRCS += $(SHMCOMMONSO_CSRCS)
+$(call TOOBJSDEPS, $(SHMCOMMONSO_CSRCS)) : EXTRAFLAGS=-fPIC -Irtapi/shmdrv
+TARGETS += ../lib/python/machinekit/shmcommon.so
+../lib/python/machinekit/shmcommon.so: \
+	 $(patsubst %.c,objects/%.o,$(SHMCOMMONSO_CSRCS))
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
+
+
 
 $(HALNGDIR)/machinekit/%.c: $(addprefix $(HALNGDIR)/machinekit/, %.pyx %.pxd)
 ifeq ($(HAVE_CYTHON),yes)
