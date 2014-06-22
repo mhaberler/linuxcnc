@@ -300,6 +300,7 @@ int main (int argc, char *argv[])
     conf.section  = "WEBTALK";
     conf.info.gid = -1;
     conf.info.uid = -1;
+    conf.ipaddr = "127.0.0.1";
 
     int logopt = LOG_NDELAY;
     int opt, retval;
