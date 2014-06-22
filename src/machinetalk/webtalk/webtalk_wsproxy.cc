@@ -45,7 +45,6 @@ static inline int zmq2poll(int mask)
 int wt_proxy_new(wtself_t *self)
 {
     self->policies = zlist_new();
-    zlist_autofree(self->policies);
     self->cfg->info.user = self; // pass instance pointer
 
     self->cfg->info.protocols =  (struct libwebsocket_protocols *)
