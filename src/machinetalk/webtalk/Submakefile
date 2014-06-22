@@ -35,6 +35,7 @@ WEBTALK_LDFLAGS := 		\
 	$(AVAHI_LIBS) 		\
 	$(URIPARSER_LIBS)	\
 	-lstdc++ 		\
+	-rdynamic 		\
 	$(PROFILE)
 
 $(call TOOBJSDEPS, $(WEBTALK_SRCS)) : EXTRAFLAGS += $(WEBTALK_CXXFLAGS)
