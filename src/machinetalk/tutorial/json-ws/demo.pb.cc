@@ -1,1 +1,0 @@
-../protobuf/demo.pb.cc

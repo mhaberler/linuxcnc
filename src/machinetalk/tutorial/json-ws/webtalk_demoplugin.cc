@@ -7,7 +7,10 @@
 #include <libwebsockets.h>
 
 #include <google/protobuf/text_format.h>
+
 #include "demo.pb.h"
+#include "demo.pb.cc"
+
 using namespace google::protobuf;
 
 #include "webtalk.hh"

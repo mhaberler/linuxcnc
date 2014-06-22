@@ -4,8 +4,10 @@ include ../../../Makefile.inc
 all:	demowtplugin.o
 	comp --install micromot.comp
 
+clean:
+	rm -f demowtplugin.o webtalk_demoplugin.o
 
-CXXFLAGS := -g -O0 -fPIC -Wall		\
+CXXFLAGS := -g -fPIC -Wall		\
 	-I../protobuf 		\
 	-I../../../../include \
 	$(PROTOBUF_CFLAGS) 	\
@@ -18,6 +20,6 @@ CXXFLAGS := -g -O0 -fPIC -Wall		\
 	$(URIPARSER_CFLAGS)
 
 
-demowtplugin.o: webtalk_demoplugin.o demo.pb.o
+demowtplugin.o: webtalk_demoplugin.o
 	@echo Linking $(notdir $@)
 	$(CC) -g -shared -o $@ $^
