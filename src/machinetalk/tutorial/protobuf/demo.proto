@@ -6,6 +6,8 @@ enum DemoType {
     DT_POLYLINE       = 1;
     DT_ABORT          = 2;
     DT_GETPOSITION    = 3;
+    DT_STATUS         = 4;
+    DT_ERROR          = 5;
 }
 
 message Target {
@@ -38,5 +40,7 @@ message DemoContainer {
     optional double velocity = 5;
     optional double acceleration = 6;
 
-    optional string note = 7 [(nanopb).max_size = 30];
+    // if used as reply from RT:
+    optional Target current = 7;
+    optional string note = 8 [(nanopb).max_size = 30];
 }
