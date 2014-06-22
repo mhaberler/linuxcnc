@@ -1654,6 +1654,7 @@ cscopeclean:
 # vim:ts=8:sts=8:sw=8:noet:
 
 
-# still broken
-#nosetest:
-#	nosetests -v ../nosetests/*.py
+nosetest:
+	for t  in ../nosetests/*.py ; do \
+		nosetests -v $$t ; \
+	done
