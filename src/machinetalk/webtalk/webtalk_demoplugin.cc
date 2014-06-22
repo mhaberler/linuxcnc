@@ -6,21 +6,21 @@
 #include <libwebsockets.h>
 
 #include <google/protobuf/text_format.h>
-#include <machinetalk/generated/message.pb.h>
+#include <machinetalk/tutorial/protobuf/demo.pb.h>
 using namespace google::protobuf;
 
 #include "webtalk.hh"
 
 // relay policy to convert to/from JSON as needed
 int
-json_policy(wtself_t *self,
+demo_policy(wtself_t *self,
 	    zws_session_t *wss,
 	    zwscb_type type)
 {
     lwsl_debug("%s op=%d\n",__func__,  type);
     zmsg_t *m;
     zframe_t *f;
-    static pb::Container c; // fast; threadsafe???
+    static pb::DemoContainer c; // fast; threadsafe???
 
     switch (type) {
 
@@ -127,7 +127,7 @@ json_policy(wtself_t *self,
 }
 
 
-// to make this a proper plug, export plugin descriptor structure here:
+// export plugin descriptor structure
 // see webtalk_plugin.cc
-// struct policy policy { "json", json_policy };
+struct policy policy { "demo", demo_policy };
 

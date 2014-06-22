@@ -271,7 +271,7 @@ usage(void)
 }
 
 
-static const char *option_string = "hI:S:d:R:Fsw:X:p:C:K:";
+static const char *option_string = "hI:S:d:R:Fsw:X:p:C:K:P:";
 static struct option long_options[] = {
     { "help", no_argument, 0, 'h'},
     { "ini", required_argument, 0, 'I'},
@@ -286,12 +286,13 @@ static struct option long_options[] = {
     { "keypath", required_argument, 0, 'K'},
     { "stderr",  no_argument,        0, 's'},
     { "foreground",  no_argument,    0, 'F'},
+    { "plugin", required_argument, 0, 'P'},
+
     {0,0,0,0}
 };
 
 int main (int argc, char *argv[])
 {
-
     conf.progname = argv[0];
     conf.inifile  = getenv("INI_FILE_NAME");
     conf.section  = "WEBTALK";
@@ -303,6 +304,7 @@ int main (int argc, char *argv[])
 
     int logopt = LOG_NDELAY;
     int opt, retval;
+    zlist_t *plugins = zlist_new(); // list of .so pathnames
 
     // first pass - only read opts relevant for logging and inifile
     while ((opt = getopt_long(argc, argv, option_string,
@@ -320,6 +322,7 @@ int main (int argc, char *argv[])
 	    conf.log_stderr = true;
 	    logopt |= LOG_PERROR;
 	    break;
+	break;
 	default:
 	    ;
 	}
@@ -334,6 +337,7 @@ int main (int argc, char *argv[])
 	exit(1);
 
     // second pass: override ini opts by command line
+    optind = 0;
     while ((opt = getopt_long(argc, argv, option_string,
 			      long_options, NULL)) != -1) {
 	switch(opt) {
@@ -361,8 +365,14 @@ int main (int argc, char *argv[])
 	case 'R':
 	    conf.service_uuid = optarg;
 	    break;
+	case 'P':
+	    zlist_append(plugins, strdup(optarg));
+	    break;
+
+	case 'S': // already covered on first pass
+	case 'I':
 	case 'F':
-	    conf.foreground = true;
+	case 's':
 	    break;
 	case 'h':
 	default:
@@ -409,6 +419,13 @@ int main (int argc, char *argv[])
     if (retval) exit(retval);
 
     // custom relay policy
+    for (char *p = (char *) zlist_first(plugins);
+	 p != NULL;
+	 p = (char *) zlist_next(plugins)) {
+	if (wt_add_plugin(&self, p)) {
+	    exit(1);
+	}
+    }
     wt_proxy_add_policy(&self, "json", json_policy);
 
     mainloop(&self);

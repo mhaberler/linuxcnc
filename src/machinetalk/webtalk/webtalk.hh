@@ -91,6 +91,12 @@ typedef  int (*zwscvt_cb)(wtself_t *self,         // server instance
 			  zws_session_t *s,       // session
 			  zwscb_type type);       // which callback
 
+struct policy {
+    const char *name;
+    zwscvt_cb callback;
+};
+
+
 // per-session data
 typedef struct zws_session_data {
     void *socket; // zmq destination
@@ -205,3 +211,7 @@ int json_policy(wtself_t *self, zws_session_t *wss, zwscb_type type);
 
 // webtalk_defaultpolicy.cc:
 int default_policy(wtself_t *self, zws_session_t *wss, zwscb_type type);
+
+
+// webtalk_plugin.cc:
+int wt_add_plugin(wtself_t *self, const char *sopath);

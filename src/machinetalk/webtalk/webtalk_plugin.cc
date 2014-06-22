@@ -10,7 +10,37 @@
 using namespace google::protobuf;
 
 #include "webtalk.hh"
+#include <dlfcn.h>
 
+int wt_add_plugin(wtself_t *self, const char *sopath)
+{
+    dlerror(); // clear any existing error
+
+    // Attempt to open the plugin DSO
+    void *libhandle = dlopen(sopath, RTLD_NOW);
+    if (!libhandle) {
+	const char *errmsg = dlerror();
+	if (!errmsg)
+	    errmsg = strerror(errno);
+	syslog_async(LOG_ERR, "error loading plugin DSU %s: %s\n",sopath, errmsg);
+	//	fprintf(stderr, "error loading plugin DSU %s: %s\n",sopath, errmsg);
+	return -EINVAL;
+    }
+
+    struct policy *p = (struct policy *)  dlsym(libhandle, "policy");
+    if (p == NULL) {
+	syslog_async(LOG_ERR, "error resolving symbol 'policy' in %s: %s\n",sopath, dlerror());
+	// 
+
+	return -ENOENT;
+    }
+    syslog_async(LOG_INFO, "%s resolved symbol 'policy' in %s\n",__func__,  sopath);
+    int retval = wt_proxy_add_policy(self, p->name, p->callback);
+    assert(retval == 0);
+    return 0;
+}
+
+#if 0
 // relay policy to convert to/from JSON as needed
 int
 json_policy(wtself_t *self,
@@ -127,7 +157,7 @@ json_policy(wtself_t *self,
 }
 
 
-// to make this a proper plug, export plugin descriptor structure here:
-// see webtalk_plugin.cc
-// struct policy policy { "json", json_policy };
 
+struct policy policy { "json", json_policy };
+
+#endif

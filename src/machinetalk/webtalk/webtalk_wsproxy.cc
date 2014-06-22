@@ -72,6 +72,8 @@ int wt_proxy_add_policy(wtself_t *self, const char *name, zwscvt_cb cb)
     policy->name = strdup(name);
     policy->callback = cb;
     zlist_append (self->policies, policy);
+    lwsl_debug("%s: add policy '%s' at %p\n",
+	       __func__, name, cb);
     return 0;
 }
 
