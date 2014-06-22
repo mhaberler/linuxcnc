@@ -23,17 +23,24 @@ int
 wt_zeroconf_announce(wtself_t *self)
 {
     char name[255];
+    char dsn[255];
     char puuid[40];
     uuid_unparse(self->process_uuid, puuid);
 
     snprintf(name,sizeof(name), "Machinekit on %s", self->cfg->ipaddr);
+    snprintf(dsn,sizeof(dsn), "http%s://%s:%d%s", 
+	     self->cfg->use_ssl ? "s" : "",
+	     self->cfg->ipaddr,
+	     self->cfg->info.port,
+	     self->cfg->index_html);
+
     self->www_publisher = zeroconf_service_announce(name,
 						    self->cfg->use_ssl ?
 						    "_https._tcp" :
 						    "_http._tcp",
 						    NULL,
 						    self->cfg->info.port,
-						    NULL,
+						    dsn,
 						    self->cfg->service_uuid,
 						    puuid,
 						    NULL,
