@@ -144,17 +144,7 @@ MT_INSTALL_INCS := $(subst $(PBGEN), \
 	../include/$(PBGEN),  \
 	$(PROTO_CXX_INCS) $(PROTO_C_INCS) $(PROTO_NANOPB_C_INCS))
 
-MT_INSTALL_INCS += \
-	../include/machinetalk/include/pb-linuxcnc.h \
-	../include/machinetalk/include/container.h \
-	../include/machinetalk/include/json2pb.hh \
-	../include/machinetalk/include/bin2ascii.hh \
-	../include/machinetalk/include/pbutil.hh \
-	../include/machinetalk/include/halpb.hh \
-	../include/machinetalk/include/czmq-watch.h \
-	../include/machinetalk/include/select_interface.h \
-	../include/machinetalk/include/syslog_async.h \
-	../include/machinetalk/include/setup_signals.h \
+MT_INSTALL_INCS +=  \
 	../include/machinetalk/nanopb/pb.h \
 	../include/machinetalk/nanopb/pb_encode.h \
 	../include/machinetalk/nanopb/pb_decode.h

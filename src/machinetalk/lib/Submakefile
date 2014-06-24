@@ -1,21 +1,20 @@
 LIBMTALK_DIR := $(MACHINETALK)/lib
 
-MT_INSTALL_INCS +=  $(addprefix $(MACHINETALK)/include/, \
+TARGETS += $(addprefix ../include/, \
 	bin2ascii.hh  \
-	halpb.hh    \
-	ll-zeroconf.hh   \
-	pb-linuxcnc.h   \
-	setup_signals.h \
 	container.h  \
-	inihelp.hh \
-	mk-zeroconf.hh    \
-	pbutil.hh       \
-	syslog_async.h \
 	czmq-watch.h \
+	halpb.hh    \
+	inihelp.hh \
 	json2pb.hh \
+	ll-zeroconf.hh   \
 	mk-zeroconf-types.h \
-	select_interface.h)
-
+	mk-zeroconf.hh    \
+	pb-linuxcnc.h   \
+	pbutil.hh       \
+	select_interface.h \
+	setup_signals.h \
+	syslog_async.h )
 
 # protobuf support functions - usable without HAL (eg remotely)
 LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
@@ -29,8 +28,6 @@ LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
 	zeroconf_resolve.cc \
 	mk_zeroconf.cc \
 	json2pb.cc)
-
-
 
 USERSRCS += $(LIBMTALK_SRCS) # $(HALLIBMTALK_SRCS)
 
