@@ -10,13 +10,24 @@
 
 #include "demo.pb.h"
 #include "demo.pb.cc"
-
 using namespace google::protobuf;
-
 #include "webtalk.hh"
 
-// relay policy to convert to/from JSON as needed
-int
+static  int demo_policy(wtself_t *self,         // server instance
+			zws_session_t *s,       // session
+			zwscb_type type);       // which callback
+
+// plugin descriptor structure
+// exported symbol: proxy_policy
+// see webtalk_plugin.cc
+zwspolicy_t proxy_policy {
+    "demo",
+    demo_policy
+};
+
+
+// relay policy handler to convert to/from JSON as needed
+static int
 demo_policy(wtself_t *self,
 	    zws_session_t *wss,
 	    zwscb_type type)
@@ -130,7 +141,3 @@ demo_policy(wtself_t *self,
     return 0;
 }
 
-
-// export plugin descriptor structure
-// see webtalk_plugin.cc
-zwspolicy_t proxy_policy { "demo", demo_policy };
