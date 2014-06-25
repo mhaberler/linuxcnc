@@ -1,5 +1,6 @@
 LIBMTALK_DIR := $(MACHINETALK)/lib
 
+# install them in include/
 TARGETS += $(addprefix ../include/, \
 	bin2ascii.hh  \
 	container.h  \

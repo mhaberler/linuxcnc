@@ -68,7 +68,7 @@ enum wt_log_levels {
 #include <machinetalk/generated/message.pb.h>
 namespace gpb = google::protobuf;
 
-#include <machinetalk/include/json2pb.hh>
+#include <json2pb.hh>
 #include <jansson.h>
 #include <uriparser/Uri.h>
 
