@@ -363,6 +363,10 @@ static int init_global_data(global_data_t * data, int flavor,
     data->rtapi_app_pid = -1; // not yet started
     data->rtapi_msgd_pid = 0;
 
+    // for now, use a fixed-size memory arena
+    rtapi_heap_init(&data->heap);
+    rtapi_heap_addmem(&data->heap, data->arena, GLOBAL_HEAP_SIZE);
+
     /* done, release the mutex */
     rtapi_mutex_give(&(data->mutex));
     return retval;
