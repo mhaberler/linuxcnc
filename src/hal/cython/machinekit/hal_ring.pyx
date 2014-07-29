@@ -11,6 +11,8 @@ from libc.string cimport memcpy
 from buffer cimport PyBuffer_FillInfo
 from cpython.bytes cimport PyBytes_AsString, PyBytes_Size, PyBytes_FromStringAndSize
 
+from cpython.string cimport PyString_FromStringAndSize
+
 from .ring cimport *
 
 cdef class mview:
@@ -63,7 +65,7 @@ cdef class Ring:
         cdef int r = record_write_begin(&self._rb, &ptr, size)
         if r:
             if r != EAGAIN:
-                raise RuntimeError("Ring %s write failed: %d %s" %
+                raise IOError("Ring %s write failed: %d %s" %
                                    (r,self._hr.name))
             return False
         memcpy(ptr, PyBytes_AsString(s), size)
@@ -77,7 +79,7 @@ cdef class Ring:
         cdef int r = record_read(&self._rb, &ptr, &size)
         if r:
             if r != EAGAIN:
-                raise RuntimeError("Ring %s read failed: %d %s" %
+                raise IOError("Ring %s read failed: %d %s" %
                                    (r,self._hr.name))
             return None
         return memoryview(mview(<long>ptr, size))
@@ -142,7 +144,7 @@ cdef class RingIter:
         cdef int r = record_iter_read(&self._iter, &ptr, &size)
         if r:
             if r != EAGAIN:
-                raise RuntimeError("Ring read failed")
+                raise IOError("Ring read failed")
             return None
         return memoryview(mview(<long>ptr, size))
 
@@ -177,13 +179,77 @@ cdef class ringvec:
     property flags:
         def __get__(self): return self.flags
 
-cdef class BufRing:
+
+cdef class StreamRing:
+    cdef ringbuffer_t *_rb
+    cdef hal_ring_t *_hr
+
+    def __cinit__(self, ring):
+        self._rb = &(<Ring>ring)._rb
+        self._hr = (<Ring>ring)._hr
+        if self._rb.header.type != RINGTYPE_STREAM:
+            raise RuntimeError("ring '%s' not a stream ring: type=%d" %
+                               (self._hr.name,self._rb.header.type))
+
+    def spaceleft(self):
+        '''return number of bytes available to write.'''
+
+        return stream_write_space(self._rb.header)
+
+    def flush(self):
+        '''clear the buffer contents. Note this is not thread-safe
+        unless all readers and writers use a r/w mutex.'''
+
+        return stream_flush(self._rb)
+
+    def consume(self, int nbytes):
+        '''remove argument number of bytes from stream.
+        May raise IOError if more than the number of
+        available bytes are consumed'''
+
+        cdef size_t avail
+        avail = stream_read_space(self._rb.header);
+        if (nbytes > <int>avail):
+            raise IOError("consume(%d): argument larger than bytes available (%zu)" %
+                          (nbytes, avail))
+        stream_read_advance(self._rb, nbytes);
+
+    def next(self):
+        '''returns the number of bytes readable or 0 if no data is available.'''
+        return stream_read_space(self._rb.header)
+
+    def write(self, s):
+        '''write to ring. Returns 0 on success.
+        nozero return value indicates the number
+	of bytes actually written. '''
+
+        return stream_write(self._rb,  PyBytes_AsString(s), PyBytes_Size(s))
+
+    def read(self):
+        ''' return all bytes readable as a string, or None'''
+        cdef ringvec_t v[2]
+        stream_get_read_vector(self._rb, v)
+
+        if v[0].rv_len:
+            b1 = PyString_FromStringAndSize(<const char *>v[0].rv_base, v[0].rv_len)
+            if v[1].rv_len == 0:
+                stream_read_advance(self._rb,v[0].rv_len)
+                return b1
+
+            b2 = PyString_FromStringAndSize(<const char *>v[1].rv_base, v[1].rv_len)
+            stream_read_advance(self._rb,v[0].rv_len + v[1].rv_len)
+            return b1 + b2
+        return None
+
+
+cdef class MultiframeRing:
     cdef msgbuffer_t _rb
     cdef object _pyring
 
     def __cinit__(self, ring):
         self._pyring = ring
         self._rb.ring = &(<Ring>ring)._rb
+        self._rb.ring.header.type = RINGTYPE_MULTIPART
 
     def __init__(self, ring):
         pass
@@ -205,11 +271,14 @@ cdef class BufRing:
         if not r:
             return True
         if r != EAGAIN:
-            raise RuntimeError("Ring write failed")
+            raise IOError("Ring write failed")
         return False
 
     def flush(self):
         msg_write_flush(&self._rb)
+
+    def ready(self):
+        return record_next_size(self._rb.ring) > -1
 
 # hal_iter callback: add ring names into list
 cdef int _collect_ring_names(hal_ring_t *ring,  void *userdata):
