@@ -301,3 +301,14 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
     }
     return 0;
 }
+
+// send a keepalive to all group subscribers
+int ping_groups(htself_t *self)
+{
+    for (groupmap_iterator g = self->groups.begin(); g != self->groups.end(); g++) {
+	self->tx.set_type(pb::MT_PING);
+	int retval = send_pbcontainer(g->first.c_str(), self->tx, self->z_halgroup);
+	assert(retval == 0);
+    }
+    return 0;
+}

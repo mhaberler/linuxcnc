@@ -329,3 +329,15 @@ add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
     }
     return 0;
 }
+
+// send a keepalive to all comp subscribers
+int ping_comps(htself_t *self)
+{
+    for (compmap_iterator c = self->rcomps.begin();
+	 c != self->rcomps.end(); c++) {
+	self->tx.set_type(pb::MT_PING);
+	int retval = send_pbcontainer(c->first.c_str(), self->tx, self->z_halrcomp);
+	assert(retval == 0);
+    }
+    return 0;
+}
