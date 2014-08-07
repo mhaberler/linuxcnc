@@ -218,6 +218,7 @@ read_config(wtconf_t *conf)
 
     iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
     iniFindInt(inifp, "PORT", conf->section, &conf->info.port);
+    iniFindInt(inifp, "OPTIONS", conf->section, (int *) &conf->info.options);
     iniFindInt(inifp, "EXTENSIONS",  conf->section, &flag);
     if (flag) conf->info.extensions = libwebsocket_get_internal_extensions();
 
