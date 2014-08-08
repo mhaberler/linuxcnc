@@ -1,5 +1,8 @@
 WEBTALK_DIR := machinetalk/webtalk
 
+# see https://github.com/somdoron/rfc/blob/master/spec_39.txt
+ZWS_SUPPORT := -DZWS_SUPPORT
+
 # install this so out of tree policy plugins can compile against this
 INCLUDES +=  $(WEBTALK_DIR)
 
@@ -22,7 +25,8 @@ WEBTALK_CXXFLAGS := 		\
 	$(SSL_CFLAGS)		\
 	$(UUID_CFLAGS) 		\
 	$(AVAHI_CFLAGS) 	\
-	$(URIPARSER_CFLAGS)
+	$(URIPARSER_CFLAGS)	\
+	$(ZWS_SUPPORT)
 
 WEBTALK_LDFLAGS := 		\
 	$(PROTOBUF_LIBS)	\
