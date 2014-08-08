@@ -31,8 +31,8 @@ int wt_add_plugin(wtself_t *self, const char *sopath)
 		     __func__,sopath, dlerror());
 	return -ENOENT;
     }
-    syslog_async(LOG_INFO, "%s: found policy '%s' descriptor in %s: callback=%p\n",
-		 __func__, p->name, sopath, p->callback);
+    syslog_async(LOG_INFO, "%s: adding policy '%s' from plugin '%s'\n",
+		 __func__, p->name, sopath);
     int retval = wt_proxy_add_policy(self, p->name, p->callback);
     assert(retval == 0);
     return 0;
