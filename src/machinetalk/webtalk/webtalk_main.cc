@@ -134,12 +134,13 @@ wt_hello(wtconf_t *cfg)
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
     syslog_async(LOG_DEBUG,
-		 "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d\n",
+		 "%s: startup ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d libwebsockets='%s'\n",
 		 cfg->progname, major, minor, patch,
 		 CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
 		 GOOGLE_PROTOBUF_VERSION / 1000000,
 		 (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
-		 GOOGLE_PROTOBUF_VERSION % 1000);
+		 GOOGLE_PROTOBUF_VERSION % 1000,
+		 lws_get_library_version());
 }
 
 // pull global values from MACHINEKIT_INI
