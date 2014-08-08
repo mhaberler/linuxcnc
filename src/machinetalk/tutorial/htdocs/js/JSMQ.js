@@ -29,7 +29,7 @@ function Endpoint(address) {
         outgoingMessage = [];
 
         //webSocket = new window.WebSocket(address, ["WSNetMQ"]);
-        webSocket = new window.WebSocket(address, "http");
+        webSocket = new window.WebSocket(address, ["ZWS1.0"]);
         state = ConnectingState;
 
         webSocket.onopen = onopen;
