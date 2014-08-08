@@ -34,8 +34,8 @@ while True:
     if dealer in events and events[dealer] == zmq.POLLIN:
         rx = dealer.recv_multipart()
         print "dealer rx: ", str(rx)
-        xpub.send_multipart([topic, "%s said: %s" % (rx[0],rx[1])])
+        xpub.send_multipart([topic, "%s said: '%s'" % (rx[0],rx[1])])
 
     # periodic chat message
-    xpub.send_multipart([topic,"update #%d for topic %s" % (count, topic)])
+    xpub.send_multipart([topic,"'update #%d for topic %s'" % (count, topic)])
     count += 1
