@@ -74,3 +74,18 @@ TARGETS += ../lib/webtalk/plugins/example.o
 
 
 
+ZWS_PLUGIN_SRCS := $(addprefix $(WEBTALK_DIR)/, \
+	webtalk_zws_policy.cc)
+
+$(call TOOBJSDEPS, $(ZWS_PLUGIN_SRCS)) : EXTRAFLAGS += \
+	$(WEBTALK_CXXFLAGS) \
+	-fpic -Wall -std=c++0x -g
+
+../lib/webtalk/plugins/zws.o: $(call TOOBJS, $(ZWS_PLUGIN_SRCS))
+	@mkdir -p $(dir $@)
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ -shared
+
+USERSRCS += $(ZWS_PLUGIN_SRCS)
+TARGETS += ../lib/webtalk/plugins/zws.o
+

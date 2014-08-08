@@ -469,6 +469,8 @@ static const char * const wt_log_level_names[] = {
     "TOWS",
     "FROMWS",
     "LOOP",
+    "CONFIG",
+    "ZWS",
 };
 
 static void lwsl_emit_wtlog(int filter, const char *line)
