@@ -12,7 +12,7 @@
 
 #include "webtalk.hh"
 
-struct zws_session {
+struct zwsproto_session {
     zmsg_t *partial;  // accumulate frames from ws with 'more' flag set, send on final
 };
 
@@ -28,6 +28,7 @@ zwspolicy_t proxy_policy {
     zws_policy
 };
 
+static int handle_websocket_frame(struct zwsproto_session *zwss, zws_session_t *wss);
 
 // relay policy handler
 static int
@@ -37,18 +38,23 @@ zws_policy(wtself_t *self,
 {
     zmsg_t *m;
     zframe_t *f;
-    struct zws_session *zwss = (struct zws_session *) wss->user_data;
+    struct zwsproto_session *zwss = (struct zwsproto_session *) wss->user_data;
+    char *data;
 
     switch (type) {
 
     case ZWS_CONNECTING:
-	lwsl_notice("%s: ZWS_CONNECTING\n", __func__);
+	{
+	    const struct libwebsocket_protocols *proto = libwebsockets_get_protocol (wss->wsiref); 
+	    lwsl_notice("%s: ZWS_CONNECTING protocol='%s'\n",
+			__func__, proto->name);
 
-	wss->user_data = calloc(1, sizeof(struct zws_session));
-	assert(wss->user_data != NULL);
+	    wss->user_data = zmalloc(sizeof(struct zwsproto_session));
+	    assert(wss->user_data != NULL);
 
-	// > 1 indicates: run the default policy ZWS_CONNECTING code
-	return 1;
+	    // > 1 indicates: run the default policy ZWS_CONNECTING code
+	    return 1;
+	}
 	break;
 
     case ZWS_ESTABLISHED:
@@ -56,7 +62,6 @@ zws_policy(wtself_t *self,
 	break;
 
     case ZWS_CLOSE:
-
 	lwsl_notice("%s: ZWS_CLOSE\n", __func__);
 
 	if (zwss->partial != NULL) {
@@ -73,7 +78,7 @@ zws_policy(wtself_t *self,
 	    switch (wss->socket_type) {
 	    case ZMQ_SUB:
 		{
-		    char *data = (char *) wss->buffer;
+		    data = (char *) wss->buffer;
 		    switch (*data) {
 		    case '0': // a final frame
 			data++;
@@ -93,7 +98,7 @@ zws_policy(wtself_t *self,
 			    }
 			    break;
 			default:
-			    lwsl_err("%s: invalid code on SUB in ws frame, c='%c' (0x%x)\n",
+			    lwsl_err("%s: invalid code in SUB ws input frame, c='%c' (0x%x)\n",
 				       __func__, *data, *data);
 			    return -1;
 			}
@@ -101,97 +106,56 @@ zws_policy(wtself_t *self,
 		    break;
 		}
 		break;
+
 	    case ZMQ_XSUB:
-		{
-		    char *data = (char *) wss->buffer;
-		    switch (*data) {
-		    case '0': // a final frame
-			data++;
-			switch (*data) {
+		data = (char *) wss->buffer;
 
-			case '1': // subscribe command:
-			    {
-				lwsl_zws("%s: XSUB subscribe '%.*s'\n", __func__,
-					 wss->length - 2, data + 1);
-
-				*data = '\001';
-				std::string s(data, data + wss->length - 1);
-				f = zframe_new (s.c_str(), wss->length - 1);
-				return zframe_send(&f, wss->socket, 0);
-			    }
-			    break;
-
-			case '0': // unsubscribe command:
-			    {
-				*data = '\000';
-				std::string s(data, data + wss->length - 1);
-				lwsl_zws("%s: XSUB unsubscribe '%.*s'\n", __func__,
-					 wss->length - 2, data +1);
-				f = zframe_new (s.c_str(), wss->length - 1);
-				return zframe_send(&f, wss->socket, 0);
-			    }
-			    break;
-
-			default:
-			    lwsl_err("%s: invalid code on XSUB in ws frame, c='%c' (0x%x), socket type=%d\n",
-				       __func__, *data, *data, wss->socket_type);
-			    return -1;
-			}
-		    }
-		    break;
-		}
-		break;
-
-	    case ZMQ_DEALER:
-		{
-		    lwsl_zws("%s: DEALER in '%.*s'\n", __func__, wss->length, wss->buffer);
-		    char *data = (char *) wss->buffer;
-		    int rc;
-
+		switch (*data) {
+		case '0': // a final frame
+		    data++;
 		    switch (*data) {
 
-		    case '0': // last frame
-			{
-			    if (zwss->partial == NULL) {
-				// trivial case - single frame message
-				f = zframe_new (data + 1, wss->length - 1);
-				return zframe_send(&f, wss->socket, 0);
-			    };
-			    // append this frame
-			    rc = zmsg_addmem (zwss->partial, data + 1, wss->length - 1);
-			    assert (rc == 0);
-			    // send it off - this sets zwss->partial to NULL
-			    rc = zmsg_send(&zwss->partial,  wss->socket);
-			    assert (rc == 0);
-			}
+		    case '1': // subscribe command:
+			lwsl_zws("%s: XSUB subscribe '%.*s'\n", __func__,
+				 wss->length - 2, data + 1);
+			*data = '\001';
+			f = zframe_new (data, wss->length - 1);
+			return zframe_send(&f, wss->socket, 0);
 			break;
 
-		    case '1': // more to come
-			{
-			    if (zwss->partial == NULL) {
-				lwsl_err("%s: DEALER - start a multiframe message\n",  __func__);
-				zwss->partial = zmsg_new();
-			    }
-
-			    // append current frame
-			    rc = zmsg_addmem (zwss->partial, data + 1, wss->length - 1);
-			    lwsl_err("%s: DEALER - add frame count=%d\n",
-				     __func__, zmsg_size(zwss->partial));
-			}
+		    case '0': // unsubscribe command:
+			*data = '\000';
+			lwsl_zws("%s: XSUB unsubscribe '%.*s'\n", __func__,
+				 wss->length - 2, data + 1);
+			f = zframe_new (data, wss->length - 1);
+			return zframe_send(&f, wss->socket, 0);
 			break;
 
 		    default:
-			lwsl_err("%s: invalid code on DEALER in ws frame, c='%c' (0x%x), socket type=%d\n",
-				       __func__, *data, *data, wss->socket_type);
-			return -1;
-			break;
+			// XXX single frame in on xsub - exotic but possible
+			// strip unknow char and send the rest
+			lwsl_info("%s: stripping unknown code XSUB in ws frame, c='%c' (0x%x)\n",
+				  __func__, *data, *data);
+			f = zframe_new (data + 1, wss->length - 1);
+			return zframe_send(&f, wss->socket, 0);
 		    }
+		    break;
+
+		case '1': // XXX multipart in on xsub - exotic but possible ?
+		    return -1;
+		    break;
+
+		default:
+		    lwsl_err("%s: invalid code on XSUB in ws frame, c='%c' (0x%x), socket type=%d\n",
+			     __func__, *data, *data, wss->socket_type);
+		    return -1;
 		}
+		break;
 
 	    default:
-		lwsl_err("%s: socket type=%d not implemented yet\n",
-			   __func__, wss->socket_type);
-		return -1;
+		// all other socket types - pass on single & multiframe messages
+		// without inspection
+		return handle_websocket_frame(zwss, wss);
 	    }
 	}
 	break;
@@ -199,7 +163,6 @@ zws_policy(wtself_t *self,
     case ZWS_TO_WS:
 	{
 	    // a message was received from the zeroMQ socket
-
 	    // ZWS: prepend non-final frames with '1', final frame with '0'
 
 	    m = zmsg_recv(wss->socket);
@@ -217,7 +180,7 @@ zws_policy(wtself_t *self,
 		// prepend more/final flag
 		*data++ = (nf > 0) ? '1' : '0';
 		memcpy(data, zframe_data(f), zframe_size(f));
-		lwsl_tows("%s: '%c' %d:'%.*s'\n", __func__,
+		lwsl_tows("%s: %c %d:\"%.*s\"\n", __func__,
 			  (nf > 0) ? '1' : '0',
 			  zframe_size(f), zframe_size(f), zframe_data(f));
 		zframe_send(&nframe, wss->wsq_out, 0);
@@ -228,8 +191,54 @@ zws_policy(wtself_t *self,
 	break;
 
     default:
-	lwsl_err("%s: unhandled type: %d\n", __func__, type);
+	lwsl_err("%s: unhandled operation type: %d\n", __func__, type);
 	break;
+    }
+    return 0;
+}
+
+static int handle_websocket_frame(struct zwsproto_session *zwss,
+				  zws_session_t *wss)
+{
+    zframe_t *f;
+    char *data = (char *) wss->buffer;
+    int rc;
+
+    lwsl_zws("%s: ws in '%.*s'\n", __func__, wss->length, wss->buffer);
+
+    switch (*data) {
+
+    case '0': // last frame
+	if (zwss->partial == NULL) {
+	    // trivial case - single frame message
+	    f = zframe_new (data + 1, wss->length - 1);
+	    return zframe_send(&f, wss->socket, 0);
+	};
+	// append this frame
+	rc = zmsg_addmem (zwss->partial, data + 1, wss->length - 1);
+	assert (rc == 0);
+	// and send it off - this sets zwss->partial to NULL
+	rc = zmsg_send(&zwss->partial,  wss->socket);
+	assert (rc == 0);
+	break;
+
+    case '1': // more to come
+	if (zwss->partial == NULL) {
+	    lwsl_zws("%s: start multiframe message\n",  __func__);
+	    zwss->partial = zmsg_new();
+	}
+	// append current frame
+	rc = zmsg_addmem (zwss->partial, data + 1, wss->length - 1);
+	lwsl_zws("%s: adding frame, count=%d\n",
+		 __func__, zmsg_size(zwss->partial));
+	break;
+
+    default:
+	// XXX unspecified prefix character - just pass on as a single frame after stripping first char:
+	lwsl_info("%s: stripping unknown code in ws frame, c='%c' (0x%x), socket type=%d\n",
+		  __func__, *data, *data, wss->socket_type);
+	f = zframe_new (data + 1, wss->length - 1);
+	return zframe_send(&f, wss->socket, 0);
     }
     return 0;
 }
