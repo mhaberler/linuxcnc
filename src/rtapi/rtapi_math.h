@@ -62,14 +62,6 @@ extern double floor(double);
 #define isinf(x) ({ double v=((x)); !isnan(v) && isnan(v-v); })
 #endif
 
-#if __GNUC_PREREQ(4,4)
-#define isinf(x) __builtin_isinf((x))
-#define isfinite(x) __builtin_isfinite((x))
-#else
-#define isinf(x) ({ double v=((x)); !isnan(v) && isnan(v-v); })
-#define isfinite(x) ({ double v=((x)); !isnan(v) && !isnan(v-v); })
-#endif
-
 #ifdef __i386__
 #include "rtapi_math_i386.h"
 #endif
