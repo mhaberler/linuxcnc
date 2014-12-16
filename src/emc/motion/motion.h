@@ -629,6 +629,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	cmd_status_t commandStatus;	/* result of most recent command */
 	/* these are config info, updated when a command changes them */
 	double feed_scale;	/* velocity scale factor for all motion */
+        double rapid_scale;     /* velocity scale factor for rapids */
 	double spindle_scale;	/* velocity scale factor for spindle speed */
 	unsigned char enables_new;	/* flags for FS, SS, etc */
 		/* the above set is the enables in effect for new moves */
