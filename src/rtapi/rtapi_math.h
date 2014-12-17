@@ -48,6 +48,7 @@ extern double floor(double);
 #define isinf(x) __builtin_isinf((x))
 #define isfinite(x) __builtin_isfinite((x))
 
+#ifndef __i386__
 extern __inline double atan (double __y) {
     return atan2(__y, 1.);
 }
@@ -66,8 +67,7 @@ extern __inline double fmax(double __y, double __x) {
 extern __inline double fmin(double __y, double __x) {
     return __y < __x || __builtin_isnan(__x) ? __y : __x;
 }
-
-#ifdef __i386__
+#else
 #include "rtapi_math_i386.h"
 #endif
 
