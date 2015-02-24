@@ -98,7 +98,7 @@ extern long int simple_strtol(const char *nptr, char **endptr, int base);
 // HAL return values are reflected in the return value to write()
 //
 #define PROCFS_THREADCMD "/proc/rtapi/hal/threadcmd"
-extern int procfs_threadcmd(const char *format, ...);
+extern int procfs_cmd(const char *path, const char *format, ...);
 
 // kernel tests in rtapi_compat.c
 extern int kernel_is_xenomai();
