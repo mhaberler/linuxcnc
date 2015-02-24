@@ -42,6 +42,30 @@ int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
     return retval;
 }
 
+
+int rtapi_callfunc(int instance, const char *comp,
+		     const char *func, const char **args)
+{
+    pb::RTAPICommand *cmd;
+    command.Clear();
+    command.set_type(pb::MT_RTAPI_APP_CALLFUNC);
+    cmd = command.mutable_rtapicmd();
+    cmd->set_comp(comp);
+    cmd->set_func(func);
+    cmd->set_instance(instance);
+
+    int argc = 0;
+    if (args)
+	while(args[argc] && *args[argc]) {
+	    cmd->add_argv(args[argc]);
+	    argc++;
+	}
+    int retval = rtapi_rpc(z_command, command, reply);
+    if (retval)
+	return retval;
+    return reply.retcode();
+}
+
 static int rtapi_loadop(pb::ContainerType type, int instance, const char *modname, const char **args)
 {
     pb::RTAPICommand *cmd;
@@ -153,7 +177,7 @@ int rtapi_connect(int instance, char *uri, const char *svc_uuid)
     }
 
 #if 0
-    // we're not doint remote RTAPI just yet
+    // we're not doing remote RTAPI just yet
     if (uri == NULL) {
 	char uuid[50];
 	snprintf(uuid, sizeof(uuid),"uuid=%s", svc_uuid);

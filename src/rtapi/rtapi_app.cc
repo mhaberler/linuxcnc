@@ -281,10 +281,92 @@ static void pbconcat(string &s, const pbstringarray_t &args)
     }
 }
 
+
+static const char **pbargv(const pbstringarray_t &args)
+{
+    const char **argv, **s;
+    s = argv = (const char **) calloc(sizeof(char *), args.size() + 1);
+    for (int i = 0; i < args.size(); i++) {
+	*s++ = args.Get(i).c_str();
+    }
+    *s = NULL;
+    return argv;
+}
+
 static inline bool kernel_threads(flavor_ptr f) {
     assert(f);
     return (f->flags & FLAVOR_KERNEL_BUILD) != 0;
 }
+
+static int do_callfunc_cmd(int instance, string comp,
+			   string func, pbstringarray_t args,
+			   pb::Container &pbreply)
+{
+    // typedef hal_vtable_t *(*halpr_find_vtable_by_name_t)(const char *, int);
+    int retval = -1;
+
+    if (kernel_threads(flavor)) {
+	pbreply.add_note("not implemented yet");
+	pbreply.set_retcode(-1);
+	// int retval =  procfs_cmd(PROCFS_THREADCMD,"newthread %s %d %d %d",
+	// 				   pbreq.rtapicmd().threadname().c_str(),
+	// 				   pbreq.rtapicmd().threadperiod(),
+	// 				   pbreq.rtapicmd().use_fp(),
+	// 				   pbreq.rtapicmd().cpu());
+	// pbreply.set_retcode(retval < 0 ? retval:0);
+
+    } else {
+	pbreply.add_note("not implemented yet");
+	pbreply.set_retcode(-1);
+#if 0
+	void *w = modules["hal_lib"];
+	if (w == NULL) {
+	    pbreply.add_note("hal_lib not loaded");
+	    pbreply.set_retcode(-1);
+	    return -1;
+	}
+	dlerror();
+
+	halpr_find_vtable_by_name_t find_vtable = (halpr_find_vtable_by_name_t)
+	    dlsym(w, "halpr_find_vtable_by_name");
+	if (find_vtable == NULL) {
+	    pbreply.add_note("symbol 'halpr_find_vtable_by_name' not found in hal_lib");
+	    pbreply.set_retcode(-1);
+	    return -1;
+	}
+
+	hal_vtable_t *vt = find_vtable(vtable.c_str(), -1);
+	if (vt == NULL) {
+	    pbreply.set_retcode(-1);
+	    pbreply.add_note("vtable " + vtable + "not found");
+	    return -1;
+	}
+	// we're relying on the fact that userland RT and rtapi_app share the same address space
+	struct hal_vtablehdr *vhdr = vt->vtable;
+	if (vhdr->methods == NULL) {
+	    pbreply.add_note("vtable " + vtable +
+			     "does not export userland-callable methods");
+	    pbreply.set_retcode(-1);
+	    return -1;
+	}
+	// ok, this vtable exports vmethods - search for a name match
+	struct hal_vmethod *vm;
+	for (vm =  vhdr->methods; vm->name != NULL; vm++) {
+	    if (strcmp(vm->name, method.c_str()) == 0) {
+		const char **argv = pbargv(args);
+		retval = vm->method(vm, args.size(), argv); // args TBD
+		free(argv);
+		goto DONE;
+	    }
+	}
+	pbreply.add_note("vtable " + vtable + ": method " + method + " not found");
+ DONE:
+	pbreply.set_retcode(retval);
+#endif
+    }
+    return retval;
+}
+
 
 static int do_load_cmd(int instance, string name, pbstringarray_t args)
 {
@@ -546,6 +628,17 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	pbreply.set_retcode(0);
 	break;
 
+    case pb::MT_RTAPI_APP_CALLFUNC:
+	assert(pbreq.has_rtapicmd());
+	assert(pbreq.rtapicmd().has_comp());
+	assert(pbreq.rtapicmd().has_func());
+	assert(pbreq.rtapicmd().has_instance());
+	pbreply.set_retcode(do_callfunc_cmd(pbreq.rtapicmd().instance(),
+					      pbreq.rtapicmd().comp(),
+					      pbreq.rtapicmd().func(),
+					      pbreq.rtapicmd().argv(),
+					      pbreply));
+	break;
     case pb::MT_RTAPI_APP_LOADRT:
 	assert(pbreq.has_rtapicmd());
 	assert(pbreq.rtapicmd().has_modname());
