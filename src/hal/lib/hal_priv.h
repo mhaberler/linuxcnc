@@ -464,6 +464,7 @@ static inline const char* fa_funct_name(const hal_funct_args_t *fa) { return fa-
 
 static inline const int fa_argc(const hal_funct_args_t *fa) { return fa->argc; }
 static inline const char** fa_argv(const hal_funct_args_t *fa) { return fa->argv; }
+static inline const void * fa_arg(const hal_funct_args_t *fa) { return fa->funct->arg; }
 
 
 // represents a HAL vtable object

@@ -54,7 +54,8 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
     hal_xfunct_t xf = {
 	.type = FS_LEGACY_THREADFUNC,
 	.funct.l = funct,
-	.arg = arg,	.uses_fp = uses_fp,
+	.arg = arg,
+	.uses_fp = uses_fp,
 	.reentrant = reentrant,
 	.comp_id = comp_id
     };
