@@ -333,7 +333,7 @@ int do_addf_cmd(char *func, char *thread, char **opt) {
         halcmd_info("Function '%s' added to thread '%s'\n",
                     func, thread);
     } else {
-        halcmd_error("addf failed\n");
+        halcmd_error("addf failed: %s\n", hal_lasterror());
     }
     return retval;
 }
@@ -2050,6 +2050,16 @@ static void print_param_aliases(char **patterns)
     halcmd_output("\n");
 }
 
+static const char *ftype(int ft)
+{
+    switch (ft) {
+    case FS_LEGACY_THREADFUNC: return "thread";
+    case FS_XTHREADFUNC: return "xthread";
+    case FS_USERLAND: return "user";
+    default: return "*invalid*";
+    }
+}
+
 static void print_funct_info(char **patterns)
 {
     int next;
@@ -2058,7 +2068,7 @@ static void print_funct_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Exported Functions:\n");
-	halcmd_output("Owner   CodeAddr  Arg       FP   Users  Name\n");
+	halcmd_output("Owner   CodeAddr  Arg       FP   Users Type    Name\n");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->funct_list_ptr;
@@ -2067,11 +2077,13 @@ static void print_funct_info(char **patterns)
 	if ( match(patterns, fptr->name) ) {
 	    comp = SHMPTR(fptr->owner_ptr);
 	    if (scriptmode == 0) {
-		halcmd_output(" %05d  %08lx  %08lx  %-3s  %5d   %s\n",
-		    comp->comp_id,
-		    (long)fptr->funct.l,
-		    (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
-		    fptr->users, fptr->name);
+		halcmd_output(" %05d  %08lx  %08lx  %-3s  %5d %-7s %s\n",
+			      comp->comp_id,
+			      (long)fptr->funct.l,
+			      (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
+			      fptr->users,
+			      ftype(fptr->type),
+			      fptr->name);
 	    } else {
 		halcmd_output("%s %08lx %08lx %s %3d %s\n",
 		    comp->name,

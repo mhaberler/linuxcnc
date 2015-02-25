@@ -372,18 +372,15 @@ typedef struct {
 
     hal_thread_t  *thread; // descriptor of invoking thread
     hal_funct_t   *funct;  // descriptor of invoked funct
-} hal_xthread_args_t ;
 
-#define MAX_FUNCT_ARGS 10  // for FS_USERLAND-typed functs
-typedef struct {
-    void *arg;             // user-defined argument from hal_export_xfunct
+    // argument vector for FS_USERLAND; 0/NULL for others
     int argc;
-    char *argv[MAX_FUNCT_ARGS+1];    // NULL-delimited
+    const char **argv;
 } hal_funct_args_t ;
 
 // signatures
 typedef void (*legacy_funct_t) (void *, long);
-typedef int  (*xthread_funct_t) (const void *, const hal_xthread_args_t *);
+typedef int  (*xthread_funct_t) (const void *, const hal_funct_args_t *);
 typedef int  (*userland_funct_t) (const hal_funct_args_t *);
 
 typedef union {
@@ -402,7 +399,7 @@ typedef struct {
     int comp_id;
 } hal_xfunct_t;
 
-int hal_export_xfunct(const char *name, const hal_xfunct_t *xf);
+int hal_export_xfunctf(const hal_xfunct_t *xf, const char *fmt, ...);
 
 typedef struct hal_funct {
     int next_ptr;		/* next function in linked list */
@@ -443,17 +440,19 @@ typedef struct hal_thread {
 } hal_thread_t;
 
 
-// public accessors for FS_XTHREADFUNC-type functs, which reveice an
-// hal_xthread_args_t argument
-static inline long long int xt_start_time(const hal_xthread_args_t *xa)
- { return xa->start_time; }
+// public accessors for hal_funct_args_t argument
+static inline long long int fa_start_time(const hal_funct_args_t *fa)
+ { return fa->start_time; }
 
-static inline long long int xt_thread_start_time(const hal_xthread_args_t *xa)
-{ return xa->thread_start_time; }
+static inline long long int fa_thread_start_time(const hal_funct_args_t *fa)
+{ return fa->thread_start_time; }
 
-static inline long xt_period(const hal_xthread_args_t *xa) { return xa->thread->period; }
-static inline const char*xt_thread_name(const hal_xthread_args_t *xa) { return xa->thread->name; }
-static inline const char*xt_funct_name(const hal_xthread_args_t *xa) { return xa->funct->name; }
+static inline long fa_period(const hal_funct_args_t *fa) { return fa->thread->period; }
+static inline const char* fa_thread_name(const hal_funct_args_t *fa) { return fa->thread->name; }
+static inline const char* fa_funct_name(const hal_funct_args_t *fa) { return fa->funct->name; }
+
+static inline const int fa_argc(const hal_funct_args_t *fa) { return fa->argc; }
+static inline const char** fa_argv(const hal_funct_args_t *fa) { return fa->argv; }
 
 
 // represents a HAL vtable object

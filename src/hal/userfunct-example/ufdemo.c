@@ -13,7 +13,8 @@ static char *compname = "ufdemo";
 
 static int demo(const hal_funct_args_t *fa)
 {
-
+    rtapi_print_msg(RTAPI_MSG_INFO, "%s: userfunct '%s' called\n",
+		    compname, fa_funct_name(fa));
     return 0;
 }
 
@@ -32,7 +33,7 @@ int rtapi_app_main(void)
 	.arg = "demo-argument",
 	.comp_id = comp_id
     };
-    int retval = hal_export_xfunct("demofunct", &xf);
+    int retval = hal_export_xfunctf( &xf, "%s.demofunct", compname);
     if (retval < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: ERROR: hal_export_xfunct) failed: %d\n",

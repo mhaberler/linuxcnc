@@ -54,19 +54,18 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
     hal_xfunct_t xf = {
 	.type = FS_LEGACY_THREADFUNC,
 	.funct.l = funct,
-	.arg = arg,
-	.uses_fp = uses_fp,
+	.arg = arg,	.uses_fp = uses_fp,
 	.reentrant = reentrant,
 	.comp_id = comp_id
     };
-    return hal_export_xfunct(name, &xf);
+    return hal_export_xfunctf(&xf, name);
 }
 
-int hal_export_xfunct(const char *name, const hal_xfunct_t *xf)
+static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap)
 {
-    int *prev, next, cmp;
+    int *prev, next, cmp, sz;
     hal_funct_t *new, *fptr;
-    char buf[HAL_NAME_LEN + 1];
+    char name[HAL_NAME_LEN + 1];
 
     if (hal_data == 0) {
 	hal_print_msg(RTAPI_MSG_ERR,
@@ -74,19 +73,22 @@ int hal_export_xfunct(const char *name, const hal_xfunct_t *xf)
 	return -EINVAL;
     }
 
-    if (strlen(name) > HAL_NAME_LEN) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: function name '%s' is too long\n", name);
-	return -EINVAL;
+    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
+    if(sz == -1 || sz > HAL_NAME_LEN) {
+        hal_print_msg(RTAPI_MSG_ERR,
+	    "hal_export_xfunct: length %d too long for name starting '%s'\n",
+	    sz, name);
+        return -ENOMEM;
     }
+
     if (hal_data->lock & HAL_LOCK_LOAD)  {
 	hal_print_msg(RTAPI_MSG_ERR,
 			"HAL: ERROR: export_funct called while HAL locked\n");
 	return -EPERM;
     }
 
-    hal_print_msg(RTAPI_MSG_DBG, "HAL: exporting function '%s'\n", name);
-
+    hal_print_msg(RTAPI_MSG_DBG, "HAL: exporting function '%s' type %d\n",
+		  name, xf->type);
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
 
@@ -127,6 +129,7 @@ int hal_export_xfunct(const char *name, const hal_xfunct_t *xf)
 	new->users = 0;
 	new->handle = rtapi_next_handle();
 	new->arg = xf->arg;
+	new->type = xf->type;
 	new->funct.l = xf->funct.l; // a bit of a cheat really
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* search list for 'name' and insert new structure */
@@ -184,18 +187,27 @@ int hal_export_xfunct(const char *name, const hal_xfunct_t *xf)
        does not cause the "export_funct()" call to fail - they are
        for debugging and testing use only */
     /* create a parameter with the function's maximum runtime in it */
-    rtapi_snprintf(buf, sizeof(buf), "%s.tmax", name);
+    rtapi_snprintf(name, sizeof(name), "%s.tmax", name);
     new->maxtime = 0;
-    hal_param_s32_new(buf, HAL_RW, &(new->maxtime), xf->comp_id);
+    hal_param_s32_new(name, HAL_RW, &(new->maxtime), xf->comp_id);
 
     /* create a parameter with the function's maximum runtime in it */
-    rtapi_snprintf(buf, sizeof(buf), "%s.tmax-increased", name);
+    rtapi_snprintf(name, sizeof(name), "%s.tmax-increased", name);
     new->maxtime_increased = 0;
-    hal_param_bit_new(buf, HAL_RO, &(new->maxtime_increased), xf->comp_id);
+    hal_param_bit_new(name, HAL_RO, &(new->maxtime_increased), xf->comp_id);
 
     return 0;
 }
 
+int hal_export_xfunctf(const hal_xfunct_t *xf, const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = hal_export_xfunctfv(xf, fmt, ap);
+    va_end(ap);
+    return ret;
+}
 #endif // RTAPI
 
 int hal_add_funct_to_thread(const char *funct_name,

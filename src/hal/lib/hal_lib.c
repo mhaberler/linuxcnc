@@ -582,4 +582,6 @@ EXPORT_SYMBOL(halpr_find_pin_by_sig);
 EXPORT_SYMBOL(hal_print_msg);
 EXPORT_SYMBOL(hal_lasterror);
 
+EXPORT_SYMBOL(hal_export_xfunctf);
+
 #endif /* rtapi */

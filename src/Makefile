@@ -203,8 +203,8 @@ SUBDIRS := \
 	\
 	hal/lib \
 	hal/components \
-	hal/examples/vtable-example \
-	hal/examples/userfunct-example \
+	hal/vtable-example \
+	hal/userfunct-example \
 	hal/drivers \
 	hal/user_comps/devices \
 	hal/user_comps/mb2hal \
@@ -1086,8 +1086,8 @@ ifneq ($(KERNELRELEASE),)
 include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
-include $(BASEPWD)/hal/examples/vtable-example/Submakefile
-include $(BASEPWD)/hal/examples/userfunct-example/Submakefile
+include $(BASEPWD)/hal/vtable-example/Submakefile
+include $(BASEPWD)/hal/userfunct-example/Submakefile
 include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
@@ -1455,9 +1455,12 @@ motmod-objs += emc/motion/dbuf.o
 motmod-objs += libnml/posemath/_posemath.o
 motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
-obj-m += vtexport.o
-vtexport-objs := hal/examples/vtable-example/vtexport.o
-vtexport-objs += hal/examples/vtable-example/vcode.o
+# obj-m += vtexport.o
+# vtexport-objs := hal/vtable-example/vtexport.o
+# vtexport-objs += hal/vtable-example/vcode.o
+
+obj-m += ufdemo.o
+ufdemo-objs := hal/userfunct-example/ufdemo.o
 
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \
@@ -1471,12 +1474,6 @@ tp-objs := $(addprefix emc/tp/, \
 	emc/nml_intf/emcpose.o \
 	libnml/posemath/_posemath.o \
 	libnml/posemath/sincos.o $(MATHSTUB)
-
-# vtexport-objs := $(addprefix hal/examples/vtable-example/, \
-# 	vtexport.o \
-# 	vcode.o \
-# )
-
 
 
 TORTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
@@ -1639,6 +1636,8 @@ $(RTLIBDIR)/scarakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scarakins-objs))
 $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 
 $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
+#$(RTLIBDIR)/vtexport$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(vtexport-objs))
+$(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
 READ_RTDEPS = $(wildcard $(RTDEPS))
