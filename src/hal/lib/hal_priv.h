@@ -357,7 +357,7 @@ typedef struct hal_thread hal_thread_t; // forward decl
 
 typedef struct {
     unsigned long actual_period_nsec;  // actual invocation time
-    hal_thread_t  *thread;              // invoking thread
+    hal_thread_t  *thread;             // invoking thread
     void *arg;             // user-defined arguments to custom loop function
 } hal_xthread_args_t ;
 
@@ -369,8 +369,8 @@ typedef struct {
 
 // signatures
 typedef void (*legacy_funct_t) (void *, long);
-typedef int  (*xthread_funct_t) (hal_xthread_args_t *);
-typedef int  (*userland_funct_t) (hal_funct_args_t *);
+typedef int  (*xthread_funct_t) (const hal_xthread_args_t *);
+typedef int  (*userland_funct_t) (const hal_funct_args_t *);
 
 typedef union {
     legacy_funct_t   l;       // FS_LEGACY_THREADFUNC
@@ -378,6 +378,16 @@ typedef union {
     userland_funct_t u;       // FS_USERLAND
 } hal_funct_args_u;
 
+// hal_export_xfunc argument struct
+typedef struct {
+    funct_signature_t type;
+    hal_funct_args_u funct;
+    void *arg;
+    int uses_fp;
+    int reentrant;
+    int comp_id;
+} hal_xfunct_t;
+int hal_export_xfunct(const char *name, const hal_xfunct_t *xf);
 
 typedef struct {
     int next_ptr;		/* next function in linked list */

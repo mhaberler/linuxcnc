@@ -51,6 +51,19 @@ int hal_export_functf(void (*funct) (void *, long),
 int hal_export_funct(const char *name, void (*funct) (void *, long),
 		     void *arg, int uses_fp, int reentrant, int comp_id)
 {
+    hal_xfunct_t xf = {
+	.type = FS_LEGACY_THREADFUNC,
+	.funct.l = funct,
+	.arg = arg,
+	.uses_fp = uses_fp,
+	.reentrant = reentrant,
+	.comp_id = comp_id
+    };
+    return hal_export_xfunct(name, &xf);
+}
+
+int hal_export_xfunct(const char *name, const hal_xfunct_t *xf)
+{
     int *prev, next, cmp;
     hal_funct_t *new, *fptr;
     char buf[HAL_NAME_LEN + 1];
@@ -80,18 +93,18 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
 	/* validate comp_id */
-	comp = halpr_find_comp_by_id(comp_id);
+	comp = halpr_find_comp_by_id(xf->comp_id);
 	if (comp == 0) {
 	    /* bad comp_id */
 	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: component %d not found\n", comp_id);
+			    "HAL: ERROR: component %d not found\n", xf->comp_id);
 	    return -EINVAL;
 	}
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
 	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: component %d is not realtime (%d)\n",
-			    comp_id, comp->type);
+			  "HAL: ERROR: component %d is not realtime (%d)\n",
+			  xf->comp_id, comp->type);
 	    return -EINVAL;
 	}
 	if(comp->state > COMP_INITIALIZING) {
@@ -108,13 +121,13 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 	    return -ENOMEM;
 	}
 	/* initialize the structure */
-	new->uses_fp = uses_fp;
+	new->uses_fp = xf->uses_fp;
 	new->owner_ptr = SHMOFF(comp);
-	new->reentrant = reentrant;
+	new->reentrant = xf->reentrant;
 	new->users = 0;
 	new->handle = rtapi_next_handle();
-	new->arg = arg;
-	new->funct.l = funct;
+	new->arg = xf->arg;
+	new->funct.l = xf->funct.l; // a bit of a cheat really
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* search list for 'name' and insert new structure */
 	prev = &(hal_data->funct_list_ptr);
@@ -160,7 +173,7 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
     rtapi_mutex_give(&(hal_data->mutex));
 
     /* create a pin with the function's runtime in it */
-    if (hal_pin_s32_newf(HAL_OUT, &(new->runtime), comp_id,"%s.time",name)) {
+    if (hal_pin_s32_newf(HAL_OUT, &(new->runtime), xf->comp_id,"%s.time",name)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 	   "HAL: ERROR: fail to create pin '%s.time'\n", name);
 	return -EINVAL;
@@ -173,12 +186,12 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
     /* create a parameter with the function's maximum runtime in it */
     rtapi_snprintf(buf, sizeof(buf), "%s.tmax", name);
     new->maxtime = 0;
-    hal_param_s32_new(buf, HAL_RW, &(new->maxtime), comp_id);
+    hal_param_s32_new(buf, HAL_RW, &(new->maxtime), xf->comp_id);
 
     /* create a parameter with the function's maximum runtime in it */
     rtapi_snprintf(buf, sizeof(buf), "%s.tmax-increased", name);
     new->maxtime_increased = 0;
-    hal_param_bit_new(buf, HAL_RO, &(new->maxtime_increased), comp_id);
+    hal_param_bit_new(buf, HAL_RO, &(new->maxtime_increased), xf->comp_id);
 
     return 0;
 }
