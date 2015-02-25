@@ -298,8 +298,9 @@ static inline bool kernel_threads(flavor_ptr f) {
     return (f->flags & FLAVOR_KERNEL_BUILD) != 0;
 }
 
-static int do_callfunc_cmd(int instance, string comp,
-			   string func, pbstringarray_t args,
+static int do_callfunc_cmd(int instance,
+			   string func,
+			   pbstringarray_t args,
 			   pb::Container &pbreply)
 {
     // typedef hal_vtable_t *(*halpr_find_vtable_by_name_t)(const char *, int);
@@ -316,9 +317,6 @@ static int do_callfunc_cmd(int instance, string comp,
 	// pbreply.set_retcode(retval < 0 ? retval:0);
 
     } else {
-	pbreply.add_note("not implemented yet");
-	pbreply.set_retcode(-1);
-#if 0
 	void *w = modules["hal_lib"];
 	if (w == NULL) {
 	    pbreply.add_note("hal_lib not loaded");
@@ -326,43 +324,17 @@ static int do_callfunc_cmd(int instance, string comp,
 	    return -1;
 	}
 	dlerror();
+	typedef int (*call_usrfunct_t)(const char *name, const int argc, const char **argv);
 
-	halpr_find_vtable_by_name_t find_vtable = (halpr_find_vtable_by_name_t)
-	    dlsym(w, "halpr_find_vtable_by_name");
-	if (find_vtable == NULL) {
-	    pbreply.add_note("symbol 'halpr_find_vtable_by_name' not found in hal_lib");
+	call_usrfunct_t cuf = (call_usrfunct_t) dlsym(w, "hal_call_usrfunct");
+	if (cuf == NULL) {
+	    pbreply.add_note("symbol 'hal_call_usrfunct' not found in hal_lib");
 	    pbreply.set_retcode(-1);
 	    return -1;
 	}
-
-	hal_vtable_t *vt = find_vtable(vtable.c_str(), -1);
-	if (vt == NULL) {
-	    pbreply.set_retcode(-1);
-	    pbreply.add_note("vtable " + vtable + "not found");
-	    return -1;
-	}
-	// we're relying on the fact that userland RT and rtapi_app share the same address space
-	struct hal_vtablehdr *vhdr = vt->vtable;
-	if (vhdr->methods == NULL) {
-	    pbreply.add_note("vtable " + vtable +
-			     "does not export userland-callable methods");
-	    pbreply.set_retcode(-1);
-	    return -1;
-	}
-	// ok, this vtable exports vmethods - search for a name match
-	struct hal_vmethod *vm;
-	for (vm =  vhdr->methods; vm->name != NULL; vm++) {
-	    if (strcmp(vm->name, method.c_str()) == 0) {
-		const char **argv = pbargv(args);
-		retval = vm->method(vm, args.size(), argv); // args TBD
-		free(argv);
-		goto DONE;
-	    }
-	}
-	pbreply.add_note("vtable " + vtable + ": method " + method + " not found");
- DONE:
+	// actually call it
+	retval = cuf(func.c_str(), args.size(),  pbargv(args));
 	pbreply.set_retcode(retval);
-#endif
     }
     return retval;
 }
@@ -630,11 +602,9 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
     case pb::MT_RTAPI_APP_CALLFUNC:
 	assert(pbreq.has_rtapicmd());
-	assert(pbreq.rtapicmd().has_comp());
 	assert(pbreq.rtapicmd().has_func());
 	assert(pbreq.rtapicmd().has_instance());
 	pbreply.set_retcode(do_callfunc_cmd(pbreq.rtapicmd().instance(),
-					      pbreq.rtapicmd().comp(),
 					      pbreq.rtapicmd().func(),
 					      pbreq.rtapicmd().argv(),
 					      pbreply));

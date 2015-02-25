@@ -954,6 +954,8 @@ int hal_reference_vtable(const char *name, int version, void **vtable);
 int hal_unreference_vtable(int vtable_id);
 
 
+int hal_call_usrfunct(const char *name, const int argc, const char **argv);
+
 
 /** HAL 'constructor' typedef
     If it is not NULL, this points to a function which can construct a new

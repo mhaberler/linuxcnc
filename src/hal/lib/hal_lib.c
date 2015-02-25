@@ -583,5 +583,6 @@ EXPORT_SYMBOL(hal_print_msg);
 EXPORT_SYMBOL(hal_lasterror);
 
 EXPORT_SYMBOL(hal_export_xfunctf);
+EXPORT_SYMBOL(hal_call_usrfunct);
 
 #endif /* rtapi */

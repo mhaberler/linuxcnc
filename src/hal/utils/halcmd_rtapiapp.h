@@ -7,8 +7,9 @@ extern "C" {
 
     int rtapi_connect(int instance, char *uri, const char *svc_uuid);
     int rtapi_loadrt(int instance, const char *modname, const char **args);
-    int rtapi_callfunc(int instance, const char *vtable,
-		       const char *method, const char **args);
+    int rtapi_callfunc(int instance,
+		       const char *func,
+		       const char **args);
 
     int rtapi_unloadrt(int instance, const char *modname);
     int rtapi_shutdown(int instance);

@@ -3422,9 +3422,9 @@ int do_waitunbound_cmd(char *comp_name, char *tokens[])
 }
 // --- end remote comp support
 
-int do_callfunc_cmd(char *comp, char *func, char *args[])
+int do_callfunc_cmd(char *func, char *args[])
 {
-    int retval = rtapi_callfunc(rtapi_instance, comp, func, (const char **)args);
+    int retval = rtapi_callfunc(rtapi_instance, func, (const char **)args);
     if ( retval != 0 ) {
 	halcmd_error("callfunc rc=%d: %s\n", retval, rtapi_rpcerror());
 	return -1;

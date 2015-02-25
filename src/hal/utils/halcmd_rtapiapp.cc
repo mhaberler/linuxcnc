@@ -43,14 +43,14 @@ int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
 }
 
 
-int rtapi_callfunc(int instance, const char *comp,
-		     const char *func, const char **args)
+int rtapi_callfunc(int instance,
+		   const char *func,
+		   const char **args)
 {
     pb::RTAPICommand *cmd;
     command.Clear();
     command.set_type(pb::MT_RTAPI_APP_CALLFUNC);
     cmd = command.mutable_rtapicmd();
-    cmd->set_comp(comp);
     cmd->set_func(func);
     cmd->set_instance(instance);
 

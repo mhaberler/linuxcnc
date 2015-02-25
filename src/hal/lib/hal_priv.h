@@ -370,7 +370,7 @@ typedef struct {
     // existing value accessible to the funct)
     long long int start_time;
 
-    hal_thread_t  *thread; // descriptor of invoking thread
+    hal_thread_t  *thread; // descriptor of invoking thread, NULL with FS_USERLAND
     hal_funct_t   *funct;  // descriptor of invoked funct
 
     // argument vector for FS_USERLAND; 0/NULL for others
@@ -447,8 +447,19 @@ static inline long long int fa_start_time(const hal_funct_args_t *fa)
 static inline long long int fa_thread_start_time(const hal_funct_args_t *fa)
 { return fa->thread_start_time; }
 
-static inline long fa_period(const hal_funct_args_t *fa) { return fa->thread->period; }
-static inline const char* fa_thread_name(const hal_funct_args_t *fa) { return fa->thread->name; }
+static inline long fa_period(const hal_funct_args_t *fa)
+{
+    if (fa->thread)
+	return fa->thread->period;
+    return 0;
+}
+
+static inline const char* fa_thread_name(const hal_funct_args_t *fa)
+{
+    if (fa->thread)
+	return fa->thread->name;
+    return "";
+}
 static inline const char* fa_funct_name(const hal_funct_args_t *fa) { return fa->funct->name; }
 
 static inline const int fa_argc(const hal_funct_args_t *fa) { return fa->argc; }
