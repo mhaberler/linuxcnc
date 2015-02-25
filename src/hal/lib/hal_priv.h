@@ -408,6 +408,7 @@ typedef struct {
 
 typedef struct {
     hal_list_t links;		/* linked list data */
+    funct_signature_t type;
     void *arg;			/* argument for function */
     hal_funct_args_u funct;     // ptr to function code
     // void (*funct) (void *, long);	/* ptr to function code */

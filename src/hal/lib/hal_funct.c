@@ -255,6 +255,17 @@ int hal_add_funct_to_thread(const char *funct_name,
 			    funct_name);
 	    return -EINVAL;
 	}
+	// type-check the functions which go onto threads
+	switch (funct->type) {
+	case FS_LEGACY_THREADFUNC:
+	case FS_XTHREADFUNC:
+	    break;
+	default:
+	    hal_print_msg(RTAPI_MSG_ERR,
+			  "HAL: ERROR: cant add type %d function '%s' "
+			  "to a thread\n", funct->type, funct_name);
+	    return -EINVAL;
+	}
 	/* found the function, is it available? */
 	if ((funct->users > 0) && (funct->reentrant == 0)) {
 	    hal_print_msg(RTAPI_MSG_ERR,
@@ -319,6 +330,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 	funct_entry->funct_ptr = SHMOFF(funct);
 	funct_entry->arg = funct->arg;
 	funct_entry->funct.l = funct->funct.l;
+	funct_entry->type = funct->type;
 	/* add the entry to the list */
 	list_add_after((hal_list_t *) funct_entry, list_entry);
 	/* update the function usage count */

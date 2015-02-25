@@ -35,7 +35,17 @@ static void thread_task(void *arg)
 	    /* run thru function list */
 	    while (funct_entry != funct_root) {
 		/* call the function */
-		funct_entry->funct.l(funct_entry->arg, thread->period);
+		switch (funct_entry->type) {
+		case FS_LEGACY_THREADFUNC:
+		    funct_entry->funct.l(funct_entry->arg, thread->period);
+		    break;
+		case FS_XTHREADFUNC:
+		    // TBD
+		    break;
+		default:
+		    // bad - a mistyped funct
+		    ;
+		}
 		/* capture execution time */
 		end_time = rtapi_get_clocks();
 		/* point to function structure */
