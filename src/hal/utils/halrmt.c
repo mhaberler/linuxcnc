@@ -1812,7 +1812,7 @@ static void getFunctInfo(char *pattern, connectionRecType *context)
 	sprintf(context->outBuf, "FUNCT %s %02d %08lX %08lX %s %3d", 
 	  fptr->name, 
 	  comp->comp_id, 
-	  (unsigned long)fptr->funct,
+	  (unsigned long)fptr->funct.l,
 	  (unsigned long)fptr->arg,
 	  (fptr->uses_fp ? "YES" : "NO"),
 	  fptr->users);

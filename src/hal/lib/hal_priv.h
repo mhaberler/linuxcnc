@@ -326,14 +326,69 @@ typedef struct {
     that identify the functions connected to that thread.
 */
 
+// functs are now typed, according to the signature expected by
+// the function to be called.
+//
+// (1) legacy thread functions remain as-is: void (*funct) (void *, long)
+//     this is as traditionally exported by hal_export_funct() and is
+//     kept for backwards compatibility reasons even if severely limited.
+//
+// (2) there's an extended API for thread functions which exports more
+// interesting data to function, including actual invocation time
+// and other data permitting for better introspection. Those functs
+// can still be addf'd to a thread, but are called with a more flexible
+// signature.
+//
+// (3) functs can now also be called via userland action, for instance
+// by halcmd 'call compname funcname <optional args>'; that is - not by
+// a thread at all. These functs evidently have a signature which
+// is not compatible with threading (more like 'main(argc, argv)',
+// so they cannot be add'fd to a thread function.
+// However, as they are owned by a comp, they can be used for
+// creating/deleting component instances post-loading.
+
+typedef enum {
+    FS_LEGACY_THREADFUNC,  // legacy API
+    FS_XTHREADFUNC,        // extended API
+    FS_USERLAND,           // userland-callable, with argc/arv vector
+} funct_signature_t;
+
+typedef struct hal_thread hal_thread_t; // forward decl
+
+typedef struct {
+    unsigned long actual_period_nsec;  // actual invocation time
+    hal_thread_t  *thread;              // invoking thread
+    void *arg;             // user-defined arguments to custom loop function
+} hal_xthread_args_t ;
+
+typedef struct {
+    void *arg;             // user-defined argument from hal_export_xfunct
+    int argc;
+    char *argv[10];        // NULL-delimited
+} hal_funct_args_t ;
+
+// signatures
+typedef void (*legacy_funct_t) (void *, long);
+typedef int  (*xthread_funct_t) (hal_xthread_args_t *);
+typedef int  (*userland_funct_t) (hal_funct_args_t *);
+
+typedef union {
+    legacy_funct_t   l;       // FS_LEGACY_THREADFUNC
+    xthread_funct_t  x;       // FS_XTHREADFUNC
+    userland_funct_t u;       // FS_USERLAND
+} hal_funct_args_u;
+
+
 typedef struct {
     int next_ptr;		/* next function in linked list */
+    funct_signature_t type;     // drives call signature, addf
     int uses_fp;		/* floating point flag */
     int owner_ptr;		/* component that added this funct */
     int reentrant;		/* non-zero if function is re-entrant */
     int users;			/* number of threads using function */
     void *arg;			/* argument for function */
-    void (*funct) (void *, long);	/* ptr to function code */
+    hal_funct_args_u funct;     // ptr to function code
+    // void (*funct) (void *, long);	/* ptr to function code */
     int handle;                 // unique ID
     hal_s32_t* runtime;	        /* (pin) duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
@@ -344,11 +399,12 @@ typedef struct {
 typedef struct {
     hal_list_t links;		/* linked list data */
     void *arg;			/* argument for function */
-    void (*funct) (void *, long);	/* ptr to function code */
+    hal_funct_args_u funct;     // ptr to function code
+    // void (*funct) (void *, long);	/* ptr to function code */
     int funct_ptr;		/* pointer to function */
 } hal_funct_entry_t;
 
-typedef struct {
+typedef struct hal_thread {
     int next_ptr;		/* next thread in linked list */
     int uses_fp;		/* floating point flag */
     long int period;		/* period of the thread, in nsec */

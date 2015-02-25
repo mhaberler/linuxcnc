@@ -35,7 +35,7 @@ static void thread_task(void *arg)
 	    /* run thru function list */
 	    while (funct_entry != funct_root) {
 		/* call the function */
-		funct_entry->funct(funct_entry->arg, thread->period);
+		funct_entry->funct.l(funct_entry->arg, thread->period);
 		/* capture execution time */
 		end_time = rtapi_get_clocks();
 		/* point to function structure */

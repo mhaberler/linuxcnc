@@ -114,7 +114,7 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 	new->users = 0;
 	new->handle = rtapi_next_handle();
 	new->arg = arg;
-	new->funct = funct;
+	new->funct.l = funct;
 	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* search list for 'name' and insert new structure */
 	prev = &(hal_data->funct_list_ptr);
@@ -305,7 +305,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 	/* init struct contents */
 	funct_entry->funct_ptr = SHMOFF(funct);
 	funct_entry->arg = funct->arg;
-	funct_entry->funct = funct->funct;
+	funct_entry->funct.l = funct->funct.l;
 	/* add the entry to the list */
 	list_add_after((hal_list_t *) funct_entry, list_entry);
 	/* update the function usage count */
@@ -425,7 +425,7 @@ static hal_funct_entry_t *alloc_funct_entry_struct(void)
 	/* make sure it's empty */
 	p->funct_ptr = 0;
 	p->arg = 0;
-	p->funct = 0;
+	p->funct.l = 0;
     }
     return p;
 }
@@ -442,7 +442,7 @@ void free_funct_entry_struct(hal_funct_entry_t * funct_entry)
     /* clear contents of struct */
     funct_entry->funct_ptr = 0;
     funct_entry->arg = 0;
-    funct_entry->funct = 0;
+    funct_entry->funct.l = 0;
     /* add it to free list */
     list_add_after((hal_list_t *) funct_entry, &(hal_data->funct_entry_free));
 }
@@ -522,7 +522,7 @@ hal_funct_t *alloc_funct_struct(void)
 	p->reentrant = 0;
 	p->users = 0;
 	p->arg = 0;
-	p->funct = 0;
+	p->funct.l = 0;
 	p->name[0] = '\0';
     }
     return p;
@@ -575,7 +575,7 @@ void free_funct_struct(hal_funct_t * funct)
     funct->reentrant = 0;
     funct->users = 0;
     funct->arg = 0;
-    funct->funct = 0;
+    funct->funct.l = 0;
     funct->runtime = 0;
     funct->name[0] = '\0';
     /* add it to free list */

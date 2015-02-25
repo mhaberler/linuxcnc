@@ -2069,13 +2069,13 @@ static void print_funct_info(char **patterns)
 	    if (scriptmode == 0) {
 		halcmd_output(" %05d  %08lx  %08lx  %-3s  %5d   %s\n",
 		    comp->comp_id,
-		    (long)fptr->funct,
+		    (long)fptr->funct.l,
 		    (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
 		    fptr->users, fptr->name);
 	    } else {
 		halcmd_output("%s %08lx %08lx %s %3d %s\n",
 		    comp->name,
-		    (long)fptr->funct,
+		    (long)fptr->funct.l,
 		    (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
 		    fptr->users, fptr->name);
 	    } 
