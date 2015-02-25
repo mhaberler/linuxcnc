@@ -401,6 +401,7 @@ typedef struct {
     int reentrant;
     int comp_id;
 } hal_xfunct_t;
+
 int hal_export_xfunct(const char *name, const hal_xfunct_t *xf);
 
 typedef struct hal_funct {
@@ -440,6 +441,19 @@ typedef struct hal_thread {
     int handle;                 // unique ID
     char name[HAL_NAME_LEN + 1];	/* thread name */
 } hal_thread_t;
+
+
+// public accessors for FS_XTHREADFUNC-type functs, which reveice an
+// hal_xthread_args_t argument
+static inline long long int xt_start_time(const hal_xthread_args_t *xa)
+ { return xa->start_time; }
+
+static inline long long int xt_thread_start_time(const hal_xthread_args_t *xa)
+{ return xa->thread_start_time; }
+
+static inline long xt_period(const hal_xthread_args_t *xa) { return xa->thread->period; }
+static inline const char*xt_thread_name(const hal_xthread_args_t *xa) { return xa->thread->name; }
+static inline const char*xt_funct_name(const hal_xthread_args_t *xa) { return xa->funct->name; }
 
 
 // represents a HAL vtable object

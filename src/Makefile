@@ -204,6 +204,7 @@ SUBDIRS := \
 	hal/lib \
 	hal/components \
 	hal/examples/vtable-example \
+	hal/examples/userfunct-example \
 	hal/drivers \
 	hal/user_comps/devices \
 	hal/user_comps/mb2hal \
@@ -1085,7 +1086,8 @@ ifneq ($(KERNELRELEASE),)
 include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
-include $(BASEPWD)/hal/vtable-example/Submakefile
+include $(BASEPWD)/hal/examples/vtable-example/Submakefile
+include $(BASEPWD)/hal/examples/userfunct-example/Submakefile
 include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
@@ -1453,6 +1455,10 @@ motmod-objs += emc/motion/dbuf.o
 motmod-objs += libnml/posemath/_posemath.o
 motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
+obj-m += vtexport.o
+vtexport-objs := hal/examples/vtable-example/vtexport.o
+vtexport-objs += hal/examples/vtable-example/vcode.o
+
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \
 	tc.o 		\
@@ -1466,7 +1472,15 @@ tp-objs := $(addprefix emc/tp/, \
 	libnml/posemath/_posemath.o \
 	libnml/posemath/sincos.o $(MATHSTUB)
 
+# vtexport-objs := $(addprefix hal/examples/vtable-example/, \
+# 	vtexport.o \
+# 	vcode.o \
+# )
+
+
+
 TORTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
+
 
 # USER_DSO module building
 # (don't build when 'BUILD_ALL_FLAVORS' or 'BUILD_THREADS_MODULES' are set;
@@ -1642,7 +1656,6 @@ endif  # build kernel RTAPI modules
 NOTAGSIN := \
 	depends \
 	objects \
-	machinetalk/ring \
 	machinetalk/generated \
 	machinetalk/nanopb
 
