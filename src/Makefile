@@ -203,7 +203,7 @@ SUBDIRS := \
 	\
 	hal/lib \
 	hal/components \
-	hal/vtable-example \
+	hal/examples/vtable-example \
 	hal/drivers \
 	hal/user_comps/devices \
 	hal/user_comps/mb2hal \

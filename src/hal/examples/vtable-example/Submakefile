@@ -1,4 +1,4 @@
-VTABLEEXAMPLE_DIR := hal/vtable-example
+VTABLEEXAMPLE_DIR := hal/examples/vtable-example
 INCLUDES += $(VTABLEEXAMPLE_DIR)
 
 ../include/%.h: ./$(VTABLEEXAMPLE_DIR)/%.h
