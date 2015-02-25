@@ -353,23 +353,37 @@ typedef enum {
     FS_USERLAND,           // userland-callable, with argc/arv vector
 } funct_signature_t;
 
-typedef struct hal_thread hal_thread_t; // forward decl
+typedef struct hal_thread hal_thread_t;
+typedef struct hal_funct  hal_funct_t;
 
+// keeps values pertaining to thread invocation in a struct,
+// so a reference can be cheaply passed to the invoked funct
 typedef struct {
-    unsigned long actual_period_nsec;  // actual invocation time
-    hal_thread_t  *thread;             // invoking thread
-    void *arg;             // user-defined arguments to custom loop function
+    // actual invocation time of this thread cycle
+    // (i.e. before calling the first funct in chain)
+    long long int thread_start_time;
+
+    // invocation time of the current funct.
+    // accounts for the time being used by previous functs,
+    // without calling rtapi_get_clocks() yet once more
+    // (RTAPI thread_task already does this, so it's all about making an
+    // existing value accessible to the funct)
+    long long int start_time;
+
+    hal_thread_t  *thread; // descriptor of invoking thread
+    hal_funct_t   *funct;  // descriptor of invoked funct
 } hal_xthread_args_t ;
 
+#define MAX_FUNCT_ARGS 10  // for FS_USERLAND-typed functs
 typedef struct {
     void *arg;             // user-defined argument from hal_export_xfunct
     int argc;
-    char *argv[10];        // NULL-delimited
+    char *argv[MAX_FUNCT_ARGS+1];    // NULL-delimited
 } hal_funct_args_t ;
 
 // signatures
 typedef void (*legacy_funct_t) (void *, long);
-typedef int  (*xthread_funct_t) (const hal_xthread_args_t *);
+typedef int  (*xthread_funct_t) (const void *, const hal_xthread_args_t *);
 typedef int  (*userland_funct_t) (const hal_funct_args_t *);
 
 typedef union {
@@ -389,7 +403,7 @@ typedef struct {
 } hal_xfunct_t;
 int hal_export_xfunct(const char *name, const hal_xfunct_t *xf);
 
-typedef struct {
+typedef struct hal_funct {
     int next_ptr;		/* next function in linked list */
     funct_signature_t type;     // drives call signature, addf
     int uses_fp;		/* floating point flag */
@@ -398,7 +412,6 @@ typedef struct {
     int users;			/* number of threads using function */
     void *arg;			/* argument for function */
     hal_funct_args_u funct;     // ptr to function code
-    // void (*funct) (void *, long);	/* ptr to function code */
     int handle;                 // unique ID
     hal_s32_t* runtime;	        /* (pin) duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
@@ -411,7 +424,6 @@ typedef struct {
     funct_signature_t type;
     void *arg;			/* argument for function */
     hal_funct_args_u funct;     // ptr to function code
-    // void (*funct) (void *, long);	/* ptr to function code */
     int funct_ptr;		/* pointer to function */
 } hal_funct_entry_t;
 

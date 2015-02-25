@@ -16,31 +16,38 @@ static hal_thread_t *alloc_thread_struct(void);
 */
 static void thread_task(void *arg)
 {
-    hal_thread_t *thread;
-    hal_funct_t *funct;
+    hal_thread_t *thread = arg;
     hal_funct_entry_t *funct_root, *funct_entry;
-    long long int start_time, end_time;
-    long long int thread_start_time;
+    long long int end_time;
 
-    thread = arg;
+    // thread execution times collected here, doubles as
+    // param struct for xthread functs
+    hal_xthread_args_t ta = {
+	.thread = thread,
+    };
+
     while (1) {
 	if (hal_data->threads_running > 0) {
 	    /* point at first function on function list */
 	    funct_root = (hal_funct_entry_t *) & (thread->funct_list);
 	    funct_entry = SHMPTR(funct_root->links.next);
 	    /* execution time logging */
-	    start_time = rtapi_get_clocks();
-	    end_time = start_time;
-	    thread_start_time = start_time;
+	    ta.start_time = rtapi_get_clocks();
+	    end_time = ta.start_time;
+	    ta.thread_start_time = ta.start_time;
+
 	    /* run thru function list */
 	    while (funct_entry != funct_root) {
+		/* point to function structure */
+		ta.funct = SHMPTR(funct_entry->funct_ptr);
+
 		/* call the function */
 		switch (funct_entry->type) {
 		case FS_LEGACY_THREADFUNC:
 		    funct_entry->funct.l(funct_entry->arg, thread->period);
 		    break;
 		case FS_XTHREADFUNC:
-		    // TBD
+		    funct_entry->funct.x(funct_entry->arg, &ta);
 		    break;
 		default:
 		    // bad - a mistyped funct
@@ -48,23 +55,21 @@ static void thread_task(void *arg)
 		}
 		/* capture execution time */
 		end_time = rtapi_get_clocks();
-		/* point to function structure */
-		funct = SHMPTR(funct_entry->funct_ptr);
 		/* update execution time data */
-		*(funct->runtime) = (hal_s32_t)(end_time - start_time);
-		if ( *(funct->runtime) > funct->maxtime) {
-		    funct->maxtime = *(funct->runtime);
-		    funct->maxtime_increased = 1;
+		*(ta.funct->runtime) = (hal_s32_t)(end_time - ta.start_time);
+		if ( *(ta.funct->runtime) > ta.funct->maxtime) {
+		    ta.funct->maxtime = *(ta.funct->runtime);
+		    ta.funct->maxtime_increased = 1;
 		} else {
-		    funct->maxtime_increased = 0;
+		    ta.funct->maxtime_increased = 0;
 		}
 		/* point to next next entry in list */
 		funct_entry = SHMPTR(funct_entry->links.next);
 		/* prepare to measure time for next funct */
-		start_time = end_time;
+		ta.start_time = end_time;
 	    }
 	    /* update thread execution time */
-	    thread->runtime = (hal_s32_t)(end_time - thread_start_time);
+	    thread->runtime = (hal_s32_t)(end_time - ta.thread_start_time);
 	    if (thread->runtime > thread->maxtime) {
 		thread->maxtime = thread->runtime;
 	    }
