@@ -187,15 +187,13 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
        does not cause the "export_funct()" call to fail - they are
        for debugging and testing use only */
     /* create a parameter with the function's maximum runtime in it */
-    rtapi_snprintf(name, sizeof(name), "%s.tmax", name);
     new->maxtime = 0;
-    hal_param_s32_new(name, HAL_RW, &(new->maxtime), xf->comp_id);
+    hal_param_s32_newf(HAL_RW,  &(new->maxtime), xf->comp_id, "%s.tmax", name);
 
     /* create a parameter with the function's maximum runtime in it */
-    rtapi_snprintf(name, sizeof(name), "%s.tmax-increased", name);
     new->maxtime_increased = 0;
-    hal_param_bit_new(name, HAL_RO, &(new->maxtime_increased), xf->comp_id);
-
+    hal_param_bit_newf(HAL_RO, &(new->maxtime_increased), xf->comp_id,
+		       "%s.tmax-increased", name);
     return 0;
 }
 

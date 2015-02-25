@@ -13,8 +13,15 @@ static char *compname = "ufdemo";
 
 static int demo(const hal_funct_args_t *fa)
 {
-    rtapi_print_msg(RTAPI_MSG_INFO, "%s: userfunct '%s' called\n",
-		    compname, fa_funct_name(fa));
+    const int argc = fa_argc(fa);
+    const char **argv = fa_argv(fa);
+    rtapi_print_msg(RTAPI_MSG_INFO, "%s: userfunct '%s' called, argc=%d\n",
+		    compname, fa_funct_name(fa), argc);
+    int i;
+    for (i = 0; i < argc; i++) {
+	rtapi_print_msg(RTAPI_MSG_INFO, "    argv[%d] = \"%s\"\n",
+			i,argv[i]);
+    }
     return 0;
 }
 
