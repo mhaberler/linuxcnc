@@ -96,11 +96,9 @@ static int proc_write_rtapicmd(struct file *file,
 
 	char *argv[MAX_ARGV];
 	int argc = rtapi_argvize(MAX_ARGV, argv, rwbuf);
-	if (argc) {
+	if (argc > 1) {
 	    if (!strncmp(argv[0],"call", 4)) {
-		if (hal_call_usrfunct(argv[0], argc-1, (const char**)&argv[1]))
-		    return -EINVAL;
-		return count;
+		return hal_call_usrfunct(argv[1], argc-2, (const char**)&argv[2]);
 	    }
 	}
 

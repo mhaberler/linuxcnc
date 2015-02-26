@@ -303,19 +303,16 @@ static int do_callfunc_cmd(int instance,
 			   pbstringarray_t args,
 			   pb::Container &pbreply)
 {
-    // typedef hal_vtable_t *(*halpr_find_vtable_by_name_t)(const char *, int);
     int retval = -1;
 
     if (kernel_threads(flavor)) {
-	// FIXME argument support
-	int retval =  procfs_cmd(PROCFS_RTAPICMD,"call %s", func.c_str());
-	pbreply.set_retcode(retval < 0 ? retval:0);
-
+	string s;
+	pbconcat(s, args);
+	return procfs_cmd(PROCFS_RTAPICMD,"call %s %s", func.c_str(), s.c_str());
     } else {
 	void *w = modules["hal_lib"];
 	if (w == NULL) {
 	    pbreply.add_note("hal_lib not loaded");
-	    pbreply.set_retcode(-1);
 	    return -1;
 	}
 	dlerror();
@@ -324,12 +321,10 @@ static int do_callfunc_cmd(int instance,
 	call_usrfunct_t cuf = (call_usrfunct_t) dlsym(w, "hal_call_usrfunct");
 	if (cuf == NULL) {
 	    pbreply.add_note("symbol 'hal_call_usrfunct' not found in hal_lib");
-	    pbreply.set_retcode(-1);
 	    return -1;
 	}
 	// actually call it
 	retval = cuf(func.c_str(), args.size(),  pbargv(args));
-	pbreply.set_retcode(retval);
     }
     return retval;
 }
