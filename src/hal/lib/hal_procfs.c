@@ -90,6 +90,20 @@ static int proc_write_rtapicmd(struct file *file,
 	hal_print_msg(RTAPI_MSG_INFO,
 			"HAL:delthread - thread '%s' deleted\n", name);
     } else {
+	// rtapi_argvize modifies its third argument in-place
+	char rwbuf[1024];
+	strncpy(rwbuf, buffer, sizeof(rwbuf));
+
+	char *argv[MAX_ARGV];
+	int argc = rtapi_argvize(MAX_ARGV, argv, rwbuf);
+	if (argc) {
+	    if (!strncmp(argv[0],"call", 4)) {
+		if (hal_call_usrfunct(argv[0], argc-1, (const char**)&argv[1]))
+		    return -EINVAL;
+		return count;
+	    }
+	}
+
 	hal_print_msg(RTAPI_MSG_ERR,
 			"HAL: unrecognized rtapicmd: '%s'\n", cmd);
 	return -EINVAL;
