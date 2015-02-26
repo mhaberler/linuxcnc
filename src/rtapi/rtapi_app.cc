@@ -307,14 +307,9 @@ static int do_callfunc_cmd(int instance,
     int retval = -1;
 
     if (kernel_threads(flavor)) {
-	pbreply.add_note("not implemented yet");
-	pbreply.set_retcode(-1);
-	// int retval =  procfs_cmd(PROCFS_RTAPICMD,"newthread %s %d %d %d",
-	// 				   pbreq.rtapicmd().threadname().c_str(),
-	// 				   pbreq.rtapicmd().threadperiod(),
-	// 				   pbreq.rtapicmd().use_fp(),
-	// 				   pbreq.rtapicmd().cpu());
-	// pbreply.set_retcode(retval < 0 ? retval:0);
+	// FIXME argument support
+	int retval =  procfs_cmd(PROCFS_RTAPICMD,"call %s", func.c_str());
+	pbreply.set_retcode(retval < 0 ? retval:0);
 
     } else {
 	void *w = modules["hal_lib"];
