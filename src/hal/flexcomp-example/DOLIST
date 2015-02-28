@@ -1,0 +1,22 @@
+- hal_data_t: inst_list_ptr, inst_free_ptr;
+-  hal_inst_createt(), hal_inst_delete() ,  list management
+objects which get instance id's are:
+
+- pins in hal_pin_t: instance_ptr
+- params in hal_pin_t: instance_ptr
+- functs (in hal_xfunct_t: instance_id; in hal_funct_t:instance_ptr)
+- vtables hal_vtable_t:instance_id; // NOT - those are comp level objects!!
+
+the following are UNAWARE of instances:
+
+- components (except for newinst/delinst funct pointers)
+- threads
+- rings: ring.h:ringheader_t:reader,writer mean either comp OR instance id - informational anyway
+
+
+other:
+
+halcmd support - inspection, newinst, delinst
+
+Cython bindings
+halmodule.cc ? rather not.

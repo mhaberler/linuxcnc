@@ -23,6 +23,7 @@ static struct proc_dir_entry *hal_rtapicmd = 0;
 static int proc_write_newinst(struct file *file,
         const char *buffer, unsigned long count, void *data)
 {
+#if 0 //INST
     if(hal_data->pending_constructor) {
         hal_print_msg(RTAPI_MSG_DBG,
                 "HAL: running constructor for %s %s\n",
@@ -32,6 +33,7 @@ static int proc_write_newinst(struct file *file,
                 hal_data->constructor_arg);
         hal_data->pending_constructor = 0;
     }
+#endif
     return count;
 }
 

@@ -365,8 +365,8 @@ static int init_hal_data(void)
     hal_data->param_free_ptr = 0;
     hal_data->funct_free_ptr = 0;
     hal_data->vtable_free_ptr = 0;
-    hal_data->pending_constructor = 0;
-    hal_data->constructor_prefix[0] = 0;
+    //INST    hal_data->pending_constructor = 0;
+    //INST hal_data->constructor_prefix[0] = 0;
     list_init_entry(&(hal_data->funct_entry_free));
     hal_data->thread_free_ptr = 0;
     hal_data->exact_base_period = 0;
@@ -374,10 +374,12 @@ static int init_hal_data(void)
     hal_data->group_list_ptr = 0;
     hal_data->member_list_ptr = 0;
     hal_data->ring_list_ptr = 0;
+    hal_data->inst_list_ptr = 0;
 
     hal_data->group_free_ptr = 0;
     hal_data->member_free_ptr = 0;
     hal_data->ring_free_ptr = 0;
+    hal_data->inst_free_ptr = 0;
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
     // silly 1-based shm segment id allocation FIXED
@@ -500,6 +502,18 @@ void hal_print_msg(int level, const char *fmt, ...)
     va_end(args);
 }
 
+void hal_print_error(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    const char *prefix = "HAL error: ";
+    strncpy(_hal_errmsg, prefix, sizeof(_hal_errmsg));
+
+    vsnprintf(_hal_errmsg + strlen(_hal_errmsg), HALPRINTBUFFERLEN, fmt, args);
+    rtapi_print_msg(RTAPI_MSG_ERR, _hal_errmsg);
+    va_end(args);
+}
+
 const char *hal_lasterror()
 {
     return _hal_errmsg;
@@ -551,7 +565,7 @@ EXPORT_SYMBOL(hal_param_u32_set);
 EXPORT_SYMBOL(hal_param_s32_set);
 EXPORT_SYMBOL(hal_param_set);
 
-EXPORT_SYMBOL(hal_set_constructor);
+// EXPORT_SYMBOL(hal_set_constructor);
 
 EXPORT_SYMBOL(hal_export_funct);
 EXPORT_SYMBOL(hal_export_functf);

@@ -187,12 +187,15 @@ typedef struct {
     unsigned long mutex;	/* protection for linked lists, etc. */
 
     hal_s32_t shmem_avail;	/* amount of shmem left free */
+
+#if 0
     constructor pending_constructor;
 			/* pointer to the pending constructor function */
     char constructor_prefix[HAL_NAME_LEN+1];
 			        /* prefix of name for new instance */
     char constructor_arg[HAL_NAME_LEN+1];
 			        /* prefix of name for new instance */
+#endif
     int shmem_bot;		/* bottom of free shmem (first free byte) */
     int shmem_top;		/* top of free shmem (1 past last free) */
     int comp_list_ptr;		/* root of linked list of components */
@@ -231,6 +234,9 @@ typedef struct {
     int member_list_ptr;	/* list of member structs */
     int member_free_ptr;	/* list of free member structs */
 
+    int inst_list_ptr;          // list of active instance descriptors
+    int inst_free_ptr;          // list of freed instance descriptors
+
     double epsilon[MAX_EPSILON];
 } hal_data_t;
 
@@ -254,11 +260,27 @@ typedef struct {
     int pid;			     /* PID of component (user components only) */
     void *shmem_base;           /* base of shmem for this component */
     char name[HAL_NAME_LEN + 1];     /* component name */
-    constructor make;
+    //constructor make;           //INST
     int insmod_args;		/* args passed to insmod when loaded */
     int userarg1;	        /* interpreted by using layer */
     int userarg2;	        /* interpreted by using layer */
 } hal_comp_t;
+
+// HAL instance data structure
+// An instance has a name, and a unique ID
+// it is owned by exactly one component pointed to by comp_ptr
+// it holds a void * to the instance data as required by the instance
+typedef struct {
+    int next_ptr;		// next instance in list
+    int owner_ptr;               // shm pointer to owning hal_comp_t struct
+    int inst_id;                // allocated by rtapi_next_handle()
+    void *inst_data;             // instance user data
+    int inst_size;              // size of instdata blob
+    char name[HAL_NAME_LEN+1];  // well, the name
+} hal_inst_t;
+
+
+
 
 /** HAL 'pin' data structure.
     This structure contains information about a 'pin' object.
@@ -267,6 +289,7 @@ typedef struct {
     int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
     int owner_ptr;		/* component that owns this pin */
+    int instance_ptr;           // instance that owns this pin
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
     int oldname;		/* old name if aliased, else zero */
@@ -303,6 +326,7 @@ typedef struct {
     int next_ptr;		/* next parameter in linked list */
     int data_ptr;		/* offset of parameter value */
     int owner_ptr;		/* component that owns this signal */
+    int instance_ptr;           // instance that owns this param
     int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
@@ -397,6 +421,7 @@ typedef struct {
     int uses_fp;
     int reentrant;
     int comp_id;
+    int instance_id;
 } hal_xfunct_t;
 
 int hal_export_xfunctf(const hal_xfunct_t *xf, const char *fmt, ...);
@@ -406,6 +431,7 @@ typedef struct hal_funct {
     funct_signature_t type;     // drives call signature, addf
     int uses_fp;		/* floating point flag */
     int owner_ptr;		/* component that added this funct */
+    int instance_ptr;           // instance that owns this funct
     int reentrant;		/* non-zero if function is re-entrant */
     int users;			/* number of threads using function */
     void *arg;			/* argument for function */
@@ -472,6 +498,7 @@ typedef struct {
     int next_ptr;		   // next vtable in linked list
     int context;                   // 0 for RT, pid for userland
     int comp_id;                   // optional owning comp reference, 0 if unused
+    int instance_id;               // if owned by an instance //INST
     int handle;                    // unique ID
     int refcount;                  // prevents unloading while referenced
     int version;                   // tags switchs struct version

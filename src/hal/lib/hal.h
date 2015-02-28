@@ -203,7 +203,7 @@ enum comp_type  {
     TYPE_INVALID = 0,
     TYPE_RT,
     TYPE_USER,
-    TYPE_INSTANCE,
+    //INST TYPE_INSTANCE,
     TYPE_REMOTE,
 };
 
@@ -389,6 +389,9 @@ const char *hal_lasterror(void);
 void hal_print_msg(int level, const char *fmt, ...)
     __attribute__((format(printf,2,3)));
 
+// shorthand - prints "HAL error: " + formatted part
+void hal_print_error(const char *fmt, ...)
+    __attribute__((format(printf,1,2)));
 
 /** The HAL maintains lists of variables, functions, and so on in
     a central database, located in shared memory so all components
@@ -956,7 +959,7 @@ int hal_unreference_vtable(int vtable_id);
 
 int hal_call_usrfunct(const char *name, const int argc, const char **argv);
 
-
+#if 0
 /** HAL 'constructor' typedef
     If it is not NULL, this points to a function which can construct a new
     instance of its component.  Return value is >=0 for success,
@@ -967,6 +970,15 @@ typedef int(*constructor)(char *prefix, char *arg);
 /** hal_set_constructor() sets the constructor function for this component
 */
 extern int hal_set_constructor(int comp_id, constructor make);
+#endif
+
+
+// create named instance blob owned by a comp
+int hal_inst_create(const char *name, const int comp_id, const int size,
+		    void **inst_data);
+
+// delete a named instance.
+int hal_inst_delete(const char *name);
 
 RTAPI_END_DECLS
 

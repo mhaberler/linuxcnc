@@ -520,6 +520,7 @@ void free_pin_struct(hal_pin_t * pin)
     if ( pin->oldname != 0 ) free_oldname_struct(SHMPTR(pin->oldname));
     pin->data_ptr_addr = 0;
     pin->owner_ptr = 0;
+    pin->instance_ptr = 0;
     pin->type = 0;
     pin->dir = 0;
     pin->signal = 0;

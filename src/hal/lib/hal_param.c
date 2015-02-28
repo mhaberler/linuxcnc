@@ -535,6 +535,7 @@ void free_param_struct(hal_param_t * p)
     if ( p->oldname != 0 ) free_oldname_struct(SHMPTR(p->oldname));
     p->data_ptr = 0;
     p->owner_ptr = 0;
+    p->instance_ptr = 0;
     p->type = 0;
     p->name[0] = '\0';
     p->handle = -1;

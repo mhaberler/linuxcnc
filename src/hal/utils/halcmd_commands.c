@@ -1690,9 +1690,9 @@ static const char *type_name(int mode){
 	return "User";
     case TYPE_REMOTE:
 	return "Rem";
-    case TYPE_INSTANCE:
-	// this sobviously was never implemented
-	return "Inst";
+    /* case TYPE_INSTANCE: */
+    /* 	// this sobviously was never implemented */
+    /* 	return "Inst"; */
     default:
 	return "***error***";
     }
@@ -1728,54 +1728,48 @@ static void print_comp_info(char **patterns)
     while (next != 0) {
 	comp = SHMPTR(next);
 	if ( match(patterns, comp->name) ) {
-            if(comp->type == TYPE_INSTANCE) {
-                hal_comp_t *comp1 = halpr_find_comp_by_id(comp->comp_id & 0xffff);
-                halcmd_output("    INST %s %s",
-                        comp1 ? comp1->name : "(unknown)", 
-                        comp->name);
-            } else {
-                halcmd_output(" %5d  %-4s  %-*s",
-			      comp->comp_id, type_name(comp->type),
-			      HAL_NAME_LEN, comp->name);
-		switch (comp->type) {
-		case TYPE_USER:
 
-		    halcmd_output(" %-5d %s", comp->pid,
-				  state_name(comp->state));
-		    break;
-		case TYPE_RT:
-		    halcmd_output(" RT    %s",
-				  state_name(comp->state));
-		    break;
+	    halcmd_output(" %5d  %-4s  %-*s",
+			  comp->comp_id, type_name(comp->type),
+			  HAL_NAME_LEN, comp->name);
+	    switch (comp->type) {
+	    case TYPE_USER:
 
-		case TYPE_REMOTE:
-		    halcmd_output(" %-5d %s", comp->pid,
-				  state_name(comp->state));
+		halcmd_output(" %-5d %s", comp->pid,
+			      state_name(comp->state));
+		break;
+	    case TYPE_RT:
+		halcmd_output(" RT    %s",
+			      state_name(comp->state));
+		break;
+
+	    case TYPE_REMOTE:
+		halcmd_output(" %-5d %s", comp->pid,
+			      state_name(comp->state));
+		time_t now = time(NULL);
+		if (comp->last_update) {
+
+		    halcmd_output(", update:-%ld",-(comp->last_update-now));
+		} else
+		    halcmd_output(", update:never");
+
+		if (comp->last_bound) {
+
+		    halcmd_output(", bound:%lds",comp->last_bound-now);
+		} else
+		    halcmd_output(", bound:never");
+		if (comp->last_unbound) {
 		    time_t now = time(NULL);
-		    if (comp->last_update) {
 
-			halcmd_output(", update:-%ld",-(comp->last_update-now));
-		    } else
-			halcmd_output(", update:never");
-
-		    if (comp->last_bound) {
-
-			halcmd_output(", bound:%lds",comp->last_bound-now);
-		    } else
-			halcmd_output(", bound:never");
-		    if (comp->last_unbound) {
-			time_t now = time(NULL);
-
-			halcmd_output(", unbound:%lds", comp->last_unbound-now);
-		    } else
-			halcmd_output(", unbound:never");
-		    break;
-		default:
-		    halcmd_output(" %-5s %s", "", state_name(comp->state));
-                }
-		halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
-            }
-            halcmd_output("\n");
+		    halcmd_output(", unbound:%lds", comp->last_unbound-now);
+		} else
+		    halcmd_output(", unbound:never");
+		break;
+	    default:
+		halcmd_output(" %-5s %s", "", state_name(comp->state));
+	    }
+	    halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
+	    halcmd_output("\n");
 	}
 	next = comp->next_ptr;
     }

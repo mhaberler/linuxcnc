@@ -57,7 +57,8 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 	.arg = arg,
 	.uses_fp = uses_fp,
 	.reentrant = reentrant,
-	.comp_id = comp_id
+	.comp_id = comp_id,
+	.instance_id = 0, // legacy comp - not instantiable
     };
     return hal_export_xfunctf(&xf, name);
 }
@@ -659,6 +660,7 @@ void free_funct_struct(hal_funct_t * funct)
     /* clear contents of struct */
     funct->uses_fp = 0;
     funct->owner_ptr = 0;
+    funct->instance_ptr = 0;
     funct->reentrant = 0;
     funct->users = 0;
     funct->arg = 0;

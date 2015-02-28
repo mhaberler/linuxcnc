@@ -182,7 +182,7 @@ int hal_exit(int comp_id)
 }
 
 
-#ifdef RTAPI
+#if 0 //INST
 int hal_set_constructor(int comp_id, constructor make) {
     int next;
     hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));

@@ -1,0 +1,15 @@
+FLEXCOMPEXAMPLE_DIR := hal/flexcomp-example
+INCLUDES += $(FLEXCOMPEXAMPLE_DIR)
+
+../include/%.h: ./$(FLEXCOMPEXAMPLE_DIR)/%.h
+	cp $^ $@
+
+# obj-m += fcomp.o
+# fcomp-objs := \
+# 	$(FLEXCOMPEXAMPLE_DIR)/fcomp.o
+
+
+# ifneq "$(filter normal user-dso,$(BUILD_SYS))" ""
+# $(RTLIBDIR)/fcomp$(MODULE_EXT): \
+# 	$(addprefix $(OBJDIR)/,$(fcomp-objs))
+# endif
