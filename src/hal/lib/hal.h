@@ -203,7 +203,6 @@ enum comp_type  {
     TYPE_INVALID = 0,
     TYPE_RT,
     TYPE_USER,
-    //INST TYPE_INSTANCE,
     TYPE_REMOTE,
 };
 
@@ -215,7 +214,11 @@ enum comp_state {
     COMP_READY
 };
 
-extern int hal_init_mode(const char *name, int mode, int userarg1, int userarg2);
+typedef void (*hal_constructor_t) (const char *name);
+typedef void (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
+
+extern int hal_xinit(const char *name, int mode, int userarg1, int userarg2,
+		     hal_constructor_t ctor, hal_destructor_t dtor);
 
 // backwards compatibility:
 static inline int hal_init(const char *name) {
@@ -973,7 +976,9 @@ extern int hal_set_constructor(int comp_id, constructor make);
 #endif
 
 
-// create named instance blob owned by a comp
+// public instance API:
+
+// create named instance blob owned by a comp, returns instance ID
 int hal_inst_create(const char *name, const int comp_id, const int size,
 		    void **inst_data);
 

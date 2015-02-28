@@ -6,25 +6,27 @@
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
 
-// alloc/free
+
+// interal: alloc/free
 static hal_inst_t *alloc_inst_struct(void);
 static void free_inst_struct(hal_inst_t *inst);
 static void free_inst_struct(hal_inst_t *inst);
 
-// lookup
-hal_inst_t *halpr_find_inst_by_name(const char *name);
-hal_inst_t *halpr_find_inst_by_id(const int id);
+#if 0
+int hal_init_inst(const char *name, hal_constructor_t ctor, hal_destructor_t dtor);
 
-// iterators
-hal_pin_t *halpr_find_pin_by_inst(hal_inst_t *inst,
-				  hal_pin_t * start);
-hal_param_t *halpr_find_param_by_inst_id(hal_inst_t *inst,
-				      hal_param_t * start);
-hal_funct_t *halpr_find_funct_by_inst(hal_inst_t * inst,
-				      hal_funct_t * start);
+int hal_init_inst(const char *name, hal_constructor_t ctor, hal_destructor_t dtor);
 
+// backwards compatibility:
+static inline int hal_init(const char *name) {
+#ifdef RTAPI
+    return hal_init_mode(name, TYPE_RT, 0, 0);
+#else
+    return hal_init_mode(name, TYPE_USER, 0, 0);
+#endif
+}
 
-// create named instance blob owned by a comp
+#endif
 int hal_inst_create(const char *name, const int comp_id, const int size,
 		    void **inst_data)
 {
@@ -84,7 +86,6 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
   return 0;
 }
 
-// delete a named instance.
 int hal_inst_delete(const char *name)
 {
     if (hal_data == 0) {
@@ -104,6 +105,7 @@ int hal_inst_delete(const char *name)
 	    hal_print_error("%s: instance %s does not exist", __FUNCTION__, name);
 	    return -EEXIST;
 	}
+	// this does most of the heavy lifting
 	free_inst_struct(inst);
   }
   return 0;
@@ -351,7 +353,7 @@ static void free_inst_struct(hal_inst_t * inst)
     /* now we can delete the instance itself */
     inst->owner_ptr = 0;
     inst->inst_id = 0;
-    inst->inst_data = NULL;
+    inst->inst_data = NULL; // NB - loosing HAL memory here
     inst->inst_size = 0;
     inst->name[0] = '\0';
     /* add it to free list */

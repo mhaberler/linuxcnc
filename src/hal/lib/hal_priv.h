@@ -280,8 +280,6 @@ typedef struct {
 } hal_inst_t;
 
 
-
-
 /** HAL 'pin' data structure.
     This structure contains information about a 'pin' object.
 */
@@ -610,6 +608,21 @@ extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
 
 hal_vtable_t *halpr_find_vtable_by_name(const char *name, int version);
 hal_vtable_t *halpr_find_vtable_by_id(int vtable_id);
+
+// private instance API:
+// lookup
+hal_inst_t *halpr_find_inst_by_name(const char *name);
+hal_inst_t *halpr_find_inst_by_id(const int id);
+
+// iterators
+// these work like find_xxx_by_owner() above
+hal_pin_t *halpr_find_pin_by_instance(hal_inst_t *inst,
+				  hal_pin_t * start);
+hal_param_t *halpr_find_param_by_instance(hal_inst_t *inst,
+				      hal_param_t * start);
+hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst,
+				      hal_funct_t * start);
+
 
 
 // automatically release the local hal_data->mutex on scope exit.
