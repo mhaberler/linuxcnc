@@ -523,7 +523,7 @@ const char *hal_lasterror()
 /* only export symbols when we're building a realtime module */
 
 EXPORT_SYMBOL(hal_init);
-EXPORT_SYMBOL(hal_init_mode);
+EXPORT_SYMBOL(hal_xinit);
 EXPORT_SYMBOL(hal_ready);
 EXPORT_SYMBOL(hal_exit);
 EXPORT_SYMBOL(hal_malloc);

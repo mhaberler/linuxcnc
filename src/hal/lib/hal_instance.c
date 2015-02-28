@@ -82,8 +82,9 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	// make it visible
 	inst->next_ptr = hal_data->inst_list_ptr;
 	hal_data->inst_list_ptr = SHMOFF(inst);
+
+	return inst->inst_id;
   }
-  return 0;
 }
 
 int hal_inst_delete(const char *name)

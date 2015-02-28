@@ -214,18 +214,22 @@ enum comp_state {
     COMP_READY
 };
 
-typedef void (*hal_constructor_t) (const char *name);
+typedef void (*hal_constructor_t) (const char *name, const int argc, const char**argv);
 typedef void (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
 
-extern int hal_xinit(const char *name, int mode, int userarg1, int userarg2,
-		     hal_constructor_t ctor, hal_destructor_t dtor);
+extern int hal_xinit(const char *name,
+		     int mode,
+		     int userarg1,
+		     int userarg2,
+		     hal_constructor_t ctor,
+		     hal_destructor_t dtor);
 
 // backwards compatibility:
 static inline int hal_init(const char *name) {
 #ifdef RTAPI
-    return hal_init_mode(name, TYPE_RT, 0, 0);
+    return hal_xinit(name, TYPE_RT, 0, 0, NULL, NULL);
 #else
-    return hal_init_mode(name, TYPE_USER, 0, 0);
+    return hal_xinit(name, TYPE_USER, 0, 0, NULL, NULL);
 #endif
 }
 
@@ -557,6 +561,11 @@ extern unsigned char hal_get_lock(void);
     component that will actually be using the pin.
     If successful, the hal_pin_xxx_new() functions return 0.
     On failure they return a negative error code.
+
+    DEPRECATION WARNING:
+    these functions are for legacy components.
+    For new code, use instantiable components, and the
+    the halinst_pin_* functions
 */
 extern int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
     hal_bit_t ** data_ptr_addr, int comp_id);
@@ -567,11 +576,28 @@ extern int hal_pin_u32_new(const char *name, hal_pin_dir_t dir,
 extern int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
     hal_s32_t ** data_ptr_addr, int comp_id);
 
+// takes an instance ID as parameter. If instance ID == 0,
+// behave like the above four functions.
+extern int halinst_pin_bit_new(const char *name, hal_pin_dir_t dir,
+			       hal_bit_t ** data_ptr_addr, int comp_id, int inst_id);
+extern int halinst_pin_float_new(const char *name, hal_pin_dir_t dir,
+    hal_float_t ** data_ptr_addr, int comp_id, int inst_id);
+extern int halinst_pin_u32_new(const char *name, hal_pin_dir_t dir,
+    hal_u32_t ** data_ptr_addr, int comp_id, int inst_id);
+extern int halinst_pin_s32_new(const char *name, hal_pin_dir_t dir,
+    hal_s32_t ** data_ptr_addr, int comp_id, int inst_id);
+
+
 /** The hal_pin_XXX_newf family of functions are similar to
     hal_pin_XXX_new except that they also do printf-style formatting to compute
     the pin name
     If successful, the hal_pin_xxx_newf() functions return 0.
     On failure they return a negative error code.
+
+    DEPRECATION WARNING:
+    these functions are for legacy components.
+    For new code, use instantiable components, and the
+    the halinst_pin_* functions
 */
 extern int hal_pin_bit_newf(hal_pin_dir_t dir,
     hal_bit_t ** data_ptr_addr, int comp_id, const char *fmt, ...)
@@ -585,6 +611,21 @@ extern int hal_pin_u32_newf(hal_pin_dir_t dir,
 extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     hal_s32_t ** data_ptr_addr, int comp_id, const char *fmt, ...)
 	__attribute__((format(printf,4,5)));
+
+// takes an instance ID as parameter. If instance ID == 0,
+// behave like the above four functions.
+extern int halinst_pin_bit_newf(hal_pin_dir_t dir,
+    hal_bit_t ** data_ptr_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
+extern int halinst_pin_float_newf(hal_pin_dir_t dir,
+    hal_float_t ** data_ptr_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
+extern int halinst_pin_u32_newf(hal_pin_dir_t dir,
+    hal_u32_t ** data_ptr_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
+extern int halinst_pin_s32_newf(hal_pin_dir_t dir,
+    hal_s32_t ** data_ptr_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
 
 
 /** 'hal_pin_new()' creates a new 'pin' object.  It is a generic
@@ -611,6 +652,9 @@ int hal_pin_newf(hal_type_t type,
 		 void ** data_ptr_addr,
 		 int comp_id,
 		 const char *fmt, ...);
+
+extern int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
+			   void **data_ptr_addr, int comp_id, int inst_id);
 
 /** There is no 'hal_pin_delete()' function.  Once a component has
     created a pin, that pin remains as long as the component exists.
@@ -712,6 +756,9 @@ extern int hal_unlink(const char *pin_name);
     be using the parameter.
     If successful, the hal_param_xxx_new() functions return 0.
     On failure they return a negative error code.
+
+    use for non-instantiable comps only.
+
 */
 extern int hal_param_bit_new(const char *name, hal_param_dir_t dir,
     hal_bit_t * data_addr, int comp_id);
@@ -721,6 +768,17 @@ extern int hal_param_u32_new(const char *name, hal_param_dir_t dir,
     hal_u32_t * data_addr, int comp_id);
 extern int hal_param_s32_new(const char *name, hal_param_dir_t dir,
     hal_s32_t * data_addr, int comp_id);
+
+// same for instantiable comps - with instance ID parameter
+extern int halinst_param_bit_new(const char *name, hal_param_dir_t dir,
+    hal_bit_t * data_addr, int comp_id, int inst_id);
+extern int halinst_param_float_new(const char *name, hal_param_dir_t dir,
+    hal_float_t * data_addr, int comp_id, int inst_id);
+extern int halinst_param_u32_new(const char *name, hal_param_dir_t dir,
+    hal_u32_t * data_addr, int comp_id, int inst_id);
+extern int halinst_param_s32_new(const char *name, hal_param_dir_t dir,
+    hal_s32_t * data_addr, int comp_id, int inst_id);
+
 
 /** printf_style-style versions of hal_param_XXX_new */
 extern int hal_param_bit_newf(hal_param_dir_t dir,
@@ -736,6 +794,19 @@ extern int hal_param_s32_newf(hal_param_dir_t dir,
     hal_s32_t * data_addr, int comp_id, const char *fmt, ...)
 	__attribute__((format(printf,4,5)));
 
+// same for instantiable comps - with instance ID parameter
+extern int halinst_param_bit_newf(hal_param_dir_t dir,
+    hal_bit_t * data_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
+extern int halinst_param_float_newf(hal_param_dir_t dir,
+    hal_float_t * data_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
+extern int halinst_param_u32_newf(hal_param_dir_t dir,
+    hal_u32_t * data_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
+extern int halinst_param_s32_newf(hal_param_dir_t dir,
+    hal_s32_t * data_addr, int comp_id, int inst_id, const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
 
 /** 'hal_param_new()' creates a new 'parameter' object.  It is a generic
     version of the eight functions above.  It is provided ONLY for those
@@ -766,11 +837,16 @@ int hal_param_newf(hal_type_t type,
 		   int comp_id,
 		   const char *fmt, ...);
 
+extern int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
+			     void *data_addr, int comp_id, int instance_id);
+
+
 /** There is no 'hal_param_delete()' function.  Once a component has
     created a parameter, that parameter remains as long as the
     component exists.  All parameters belonging to a component are
     removed when the component calls 'hal_exit()'.
 */
+// FIXME //INST
 
 /** The 'hal_param_xxx_set()' functions modify the value of a parameter.
     'name' is the name of the parameter that is to be set.  The
@@ -858,6 +934,8 @@ int hal_export_functf(void (*funct) (void *, long),
 		      const char *fmt, ... )
     __attribute__((format(printf,6,7)));
 
+extern int halinst_export_funct(const char *name, void (*funct) (void *, long),
+				void *arg, int uses_fp, int reentrant, int comp_id, int inst_id);
 
 /** hal_create_thread() establishes a realtime thread that will
     execute one or more HAL functions periodically.
@@ -979,7 +1057,9 @@ extern int hal_set_constructor(int comp_id, constructor make);
 // public instance API:
 
 // create named instance blob owned by a comp, returns instance ID
-int hal_inst_create(const char *name, const int comp_id, const int size,
+int hal_inst_create(const char *name,
+		    const int comp_id,
+		    const int size,
 		    void **inst_data);
 
 // delete a named instance.

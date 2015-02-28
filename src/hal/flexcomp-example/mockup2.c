@@ -24,7 +24,7 @@ static void funct(void *arg, long period)
 {
 }
 
-static int instantiate(const char *name)
+static int instantiate(const char *name, const int argc, const char**argv)
 {
     int i;
     struct intst_data *ip = NULL;
@@ -33,7 +33,7 @@ static int instantiate(const char *name)
     int inst_id = hal_inst_create(name, comp_id,
 			      sizeof(struct inst_data) + sizeof(hal_s32_t *)*npins,
 			      (void **)&ip);
-    if ((inst_id < 0) || (ip == NULL))
+    if (inst_id < 0)
 	return -1;
 
     ip->npins = npins;
@@ -46,7 +46,7 @@ static int instantiate(const char *name)
     return 0;
 }
 
-static int delete(const char *name, void *inst)
+static int delete(const char *name, void *inst, const int inst_size)
 {
     struct intst_data *ip = inst;
     int i;
@@ -68,7 +68,7 @@ RTAPI_MP_INT(answer, "a random module parameter");
 int rtapi_app_main(void)
 {
 
-    comp_id = hal_init_inst(compname, ip, instantiate, delete);
+    comp_id = hal_xinit(compname, TYPE_RT, 0, 0, instantiate, delete);
     if (comp_id < 0)
 	return -1;
 

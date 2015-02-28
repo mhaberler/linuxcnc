@@ -3195,7 +3195,7 @@ int do_newcomp_cmd(char *comp, char *opt[])
 	    }
 	}
     }
-    int comp_id = hal_init_mode(comp, type, arg1, arg2);
+    int comp_id = hal_xinit(comp, type, arg1, arg2, NULL, NULL);
 
     if (comp_id < 1) {
 	halcmd_error("newcomp: cant create component '%s' type %d: %s\n",

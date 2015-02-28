@@ -15,7 +15,9 @@ hal_comp_t *halpr_alloc_comp_struct(void);
 static void free_comp_struct(hal_comp_t * comp);
 
 
-int hal_init_mode(const char *name, int type, int userarg1, int userarg2)
+int hal_xinit(const char *name, const int type,
+	      const int userarg1, const int userarg2,
+	      const hal_constructor_t ctor,  const hal_destructor_t dtor)
 {
     int comp_id;
     char rtapi_name[RTAPI_NAME_LEN + 1];
@@ -25,14 +27,19 @@ int hal_init_mode(const char *name, int type, int userarg1, int userarg2)
     rtapi_set_logtag("hal_lib");
 
     if (name == 0) {
-	hal_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: no component name\n");
+	hal_print_error("%s: no component name", __FUNCTION__);
 	return -EINVAL;
     }
     if (strlen(name) > HAL_NAME_LEN) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: component name '%s' is too long\n", name);
+	hal_print_error("%s: component name '%s' is too long\n", __FUNCTION__, name);
 	return -EINVAL;
     }
+    if ((dtor != NULL) && (ctor == NULL)) {
+	hal_print_error("%s: %s - NULL constructor doesnt make sense with non-NULL destructor",
+			__FUNCTION__, name);
+	return -EINVAL;
+    }
+
     // rtapi initialisation already done
     // since this happens through the constructor
     hal_print_msg(RTAPI_MSG_DBG,
@@ -81,6 +88,8 @@ int hal_init_mode(const char *name, int type, int userarg1, int userarg2)
 	comp->userarg2 = userarg2;
 	comp->comp_id = comp_id;
 	comp->type = type;
+	comp->ctor = ctor;
+	comp->dtor = dtor;
 #ifdef RTAPI
 	comp->pid = 0;   //FIXME revisit this
 #else /* ULAPI */
