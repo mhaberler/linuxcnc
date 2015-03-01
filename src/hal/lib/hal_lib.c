@@ -365,8 +365,7 @@ static int init_hal_data(void)
     hal_data->param_free_ptr = 0;
     hal_data->funct_free_ptr = 0;
     hal_data->vtable_free_ptr = 0;
-    //INST    hal_data->pending_constructor = 0;
-    //INST hal_data->constructor_prefix[0] = 0;
+
     list_init_entry(&(hal_data->funct_entry_free));
     hal_data->thread_free_ptr = 0;
     hal_data->exact_base_period = 0;

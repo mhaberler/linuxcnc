@@ -313,6 +313,7 @@ static void free_comp_struct(hal_comp_t * comp)
 #endif /* RTAPI */
     hal_pin_t *pin;
     hal_param_t *param;
+    hal_inst_t *inst;
 
     /* can't delete the component until we delete its "stuff" */
     /* need to check for functs only if a realtime component */
@@ -333,7 +334,25 @@ static void free_comp_struct(hal_comp_t * comp)
 	}
 	next = *prev;
     }
+
+    // now that the funct is gone, call the dtor for each instance
+    if (comp->dtor) {
+	//NB - pins, params etc still intact
+	next = hal_data->inst_list_ptr;
+	while (next != 0) {
+	    inst = SHMPTR(next);
+	    if (SHMPTR(inst->owner_ptr) == comp) {
+		// this instance is owned by this comp, call destructor
+		hal_print_msg(RTAPI_MSG_DBG,
+			      "%s: calling custom destructor(%s,%s)", __FUNCTION__,
+			      comp->name, inst->name);
+		comp->dtor(inst->name, inst->inst_data, inst->inst_size);
+	    }
+	    next = inst->next_ptr;
+	}
+    }
 #endif /* RTAPI */
+
     /* search the pin list for this component's pins */
     prev = &(hal_data->pin_list_ptr);
     next = *prev;
@@ -366,6 +385,30 @@ static void free_comp_struct(hal_comp_t * comp)
 	}
 	next = *prev;
     }
+
+    // search the instance list and unlink instances owned by this comp
+    prev = &(hal_data->inst_list_ptr);
+    next = *prev;
+    while (next != 0) {
+	inst = SHMPTR(next);
+	if (SHMPTR(inst->owner_ptr) == comp) {
+	    // this instance is owned by this comp
+	    *prev = inst->next_ptr;
+	    // zap the instance structure
+	    inst->owner_ptr = 0;
+	    inst->inst_id = 0;
+	    inst->inst_data = NULL; // NB - loosing HAL memory here
+	    inst->inst_size = 0;
+	    inst->name[0] = '\0';
+	    // add it to free list
+	    inst->next_ptr = hal_data->inst_free_ptr;
+	    hal_data->inst_free_ptr = SHMOFF(inst);
+	} else {
+	    prev = &(inst->next_ptr);
+	}
+	next = *prev;
+    }
+
     /* now we can delete the component itself */
     /* clear contents of struct */
     comp->comp_id = -1;

@@ -348,7 +348,22 @@ static void free_inst_struct(hal_inst_t * inst)
 	}
 	next = *prev;
     }
+
+    // now that the funct is gone, call the dtor for this instance
+    // get owning comp
+    hal_comp_t *comp = SHMPTR(inst->owner_ptr);
+    if (comp->dtor) {
+	//NB - pins, params etc still intact
+	// this instance is owned by this comp, call destructor
+	hal_print_msg(RTAPI_MSG_DBG,
+		      "%s: calling custom destructor(%s,%s)", __FUNCTION__,
+		      comp->name, inst->name);
+	comp->dtor(inst->name, inst->inst_data, inst->inst_size);
+    }
 #endif /* RTAPI */
+
+
+
     /* search the pin list for this instance's pins */
     prev = &(hal_data->pin_list_ptr);
     next = *prev;
@@ -382,12 +397,27 @@ static void free_inst_struct(hal_inst_t * inst)
 	next = *prev;
     }
     /* now we can delete the instance itself */
-    inst->owner_ptr = 0;
-    inst->inst_id = 0;
-    inst->inst_data = NULL; // NB - loosing HAL memory here
-    inst->inst_size = 0;
-    inst->name[0] = '\0';
-    /* add it to free list */
-    inst->next_ptr = hal_data->inst_free_ptr;
-    hal_data->inst_free_ptr = SHMOFF(inst);
+
+    // search the instance list and unlink instances owned by this comp
+    prev = &(hal_data->inst_list_ptr);
+    next = *prev;
+    while (next != 0) {
+	hal_inst_t *ip = SHMPTR(next);
+	if (ip == inst) {
+	    // this instance is owned by this comp
+	    *prev = ip->next_ptr;
+	    // zap the instance structure
+	    ip->owner_ptr = 0;
+	    ip->inst_id = 0;
+	    ip->inst_data = NULL; // NB - loosing HAL memory here
+	    ip->inst_size = 0;
+	    ip->name[0] = '\0';
+	    // add it to free list
+	    ip->next_ptr = hal_data->inst_free_ptr;
+	    hal_data->inst_free_ptr = SHMOFF(ip);
+	} else {
+	    prev = &(inst->next_ptr);
+	}
+	next = *prev;
+    }
 }

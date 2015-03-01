@@ -188,14 +188,6 @@ typedef struct {
 
     hal_s32_t shmem_avail;	/* amount of shmem left free */
 
-#if 0
-    constructor pending_constructor;
-			/* pointer to the pending constructor function */
-    char constructor_prefix[HAL_NAME_LEN+1];
-			        /* prefix of name for new instance */
-    char constructor_arg[HAL_NAME_LEN+1];
-			        /* prefix of name for new instance */
-#endif
     int shmem_bot;		/* bottom of free shmem (first free byte) */
     int shmem_top;		/* top of free shmem (1 past last free) */
     int comp_list_ptr;		/* root of linked list of components */

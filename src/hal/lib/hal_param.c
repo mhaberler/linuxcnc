@@ -198,9 +198,11 @@ int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, vo
 	    }
 	    // validate that the param actually is allocated in the instance data blob
 	    if (!halpr_ptr_in_inst(inst, (void *) data_addr)) {
-		hal_print_error("memory for param %s not within instance %s/%d memory range",
-				name, inst->name, inst_id);
-		return -EINVAL;
+		hal_print_msg(RTAPI_MSG_DBG,
+			      "note: memory for param %s not within instance %s/%d memory range "
+			      "(ok for funct timing params)",
+			      name, inst->name, inst_id);
+		// unfortunately we cant make this fatal
 	    }
 	}
 	/* validate passed in pointer - must point to HAL shmem */

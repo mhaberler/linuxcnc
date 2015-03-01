@@ -17,25 +17,7 @@
 #include <linux/string.h>
 extern struct proc_dir_entry *rtapi_dir;
 static struct proc_dir_entry *hal_dir = 0;
-static struct proc_dir_entry *hal_newinst_file = 0;
 static struct proc_dir_entry *hal_rtapicmd = 0;
-
-static int proc_write_newinst(struct file *file,
-        const char *buffer, unsigned long count, void *data)
-{
-#if 0 //INST
-    if(hal_data->pending_constructor) {
-        hal_print_msg(RTAPI_MSG_DBG,
-                "HAL: running constructor for %s %s\n",
-                hal_data->constructor_prefix,
-                hal_data->constructor_arg);
-        hal_data->pending_constructor(hal_data->constructor_prefix,
-                hal_data->constructor_arg);
-        hal_data->pending_constructor = 0;
-    }
-#endif
-    return count;
-}
 
 // simple interface to hal_create_thread()/hal_thread_delete()
 // through /proc/rtapi/hal/rtapicmd (kernel threadstyles only)
@@ -112,24 +94,17 @@ static int proc_write_rtapicmd(struct file *file,
 }
 
 void hal_proc_clean(void) {
-    if(hal_newinst_file)
-        remove_proc_entry("newinst", hal_dir);
     if(hal_rtapicmd)
         remove_proc_entry("rtapicmd", hal_dir);
     if(hal_dir)
         remove_proc_entry("hal", rtapi_dir);
-    hal_newinst_file = hal_dir = hal_rtapicmd = 0;
+    hal_dir = hal_rtapicmd = 0;
 }
 
 int hal_proc_init(void) {
     if(!rtapi_dir) return 0;
     hal_dir = create_proc_entry("hal", S_IFDIR, rtapi_dir);
     if(!hal_dir) { hal_proc_clean(); return -1; }
-    hal_newinst_file = create_proc_entry("newinst", 0666, hal_dir);
-    if(!hal_newinst_file) { hal_proc_clean(); return -1; }
-    hal_newinst_file->data = NULL;
-    hal_newinst_file->read_proc = NULL;
-    hal_newinst_file->write_proc = proc_write_newinst;
     hal_rtapicmd = create_proc_entry("rtapicmd", 0666, hal_dir);
     if(!hal_rtapicmd) { hal_proc_clean(); return -1; }
     hal_rtapicmd->data = NULL;

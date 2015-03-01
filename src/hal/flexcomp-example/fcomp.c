@@ -33,7 +33,7 @@ static int instantiate(const char *name, const int argc, const char**argv)
     if (inst_id < 0)
 	return -1;
 
-    hal_print_msg(RTAPI_MSG_ERR,"ip=%p hal_shmem_base=%p\n", ip, hal_shmem_base);
+    hal_print_msg(RTAPI_MSG_ERR,"%s inst=%s argc=%d\n",__FUNCTION__, name, argc);
 
     if (halinst_pin_s32_newf(HAL_IN, &(ip->pin), comp_id, inst_id, "%s.pin", name))
 	return -1;
@@ -45,16 +45,9 @@ static int instantiate(const char *name, const int argc, const char**argv)
 
 static int delete(const char *name, void *inst, const int inst_size)
 {
-    const int argc = fa_argc(fa);
-    const char **argv = fa_argv(fa);
-
-    rtapi_print_msg(RTAPI_MSG_INFO, "%s: userfunct '%s' called, arg='%s' argc=%d\n",
-		    compname,  fa_funct_name(fa), (const char *)fa_arg(fa), argc);
-    int i;
-    for (i = 0; i < argc; i++)
-	rtapi_print_msg(RTAPI_MSG_INFO, "    argv[%d] = \"%s\"\n",
-			i,argv[i]);
-    return argc;
+    hal_print_msg(RTAPI_MSG_ERR,"%s inst=%s size=%d %p\n",
+		  __FUNCTION__, name, inst_size, inst);
+    return 0;
 }
 
 
@@ -72,6 +65,7 @@ int rtapi_app_main(void)
 
     // fake halcmd
     instantiate("foo", 0, NULL);
+    instantiate("bar", 0, NULL);
     return 0;
 }
 
