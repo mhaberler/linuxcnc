@@ -63,6 +63,22 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
     return hal_export_xfunctf(&xf, name);
 }
 
+int halinst_export_funct(const char *name, void (*funct) (void *, long),
+			 void *arg, int uses_fp, int reentrant,
+			 int comp_id, int instance_id)
+{
+    hal_xfunct_t xf = {
+	.type = FS_LEGACY_THREADFUNC,
+	.funct.l = funct,
+	.arg = arg,
+	.uses_fp = uses_fp,
+	.reentrant = reentrant,
+	.comp_id = comp_id,
+	.instance_id = instance_id
+    };
+    return hal_export_xfunctf(&xf, name);
+}
+
 static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap)
 {
     int *prev, next, cmp, sz;

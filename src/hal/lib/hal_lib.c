@@ -536,6 +536,9 @@ EXPORT_SYMBOL(hal_pin_s32_new);
 EXPORT_SYMBOL(hal_pin_new);
 EXPORT_SYMBOL(hal_pin_newf);
 
+EXPORT_SYMBOL(halinst_pin_new);
+
+
 EXPORT_SYMBOL(hal_pin_bit_newf);
 EXPORT_SYMBOL(hal_pin_float_newf);
 EXPORT_SYMBOL(hal_pin_u32_newf);

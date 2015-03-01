@@ -18,6 +18,7 @@ cdef extern from "hal_priv.h":
         int next_ptr
         int data_ptr_addr
         int owner_ptr
+        int instance_ptr
         int signal
         hal_data_u dummysig
         int oldname
@@ -117,6 +118,7 @@ cdef extern from "hal_priv.h":
         unsigned char lock
         # RTAPI_DECLARE_BITMAP(rings, HAL_MAX_RINGS);
         double *epsilon #[MAX_EPSILON]
+
 
     hal_data_t *hal_data
     char *hal_shmem_base

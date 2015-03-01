@@ -284,6 +284,16 @@ typedef struct {
     char name[HAL_NAME_LEN+1];  // well, the name
 } hal_inst_t;
 
+// test if a pointer (pin etc) lies within a given instance data blob
+static inline bool inst_check(const hal_inst_t *inst, const void *halobj)
+{
+    if (inst == NULL)
+	return false;
+    if (halobj < inst->inst_data) return false;
+    if ((char *)halobj > ((char *)inst->inst_data + inst->inst_size - sizeof(char *)))
+	return false;
+    return true;
+}
 
 /** HAL 'pin' data structure.
     This structure contains information about a 'pin' object.

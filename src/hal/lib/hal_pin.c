@@ -116,8 +116,8 @@ int hal_pin_newf(hal_type_t type,
 
 /* this is a generic function that does the majority of the work. */
 
-int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
-    void **data_ptr_addr, int comp_id)
+int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
+		    void **data_ptr_addr, int comp_id, int inst_id)
 {
     int *prev, next, cmp;
     hal_pin_t *new, *ptr;
@@ -160,6 +160,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
+	hal_inst_t *inst = NULL;
 
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
@@ -168,15 +169,29 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	comp = halpr_find_comp_by_id(comp_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: component %d not found\n", comp_id);
+	    hal_print_error("component %d not found\n", comp_id);
 	    return -EINVAL;
 	}
+
+	// validate inst_id if given
+	if (inst_id) { // pin is in an instantiable comp
+	    inst = halpr_find_inst_by_id(inst_id);
+	    if (inst == NULL) {
+		hal_print_error("instance %d not found\n", inst_id);
+		return -EINVAL;
+	    }
+	    // validate that the pin actually is allocated in the instance data blob
+	    if (inst_check(inst, (void *) data_ptr_addr)) {
+		hal_print_error("memory for pin %s not within instance %s/%d memory range",
+				name, inst->name, inst_id);
+		return -EINVAL;
+	    }
+	}
+
 	/* validate passed in pointer - must point to HAL shmem */
 	if (! SHMCHK(data_ptr_addr)) {
 	    /* bad pointer */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: data_ptr_addr not in shared memory\n");
+	    hal_print_error("data_ptr_addr not in shared memory\n");
 	    return -EINVAL;
 	}
 	if(comp->state > COMP_INITIALIZING) {
@@ -196,6 +211,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
 	new->owner_ptr = SHMOFF(comp);
+	new->instance_ptr = (inst_id == 0) ? 0 : SHMOFF(inst);
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;

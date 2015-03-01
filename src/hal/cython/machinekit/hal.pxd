@@ -17,8 +17,14 @@ cdef extern from "hal.h":
     int hal_start_threads()
     int hal_stop_threads()
 
+    ctypedef void (*hal_constructor_t) (const char *name, const int argc, const char**argv)
+
+    ctypedef void (*hal_destructor_t) (const char *name, void *inst, const int inst_size)
+
+
     # superset of hal_init()
-    int hal_init_mode(char *name, int mode, int userarg1, int userarg2)
+    int hal_xinit(char *name, int mode, int userarg1, int userarg2,
+                  hal_constructor_t ctor, hal_destructor_t dtor)
 
     ctypedef int hal_bit_t
     ctypedef float hal_float_t

@@ -89,7 +89,7 @@ cdef hal_required():
     if not _comps:
         # dummy comp for connecting to HAL
         p = "machinekit::hal%d" % getpid()
-        id = hal_init_mode(p, TYPE_USER, 0,0)
+        id = hal_xinit(p, TYPE_USER, 0, 0, NULL, NULL)
         if hal_data == NULL:
             raise RuntimeError("cant connect to HAL - realtime not running?")
         hal_ready(id)

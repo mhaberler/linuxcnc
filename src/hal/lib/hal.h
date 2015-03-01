@@ -643,8 +643,6 @@ extern int halinst_pin_s32_newf(hal_pin_dir_t dir,
     If successful, hal_pin_new() returns 0.  On failure
     it returns a negative error code.
 */
-extern int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
-    void **data_ptr_addr, int comp_id);
 
 // printf-style version of hal_pin_new():
 int hal_pin_newf(hal_type_t type,
@@ -655,6 +653,12 @@ int hal_pin_newf(hal_type_t type,
 
 extern int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 			   void **data_ptr_addr, int comp_id, int inst_id);
+
+
+static inline int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
+			      void **data_ptr_addr, int comp_id) {
+    return halinst_pin_new(name, type, dir, data_ptr_addr,  comp_id, 0);
+}
 
 /** There is no 'hal_pin_delete()' function.  Once a component has
     created a pin, that pin remains as long as the component exists.
@@ -839,6 +843,11 @@ int hal_param_newf(hal_type_t type,
 
 extern int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
 			     void *data_addr, int comp_id, int instance_id);
+static inline int hal_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
+				void *data_addr, int comp_id) {
+    return halinst_param_new(name, type, dir, data_addr, comp_id, 0);
+}
+
 
 
 /** There is no 'hal_param_delete()' function.  Once a component has
@@ -935,7 +944,8 @@ int hal_export_functf(void (*funct) (void *, long),
     __attribute__((format(printf,6,7)));
 
 extern int halinst_export_funct(const char *name, void (*funct) (void *, long),
-				void *arg, int uses_fp, int reentrant, int comp_id, int inst_id);
+				void *arg, int uses_fp, int reentrant,
+				int comp_id, int inst_id);
 
 /** hal_create_thread() establishes a realtime thread that will
     execute one or more HAL functions periodically.
