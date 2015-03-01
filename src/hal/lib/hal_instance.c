@@ -110,8 +110,8 @@ int hal_inst_delete(const char *name)
 	}
 	// this does most of the heavy lifting
 	free_inst_struct(inst);
-  }
-  return 0;
+    }
+    return 0;
 }
 
 
@@ -362,8 +362,6 @@ static void free_inst_struct(hal_inst_t * inst)
     }
 #endif /* RTAPI */
 
-
-
     /* search the pin list for this instance's pins */
     prev = &(hal_data->pin_list_ptr);
     next = *prev;
@@ -399,10 +397,11 @@ static void free_inst_struct(hal_inst_t * inst)
     /* now we can delete the instance itself */
 
     // search the instance list and unlink instances owned by this comp
+    hal_inst_t *ip;
     prev = &(hal_data->inst_list_ptr);
     next = *prev;
     while (next != 0) {
-	hal_inst_t *ip = SHMPTR(next);
+	ip = SHMPTR(next);
 	if (ip == inst) {
 	    // this instance is owned by this comp
 	    *prev = ip->next_ptr;
@@ -416,7 +415,7 @@ static void free_inst_struct(hal_inst_t * inst)
 	    ip->next_ptr = hal_data->inst_free_ptr;
 	    hal_data->inst_free_ptr = SHMOFF(ip);
 	} else {
-	    prev = &(inst->next_ptr);
+	    prev = &(ip->next_ptr);
 	}
 	next = *prev;
     }

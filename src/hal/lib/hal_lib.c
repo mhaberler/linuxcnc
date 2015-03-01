@@ -193,10 +193,62 @@ void halpr_autorelease_mutex(void *variable)
 ************************************************************************/
 
 #ifdef RTAPI
+
+// instantiation handlers
+static int create_instance(const hal_funct_args_t *fa)
+{
+    const int argc = fa_argc(fa);
+    const char **argv = fa_argv(fa);
+
+    rtapi_print_msg(RTAPI_MSG_INFO, "%s: '%s' called, arg=%p argc=%d\n",
+		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
+    int i;
+    for (i = 0; i < argc; i++)
+	rtapi_print_msg(RTAPI_MSG_INFO, "    argv[%d] = \"%s\"\n",
+			i,argv[i]);
+
+    if (argc < 2)
+	return -EINVAL;
+
+    hal_comp_t *comp = halpr_find_comp_by_name(argv[0]);
+    if (!comp)
+	return -EINVAL;
+
+    if (!comp->ctor)
+	return -ENOENT;
+    hal_inst_t *inst = halpr_find_inst_by_name(argv[1]);
+    if (inst)
+	return -EBUSY;
+    return comp->ctor(argv[1], 0, NULL);
+
+}
+
+static int delete_instance(const hal_funct_args_t *fa)
+{
+    const int argc = fa_argc(fa);
+    const char **argv = fa_argv(fa);
+
+
+    rtapi_print_msg(RTAPI_MSG_INFO, "%s: '%s' called, arg=%p argc=%d\n",
+		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
+    int i;
+    for (i = 0; i < argc; i++)
+	rtapi_print_msg(RTAPI_MSG_INFO, "    argv[%d] = \"%s\"\n",
+			i,argv[i]);
+
+
+    if (argc < 1)
+	return -EINVAL;
+
+    return hal_inst_delete(argv[0]);
+}
+
+
+
 /* these functions are called when the hal_lib module is insmod'ed
    or rmmod'ed.
 */
-
+static int hal_comp_id;
 
 int rtapi_app_main(void)
 {
@@ -268,10 +320,36 @@ int rtapi_app_main(void)
 	return -EINVAL;
     }
 
+
+    hal_comp_id = hal_xinit("hal_lib", TYPE_RT, 0, 0, NULL, NULL);
+
+    // export the instantiation userfuncts
+    hal_xfunct_t ni = {
+	.type = FS_USERLAND,
+	.funct.u = create_instance,
+	.arg = NULL,
+	.comp_id = hal_comp_id
+    };
+    if (hal_export_xfunctf( &ni, "newinst"))
+	return -1;
+
+    hal_xfunct_t di = {
+	.type = FS_USERLAND,
+	.funct.u = delete_instance,
+	.arg = NULL,
+	.comp_id = hal_comp_id
+    };
+    if (hal_export_xfunctf( &di, "delinst"))
+	return -1;
+
+    hal_ready(hal_comp_id);
+
     /* done */
     hal_print_msg(RTAPI_MSG_DBG,
-		    "HAL_LIB:%d kernel lib installed successfully\n",
+		    "HAL_LIB:%d lib installed successfully\n",
 		    rtapi_instance);
+
+
     return 0;
 }
 

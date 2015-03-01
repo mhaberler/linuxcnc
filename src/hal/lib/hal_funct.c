@@ -244,26 +244,34 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     /* at this point we have a new function and can yield the mutex */
     rtapi_mutex_give(&(hal_data->mutex));
 
-    /* create a pin with the function's runtime in it */
-    if (halinst_pin_s32_newf(HAL_OUT, &(new->runtime), xf->comp_id,
-			     xf->instance_id, "%s.time",name)) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-	   "HAL: ERROR: fail to create pin '%s.time'\n", name);
-	return -EINVAL;
+    switch (xf->type) {
+    case FS_LEGACY_THREADFUNC:
+    case FS_XTHREADFUNC:
+	/* create a pin with the function's runtime in it */
+	if (halinst_pin_s32_newf(HAL_OUT, &(new->runtime), xf->comp_id,
+				 xf->instance_id, "%s.time",name)) {
+	    rtapi_print_msg(RTAPI_MSG_ERR,
+			    "HAL: ERROR: fail to create pin '%s.time'\n", name);
+	    return -EINVAL;
+	}
+	*(new->runtime) = 0;
+
+	/* note that failure to successfully create the following params
+	   does not cause the "export_funct()" call to fail - they are
+	   for debugging and testing use only */
+	/* create a parameter with the function's maximum runtime in it */
+	new->maxtime = 0;
+	halinst_param_s32_newf(HAL_RW,  &(new->maxtime), xf->comp_id, xf->instance_id, "%s.tmax", name);
+
+	/* create a parameter with the function's maximum runtime in it */
+	new->maxtime_increased = 0;
+	halinst_param_bit_newf(HAL_RO, &(new->maxtime_increased), xf->comp_id, xf->instance_id,
+			       "%s.tmax-increased", name);
+	break;
+    case FS_USERLAND: // no timing pins/params
+	;
     }
-    *(new->runtime) = 0;
 
-    /* note that failure to successfully create the following params
-       does not cause the "export_funct()" call to fail - they are
-       for debugging and testing use only */
-    /* create a parameter with the function's maximum runtime in it */
-    new->maxtime = 0;
-    halinst_param_s32_newf(HAL_RW,  &(new->maxtime), xf->comp_id, xf->instance_id, "%s.tmax", name);
-
-    /* create a parameter with the function's maximum runtime in it */
-    new->maxtime_increased = 0;
-    halinst_param_bit_newf(HAL_RO, &(new->maxtime_increased), xf->comp_id, xf->instance_id,
-		       "%s.tmax-increased", name);
     return 0;
 }
 

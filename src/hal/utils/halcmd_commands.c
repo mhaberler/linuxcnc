@@ -1721,7 +1721,7 @@ static const char *state_name(int state)
 
 static int inst_count(hal_comp_t *comp)
 {
-    int n = -1;
+    int n = 0;
     hal_inst_t *start = NULL, *inst;
 
     while ((inst = halpr_find_inst_by_owner(comp, start)) != NULL) {

@@ -411,7 +411,7 @@ static void free_comp_struct(hal_comp_t * comp)
 
     /* now we can delete the component itself */
     /* clear contents of struct */
-    comp->comp_id = -1;
+    comp->comp_id = 0;
     comp->type = TYPE_INVALID;
     comp->state = COMP_INVALID;
     comp->last_bound = 0;
