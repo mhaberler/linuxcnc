@@ -191,39 +191,6 @@ int hal_exit(int comp_id)
 }
 
 
-#if 0 //INST
-int hal_set_constructor(int comp_id, constructor make) {
-    int next;
-    hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
-
-    rtapi_mutex_get(&(hal_data->mutex));
-
-    /* search component list for 'comp_id' */
-    next = hal_data->comp_list_ptr;
-    if (next == 0) {
-	/* list is empty - should never happen, but... */
-	hal_print_msg(RTAPI_MSG_ERR,
-	    "HAL: ERROR: component %d not found\n", comp_id);
-	return -EINVAL;
-    }
-
-    comp = SHMPTR(next);
-    while (comp->comp_id != comp_id) {
-	/* not a match, try the next one */
-	next = comp->next_ptr;
-	if (next == 0) {
-	    /* reached end of list without finding component */
-	    hal_print_msg(RTAPI_MSG_ERR,
-		"HAL: ERROR: component %d not found\n", comp_id);
-	    return -EINVAL;
-	}
-	comp = SHMPTR(next);
-    }
-    comp->make = make;
-    return 0;
-}
-#endif
-
 int hal_ready(int comp_id) {
     int next;
     hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));

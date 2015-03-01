@@ -285,7 +285,7 @@ typedef struct {
 } hal_inst_t;
 
 // test if a pointer (pin etc) lies within a given instance data blob
-static inline bool inst_check(const hal_inst_t *inst, const void *halobj)
+static inline bool halpr_ptr_in_inst(const hal_inst_t *inst, const void *halobj)
 {
     if (inst == NULL)
 	return false;
@@ -437,7 +437,7 @@ typedef struct {
     int instance_id;
 } hal_xfunct_t;
 
-int hal_export_xfunctf(const hal_xfunct_t *xf, const char *fmt, ...);
+int hal_export_xfunctf( const hal_xfunct_t *xf, const char *fmt, ...);
 
 typedef struct hal_funct {
     int next_ptr;		/* next function in linked list */
@@ -638,6 +638,7 @@ hal_param_t *halpr_find_param_by_instance(hal_inst_t *inst,
 hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst,
 				      hal_funct_t * start);
 
+hal_inst_t *halpr_find_inst_by_owner(hal_comp_t * owner, hal_inst_t *start);
 
 
 // automatically release the local hal_data->mutex on scope exit.

@@ -55,7 +55,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	}
 
 	// inst may not exist
-	if ((inst = halpr_find_inst_by_name(name)) == 0) {
+	if ((inst = halpr_find_inst_by_name(name)) != NULL) {
 	    hal_print_error("%s: instance %s already exists", __FUNCTION__, name);
 	    return -EEXIST;
 	}
@@ -67,6 +67,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 		return -ENOMEM;
 	    }
 	}
+	memset(m, 0, size);
 
 	// allocate instance descriptor
 	if ((inst = alloc_inst_struct()) == NULL) {
@@ -76,6 +77,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	inst->owner_ptr = SHMOFF(comp);
 	inst->inst_id = rtapi_next_handle();
 	inst->inst_data = m;
+	*(inst_data) = m;
 	inst->inst_size = size;
 	rtapi_snprintf(inst->name, sizeof(inst->name), "%s", name);
 
@@ -254,6 +256,34 @@ hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst, hal_funct_t * start
 	}
 	/* didn't find it yet, look at next one */
 	next = funct->next_ptr;
+    }
+    /* if loop terminates, we reached end of list without finding a match */
+    return 0;
+}
+
+hal_inst_t *halpr_find_inst_by_owner(hal_comp_t * owner, hal_inst_t *start)
+{
+    int owner_ptr, next;
+    hal_inst_t *inst;
+
+    /* get offset of 'owner' component */
+    owner_ptr = SHMOFF(owner);
+    /* is this the first call? */
+    if (start == 0) {
+	/* yes, start at beginning of inst list */
+	next = hal_data->inst_list_ptr;
+    } else {
+	/* no, start at next inst */
+	next = start->next_ptr;
+    }
+    while (next != 0) {
+	inst = SHMPTR(next);
+	if (inst->owner_ptr == owner_ptr) {
+	    /* found a match */
+	    return inst;
+	}
+	/* didn't find it yet, look at next one */
+	next = inst->next_ptr;
     }
     /* if loop terminates, we reached end of list without finding a match */
     return 0;

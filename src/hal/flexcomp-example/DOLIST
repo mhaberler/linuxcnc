@@ -24,3 +24,8 @@ halcmd support - inspection, newinst, delinst
 
 Cython bindings
 halmodule.cc ? rather not.
+
+
+missing:
+
+hal_inst_t *halpr_find_inst(hal_inst_t *inst);

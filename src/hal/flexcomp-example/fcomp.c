@@ -5,61 +5,45 @@
 #include "hal_priv.h"
 
 MODULE_AUTHOR("Michael Haberler");
-MODULE_DESCRIPTION("demo component for extended funct API");
+MODULE_DESCRIPTION("mockup for HAL instantiation API");
 MODULE_LICENSE("GPL");
 
 static int comp_id;
-static char *compname = "ufdemo";
+static char *compname = "fcomp";
 
-struct instparms {
-    char *cfg[10];
-    int foo;
+//static int npins;
+//RTAPI_INSTP_INT(npins, "the npins instance parameter");
+
+struct inst_data {
+    hal_s32_t *pin;
 };
 
-static struct instparms ip;
-//RTAPI_MP_ARRAY_STRING(ip.cfg ,10 ,"config string");
-
-//RTAPI_MP_INT(ip.foo,"fifo depth");
-
-
-// a tradional RT thread function.
-static void legacy_funct(void *arg, long period)
+// thread function.
+static void funct(void *arg, long period)
 {
-    // period is somewhat useless as it only gives the nominal, but
-    // not the actual thread invocation time (which already was measured
-    // in the calling library code)
 }
 
-
-
-// an extended RT thread functio, more useful arguments passed in:
-// extended thread functions can be addf'd like legacy functions, the right thing will happen
-// time observation for free!
-static int xthread_funct(const void *arg, const hal_funct_args_t *fa)
+static int instantiate(const char *name, const int argc, const char**argv)
 {
+    struct inst_data *ip;
 
-    // the following accessors are available here:
+    int inst_id = hal_inst_create(name, comp_id,
+				  sizeof(struct inst_data),
+				  (void **)&ip);
+    if (inst_id < 0)
+	return -1;
 
-    // fa_period(fa) - formerly 'long period'
-    // fa_thread_start_time(fa): _actual_ start time of thread invocation
-    // fa_start_time(fa):        _actual_ start time of function invocation
-    // fa_thread_name(fa): name of the calling thread (char *)
-    // fa_funct_name(fa):  name of the this called function (char *)
+    hal_print_msg(RTAPI_MSG_ERR,"ip=%p hal_shmem_base=%p\n", ip, hal_shmem_base);
 
+    if (halinst_pin_s32_newf(HAL_IN, &(ip->pin), comp_id, inst_id, "%s.pin", name))
+	return -1;
+
+    if (halinst_export_functf(funct, ip, 0, 0, comp_id, inst_id, "%s.funct", name))
+	return -1;
     return 0;
 }
 
-
-// a 'userland function' - exported similar to a thread function
-// supports user-triggerd one-off execution of code in RT
-//
-// can be called by:
-//     halcmd call ufdemo.demo-funct [arg1 [...]]
-//
-// (or an equivalent HAL library function, or Python)
-// argument handling like "main(int argc, char **argv)"
-// userland functions cannot be added to a threads - no point
-static int usrfunct_demo(const hal_funct_args_t *fa)
+static int delete(const char *name, void *inst, const int inst_size)
 {
     const int argc = fa_argc(fa);
     const char **argv = fa_argv(fa);
@@ -73,45 +57,25 @@ static int usrfunct_demo(const hal_funct_args_t *fa)
     return argc;
 }
 
+
+static int answer = 42;
+RTAPI_MP_INT(answer, "a random module parameter");
+
 int rtapi_app_main(void)
 {
 
-    comp_id = hal_init(compname);
+    comp_id = hal_xinit(compname, TYPE_RT, 0, 0, instantiate, delete);
     if (comp_id < 0)
 	return -1;
 
-    // exporting a legacy thread function - as per 'man hal_export_funct':
-    if (hal_export_funct("ufdemo.legacy-funct", legacy_funct,
-			 "l-instance-data", 0, 0, comp_id))
-	return -1;
-
-    // exporting an extended thread function:
-    hal_xfunct_t xtf = {
-	.type = FS_XTHREADFUNC,
-	.funct.x = xthread_funct,
-	.arg = "x-instance-data",
-	.uses_fp = 0,
-	.reentrant = 0,
-	.comp_id = comp_id
-    };
-    if (hal_export_xfunctf(&xtf,"%s.xthread-funct", compname))
-	return -1;
-
-    // exporting a userland-callable thread function:
-    hal_xfunct_t uf = {
-	.type = FS_USERLAND,
-	.funct.u = usrfunct_demo,
-	.arg = "u-instance-data",
-	.comp_id = comp_id
-    };
-    if (hal_export_xfunctf( &uf, "%s.demo-funct", compname))
-	return -1;
-
     hal_ready(comp_id);
+
+    // fake halcmd
+    instantiate("foo", 0, NULL);
     return 0;
 }
 
 void rtapi_app_exit(void)
 {
-    hal_exit(comp_id);
+    hal_exit(comp_id); // calls delete() on all insts
 }

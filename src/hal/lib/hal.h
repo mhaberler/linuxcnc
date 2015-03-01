@@ -214,8 +214,8 @@ enum comp_state {
     COMP_READY
 };
 
-typedef void (*hal_constructor_t) (const char *name, const int argc, const char**argv);
-typedef void (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
+typedef int (*hal_constructor_t) (const char *name, const int argc, const char**argv);
+typedef int (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
 
 extern int hal_xinit(const char *name,
 		     int mode,
@@ -561,32 +561,51 @@ extern unsigned char hal_get_lock(void);
     component that will actually be using the pin.
     If successful, the hal_pin_xxx_new() functions return 0.
     On failure they return a negative error code.
-
-    DEPRECATION WARNING:
-    these functions are for legacy components.
-    For new code, use instantiable components, and the
-    the halinst_pin_* functions
 */
-extern int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
-    hal_bit_t ** data_ptr_addr, int comp_id);
-extern int hal_pin_float_new(const char *name, hal_pin_dir_t dir,
-    hal_float_t ** data_ptr_addr, int comp_id);
-extern int hal_pin_u32_new(const char *name, hal_pin_dir_t dir,
-    hal_u32_t ** data_ptr_addr, int comp_id);
-extern int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
-    hal_s32_t ** data_ptr_addr, int comp_id);
+// generic call
+int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
+		    void **data_ptr_addr, int comp_id, int inst_id);
 
 // takes an instance ID as parameter. If instance ID == 0,
 // behave like the above four functions.
-extern int halinst_pin_bit_new(const char *name, hal_pin_dir_t dir,
-			       hal_bit_t ** data_ptr_addr, int comp_id, int inst_id);
-extern int halinst_pin_float_new(const char *name, hal_pin_dir_t dir,
-    hal_float_t ** data_ptr_addr, int comp_id, int inst_id);
-extern int halinst_pin_u32_new(const char *name, hal_pin_dir_t dir,
-    hal_u32_t ** data_ptr_addr, int comp_id, int inst_id);
-extern int halinst_pin_s32_new(const char *name, hal_pin_dir_t dir,
-    hal_s32_t ** data_ptr_addr, int comp_id, int inst_id);
+static inline int halinst_pin_bit_new(const char *name, hal_pin_dir_t dir,
+				      hal_bit_t ** data_ptr_addr, int comp_id, int inst_id) {
+    return halinst_pin_new(name, HAL_BIT, dir, (void **) data_ptr_addr, comp_id, inst_id);
+}
 
+static inline int halinst_pin_float_new(const char *name, hal_pin_dir_t dir,
+				      hal_bit_t ** data_ptr_addr, int comp_id, int inst_id) {
+    return halinst_pin_new(name, HAL_FLOAT, dir, (void **) data_ptr_addr, comp_id, inst_id);
+}
+
+static inline int halinst_pin_s32_new(const char *name, hal_pin_dir_t dir,
+				      hal_bit_t ** data_ptr_addr, int comp_id, int inst_id) {
+    return halinst_pin_new(name, HAL_S32, dir, (void **) data_ptr_addr, comp_id, inst_id);
+}
+static inline int halinst_pin_u32_new(const char *name, hal_pin_dir_t dir,
+				      hal_bit_t ** data_ptr_addr, int comp_id, int inst_id) {
+    return halinst_pin_new(name, HAL_U32, dir, (void **) data_ptr_addr, comp_id, inst_id);
+}
+
+//  these wrappers are for legacy components.
+//  For new code, use instantiable components, and the
+//  the halinst_pin_* functions
+static inline int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
+				  hal_bit_t ** data_ptr_addr, int comp_id) {
+    return halinst_pin_new(name, HAL_BIT, dir, (void **) data_ptr_addr, comp_id, 0);
+}
+static inline int hal_pin_float_new(const char *name, hal_pin_dir_t dir,
+				    hal_float_t ** data_ptr_addr, int comp_id) {
+    return halinst_pin_new(name, HAL_FLOAT, dir, (void **) data_ptr_addr, comp_id, 0);
+}
+static inline int hal_pin_u32_new(const char *name, hal_pin_dir_t dir,
+				  hal_u32_t ** data_ptr_addr, int comp_id) {
+    return halinst_pin_new(name, HAL_U32, dir, (void **) data_ptr_addr, comp_id, 0);
+}
+static inline int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
+				  hal_s32_t ** data_ptr_addr, int comp_id) {
+    return halinst_pin_new(name, HAL_S32, dir, (void **) data_ptr_addr, comp_id, 0);
+}
 
 /** The hal_pin_XXX_newf family of functions are similar to
     hal_pin_XXX_new except that they also do printf-style formatting to compute
@@ -947,6 +966,15 @@ extern int halinst_export_funct(const char *name, void (*funct) (void *, long),
 				void *arg, int uses_fp, int reentrant,
 				int comp_id, int inst_id);
 
+// printf-style variant of the above
+int halinst_export_functf(void (*funct) (void *, long),
+			  void *arg,
+			  int uses_fp,
+			  int reentrant,
+			  int comp_id,
+			  int inst_id,
+			  const char *fmt, ...);
+
 /** hal_create_thread() establishes a realtime thread that will
     execute one or more HAL functions periodically.
     'name' is the name of the thread, which must be unique in
@@ -1049,20 +1077,6 @@ int hal_unreference_vtable(int vtable_id);
 
 
 int hal_call_usrfunct(const char *name, const int argc, const char **argv);
-
-#if 0
-/** HAL 'constructor' typedef
-    If it is not NULL, this points to a function which can construct a new
-    instance of its component.  Return value is >=0 for success,
-    <0 for error.
-*/
-typedef int(*constructor)(char *prefix, char *arg);
-
-/** hal_set_constructor() sets the constructor function for this component
-*/
-extern int hal_set_constructor(int comp_id, constructor make);
-#endif
-
 
 // public instance API:
 

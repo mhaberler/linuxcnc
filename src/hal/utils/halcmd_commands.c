@@ -66,6 +66,7 @@
 
 static int unloadrt_comp(char *mod_name);
 static void print_comp_info(char **patterns);
+static void print_inst_info(char **patterns);
 static void print_vtable_info(char **patterns);
 static void print_pin_info(int type, char **patterns);
 static void print_pin_aliases(char **patterns);
@@ -1036,7 +1037,7 @@ int do_show_cmd(char *type, char **patterns)
     if (!type || *type == '\0') {
 	/* print everything */
 	print_comp_info(NULL);
-	print_vtable_info(NULL);
+	print_inst_info(NULL);
 	print_pin_info(-1, NULL);
 	print_pin_aliases(NULL);
 	print_sig_info(-1, NULL);
@@ -1046,11 +1047,12 @@ int do_show_cmd(char *type, char **patterns)
 	print_thread_info(NULL);
 	print_group_info(NULL);
 	print_ring_info(NULL);
+	print_vtable_info(NULL);
 	print_eps_info(NULL);
     } else if (strcmp(type, "all") == 0) {
 	/* print everything, using the pattern */
 	print_comp_info(patterns);
-	print_vtable_info(patterns);
+	print_inst_info(patterns);
 	print_pin_info(-1, patterns);
 	print_pin_aliases(patterns);
 	print_sig_info(-1, patterns);
@@ -1060,9 +1062,12 @@ int do_show_cmd(char *type, char **patterns)
 	print_thread_info(patterns);
 	print_group_info(patterns);
 	print_ring_info(patterns);
+	print_vtable_info(patterns);
 	print_eps_info(patterns);
     } else if (strcmp(type, "comp") == 0) {
 	print_comp_info(patterns);
+    } else if (strcmp(type, "inst") == 0) {
+	print_inst_info(patterns);
     } else if (strcmp(type, "vtable") == 0) {
 	print_vtable_info(patterns);
     } else if (strcmp(type, "pin") == 0) {
@@ -1714,6 +1719,19 @@ static const char *state_name(int state)
     }
 }
 
+static int inst_count(hal_comp_t *comp)
+{
+    int n = -1;
+    hal_inst_t *start = NULL, *inst;
+
+    while ((inst = halpr_find_inst_by_owner(comp, start)) != NULL) {
+	start = inst;
+	n++;
+    }
+    return n;
+
+}
+
 static void print_comp_info(char **patterns)
 {
     int next;
@@ -1721,17 +1739,32 @@ static void print_comp_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Loaded HAL Components:\n");
-	halcmd_output("ID      Type  %-*s PID   State\n", HAL_NAME_LEN, "Name");
+	halcmd_output("ID      Type  Inst %-*s PID   State\n", HAL_NAME_LEN, "Name");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->comp_list_ptr;
     while (next != 0) {
 	comp = SHMPTR(next);
-	if ( match(patterns, comp->name) ) {
+	bool has_ctor = (comp->ctor != NULL) ;
+	bool has_dtor = (comp->dtor != NULL) ;
 
-	    halcmd_output(" %5d  %-4s  %-*s",
-			  comp->comp_id, type_name(comp->type),
-			  HAL_NAME_LEN, comp->name);
+	if ( match(patterns, comp->name) ) {
+	    if (has_ctor||has_dtor)
+
+	    halcmd_output(" %5d  %-4s%c%c  %-3d %-*s",
+			  comp->comp_id,
+			  type_name(comp->type),
+			  has_ctor ? 'c': ' ',
+			  has_dtor ? 'd': ' ',
+			  inst_count(comp),
+			  HAL_NAME_LEN,
+			  comp->name);
+	    else
+		 halcmd_output(" %5d  %-4s    -    %-*s",
+			  comp->comp_id,
+			  type_name(comp->type),
+			  HAL_NAME_LEN,
+			  comp->name);
 	    switch (comp->type) {
 	    case TYPE_USER:
 
@@ -1772,6 +1805,40 @@ static void print_comp_info(char **patterns)
 	    halcmd_output("\n");
 	}
 	next = comp->next_ptr;
+    }
+    rtapi_mutex_give(&(hal_data->mutex));
+    halcmd_output("\n");
+}
+
+static void print_inst_info(char **patterns)
+{
+    int next;
+    hal_comp_t *comp;
+    hal_inst_t *inst;
+
+    if (scriptmode == 0) {
+	halcmd_output("Instances:\n");
+	halcmd_output("ID       Size  %-*s Owner\n", HAL_NAME_LEN, "Name");
+    }
+    rtapi_mutex_get(&(hal_data->mutex));
+    next = hal_data->inst_list_ptr;
+
+    while (next != 0) {
+	inst = SHMPTR(next);
+	comp = SHMPTR(inst->owner_ptr);
+
+	if ( match(patterns, inst->name) ) {
+
+	    halcmd_output(" %5d  %5d  %-*s %-*s",
+			  inst->inst_id,
+			  inst->inst_size,
+			  HAL_NAME_LEN,
+			  inst->name,
+			  HAL_NAME_LEN,
+			  comp->name);
+	    halcmd_output("\n");
+	}
+	next = inst->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");

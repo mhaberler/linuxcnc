@@ -14,7 +14,7 @@ static hal_pin_t *alloc_pin_struct(void);
 ************************************************************************/
 
 /* wrapper functs for typed pins - these call the generic funct below */
-
+#if 0
 int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
     hal_bit_t ** data_ptr_addr, int comp_id)
 {
@@ -39,20 +39,21 @@ int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
 {
     return hal_pin_new(name, HAL_S32, dir, (void **) data_ptr_addr, comp_id);
 }
+#endif
 
-static int hal_pin_newfv(hal_type_t type, hal_pin_dir_t dir,
-    void ** data_ptr_addr, int comp_id, const char *fmt, va_list ap)
+static int halinst_pin_newfv(hal_type_t type, hal_pin_dir_t dir,
+			     void ** data_ptr_addr, int comp_id, int inst_id,
+			     const char *fmt, va_list ap)
 {
     char name[HAL_NAME_LEN + 1];
     int sz;
     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
-        hal_print_msg(RTAPI_MSG_ERR,
-	    "hal_pin_newfv: length %d too long for name starting '%s'\n",
-	    sz, name);
+        hal_print_error("%s: length %d too long for name starting '%s'\n",
+			__FUNCTION__, sz, name);
         return -ENOMEM;
     }
-    return hal_pin_new(name, type, dir, data_ptr_addr, comp_id);
+    return halinst_pin_new(name, type, dir, data_ptr_addr, comp_id, inst_id);
 }
 
 int hal_pin_bit_newf(hal_pin_dir_t dir,
@@ -61,7 +62,7 @@ int hal_pin_bit_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_BIT, dir, (void**)data_ptr_addr, comp_id, fmt, ap);
+    ret = halinst_pin_newfv(HAL_BIT, dir, (void**)data_ptr_addr, comp_id, 0, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -72,7 +73,7 @@ int hal_pin_float_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_FLOAT, dir, (void**)data_ptr_addr, comp_id, fmt, ap);
+    ret = halinst_pin_newfv(HAL_FLOAT, dir, (void**)data_ptr_addr, comp_id, 0, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -83,7 +84,7 @@ int hal_pin_u32_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_U32, dir, (void**)data_ptr_addr, comp_id, fmt, ap);
+    ret = halinst_pin_newfv(HAL_U32, dir, (void**)data_ptr_addr, comp_id, 0, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -94,7 +95,7 @@ int hal_pin_s32_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_S32, dir, (void**)data_ptr_addr, comp_id, fmt, ap);
+    ret = halinst_pin_newfv(HAL_S32, dir, (void**)data_ptr_addr, comp_id, 0, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -181,7 +182,7 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 		return -EINVAL;
 	    }
 	    // validate that the pin actually is allocated in the instance data blob
-	    if (inst_check(inst, (void *) data_ptr_addr)) {
+	    if (!halpr_ptr_in_inst(inst, (void *) data_ptr_addr)) {
 		hal_print_error("memory for pin %s not within instance %s/%d memory range",
 				name, inst->name, inst_id);
 		return -EINVAL;
@@ -194,9 +195,11 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	    hal_print_error("data_ptr_addr not in shared memory\n");
 	    return -EINVAL;
 	}
-	if(comp->state > COMP_INITIALIZING) {
+
+	// instances may create pins post hal_ready
+	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
 	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: pin_new called after hal_ready (%d)\n", comp->state);
+			  "HAL: ERROR: pin_new called after hal_ready (%d)\n", comp->state);
 	    return -EINVAL;
 	}
 
