@@ -35,6 +35,9 @@
  * http://stackoverflow.com/questions/13183327/drop-root-uid-while-retaining-cap-sys-nice
  * http://stackoverflow.com/questions/12141420/losing-capabilities-after-setuid
  */
+#define TRACEPOINT_DEFINE
+#define TRACEPOINT_PROBE_DYNAMIC_LINKAGE
+#include "/usr/local/lib/lttng-tracepoints/machinekit_tp.h"
 
 #include "config.h"
 
@@ -1496,6 +1499,9 @@ static struct option long_options[] = {
 
 int main(int argc, char **argv)
 {
+    void *lib = dlopen("/usr/local/lib/lttng-tracepoints/machinekit_tp.so", RTLD_LAZY);
+    tracepoint(machinekit_provider, function_tracepoint, "rtapi_app.cc main");
+
     int c;
     progname = argv[0];
     inifile =  getenv("MACHINEKIT_INI");

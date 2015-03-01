@@ -56,6 +56,7 @@
 * Last change:
 *
 ********************************************************************/
+#include "/usr/local/lib/lttng-tracepoints/machinekit_tp.h"
 
 #include <linux/types.h>
 #include <float.h>
@@ -380,6 +381,8 @@ int abort_and_switchback(void)
   */
 void emcmotCommandHandler(void *arg, long period)
 {
+    void *lib = dlopen("/usr/local/lib/lttng-tracepoints/machinekit_tp.so", RTLD_LAZY);
+
     int joint_num;
     int n;
     emcmot_joint_t *joint;
@@ -387,7 +390,7 @@ void emcmotCommandHandler(void *arg, long period)
     emcmot_comp_entry_t *comp_entry;
     char issue_atspeed = 0;
     
-check_stuff ( "before command_handler()" );
+tracepoint(machinekit_provider, function_tracepoint, "before command_handler");
 
     /* check for split read */
     if (emcmotCommand->head != emcmotCommand->tail) {
@@ -1750,7 +1753,8 @@ check_stuff ( "before command_handler()" );
 
     }
     /* end of: if-new-command */
-check_stuff ( "after command_handler()" );
+
+tracepoint(machinekit_provider, function_tracepoint, "after command_handler");
 
     return;
 }

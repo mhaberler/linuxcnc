@@ -157,6 +157,8 @@ USERSRCS += $(RTAPI_APP_SRCS)
 ifeq ($(RUN_IN_PLACE),yes)
 RTAPI_APP_RPATH=-Wl,-rpath,$(LIB_DIR)
 endif
+LIBUST_LIB_DIR := /usr/local/lib
+RTAPI_APP_RPATH+=-Wl,-rpath,$(LIBUST_LIB_DIR)
 
 $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) $(LTTNG_UST_CFLAGS)

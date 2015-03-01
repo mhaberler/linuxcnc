@@ -12,6 +12,7 @@
 *
 * Copyright (c) 2004 All rights reserved.
 ********************************************************************/
+#include "/usr/local/lib/lttng-tracepoints/machinekit_tp.h"
 
 #include "posemath.h"
 #include "rtapi.h"
@@ -227,6 +228,9 @@ static void update_status(void);
 
 void emcmotController(void *arg, long period)
 {
+    void *lib = dlopen("/usr/local/lib/lttng-tracepoints/machinekit_tp.so", RTLD_LAZY);
+    int cycle_counter = 1;
+
     // - overrun detection -
     // maintain some records of how long it's been between calls.  The
     // first time we see a delay that's much longer than the records show
@@ -311,37 +315,43 @@ void emcmotController(void *arg, long period)
     emcmotStatus->head++;
     /* here begins the core of the controller */
 
-check_stuff ( "before process_inputs()" );
+tracepoint(machinekit_provider, cycle_counter_tracepoint, "before cycle", cycle_counter);
+
+tracepoint(machinekit_provider, function_tracepoint, "before process_inputs");
     process_inputs();
-check_stuff ( "after process_inputs()" );
+tracepoint(machinekit_provider, function_tracepoint, "after process_inputs");
     do_forward_kins();
-check_stuff ( "after do_forward_kins()" );
+tracepoint(machinekit_provider, function_tracepoint, "after do_forward_kins");
     process_probe_inputs();
-check_stuff ( "after process_probe_inputs()" );
+tracepoint(machinekit_provider, function_tracepoint, "after process_probe_inputs");
     check_for_faults();
-check_stuff ( "after check_for_faults()" );
+tracepoint(machinekit_provider, function_tracepoint, "after check_for_faults");
     set_operating_mode();
-check_stuff ( "after set_operating_mode()" );
+tracepoint(machinekit_provider, function_tracepoint, "after set_operating_mode");
     handle_jogwheels();
-check_stuff ( "after handle_jogwheels()" );
+tracepoint(machinekit_provider, function_tracepoint, "after handle_jogwheels");
     do_homing_sequence();
-check_stuff ( "after do_homing_sequence()" );
+tracepoint(machinekit_provider, function_tracepoint, "after do_homing_sequence");
     do_homing();
-check_stuff ( "after do_homing()" );
+tracepoint(machinekit_provider, function_tracepoint, "after do_homing");
     get_pos_cmds(period);
-check_stuff ( "after get_pos_cmds()" );
+tracepoint(machinekit_provider, function_tracepoint, "after get_pos_cmds");
     compute_screw_comp();
-check_stuff ( "after compute_screw_comp()" );
+tracepoint(machinekit_provider, function_tracepoint, "after compute_screw_comp");
     output_to_hal();
-check_stuff ( "after output_to_hal()" );
+tracepoint(machinekit_provider, function_tracepoint, "after output_to_hal");
     update_status();
-check_stuff ( "after update_status()" );
+tracepoint(machinekit_provider, function_tracepoint, "after update_status");
+
     /* here ends the core of the controller */
     emcmotStatus->heartbeat++;
     /* set tail to head, to indicate work complete */
     emcmotStatus->tail = emcmotStatus->head;
     /* clear init flag */
     first_pass = 0;
+
+tracepoint(machinekit_provider, cycle_counter_tracepoint, "after cycle", cycle_counter);
+cycle_counter++;
 
 /* end of controller function */
 }
@@ -351,8 +361,7 @@ check_stuff ( "after update_status()" );
 ************************************************************************/
 
 /* The protoypes and documentation for these functions are located
-   at the top of the file in the section called "local function
-   prototypes"
+   at the top of the file in the section called "local function prototypes"
 */
 
 static void process_probe_inputs(void) {
