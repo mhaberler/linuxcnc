@@ -571,6 +571,18 @@ EXPORT_SYMBOL(hal_param_float_newf);
 EXPORT_SYMBOL(hal_param_u32_newf);
 EXPORT_SYMBOL(hal_param_s32_newf);
 
+
+EXPORT_SYMBOL(halinst_param_bit_new);
+EXPORT_SYMBOL(halinst_param_float_new);
+EXPORT_SYMBOL(halinst_param_u32_new);
+EXPORT_SYMBOL(halinst_param_s32_new);
+
+EXPORT_SYMBOL(halinst_param_bit_newf);
+EXPORT_SYMBOL(halinst_param_float_newf);
+EXPORT_SYMBOL(halinst_param_u32_newf);
+EXPORT_SYMBOL(halinst_param_s32_newf);
+
+
 EXPORT_SYMBOL(hal_param_bit_set);
 EXPORT_SYMBOL(hal_param_float_set);
 EXPORT_SYMBOL(hal_param_u32_set);
