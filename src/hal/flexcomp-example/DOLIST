@@ -2,11 +2,13 @@
 -  hal_inst_createt(), hal_inst_delete() ,  list management
 objects which get instance id's are:
 
-^^DONE
+
 
 - pins in hal_pin_t: instance_ptr
 - params in hal_pin_t: instance_ptr
 - functs (in hal_xfunct_t: instance_id; in hal_funct_t:instance_ptr)
+
+^^DONE
 
 the following are UNAWARE of instances:
 

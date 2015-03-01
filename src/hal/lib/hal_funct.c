@@ -109,9 +109,11 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 		  name, xf->type);
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
+	hal_inst_t *inst = NULL;
 
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
+
 	/* validate comp_id */
 	comp = halpr_find_comp_by_id(xf->comp_id);
 	if (comp == 0) {
@@ -120,6 +122,16 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 			    "HAL: ERROR: component %d not found\n", xf->comp_id);
 	    return -EINVAL;
 	}
+
+	// validate inst_id if given
+	if (xf->instance_id) { // pin is in an instantiable comp
+	    inst = halpr_find_inst_by_id(xf->instance_id);
+	    if (inst == NULL) {
+		hal_print_error("instance %d not found\n", xf->instance_id);
+		return -EINVAL;
+	    }
+	}
+
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
 	    hal_print_msg(RTAPI_MSG_ERR,
@@ -143,6 +155,7 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	/* initialize the structure */
 	new->uses_fp = xf->uses_fp;
 	new->owner_ptr = SHMOFF(comp);
+	new->instance_ptr = (xf->instance_id == 0) ? 0 : SHMOFF(inst);
 	new->reentrant = xf->reentrant;
 	new->users = 0;
 	new->handle = rtapi_next_handle();
