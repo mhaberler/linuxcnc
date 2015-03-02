@@ -20,7 +20,7 @@ struct inst_data {
 // thread function - equivalent to FUNCTION(_) in comp
 static void funct(void *arg, long period)
 {
-    // use the instance pointer passed in hal_export_funct()
+    // use the instance pointer passed in halinst_export_funct()
     struct inst_data *ip = arg;
 
     *(ip->out) = *(ip->in);
@@ -85,7 +85,6 @@ RTAPI_MP_INT(answer, "a random module parameter");
 
 int rtapi_app_main(void)
 {
-
     // to use default destructor, use NULL instead of delete
     comp_id = hal_xinit(compname, TYPE_RT, 0, 0, instantiate, delete);
     if (comp_id < 0)
