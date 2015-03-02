@@ -84,14 +84,3 @@ newm dro led
 newm dro curr-pos
 newm dro curr-vel
 newm dro curr-acc
-
-# start the gladevcp version
-
-# no -N flag - local case, use IPC sockets, no zeroconf resolution
-#loadusr -Wn motorctrl gladevcp -E -u motorctrl.py motorctrl.ui
-
-# -N - remote case, use zeroconf resolution
-loadusr -Wn motorctrl gladevcp -N -E -u motorctrl.py motorctrl.ui
-
-# load scope only now - because all sigs are now defined:
-loadusr halscope
