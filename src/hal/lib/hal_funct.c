@@ -119,7 +119,7 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap)
 {
     int *prev, next, cmp, sz;
-    hal_funct_t *new, *fptr;
+    hal_funct_t *nf, *fptr;
     char name[HAL_NAME_LEN + 1];
 
     if (hal_data == 0) {
@@ -183,47 +183,47 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	    return -EINVAL;
 	}
 	/* allocate a new function structure */
-	new = alloc_funct_struct();
-	if (new == 0) {
+	nf = alloc_funct_struct();
+	if (nf == 0) {
 	    /* alloc failed */
 	    hal_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: insufficient memory for function '%s'\n", name);
 	    return -ENOMEM;
 	}
 	/* initialize the structure */
-	new->uses_fp = xf->uses_fp;
-	new->owner_ptr = SHMOFF(comp);
-	new->instance_ptr = (xf->instance_id == 0) ? 0 : SHMOFF(inst);
-	new->reentrant = xf->reentrant;
-	new->users = 0;
-	new->handle = rtapi_next_handle();
-	new->arg = xf->arg;
-	new->type = xf->type;
-	new->funct.l = xf->funct.l; // a bit of a cheat really
-	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
+	nf->uses_fp = xf->uses_fp;
+	nf->owner_ptr = SHMOFF(comp);
+	nf->instance_ptr = (xf->instance_id == 0) ? 0 : SHMOFF(inst);
+	nf->reentrant = xf->reentrant;
+	nf->users = 0;
+	nf->handle = rtapi_next_handle();
+	nf->arg = xf->arg;
+	nf->type = xf->type;
+	nf->funct.l = xf->funct.l; // a bit of a cheat really
+	rtapi_snprintf(nf->name, sizeof(nf->name), "%s", name);
 	/* search list for 'name' and insert new structure */
 	prev = &(hal_data->funct_list_ptr);
 	next = *prev;
 	while (1) {
 	    if (next == 0) {
 		/* reached end of list, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
+		nf->next_ptr = next;
+		*prev = SHMOFF(nf);
 		/* break out of loop and init the new function */
 		break;
 	    }
 	    fptr = SHMPTR(next);
-	    cmp = strcmp(fptr->name, new->name);
+	    cmp = strcmp(fptr->name, nf->name);
 	    if (cmp > 0) {
 		/* found the right place for it, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
+		nf->next_ptr = next;
+		*prev = SHMOFF(nf);
 		/* break out of loop and init the new function */
 		break;
 	    }
 	    if (cmp == 0) {
 		/* name already in list, can't insert */
-		free_funct_struct(new);
+		free_funct_struct(nf);
 		hal_print_msg(RTAPI_MSG_ERR,
 				"HAL: ERROR: duplicate function '%s'\n", name);
 		return -EINVAL;
@@ -237,9 +237,9 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 
     }
     /* init time logging variables */
-    new->runtime = 0;
-    new->maxtime = 0;
-    new->maxtime_increased = 0;
+    nf->runtime = 0;
+    nf->maxtime = 0;
+    nf->maxtime_increased = 0;
 
     /* at this point we have a new function and can yield the mutex */
     rtapi_mutex_give(&(hal_data->mutex));
@@ -248,24 +248,24 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     case FS_LEGACY_THREADFUNC:
     case FS_XTHREADFUNC:
 	/* create a pin with the function's runtime in it */
-	if (halinst_pin_s32_newf(HAL_OUT, &(new->runtime), xf->comp_id,
+	if (halinst_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->comp_id,
 				 xf->instance_id, "%s.time",name)) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: fail to create pin '%s.time'\n", name);
 	    return -EINVAL;
 	}
-	*(new->runtime) = 0;
+	*(nf->runtime) = 0;
 
 	/* note that failure to successfully create the following params
 	   does not cause the "export_funct()" call to fail - they are
 	   for debugging and testing use only */
 	/* create a parameter with the function's maximum runtime in it */
-	new->maxtime = 0;
-	halinst_param_s32_newf(HAL_RW,  &(new->maxtime), xf->comp_id, xf->instance_id, "%s.tmax", name);
+	nf->maxtime = 0;
+	halinst_param_s32_newf(HAL_RW,  &(nf->maxtime), xf->comp_id, xf->instance_id, "%s.tmax", name);
 
 	/* create a parameter with the function's maximum runtime in it */
-	new->maxtime_increased = 0;
-	halinst_param_bit_newf(HAL_RO, &(new->maxtime_increased), xf->comp_id, xf->instance_id,
+	nf->maxtime_increased = 0;
+	halinst_param_bit_newf(HAL_RO, &(nf->maxtime_increased), xf->comp_id, xf->instance_id,
 			       "%s.tmax-increased", name);
 	break;
     case FS_USERLAND: // no timing pins/params
