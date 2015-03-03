@@ -228,7 +228,7 @@ Tab {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: qsTr("Proportional Gain")
+                                text: qsTr("P")
                                 horizontalAlignment: Text.AlignHCenter
                             }
                         }
@@ -246,7 +246,7 @@ Tab {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: qsTr("Integral gain")
+                                text: qsTr("I")
                                 horizontalAlignment: Text.AlignHCenter
                             }
                         }
@@ -265,7 +265,7 @@ Tab {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: qsTr("Diff gain")
+                                text: qsTr("D")
                                 horizontalAlignment: Text.AlignHCenter
                             }
                         }
