@@ -37,9 +37,9 @@ Tab {
                             Layout.fillWidth: true
                             name: "fb_pos"
                             minimumValue: 0
-                            maximumValue: 100
+                            maximumValue: 20
                             fancy: true
-                            z0BorderValue: 100
+                            z0BorderValue: 20
                             z1BorderValue: 0
                             z0Color: "red"
                             z1Color: "red"
@@ -201,7 +201,7 @@ Tab {
                             Layout.fillWidth: true
                             name: "cmd_pos"
                             minimumValue: 0
-                            maximumValue: 100
+                            maximumValue: 20
                             value: 0
                             tickmarksEnabled: false
                             minimumValueVisible: false
@@ -220,15 +220,15 @@ Tab {
                                 id: cmdMaxVelSlider
                                 Layout.alignment: Layout.Center
                                 Layout.preferredWidth: main.width * 0.25
-                                name: "cmd_maxvel"
+                                name: "Pgain"
                                 minimumValue: 0
-                                maximumValue: 100
-                                value: 20
+                                maximumValue: 5
+                                value: 2
                                 tickmarksEnabled: false
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: qsTr("Max velocity")
+                                text: qsTr("Proportional Gain")
                                 horizontalAlignment: Text.AlignHCenter
                             }
                         }
@@ -238,15 +238,15 @@ Tab {
                                 id: cmdMaxAccSlider
                                 Layout.alignment: Layout.Center
                                 Layout.preferredWidth: main.width * 0.25
-                                name: "cmd_maxacc"
+                                name: "Igain"
                                 minimumValue: 0
-                                maximumValue: 100
-                                value: 10
+                                maximumValue: 5
+                                value: 0.01
                                 tickmarksEnabled: false
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: qsTr("Max acceleration")
+                                text: qsTr("Integral gain")
                                 horizontalAlignment: Text.AlignHCenter
                             }
                         }
@@ -256,16 +256,16 @@ Tab {
                                 id: lowpassgainSlider
                                 Layout.alignment: Layout.Center
                                 Layout.preferredWidth: main.width * 0.25
-                                name: "lowpass_gain"
+                                name: "Dgain"
                                 minimumValue: 0
-                                maximumValue: 0.9
+                                maximumValue: 3
                                 value: 0.01
                                 decimals: 2
                                 tickmarksEnabled: false
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: qsTr("Lowpass filter gain")
+                                text: qsTr("Diff gain")
                                 horizontalAlignment: Text.AlignHCenter
                             }
                         }
