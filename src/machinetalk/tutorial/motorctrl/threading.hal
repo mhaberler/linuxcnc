@@ -15,8 +15,11 @@ addf actacc 				servo-thread
 addf hpg.update				servo-thread
 addf not.0				servo-thread
 #addf not.1				servo-thread
+addf pwmgen.update			servo-thread
 
 
-addf bb_gpio.write			servo-thread
+
+addf pwmgen.make-pulses 		base-thread
+addf bb_gpio.write			base-thread
 
 start

@@ -1,8 +1,11 @@
 
+newthread base-thread 300000
 
-loadrt hal_bb_gpio output_pins=807,809,811,813,815 input_pins=808,810,812,814,816
+loadrt hal_bb_gpio output_pins=807,809,811,813,815,817 input_pins=808,810,812,814,816
 loadrt [PRUCONF](DRIVER) prucode=[HAL](HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG) halname=hpg
 loadrt hal_arm335xQEP encoders=eQEP0
+
+loadrt pwmgen output_type=2
 loadrt not
 
 # ################################################
@@ -31,13 +34,24 @@ setp hpg.stepgen.00.dirpin         924
 # PWMGENS (2)
 # ################################################
 
-setp hpg.pwmgen.00.pwm_period       200000
+# setp hpg.pwmgen.00.pwm_period       200000
+#setp hpg.pwmgen.00.out.00.value 0.1
 
 # Bed Heater FET 1
-setp hpg.pwmgen.00.out.00.pin       817  # L_EN, R_EN - green
-setp hpg.pwmgen.00.out.00.enable    1
-setp hpg.pwmgen.00.out.00.value     0.0
+# setp hpg.pwmgen.00.out.00.pin       817  # L_EN, R_EN - green
+# setp hpg.pwmgen.00.out.00.enable    1
+# setp hpg.pwmgen.00.out.00.value     0.0
 
+
+# ################################################
+# soft PWMGENS (1)
+# ################################################
+setp pwmgen.0.scale  1.0
+setp pwmgen.0.offset 0.0
+
+setp pwmgen.0.pwm-freq 300
+
+#setp pwmgen.0.enable 1
 
 # ################################################
 # encoder (eQEP0, 1)
@@ -46,16 +60,16 @@ setp hpg.pwmgen.00.out.00.value     0.0
 # wirings
 net led  bb_gpio.p8.out-07
 
-
 # motor direction
-net fwd  bb_gpio.p8.out-09 not.0.in     # LPWM white
-net rev  not.0.out  bb_gpio.p8.out-11   # RPWM white
+net lpwm  bb_gpio.p8.out-09  pwmgen.0.up
+net rpwm  bb_gpio.p8.out-11  pwmgen.0.down
 
 # motor enable
-#setp bb_gpio.p8.out-09 1
+net led bb_gpio.p8.out-17 pwmgen.0.enable
+
+
 
 # motor PWM
-setp hpg.pwmgen.00.out.00.value 0.1
 
 
 
