@@ -34,7 +34,7 @@ if not args.local:
 try:
     launcher.check_installation()
     launcher.cleanup_session()
-#    launcher.load_bbio_file('paralell_cape3.bbio')
+    launcher.load_bbio_file('motorctrl.bbio')
     if args.config:
         # the point-of-contact for QtQUickVCP
         launcher.start_process('configserver -n Motorctrl-Demo .')
@@ -44,7 +44,10 @@ try:
     if args.video:
         launcher.start_process('videoserver --ini video.ini Webcam1')
     launcher.start_realtime()
+    launcher.load_hal_file('hardware.hal',  'hardware.ini')
+#    launcher.load_hal_file('hardware.hal',  'motorctrl.ini')
     launcher.load_hal_file('motorctrl.hal', 'motorctrl.ini')
+    launcher.load_hal_file('threading.hal', 'motorctrl.ini')
     if args.gladevcp:
         # start the gladevcp version
         if args.local:
