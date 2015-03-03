@@ -1,11 +1,9 @@
 
 
-#loadrt hal_bb_gpio output_pins=816,822,823,824,825,826,914,923,925 input_pins=807,808,809,810,817,911,913
-
-loadrt hal_bb_gpio output_pins=807,809 input_pins=808,810
+loadrt hal_bb_gpio output_pins=807,809,811,813,815 input_pins=808,810,812,814,816
 loadrt [PRUCONF](DRIVER) prucode=[HAL](HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG) halname=hpg
 loadrt hal_arm335xQEP encoders=eQEP0
-
+loadrt not
 
 # ################################################
 # STEPPER (1)
@@ -33,20 +31,74 @@ setp hpg.stepgen.00.dirpin         924
 # PWMGENS (2)
 # ################################################
 
-setp hpg.pwmgen.00.pwm_period       10000000
+setp hpg.pwmgen.00.pwm_period       200000
 
 # Bed Heater FET 1
-setp hpg.pwmgen.00.out.00.pin       813
+setp hpg.pwmgen.00.out.00.pin       817  # L_EN, R_EN - green
 setp hpg.pwmgen.00.out.00.enable    1
 setp hpg.pwmgen.00.out.00.value     0.0
-
-# E0 Heater FET 2
-setp hpg.pwmgen.00.out.01.pin       814
-setp hpg.pwmgen.00.out.01.enable    1
-setp hpg.pwmgen.00.out.01.value     0.0
-
 
 
 # ################################################
 # encoder (eQEP0, 1)
 # ################################################
+
+# wirings
+net led  bb_gpio.p8.out-07
+
+
+# motor direction
+net fwd  bb_gpio.p8.out-09 not.0.in     # LPWM white
+net rev  not.0.out  bb_gpio.p8.out-11   # RPWM white
+
+# motor enable
+#setp bb_gpio.p8.out-09 1
+
+# motor PWM
+setp hpg.pwmgen.00.out.00.value 0.1
+
+
+
+
+
+# Thanks for the great info!! I thought I would share how I controlled this with one PWM pin. I “drove” both the enables with one PWM pin (Pin 44 goes to R_EN and L_EN). I then used the LPWM and RPWM pins to set the direction. I also use some digital pins to power/ground the logic of the IBT-2’s (46,47,52, 53).
+
+# The following code is for the Mega-2560 and can control two IBT-2’s
+
+# int pwmpin1=44; // 8-bit pwm 0-255 timer 5 for motor 1
+# int pwmpin2=45; // 8-bit pwm 0-255 for motor 2
+# int mcgnd1=46; // ground for motor control 1
+# int mcpwr1=47; // power for motor control 1
+# int pwmdirection2r=48; // digital motor control direction 2
+# int pwmdirection2l=49; // digital motor control direction 2
+# int pwmdirection1r=50; // digital motor control direction 1
+# int pwmdirection1l=51; // digital motor control direction 1
+# int mcgnd2=52; // ground for motor control 2
+# int mcpwr2=53; // power for motor control 2
+
+# //Code snippet for two motors on 2 IBT-2’s using just two pwm pins.
+
+# //set h-bridge to reverse or CCW
+# digitalWrite(pwmdirection1r,HIGH);
+# digitalWrite(pwmdirection1l,LOW);
+# analogWrite(pwmpin1,128);
+
+# delay(5000);
+
+# //else CW
+# digitalWrite(pwmdirection1r,LOW);
+# digitalWrite(pwmdirection1l,HIGH);
+# analogWrite(pwmpin1,128);
+
+# delay(5000);
+# //set h-bridge to reverse or CCW motor 2
+# digitalWrite(pwmdirection2r,HIGH);
+# digitalWrite(pwmdirection2l,LOW);
+# analogWrite(pwmpin2,128);
+
+# delay(5000);
+
+# //else CW
+# digitalWrite(pwmdirection2r,LOW);
+# digitalWrite(pwmdirection2l,HIGH);
+# analogWrite(pwmpin2,128);
