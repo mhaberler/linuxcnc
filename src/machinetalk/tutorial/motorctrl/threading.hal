@@ -5,13 +5,9 @@
 
 addf bb_gpio.read			servo-thread
 addf eqep.update                	servo-thread
-
 addf pid.0.do-pid-calcs			servo-thread
-addf limit3.0				servo-thread
-addf lowpass.0 				servo-thread
 addf actvel 				servo-thread
 addf actacc 				servo-thread
-
 addf pwmgen.update			servo-thread
 
 # fast thread
