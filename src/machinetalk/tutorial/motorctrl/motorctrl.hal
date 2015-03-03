@@ -14,8 +14,7 @@ loadusr -W haltalk
 newthread servo-thread 1000000 fp
 
 loadrt pid num_chan=1
-loadrt limit3
-loadrt lowpass
+
 
 # differentiate pos to get vel, vel to get acc
 loadrt ddt names=actvel,actacc
@@ -27,39 +26,28 @@ loadrt ddt names=actvel,actacc
 # in this case no waiting required
 # pin count, name, type, direction must match exactly what
 # is in the GUI
-sete 1 0.001
+sete 1 0.1
+sete 2 0.5
+sete 3 0.1
+sete 4 1.0
 newcomp motorctrl timer=100 # acceptdefaults
 newpin motorctrl motorctrl.Igain         float out
 newpin motorctrl motorctrl.Pgain         float out
 newpin motorctrl motorctrl.Dgain         float out
 
 newpin motorctrl motorctrl.cmd_pos       float out
-newpin motorctrl motorctrl.fb_acc        float in eps=1
+newpin motorctrl motorctrl.fb_acc        float in eps=4
 newpin motorctrl motorctrl.fb_acc.scale  float in eps=1
 newpin motorctrl motorctrl.fb_pos        float in eps=1
 newpin motorctrl motorctrl.fb_pos.scale  float in eps=1
 newpin motorctrl motorctrl.fb_vel        float in eps=1
 newpin motorctrl motorctrl.fb_vel.scale  float in eps=1
+
 newpin motorctrl motorctrl.led1          bit in
 newpin motorctrl motorctrl.scope_trigger bit out
 newpin motorctrl motorctrl.togglebutton1 bit out
 newpin motorctrl motorctrl.togglebutton1-not bit out
 ready  motorctrl
-
-# set default pin values here
-# setting acceptdefaults on the newcomp statement would enable
-# accepting default values from the remote component
-# however, this will cause a jump of values on connect
-#setp motorctrl.lowpass_gain 0.1
-#setp motorctrl.cmd_maxacc 25
-#setp motorctrl.Pgain 3.0
-
-# at this stage, the component and its pins exist
-# and can be linked to
-#
-net cmd-pos motorctrl.cmd_pos =>       limit3.0.in
-#net cmd-maxvel motorctrl.cmd_maxvel => limit3.0.maxv
-#net cmd-maxacc motorctrl.cmd_maxacc => limit3.0.maxa
 
 # PID
 newsig Pgain float
@@ -75,31 +63,26 @@ net Igain pid.0.Igain motorctrl.Igain
 net Dgain pid.0.Dgain motorctrl.Dgain
 
 net cmd-pos pid.0.command
+net cmd-pos motorctrl.cmd_pos
+
 net motor-output     pid.0.output
+
 net motor-feedback   pid.0.feedback
 net motor-feedback   motorctrl.fb_pos
-net motor-feedback   motorctrl.fb_pos actvel.in
+net motor-feedback   actvel.in
+
+net actvel actvel.out
+net actvel motorctrl.fb_vel
+net actvel actacc.in
+
+net actacct actacc.out
+net actacct motorctrl.fb_acc
 
 # prevent pid runup if disabled
 net led pid.0.enable
-
-#net raw-pos  limit3.0.out => lowpass.0.in
-#net gain     motorctrl.lowpass_gain => lowpass.0.gain
-
-#net curr-pos lowpass.0.out => motorctrl.fb_pos actvel.in
-net curr-vel actvel.out =>   actacc.in motorctrl.fb_vel
-net curr-acc actacc.out =>   motorctrl.fb_acc
 
 # make led follow togglebutton for now:
 net led motorctrl.led1 <== motorctrl.togglebutton1
 
 # make trigger pin a signal - halscope wants signals to trigger on:
 net scope-trigger motorctrl.scope_trigger
-
-# HAL group example:
-# monitor some signals via a group
-#newg dro 100
-#newm dro led
-#newm dro curr-pos
-#newm dro curr-vel
-#newm dro curr-acc

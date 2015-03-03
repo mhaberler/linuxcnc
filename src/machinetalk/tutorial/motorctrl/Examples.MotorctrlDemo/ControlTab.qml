@@ -85,8 +85,8 @@ Tab {
                             Layout.alignment: Layout.Center
                             height: width
                             name: "fb_vel"
-                            minimumValue: -100
-                            maximumValue: 100
+                            minimumValue: -5
+                            maximumValue: 5
                             zeroValue: 0
                             fancy: false
                         }
@@ -106,8 +106,8 @@ Tab {
                             Layout.alignment: Layout.Center
                             height: width
                             name: "fb_acc"
-                            minimumValue: -100
-                            maximumValue: 100
+                            minimumValue: -500
+                            maximumValue: 500
                             zeroValue: 0
                             fancy: false
                         }

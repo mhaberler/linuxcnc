@@ -34,7 +34,7 @@ net motor-feedback eQEP0.position
 # ################################################
 setp pwmgen.0.scale  -1.0
 setp pwmgen.0.offset 0.0
-setp pwmgen.0.pwm-freq 300
+setp pwmgen.0.pwm-freq 100
 
 # pid out-> H bridge
 newsig motor-output float
