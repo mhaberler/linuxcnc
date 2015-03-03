@@ -3,7 +3,6 @@ newthread base-thread 300000
 
 loadrt hal_bb_gpio output_pins=807,809,811,813,815,817 input_pins=808,810,812,814,816
 loadrt hal_arm335xQEP encoders=eQEP0
-
 loadrt pwmgen output_type=2
 
 # ################################################
@@ -27,13 +26,19 @@ loadrt pwmgen output_type=2
 # for eQEP0.position in shaft revs:
 setp eQEP0.position-scale 2797.0
 
+# feed into pid
+net motor-feedback eQEP0.position
 
 # ################################################
 # soft PWMGENS (1)
 # ################################################
-setp pwmgen.0.scale  1.0
+setp pwmgen.0.scale  -1.0
 setp pwmgen.0.offset 0.0
 setp pwmgen.0.pwm-freq 300
+
+# pid out-> H bridge
+newsig motor-output float
+net motor-output pwmgen.0.value
 
 # ################################################
 # wiring
@@ -47,6 +52,7 @@ net led  bb_gpio.p8.out-07
 # led is also motor enable, driven by UI
 net led bb_gpio.p8.out-17
 net led pwmgen.0.enable
+
 
 # motor H-Bridge connection
 # wiring of IBT-2:

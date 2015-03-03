@@ -13,18 +13,12 @@ loadusr -W haltalk
 # default is nofp
 newthread servo-thread 1000000 fp
 
+loadrt pid num_chan=1
 loadrt limit3
 loadrt lowpass
 
 # differentiate pos to get vel, vel to get acc
 loadrt ddt names=actvel,actacc
-
-# moved to threading.hal
-#addf limit3.0 servo-thread
-#addf lowpass.0 servo-thread
-#addf actvel servo-thread
-#addf actacc servo-thread
-#start
 
 # wait the halcmd script until the UI has created the remote component 'motorctrl':
 # waitexists motorctrl
@@ -65,6 +59,26 @@ setp motorctrl.cmd_maxvel 25
 net cmd-pos motorctrl.cmd_pos =>       limit3.0.in
 net cmd-maxvel motorctrl.cmd_maxvel => limit3.0.maxv
 net cmd-maxacc motorctrl.cmd_maxacc => limit3.0.maxa
+
+# PID
+newsig Pgain float
+newsig Igain float
+newsig Dgain float
+
+sets Pgain 1.0
+sets Igain 0.01
+sets Dgain 0.01
+
+net Pgain pid.0.Pgain
+net Igain pid.0.Igain
+net Dgain pid.0.Dgain
+
+net cmd-pos pid.0.command
+net motor-output     pid.0.output
+net motor-feedback   pid.0.feedback
+
+# prevent pid runup if disabled
+net led pid.0.enable
 
 net raw-pos  limit3.0.out => lowpass.0.in
 net gain     motorctrl.lowpass_gain => lowpass.0.gain
