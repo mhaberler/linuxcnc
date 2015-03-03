@@ -1,0 +1,19 @@
+
+# ################################################
+# THREADS
+# ################################################
+
+addf hpg.capture-position   servo-thread
+addf bb_gpio.read			servo-thread
+addf eqep.update                	servo-thread
+
+
+addf limit3.0				servo-thread
+addf lowpass.0 				servo-thread
+addf actvel 				servo-thread
+addf actacc 				servo-thread
+
+addf hpg.update				servo-thread
+addf bb_gpio.write			servo-thread
+
+start
