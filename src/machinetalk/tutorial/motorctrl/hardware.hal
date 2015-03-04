@@ -1,9 +1,8 @@
 
-newthread base-thread 300000
-
-loadrt hal_bb_gpio output_pins=807,809,811,813,815,817 input_pins=808,810,812,814,816
+loadrt hbridge
+loadrt hal_bb_gpio output_pins=807,813,815,817 input_pins=808,810,812,814,816
 loadrt hal_arm335xQEP encoders=eQEP0
-loadrt pwmgen output_type=2
+loadrt [PRUCONF](DRIVER) prucode=[HAL](HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG) halname=hpg
 
 # ################################################
 # A/B encoder, eQEP0
@@ -30,29 +29,46 @@ setp eQEP0.position-scale 2797.0
 net motor-feedback eQEP0.position
 
 # ################################################
-# soft PWMGENS (1)
+# PRU PWMGENS (2)
 # ################################################
-setp pwmgen.0.scale  -1.0
-setp pwmgen.0.offset 0.0
-setp pwmgen.0.pwm-freq 100
 
-# pid out-> H bridge
-newsig motor-output float
-net motor-output pwmgen.0.value
+setp hpg.pwmgen.00.pwm_period       500000
+setp hpg.pwmgen.00.out.00.pin       809
+setp hpg.pwmgen.00.out.01.pin       811
+
+# ################################################
+# Hbridge signal driver
+# ################################################
+
+# limit PWM signal so power supply doesnt cop out
+setp hbridge.0.maxout 0.7
 
 # ################################################
 # wiring
 # ################################################
 
+net up   hbridge.0.up   hpg.pwmgen.00.out.00.value
+net down hbridge.0.down hpg.pwmgen.00.out.01.value
+
+# pid out-> H bridge
+newsig motor-output float
+net motor-output hbridge.0.command
+
+net pwm-enable hbridge.0.enable-out
+net pwm-enable bb_gpio.p8.out-17
+net pwm-enable hpg.pwmgen.00.out.00.enable
+net pwm-enable hpg.pwmgen.00.out.01.enable
+
 newsig led bit
+
+# H-bridge activation
+net led hbridge.0.enable
 
 # prototype cape Led #4
 net led  bb_gpio.p8.out-07
 
 # led is also motor enable, driven by UI
-net led bb_gpio.p8.out-17
-net led pwmgen.0.enable
-
+net led hbridge.0.enable
 
 # motor H-Bridge connection
 # wiring of IBT-2:
@@ -62,9 +78,6 @@ net led pwmgen.0.enable
 # IBT-2 pins 3 (R_EN), 4 (L_EN), 7 (VCC) to 3.3V
 # IBT-2 pin 8 (GND) to GND
 # IBT-2 pins 5 (R_IS) and 6 (L_IS) not connected
-
-net lpwm  bb_gpio.p8.out-09  pwmgen.0.up
-net rpwm  bb_gpio.p8.out-11  pwmgen.0.down
 
 
 
