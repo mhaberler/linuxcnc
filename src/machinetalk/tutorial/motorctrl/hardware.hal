@@ -28,6 +28,9 @@ setp eQEP0.position-scale 2797.0
 # feed into pid
 net motor-feedback eQEP0.position
 
+# for UI feedback
+net velocity       eQEP0.velocity
+
 # ################################################
 # PRU PWMGENS (2)
 # ################################################
@@ -41,7 +44,7 @@ setp hpg.pwmgen.00.out.01.pin       811
 # ################################################
 
 # limit PWM signal so power supply doesnt cop out
-setp hbridge.0.maxout 0.7
+setp hbridge.0.maxout 0.9
 
 # ################################################
 # wiring

@@ -17,7 +17,7 @@ loadrt pid num_chan=1
 
 
 # differentiate pos to get vel, vel to get acc
-loadrt ddt names=actvel,actacc
+loadrt ddt names=actacc
 
 # wait the halcmd script until the UI has created the remote component 'motorctrl':
 # waitexists motorctrl
@@ -69,11 +69,9 @@ net motor-output     pid.0.output
 
 net motor-feedback   pid.0.feedback
 net motor-feedback   motorctrl.fb_pos
-net motor-feedback   actvel.in
 
-net actvel actvel.out
-net actvel motorctrl.fb_vel
-net actvel actacc.in
+net velocity motorctrl.fb_vel
+net velocity actacc.in
 
 net actacct actacc.out
 net actacct motorctrl.fb_acc
