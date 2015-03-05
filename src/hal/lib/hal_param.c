@@ -14,7 +14,7 @@ static hal_param_t *alloc_param_struct(void);
 
 static int halinst_param_newfv(hal_type_t type,
 			       hal_param_dir_t dir,
-			       void *data_addr,
+			       volatile void *data_addr,
 			       int comp_id,
 			       int inst_id,
 			       const char *fmt,
@@ -86,7 +86,24 @@ int hal_param_newf(hal_type_t type,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_param_newfv(type, dir, data_addr, comp_id, fmt, ap);
+    ret = halinst_param_newfv(type, dir, data_addr, comp_id, 0, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+
+// printf-style version of halinst_param_new()
+int halinst_param_newf(hal_type_t type,
+		       hal_param_dir_t dir,
+		       volatile void * data_addr,
+		       int comp_id,
+		       int inst_id,
+		       const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halinst_param_newfv(type, dir, data_addr, comp_id, inst_id, fmt, ap);
     va_end(ap);
     return ret;
 }

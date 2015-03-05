@@ -698,6 +698,7 @@ EXPORT_SYMBOL(halpr_find_funct_by_owner);
 
 EXPORT_SYMBOL(halpr_find_pin_by_sig);
 EXPORT_SYMBOL(hal_print_msg);
+EXPORT_SYMBOL(hal_print_error);
 EXPORT_SYMBOL(hal_lasterror);
 
 EXPORT_SYMBOL(hal_call_usrfunct);
@@ -705,8 +706,6 @@ EXPORT_SYMBOL(hal_call_usrfunct);
 EXPORT_SYMBOL(hal_inst_create);
 EXPORT_SYMBOL(hal_inst_delete);
 
-EXPORT_SYMBOL(hal_print_msg);
-EXPORT_SYMBOL(hal_print_error);
 
 
 

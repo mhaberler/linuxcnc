@@ -13,37 +13,9 @@ static hal_pin_t *alloc_pin_struct(void);
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
 
-/* wrapper functs for typed pins - these call the generic funct below */
-#if 0
-int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
-    hal_bit_t ** data_ptr_addr, int comp_id)
-{
-    return hal_pin_new(name, HAL_BIT, dir, (void **) data_ptr_addr, comp_id);
-}
-
-int hal_pin_float_new(const char *name, hal_pin_dir_t dir,
-    hal_float_t ** data_ptr_addr, int comp_id)
-{
-    return hal_pin_new(name, HAL_FLOAT, dir, (void **) data_ptr_addr,
-	comp_id);
-}
-
-int hal_pin_u32_new(const char *name, hal_pin_dir_t dir,
-    hal_u32_t ** data_ptr_addr, int comp_id)
-{
-    return hal_pin_new(name, HAL_U32, dir, (void **) data_ptr_addr, comp_id);
-}
-
-int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
-    hal_s32_t ** data_ptr_addr, int comp_id)
-{
-    return hal_pin_new(name, HAL_S32, dir, (void **) data_ptr_addr, comp_id);
-}
-#endif
-
-static int halinst_pin_newfv(hal_type_t type, hal_pin_dir_t dir,
-			     void ** data_ptr_addr, int comp_id, int inst_id,
-			     const char *fmt, va_list ap)
+int halinst_pin_newfv(hal_type_t type, hal_pin_dir_t dir,
+		      void ** data_ptr_addr, int comp_id, int inst_id,
+		      const char *fmt, va_list ap)
 {
     char name[HAL_NAME_LEN + 1];
     int sz;
@@ -54,6 +26,78 @@ static int halinst_pin_newfv(hal_type_t type, hal_pin_dir_t dir,
         return -ENOMEM;
     }
     return halinst_pin_new(name, type, dir, data_ptr_addr, comp_id, inst_id);
+}
+
+// printf-style version of halinst_pin_new()
+int halinst_pin_newf(hal_type_t type,
+		 hal_pin_dir_t dir,
+		 void ** data_ptr_addr,
+		 int comp_id, int inst_id,
+		 const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halinst_pin_newfv(type, dir, data_ptr_addr, comp_id, inst_id, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+// wrappers for the typed functions
+int halinst_pin_bit_newf(hal_pin_dir_t dir,
+			 hal_bit_t ** data_ptr_addr,
+			 int comp_id,
+			 int inst_id,
+			 const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halinst_pin_newfv(HAL_BIT, dir, (void**)data_ptr_addr, comp_id, inst_id, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+int halinst_pin_float_newf(hal_pin_dir_t dir,
+			   hal_float_t ** data_ptr_addr,
+			   int comp_id,
+			   int inst_id,
+			   const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halinst_pin_newfv(HAL_FLOAT, dir, (void**)data_ptr_addr, comp_id, inst_id, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+int halinst_pin_u32_newf(hal_pin_dir_t dir,
+			 hal_u32_t ** data_ptr_addr,
+			 int comp_id,
+			 int inst_id,
+			 const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halinst_pin_newfv(HAL_U32, dir, (void**)data_ptr_addr, comp_id, inst_id, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+int halinst_pin_s32_newf(hal_pin_dir_t dir,
+			 hal_s32_t ** data_ptr_addr,
+			 int comp_id,
+			 int inst_id,
+			 const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halinst_pin_newfv(HAL_S32, dir, (void**)data_ptr_addr, comp_id, inst_id, fmt, ap);
+    va_end(ap);
+    return ret;
 }
 
 int hal_pin_bit_newf(hal_pin_dir_t dir,
@@ -110,7 +154,7 @@ int hal_pin_newf(hal_type_t type,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(type, dir, data_ptr_addr, comp_id, fmt, ap);
+    ret = halinst_pin_newfv(type, dir, data_ptr_addr, comp_id, 0, fmt, ap);
     va_end(ap);
     return ret;
 }

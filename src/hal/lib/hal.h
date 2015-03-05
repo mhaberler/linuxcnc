@@ -566,6 +566,15 @@ extern unsigned char hal_get_lock(void);
 int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 		    void **data_ptr_addr, int comp_id, int inst_id);
 
+// printf-style version of halinst_pin_new()
+int halinst_pin_newf(hal_type_t type,
+		     hal_pin_dir_t dir,
+		     void ** data_ptr_addr,
+		     int comp_id,
+		     int inst_id,
+		     const char *fmt, ...)
+    __attribute__((format(printf,6,7)));
+
 // takes an instance ID as parameter. If instance ID == 0,
 // behave like the above four functions.
 static inline int halinst_pin_bit_new(const char *name, hal_pin_dir_t dir,
@@ -770,10 +779,17 @@ extern int hal_unlink(const char *pin_name);
 */
 extern int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
 			     volatile void *data_addr, int comp_id, int instance_id);
+
 static inline int hal_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
 				void *data_addr, int comp_id) {
     return halinst_param_new(name, type, dir, data_addr, comp_id, 0);
 }
+
+extern int halinst_param_newf(hal_type_t type, hal_param_dir_t dir,
+			      volatile void *data_addr, int comp_id, int instance_id,
+			      const char *fmt, ...)
+    __attribute__((format(printf,6,7)));
+
 
 
 /** There is no 'hal_param_delete()' function.  Once a component has
@@ -909,15 +925,6 @@ extern int hal_param_u32_newf(hal_param_dir_t dir,
 extern int hal_param_s32_newf(hal_param_dir_t dir,
     hal_s32_t * data_addr, int comp_id, const char *fmt, ...)
 	__attribute__((format(printf,4,5)));
-
-extern int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
-			     void *data_addr, int comp_id, int instance_id);
-static inline int hal_param_new(const char *name, hal_type_t type, hal_param_dir_t dir,
-				void *data_addr, int comp_id) {
-    return halinst_param_new(name, type, dir, data_addr, comp_id, 0);
-}
-
-
 
 /** There is no 'hal_param_delete()' function.  Once a component has
     created a parameter, that parameter remains as long as the
