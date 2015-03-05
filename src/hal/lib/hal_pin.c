@@ -247,7 +247,7 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	}
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
-	new->owner_id = comp->comp_id;
+	new->owner_id = owner_id;
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;
