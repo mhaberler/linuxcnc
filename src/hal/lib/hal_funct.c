@@ -12,26 +12,26 @@ static hal_funct_entry_t *alloc_funct_entry_struct(void);
 hal_funct_t *alloc_funct_struct(void);
 static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap);
 
-// varargs helper for hal_export_funct()
-static int hal_export_functfv(void (*funct) (void *, long),
-			      void *arg,
-			      int uses_fp,
-			      int reentrant,
-			      int comp_id,
-			      const char *fmt,
-			      va_list ap)
-{
-    char name[HAL_NAME_LEN + 1];
-    int sz;
-    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
-        hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: length %d too long for name starting '%s'\n",
-		      __FUNCTION__, sz, name);
-	return -ENOMEM;
-    }
-    return hal_export_funct(name, funct, arg, uses_fp, reentrant, comp_id);
-}
+/* // varargs helper for hal_export_funct() */
+/* static int hal_export_functfv(void (*funct) (void *, long), */
+/* 			      void *arg, */
+/* 			      int uses_fp, */
+/* 			      int reentrant, */
+/* 			      int comp_id, */
+/* 			      const char *fmt, */
+/* 			      va_list ap) */
+/* { */
+/*     char name[HAL_NAME_LEN + 1]; */
+/*     int sz; */
+/*     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap); */
+/*     if(sz == -1 || sz > HAL_NAME_LEN) { */
+/*         hal_print_msg(RTAPI_MSG_ERR, */
+/* 		      "%s: length %d too long for name starting '%s'\n", */
+/* 		      __FUNCTION__, sz, name); */
+/* 	return -ENOMEM; */
+/*     } */
+/*     return hal_export_funct(name, funct, arg, uses_fp, reentrant, comp_id); */
+/* } */
 
 int halinst_export_functf(void (*funct) (void *, long),
 			  void *arg,
@@ -240,8 +240,7 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     case FS_LEGACY_THREADFUNC:
     case FS_XTHREADFUNC:
 	/* create a pin with the function's runtime in it */
-	if (halinst_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->owner_id,
-				-42, "%s.time",name)) {
+	if (hal_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->owner_id, "%s.time",name)) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: fail to create pin '%s.time'\n", name);
 	    return -EINVAL;
@@ -253,12 +252,12 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	   for debugging and testing use only */
 	/* create a parameter with the function's maximum runtime in it */
 	nf->maxtime = 0;
-	halinst_param_s32_newf(HAL_RW,  &(nf->maxtime), xf->owner_id, -43, "%s.tmax", name);
+	hal_param_s32_newf(HAL_RW,  &(nf->maxtime), xf->owner_id, "%s.tmax", name);
 
 	/* create a parameter with the function's maximum runtime in it */
 	nf->maxtime_increased = 0;
-	halinst_param_bit_newf(HAL_RO, &(nf->maxtime_increased), xf->owner_id, -44,
-			       "%s.tmax-increased", name);
+	hal_param_bit_newf(HAL_RO, &(nf->maxtime_increased), xf->owner_id,
+			    "%s.tmax-increased", name);
 	break;
     case FS_USERLAND: // no timing pins/params
 	;
