@@ -294,7 +294,7 @@ typedef struct {
     int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
     int owner_id;		/* component that owns this pin */
-    int instance_ptr;           // instance that owns this pin
+    //    int instance_ptr;           // instance that owns this pin
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
     int oldname;		/* old name if aliased, else zero */

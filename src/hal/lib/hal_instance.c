@@ -165,11 +165,9 @@ hal_inst_t *halpr_find_inst_by_id(const int id)
 */
 hal_pin_t *halpr_find_pin_by_instance(hal_inst_t * inst, hal_pin_t * start)
 {
-    int inst_ptr, next;
+    int next;
     hal_pin_t *pin;
 
-    /* get offset of 'inst' component */
-    inst_ptr = SHMOFF(inst);
     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of pin list */
@@ -180,7 +178,7 @@ hal_pin_t *halpr_find_pin_by_instance(hal_inst_t * inst, hal_pin_t * start)
     }
     while (next != 0) {
 	pin = SHMPTR(next);
-	if (pin->instance_ptr == inst_ptr) {
+	if (pin->owner_id == inst->inst_id) {
 	    /* found a match */
 	    return pin;
 	}
@@ -365,7 +363,7 @@ static void free_inst_struct(hal_inst_t * inst)
     next = *prev;
     while (next != 0) {
 	pin = SHMPTR(next);
-	if (SHMPTR(pin->instance_ptr) == inst) {
+	if (pin->owner_id == inst->inst_id) {
 	    /* this pin belongs to our instance, unlink from list */
 	    *prev = pin->next_ptr;
 	    /* and delete it */

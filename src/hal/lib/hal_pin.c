@@ -162,7 +162,7 @@ int hal_pin_newf(hal_type_t type,
 /* this is a generic function that does the majority of the work. */
 
 int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
-		    void **data_ptr_addr, int comp_id, int inst_id)
+		    void **data_ptr_addr, int owner_id,int FIXME)
 {
     int *prev, next, cmp;
     hal_pin_t *new, *ptr;
@@ -205,19 +205,19 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
-	hal_inst_t *inst = NULL;
 
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
 
 	/* validate comp_id */
-	comp = halpr_find_comp_by_id(comp_id);
+	comp = halpr_find_owning_comp(owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    hal_print_error("component %d not found\n", comp_id);
+	    hal_print_error("%s(%s): owning component %d not found\n",
+			    __FUNCTION__, name, owner_id);
 	    return -EINVAL;
 	}
-
+#if 0 //FIXME
 	// validate inst_id if given
 	if (inst_id) { // pin is in an instantiable comp
 	    inst = halpr_find_inst_by_id(inst_id);
@@ -234,7 +234,7 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 		// unfortunately we cant make this fatal
 	    }
 	}
-
+#endif 
 	/* validate passed in pointer - must point to HAL shmem */
 	if (! SHMCHK(data_ptr_addr)) {
 	    /* bad pointer */
@@ -242,8 +242,13 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	    return -EINVAL;
 	}
 
+	// this will be 0 for legacy comps which use comp_id
+	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
+	int inst_id = (inst ? inst->inst_id : 0);
+
 	// instances may create pins post hal_ready
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
+	    // legacy error message. Never made sense.. why?
 	    hal_print_msg(RTAPI_MSG_ERR,
 			  "HAL: ERROR: pin_new called after hal_ready (%d)\n", comp->state);
 	    return -EINVAL;
@@ -260,7 +265,7 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
 	new->owner_id = comp->comp_id;
-	new->instance_ptr = (inst_id == 0) ? 0 : SHMOFF(inst);
+	// new->instance_ptr = 0; // FIXME (inst_id == 0) ? 0 : SHMOFF(inst);
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;
@@ -583,7 +588,7 @@ void free_pin_struct(hal_pin_t * pin)
     if ( pin->oldname != 0 ) free_oldname_struct(SHMPTR(pin->oldname));
     pin->data_ptr_addr = 0;
     pin->owner_id = 0;
-    pin->instance_ptr = 0;
+    //    pin->instance_ptr = 0;
     pin->type = 0;
     pin->dir = 0;
     pin->signal = 0;
