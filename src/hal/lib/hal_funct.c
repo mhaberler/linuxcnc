@@ -33,29 +33,29 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 /*     return hal_export_funct(name, funct, arg, uses_fp, reentrant, comp_id); */
 /* } */
 
-int halinst_export_functf(void (*funct) (void *, long),
-			  void *arg,
-			  int uses_fp,
-			  int reentrant,
-			  int comp_id,
-			  int inst_id,
-			  const char *fmt, ...)
-{
-    va_list ap;
-    int ret;
-    va_start(ap, fmt);
-    hal_xfunct_t xf = {
-	.type = FS_LEGACY_THREADFUNC,
-	.funct.l = funct,
-	.arg = arg,
-	.uses_fp = uses_fp,
-	.reentrant = reentrant,
-	.owner_id = comp_id,
-    };
-    ret = hal_export_xfunctfv(&xf, fmt, ap);
-    va_end(ap);
-    return ret;
-}
+/* int halinst_export_functf(void (*funct) (void *, long), */
+/* 			  void *arg, */
+/* 			  int uses_fp, */
+/* 			  int reentrant, */
+/* 			  int comp_id, */
+/* 			  int inst_id, */
+/* 			  const char *fmt, ...) */
+/* { */
+/*     va_list ap; */
+/*     int ret; */
+/*     va_start(ap, fmt); */
+/*     hal_xfunct_t xf = { */
+/* 	.type = FS_LEGACY_THREADFUNC, */
+/* 	.funct.l = funct, */
+/* 	.arg = arg, */
+/* 	.uses_fp = uses_fp, */
+/* 	.reentrant = reentrant, */
+/* 	.owner_id = comp_id, */
+/*     }; */
+/*     ret = hal_export_xfunctfv(&xf, fmt, ap); */
+/*     va_end(ap); */
+/*     return ret; */
+/* } */
 
 // printf-style version of hal_export_funct
 int hal_export_functf(void (*funct) (void *, long),
@@ -92,17 +92,11 @@ int hal_export_xfunctf( const hal_xfunct_t *xf, const char *fmt, ...)
     return ret;
 }
 
-int halinst_export_funct(const char *name, void (*funct) (void *, long),
-			 void *arg, int uses_fp, int reentrant,
-			 int comp_id, int instance_id)
-{
-    return halinst_export_functf(funct, arg, uses_fp, reentrant, comp_id, instance_id, name);
-}
 
 int hal_export_funct(const char *name, void (*funct) (void *, long),
 		     void *arg, int uses_fp, int reentrant, int comp_id)
 {
-    return halinst_export_functf(funct, arg, uses_fp, reentrant, comp_id, 0, name);
+    return hal_export_functf(funct, arg, uses_fp, reentrant, comp_id, name);
 }
 
 
