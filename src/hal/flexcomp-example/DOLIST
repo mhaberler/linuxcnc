@@ -26,6 +26,241 @@ Cython bindings
 halmodule.cc ? rather not.
 
 
-missing:
 
-hal_inst_t *halpr_find_inst(hal_inst_t *inst);
+//-----------------
+TODO:
+
+- mark a comp as instantiable at load time
+
+Arg descriptor:
+    name
+    comment
+    type (ils)
+    maxcount (single var or array)
+
+Args:
+
+list of keyword=<value>[,<value>]
+
+value can be int,long,string
+if any value is quote, remove quotes - its a string
+
+Q: where are arg descriptors
+   sysfs/modules/name/parameters API !!
+
+   intargs=1-10i,foo=s,bar=1-3l
+
+Q: how are they passed into instantiate()
+
+
+
+---- experiments
+
+
+static int num_chan = 1;	/* number of channels - default = 1 */
+RTAPI_MP_INT(num_chan, "number of channels");
+
+#define RTAPI_MP_INT(var,descr)    \
+  MODULE_PARM(var,"i");            \
+  MODULE_PARM_DESC(var,descr);
+
+
+#define MODULE_INFO2(t, a, b, c) __attribute__((section(".modinfo"))) \
+    t rtapi_info_##a##_##b = c; EXPORT_SYMBOL(rtapi_info_##a##_##b);
+#define MODULE_PARM(v,t) MODULE_INFO2(const char*, type, v, t) MODULE_INFO2(void*, address, v, &v)
+#define MODULE_PARM_DESC(v,t) MODULE_INFO2(const char*, description, v, t)
+
+MODULE_PARM(num_chan, "i")
+MODULE_PARM_DESC(num_chan,"number of channels")
+
+void * rtapi_info_address_num_chan = &num_chan;
+const char *rtapi_info_type_num_chan = "i";
+const char *rtapi_info_description_num_chan = "blah";
+
+MODULE_INFO2(const char*, type, num_chan, t) MODULE_INFO2(void*, address, v, &v)
+
+
+char *messages[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+RTAPI_MP_ARRAY_STRING(messages, 16, "Displayed strings");
+
+"1-16s"
+
+00001eba d rtapi_exported_rtapi_app_exit
+00001eab d rtapi_exported_rtapi_app_main
+
+00001e73 d rtapi_exported_rtapi_info_address_answer
+00001e8d d rtapi_exported_rtapi_info_description_answer
+00001e5c d rtapi_exported_rtapi_info_type_answer
+
+00001e18 D rtapi_info_address_answer
+00001e1c D rtapi_info_description_answer
+00001e14 D rtapi_info_type_answer
+
+00001e20 d rtapi_exported_rtapi_info_author
+00001e32 d rtapi_exported_rtapi_info_description
+00001e49 d rtapi_exported_rtapi_info_license
+
+00001e08 D rtapi_info_author
+00001e0c D rtapi_info_description
+00001e10 D rtapi_info_license
+
+
+readelf -p .rtapi_export ../rtlib/xenomai/fcomp.so |less
+
+
+strategy:
+
+mark kmods + umod for instantiability WITHOUT LOADING (nm/dlsym only)
+
+export inst params as different rtapi_export/rtapi_info_ symbols (underscore)
+
+on newinst:
+   userland - DLSYM on module, patch in instargs
+
+   kthreads:
+     - need to add custom section
+     - comp init: export params in sysfs if instatiable WITH underscore for instargs
+     - run nm on kmod
+     - searching for inst args in nm sym list
+     - open the type descriptors in sysfs
+     - validate instargs against type descriptors
+
+
+objdump --syms --section=.rtapi_export rtlib/posix/fcomp.so
+
+rtlib/posix/fcomp.so:     file format elf32-i386
+
+SYMBOL TABLE:
+00001f28 l    d  .rtapi_export	00000000              .rtapi_export
+00001f95 l     O .rtapi_export	0000001e              rtapi_exported_rtapi_info_description_answer
+00001f28 l     O .rtapi_export	00000012              rtapi_exported_rtapi_info_author
+00001f7b l     O .rtapi_export	0000001a              rtapi_exported_rtapi_info_address_answer
+00001f51 l     O .rtapi_export	00000013              rtapi_exported_rtapi_info_license
+00001f64 l     O .rtapi_export	00000017              rtapi_exported_rtapi_info_type_answer
+00001fb3 l     O .rtapi_export	0000000f              rtapi_exported_rtapi_app_main
+00001f3a l     O .rtapi_export	00000017              rtapi_exported_rtapi_info_description
+00001fc2 l     O .rtapi_export	0000000f              rtapi_exported_rtapi_app_exit
+
+readelf -p .modinfo rtlib/xenomai-kernel/3.8-1mk-xenomai-686-pae/motmod.ko
+
+String dump of section '.modinfo':
+  [     0]  parm=tp:tp vtable name
+  [    17]  parmtype=tp:charp
+  [    29]  parm=kins:kinematics vtable name
+  [    4a]  parmtype=kins:charp
+  [    5e]  parm=num_aio:number of analog inputs/outputs
+  [    8b]  parmtype=num_aio:int
+  [    a0]  parm=num_dio:number of digital inputs/outputs
+  [    ce]  parmtype=num_dio:int
+  [    e3]  parm=num_joints:number of joints
+  [   104]  parmtype=num_joints:int
+  [   11c]  parm=traj_period_nsec:trajectory planner period (nsecs)
+  [   154]  parmtype=traj_period_nsec:long
+  [   173]  parm=servo_cpu:CPU of servo thread
+  [   196]  parmtype=servo_cpu:int
+  [   1ad]  parm=servo_period_nsec:servo thread period (nsecs)
+  [   1e0]  parmtype=servo_period_nsec:long
+  [   200]  parm=base_thread_fp:floating point in base thread?
+  [   233]  parmtype=base_thread_fp:int
+  [   24f]  parm=base_cpu:CPU of base thread
+  [   270]  parmtype=base_cpu:int
+  [   286]  parm=base_period_nsec:fastest thread period (nsecs)
+  [   2ba]  parmtype=base_period_nsec:long
+  [   2d9]  parm=key:shared memory key
+  [   2f4]  parmtype=key:int
+  [   305]  parm=DEBUG_MOTION:debug motion
+  [   324]  parmtype=DEBUG_MOTION:int
+  [   33e]  license=GPL
+  [   34a]  description=Motion Controller for EMC
+  [   370]  author=Matt Shaver/John Kasunich
+  [   391]  srcversion=8813991CBA21C5F82ED0DCE
+  [   3b4]  depends=rtapi,hal_lib
+  [   3ca]  vermagic=3.8-1mk-xenomai-686-pae SMP mod_unload modversions 686
+
+
+ARRAYS: MAXIMUM MISSING!!
+
+$ readelf -p .modinfo rtlib/xenomai-kernel/3.8-1mk-xenomai-686-pae/at_pid.ko
+
+String dump of section '.modinfo':
+  [     0]  parm=names:names of at_pid components
+  [    26]  parmtype=names:array of charp
+  [    44]  parm=debug:enables optional params
+  [    67]  parmtype=debug:int
+  [    7a]  parm=num_chan:number of channels
+  [    9b]  parmtype=num_chan:int
+  [    b1]  license=GPL
+  [    bd]  description=Auto-Tune PID Loop Component for EMC HAL
+  [    f2]  author=Pete Vavaroutsos
+  [   10a]  srcversion=4E0C8AE4F63B2809DF11FFF
+  [   12d]  depends=rtapi,hal_lib
+  [   143]  vermagic=3.8-1mk-xenomai-686-pae SMP mod_unload modversions 686
+
+
+.strtab:
+
+$ readelf -p .strtab rtlib/xenomai-kernel/3.8-1mk-xenomai-686-pae/at_pid.ko
+
+String dump of section '.strtab':
+  [     1]  at_pid.c
+  [     a]  Pid_CycleEnd
+  [    17]  Pid_Refresh
+  [    23]  Pid_Export
+  [    2e]  debug
+  [    34]  num_chan
+  [    3d]  names
+  [    43]  howmany
+  [    4b]  component
+  [    55]  __UNIQUE_ID_names8
+  [    68]  __UNIQUE_ID_namestype7
+  [    7f]  __param_names
+  [    8d]  __param_str_names
+  [    9f]  __param_arr_names
+  [    b1]  __UNIQUE_ID_debug6
+  [    c4]  __UNIQUE_ID_debugtype5
+  [    db]  __param_debug
+  [    e9]  __param_str_debug
+  [    fb]  __UNIQUE_ID_num_chan4
+  [   111]  __UNIQUE_ID_num_chantype3
+  [   12b]  __param_num_chan
+  [   13c]  __param_str_num_chan
+  [   151]  __UNIQUE_ID_license2
+  [   166]  __UNIQUE_ID_description1
+  [   17f]  __UNIQUE_ID_author0
+  [   193]  at_pid.mod.c
+  [   1a0]  __UNIQUE_ID_srcversion1
+  [   1b8]  __module_depends
+  [   1c9]  ____versions
+  [   1d6]  __UNIQUE_ID_vermagic0
+  [   1ec]  hal_xinit
+  [   1f6]  rtapi_set_msg_level
+  [   20a]  hal_pin_u32_newf
+  [   21b]  hal_pin_float_newf
+  [   22e]  __this_module
+  [   23c]  cleanup_module
+  [   24b]  param_array_ops
+  [   25b]  hal_ready
+  [   265]  rtapi_snprintf
+  [   274]  init_module
+  [   280]  hal_pin_bit_newf
+  [   291]  rtapi_get_msg_level
+  [   2a5]  __dummy_names
+  [   2b3]  hal_malloc
+  [   2be]  param_ops_charp
+  [   2ce]  hal_export_funct
+  [   2df]  hal_exit
+  [   2e8]  rtapi_print_msg
+  [   2f8]  param_ops_int
+
+mah@nwheezy:~/machinekit-halrework$
+
+http://baruch.siach.name/blog/posts/linux_kernel_module_parameters/
+
+http://www.linux.com/learn/linux-training/28065-the-kernel-newbie-corner-everything-you-wanted-to-know-about-module-parameters
+
+/sbin/modinfo -F parm rtlib/xenomai-kernel/3.8-1mk-xenomai-686-pae/at_pid.ko
+num_chan:number of channels (int)
+debug:enables optional params (int)
+names:names of at_pid components (array of charp)
+
+http://serverfault.com/questions/62316/how-do-i-list-loaded-linux-module-parameter-values
