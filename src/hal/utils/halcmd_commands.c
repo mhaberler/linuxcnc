@@ -1818,7 +1818,7 @@ static void print_inst_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Instances:\n");
-	halcmd_output("ID       Size  %-*s Owner\n", HAL_NAME_LEN, "Name");
+	halcmd_output(" Inst  Comp  Size  %-*s Owner\n", HAL_NAME_LEN, "Name");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->inst_list_ptr;
@@ -1829,7 +1829,8 @@ static void print_inst_info(char **patterns)
 
 	if ( match(patterns, inst->name) ) {
 
-	    halcmd_output(" %5d  %5d  %-*s %-*s",
+	    halcmd_output("%5d %5d %5d  %-*s %-*s",
+			  comp->comp_id,
 			  inst->inst_id,
 			  inst->inst_size,
 			  HAL_NAME_LEN,
@@ -1886,14 +1887,14 @@ static void print_pin_info(int type, char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Component Pins:\n");
-	halcmd_output("Owner   Type  Dir         Value  Name\tEpsilon\t\tFlags\n");
+	halcmd_output("  Comp   Inst Type  Dir         Value  Name                             Epsilon         Flags\n");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->pin_list_ptr;
     while (next != 0) {
 	pin = SHMPTR(next);
 	if ( tmatch(type, pin->type) && match(patterns, pin->name) ) {
-	    comp = halpr_find_comp_by_id(pin->owner_id);
+	    comp = halpr_find_owning_comp(pin->owner_id);
 	    if (pin->signal != 0) {
 		sig = SHMPTR(pin->signal);
 		dptr = SHMPTR(sig->data_ptr);
@@ -1902,9 +1903,15 @@ static void print_pin_info(int type, char **patterns)
 		dptr = &(pin->dummysig);
 	    }
 	    if (scriptmode == 0) {
+
+		halcmd_output(" %5d  ", comp->comp_id);
+		if (comp->comp_id == pin->owner_id)
+		    halcmd_output("     ");
+		else
+		    halcmd_output("%5d", pin->owner_id);
+
 		if (pin->type == HAL_FLOAT) {
-		    halcmd_output(" %5d  %5s %-3s  %9s  %s\t%f\t%d",
-				  comp->comp_id,
+		    halcmd_output(" %5s %-3s  %9s  %-30.30s\t%f\t%d",
 				  data_type((int) pin->type),
 				  pin_data_dir((int) pin->dir),
 				  data_value((int) pin->type, dptr),
@@ -1912,8 +1919,7 @@ static void print_pin_info(int type, char **patterns)
 				  hal_data->epsilon[pin->eps_index],
 				  pin->flags);
 		} else {
-		    halcmd_output(" %5d  %5s %-3s  %9s  %s\t\t\t%d",
-				  comp->comp_id,
+		    halcmd_output(" %5s %-3s  %9s  %-30.30s\t\t\t%d",
 				  data_type((int) pin->type),
 				  pin_data_dir((int) pin->dir),
 				  data_value((int) pin->type, dptr),
@@ -1921,7 +1927,7 @@ static void print_pin_info(int type, char **patterns)
 				  pin->flags);
 		}
 	    } else {
-		halcmd_output("%s %s %s %s %s",
+		halcmd_output("%s %s %s %s %-30.30s",
 			      comp->name,
 			      data_type((int) pin->type),
 			      pin_data_dir((int) pin->dir),
@@ -2052,7 +2058,7 @@ static void print_param_info(int type, char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Parameters:\n");
-	halcmd_output("Owner   Type  Dir         Value  Name\n");
+	halcmd_output(" Comp    Inst Type   Dir         Value  Name\n");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->param_list_ptr;
@@ -2061,17 +2067,27 @@ static void print_param_info(int type, char **patterns)
 	if ( tmatch(type, param->type), match(patterns, param->name) ) {
 	    comp =  halpr_find_owning_comp(param->owner_id);
 	    if (scriptmode == 0) {
-		halcmd_output(" %5d  %5s %-3s  %9s  %s\n",
-		    comp->comp_id, data_type((int) param->type),
-		    param_data_dir((int) param->dir),
-		    data_value((int) param->type, SHMPTR(param->data_ptr)),
-		    param->name);
+
+
+		halcmd_output(" %5d  ", comp->comp_id);
+		if (comp->comp_id == param->owner_id)
+		    halcmd_output("     ");
+		else
+		    halcmd_output("%5d", param->owner_id);
+
+
+
+		halcmd_output("  %5s %-3s  %9s  %s\n",
+			      data_type((int) param->type),
+			      param_data_dir((int) param->dir),
+			      data_value((int) param->type, SHMPTR(param->data_ptr)),
+			      param->name);
 	    } else {
 		halcmd_output("%s %s %s %s %s\n",
-		    comp->name, data_type((int) param->type),
-		    param_data_dir((int) param->dir),
-		    data_value2((int) param->type, SHMPTR(param->data_ptr)),
-		    param->name);
+			      comp->name, data_type((int) param->type),
+			      param_data_dir((int) param->dir),
+			      data_value2((int) param->type, SHMPTR(param->data_ptr)),
+			      param->name);
 	    } 
 	}
 	next = param->next_ptr;
@@ -2129,7 +2145,7 @@ static void print_funct_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Exported Functions:\n");
-	halcmd_output("Owner   CodeAddr  Arg       FP   Users Type    Name\n");
+	halcmd_output("  Comp   Inst CodeAddr  Arg       FP   Users Type    Name\n");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->funct_list_ptr;
@@ -2138,8 +2154,14 @@ static void print_funct_info(char **patterns)
 	if ( match(patterns, fptr->name) ) {
 	    comp =  halpr_find_owning_comp(fptr->owner_id);
 	    if (scriptmode == 0) {
-		halcmd_output(" %05d  %08lx  %08lx  %-3s  %5d %-7s %s\n",
-			      comp->comp_id,
+
+		halcmd_output(" %5d  ", comp->comp_id);
+		if (comp->comp_id == fptr->owner_id)
+		    halcmd_output("     ");
+		else
+		    halcmd_output("%5d", fptr->owner_id);
+		halcmd_output(" %08lx  %08lx  %-3s  %5d %-7s %s\n",
+
 			      (long)fptr->funct.l,
 			      (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
 			      fptr->users,
