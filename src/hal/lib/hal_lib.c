@@ -607,58 +607,45 @@ EXPORT_SYMBOL(hal_malloc);
 EXPORT_SYMBOL(hal_comp_name);
 
 
+EXPORT_SYMBOL(hal_pin_new);
+EXPORT_SYMBOL(hal_pin_newf);
+
 EXPORT_SYMBOL(hal_pin_bit_new);
 EXPORT_SYMBOL(hal_pin_float_new);
 EXPORT_SYMBOL(hal_pin_u32_new);
 EXPORT_SYMBOL(hal_pin_s32_new);
-EXPORT_SYMBOL(hal_pin_new);
-EXPORT_SYMBOL(hal_pin_newf);
-
-
 
 EXPORT_SYMBOL(hal_pin_bit_newf);
 EXPORT_SYMBOL(hal_pin_float_newf);
 EXPORT_SYMBOL(hal_pin_u32_newf);
 EXPORT_SYMBOL(hal_pin_s32_newf);
 
+EXPORT_SYMBOL(halinst_pin_new);
+EXPORT_SYMBOL(halinst_pin_newf);
+
 EXPORT_SYMBOL(halinst_pin_bit_newf);
 EXPORT_SYMBOL(halinst_pin_float_newf);
 EXPORT_SYMBOL(halinst_pin_u32_newf);
 EXPORT_SYMBOL(halinst_pin_s32_newf);
-EXPORT_SYMBOL(halinst_pin_new);
-EXPORT_SYMBOL(halinst_pin_newf);
 
 EXPORT_SYMBOL(hal_signal_new);
 EXPORT_SYMBOL(hal_signal_delete);
 EXPORT_SYMBOL(hal_link);
 EXPORT_SYMBOL(hal_unlink);
 
+
+EXPORT_SYMBOL(hal_param_new);
+EXPORT_SYMBOL(hal_param_newf);
+
 EXPORT_SYMBOL(hal_param_bit_new);
 EXPORT_SYMBOL(hal_param_float_new);
 EXPORT_SYMBOL(hal_param_u32_new);
 EXPORT_SYMBOL(hal_param_s32_new);
 
-EXPORT_SYMBOL(hal_param_new);
-EXPORT_SYMBOL(hal_param_newf);
-EXPORT_SYMBOL(halinst_param_new);
-EXPORT_SYMBOL(halinst_param_newf);
-
 EXPORT_SYMBOL(hal_param_bit_newf);
 EXPORT_SYMBOL(hal_param_float_newf);
 EXPORT_SYMBOL(hal_param_u32_newf);
 EXPORT_SYMBOL(hal_param_s32_newf);
-
-
-EXPORT_SYMBOL(halinst_param_bit_new);
-EXPORT_SYMBOL(halinst_param_float_new);
-EXPORT_SYMBOL(halinst_param_u32_new);
-EXPORT_SYMBOL(halinst_param_s32_new);
-
-EXPORT_SYMBOL(halinst_param_bit_newf);
-EXPORT_SYMBOL(halinst_param_float_newf);
-EXPORT_SYMBOL(halinst_param_u32_newf);
-EXPORT_SYMBOL(halinst_param_s32_newf);
-
 
 EXPORT_SYMBOL(hal_param_bit_set);
 EXPORT_SYMBOL(hal_param_float_set);
@@ -666,13 +653,22 @@ EXPORT_SYMBOL(hal_param_u32_set);
 EXPORT_SYMBOL(hal_param_s32_set);
 EXPORT_SYMBOL(hal_param_set);
 
-EXPORT_SYMBOL(hal_export_funct);
 
+EXPORT_SYMBOL(halinst_param_new);
+EXPORT_SYMBOL(halinst_param_newf);
+
+EXPORT_SYMBOL(halinst_param_bit_newf);
+EXPORT_SYMBOL(halinst_param_float_newf);
+EXPORT_SYMBOL(halinst_param_u32_newf);
+EXPORT_SYMBOL(halinst_param_s32_newf);
+
+
+EXPORT_SYMBOL(hal_export_funct);
 EXPORT_SYMBOL(hal_export_functf);
 EXPORT_SYMBOL(hal_export_xfunctf);
-
 EXPORT_SYMBOL(halinst_export_funct);
 EXPORT_SYMBOL(halinst_export_functf);
+
 
 EXPORT_SYMBOL(hal_create_thread);
 EXPORT_SYMBOL(hal_thread_delete);

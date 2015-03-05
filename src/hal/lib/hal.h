@@ -575,6 +575,7 @@ int halinst_pin_newf(hal_type_t type,
 		     const char *fmt, ...)
     __attribute__((format(printf,6,7)));
 
+#ifdef USELESS_API
 // takes an instance ID as parameter. If instance ID == 0,
 // behave like the above four functions.
 static inline int halinst_pin_bit_new(const char *name, hal_pin_dir_t dir,
@@ -595,6 +596,7 @@ static inline int halinst_pin_u32_new(const char *name, hal_pin_dir_t dir,
 				      hal_bit_t ** data_ptr_addr, int comp_id, int inst_id) {
     return halinst_pin_new(name, HAL_U32, dir, (void **) data_ptr_addr, comp_id, inst_id);
 }
+#endif
 
 //  these wrappers are for legacy components.
 //  For new code, use instantiable components, and the
@@ -625,7 +627,7 @@ static inline int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
     DEPRECATION WARNING:
     these functions are for legacy components.
     For new code, use instantiable components, and the
-    the halinst_pin_* functions
+    the halinst_pin_*f() functions
 */
 extern int hal_pin_bit_newf(hal_pin_dir_t dir,
     hal_bit_t ** data_ptr_addr, int comp_id, const char *fmt, ...)
@@ -677,11 +679,11 @@ int hal_pin_newf(hal_type_t type,
 		 hal_pin_dir_t dir,
 		 void ** data_ptr_addr,
 		 int comp_id,
-		 const char *fmt, ...);
+		 const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
 
 extern int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 			   void **data_ptr_addr, int comp_id, int inst_id);
-
 
 static inline int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 			      void **data_ptr_addr, int comp_id) {
@@ -851,6 +853,8 @@ static inline int hal_param_s32_new(const char *name, hal_param_dir_t dir,
     return  halinst_param_new(name, HAL_S32, dir,data_addr, comp_id, 0);
 }
 
+#ifdef USELESS_API
+// possible, in line with legacy API, and useless - just use the 'f' (varargs) versions
 // same for instantiable comps - with instance ID parameter
 static inline int halinst_param_bit_new(const char *name, hal_param_dir_t dir,
 					hal_bit_t * data_addr, int comp_id, int inst_id) {
@@ -868,6 +872,8 @@ static inline int halinst_param_s32_new(const char *name, hal_param_dir_t dir,
 					hal_s32_t * data_addr, int comp_id, int inst_id) {
     return  halinst_param_new(name, HAL_S32, dir,data_addr, comp_id, inst_id);
 }
+#endif
+
 
 // same for instantiable comps - with instance ID parameter
 extern int halinst_param_bit_newf(hal_param_dir_t dir,
@@ -910,7 +916,8 @@ int hal_param_newf(hal_type_t type,
 		   hal_param_dir_t dir,
 		   void * data_addr,
 		   int comp_id,
-		   const char *fmt, ...);
+		   const char *fmt, ...)
+	__attribute__((format(printf,5,6)));
 
 /** printf_style-style versions of hal_param_XXX_new */
 extern int hal_param_bit_newf(hal_param_dir_t dir,
@@ -1030,7 +1037,8 @@ int halinst_export_functf(void (*funct) (void *, long),
 			  int reentrant,
 			  int comp_id,
 			  int inst_id,
-			  const char *fmt, ...);
+			  const char *fmt, ...)
+    __attribute__((format(printf,7,8)));
 
 /** hal_create_thread() establishes a realtime thread that will
     execute one or more HAL functions periodically.
