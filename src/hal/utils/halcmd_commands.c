@@ -728,7 +728,7 @@ int do_setp_cmd(char *name, char *value)
             halcmd_error("parameter or pin '%s' not found\n", name);
             return -EINVAL;
         } else {
-	    comp = SHMPTR(pin->owner_ptr);
+	    comp =  halpr_find_owning_comp(pin->owner_id);
             /* found it */
             type = pin->type;
             if ((pin->dir == HAL_OUT) && (comp->state != COMP_UNBOUND)) {
@@ -1825,7 +1825,7 @@ static void print_inst_info(char **patterns)
 
     while (next != 0) {
 	inst = SHMPTR(next);
-	comp = SHMPTR(inst->owner_ptr);
+	comp = halpr_find_comp_by_id(inst->owner_id);
 
 	if ( match(patterns, inst->name) ) {
 
@@ -1893,7 +1893,7 @@ static void print_pin_info(int type, char **patterns)
     while (next != 0) {
 	pin = SHMPTR(next);
 	if ( tmatch(type, pin->type) && match(patterns, pin->name) ) {
-	    comp = SHMPTR(pin->owner_ptr);
+	    comp = halpr_find_comp_by_id(pin->owner_id);
 	    if (pin->signal != 0) {
 		sig = SHMPTR(pin->signal);
 		dptr = SHMPTR(sig->data_ptr);

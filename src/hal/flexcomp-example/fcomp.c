@@ -27,6 +27,23 @@ static void funct(void *arg, long period)
     ip->iter++;
 }
 
+// init HAL objects
+static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
+{
+
+    if (hal_pin_float_newf(HAL_OUT, &ip->out, owner_id, "%s.out", name))
+	return -1;
+    if (hal_pin_float_newf(HAL_IN,  &ip->in,  owner_id, "%s.in", name))
+	return -1;
+    if (hal_param_s32_newf(HAL_RO,  &ip->iter,owner_id, "%s.iter", name))
+	return -1;
+
+    // export a thread function, passing the pointer to the instance's HAL memory blob
+    if (hal_export_functf(funct, ip, 0, 0, owner_id, "%s.funct", name))
+	return -1;
+    return 0;
+}
+
 // constructor - init all HAL pins, params, funct etc here
 static int instantiate(const char *name, const int argc, const char**argv)
 {
@@ -40,21 +57,10 @@ static int instantiate(const char *name, const int argc, const char**argv)
 	return -1;
 
     // here ip is guaranteed to point to a blob of HAL memory of size sizeof(struct inst_data).
-
     hal_print_msg(RTAPI_MSG_ERR,"%s inst=%s argc=%d\n",__FUNCTION__, name, argc);
 
-    // init HAL objects in the instance data area returned
-    if (halinst_pin_float_newf(HAL_OUT, &ip->out, comp_id, inst_id, "%s.out", name))
-	return -1;
-    if (halinst_pin_float_newf(HAL_IN,  &ip->in,  comp_id, inst_id, "%s.in", name))
-	return -1;
-    if (halinst_param_s32_newf(HAL_RO,  &ip->iter,comp_id, inst_id, "%s.iter", name))
-	return -1;
-
-    // export a thread function, passing the pointer to the instance's HAL memory blob
-    if (halinst_export_functf(funct, ip, 0, 0, comp_id, inst_id, "%s.funct", name))
-	return -1;
-    return 0;
+    // these pins/params/functs will be owned by the instance, and can be separately exited
+    return export_halobjs(ip, inst_id, name);
 }
 
 // custom destructor - normally not needed
@@ -88,6 +94,13 @@ int rtapi_app_main(void)
     // to use default destructor, use NULL instead of delete
     comp_id = hal_xinit(compname, TYPE_RT, 0, 0, instantiate, delete);
     if (comp_id < 0)
+	return -1;
+
+    struct inst_data *ip = hal_malloc(sizeof(struct inst_data));
+
+    // traditional behavior: these pins/params/functs will be owned by the component
+    // NB: this 'instance' cannot be exited
+    if (export_halobjs(ip, comp_id, "foo"))
 	return -1;
 
     hal_ready(comp_id);

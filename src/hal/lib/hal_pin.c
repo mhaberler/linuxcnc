@@ -259,7 +259,7 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	}
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
-	new->owner_ptr = SHMOFF(comp);
+	new->owner_id = comp->comp_id;
 	new->instance_ptr = (inst_id == 0) ? 0 : SHMOFF(inst);
 	new->type = type;
 	new->dir = dir;
@@ -314,7 +314,7 @@ void unlink_pin(hal_pin_t * pin)
 	sig = SHMPTR(pin->signal);
 	/* make pin's 'data_ptr' point to its dummy signal */
 	data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-	comp = SHMPTR(pin->owner_ptr);
+	comp = halpr_find_owning_comp(pin->owner_id);
 	dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
 	*data_ptr_addr = dummy_addr;
 
@@ -492,11 +492,9 @@ hal_pin_t *halpr_find_pin_by_name(const char *name)
 
 hal_pin_t *halpr_find_pin_by_owner(hal_comp_t * owner, hal_pin_t * start)
 {
-    int owner_ptr, next;
+    int next;
     hal_pin_t *pin;
 
-    /* get offset of 'owner' component */
-    owner_ptr = SHMOFF(owner);
     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of pin list */
@@ -507,7 +505,7 @@ hal_pin_t *halpr_find_pin_by_owner(hal_comp_t * owner, hal_pin_t * start)
     }
     while (next != 0) {
 	pin = SHMPTR(next);
-	if (pin->owner_ptr == owner_ptr) {
+	if (pin->owner_id == owner->comp_id) {
 	    /* found a match */
 	    return pin;
 	}
@@ -565,7 +563,7 @@ static hal_pin_t *alloc_pin_struct(void)
 	/* make sure it's empty */
 	p->next_ptr = 0;
 	p->data_ptr_addr = 0;
-	p->owner_ptr = 0;
+	p->owner_id = 0;
 	p->type = 0;
 	p->dir = 0;
 	p->signal = 0;
@@ -584,7 +582,7 @@ void free_pin_struct(hal_pin_t * pin)
     /* clear contents of struct */
     if ( pin->oldname != 0 ) free_oldname_struct(SHMPTR(pin->oldname));
     pin->data_ptr_addr = 0;
-    pin->owner_ptr = 0;
+    pin->owner_id = 0;
     pin->instance_ptr = 0;
     pin->type = 0;
     pin->dir = 0;

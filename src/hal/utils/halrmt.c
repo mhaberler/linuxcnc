@@ -1710,7 +1710,7 @@ static void getPinInfo(char *pattern, int valuesOnly, connectionRecType *context
     while (next != 0) {
       pin = SHMPTR(next);
       if (strncmp(pattern, pin->name, len) == 0) {
-        comp = SHMPTR(pin->owner_ptr);
+        comp =  halpr_find_owning_comp(pin->owner_id);
         if (pin->signal != 0) {
 	  sig = SHMPTR(pin->signal);
 	  dptr = SHMPTR(sig->data_ptr);

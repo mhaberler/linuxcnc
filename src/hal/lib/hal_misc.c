@@ -26,7 +26,7 @@ int halpr_pin_count(const char *name)
     int next = hal_data->pin_list_ptr;
     while (next != 0) {
 	pin = (hal_pin_t *)SHMPTR(next);
-	owner = (hal_comp_t *) SHMPTR(pin->owner_ptr);
+	owner = halpr_find_owning_comp(pin->owner_id);
 	if (owner->comp_id == comp->comp_id)
 	    count++;
 	next = pin->next_ptr;

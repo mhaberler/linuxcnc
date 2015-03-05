@@ -35,7 +35,7 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
     int next = hal_data->pin_list_ptr;
     while (next != 0) {
 	hal_pin_t *pin = (hal_pin_t *)SHMPTR(next);
-	hal_comp_t *owner = (hal_comp_t *) SHMPTR(pin->owner_ptr);
+	hal_comp_t *owner = halpr_find_comp_by_id(pin->owner_id);
 	if (owner->comp_id == comp->comp_id) {
 	    pb::Pin *pbpin = pbcomp->add_pin();
 	    halpr_describe_pin(pin, pbpin);

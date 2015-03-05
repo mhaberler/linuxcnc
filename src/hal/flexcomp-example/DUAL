@@ -1,0 +1,7 @@
+
+// always succeeds for pins, params, functs
+hal_comp_t *halpr_find_owning_comp(owner_id);
+
+
+// succeeds only for pins, params, functs owned by a hal_inst_t
+hal_inst_t *halpr_find_owning_inst(owner_id);

@@ -288,7 +288,7 @@ int hal_retrieve_pinstate(const char *comp_name,
 	next = hal_data->pin_list_ptr;
 	while (next != 0) {
 	    pin = SHMPTR(next);
-	    owner = SHMPTR(pin->owner_ptr);
+	    owner = halpr_find_owning_comp(pin->owner_id);
 	    if (!comp_name || (owner->comp_id == comp->comp_id)) {
 		nvisited++;
 		/* this is the right comp */
@@ -364,7 +364,7 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        n = 0;
        while (next != 0) {
 	    pin = SHMPTR(next);
-	    owner = SHMPTR(pin->owner_ptr);
+	    owner = halpr_find_owning_comp(pin->owner_id);
 	    if (owner->comp_id == comp->comp_id) {
 		if (!(pin->flags & PIN_DO_NOT_TRACK))
 		    n++;
@@ -407,7 +407,7 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        next = hal_data->pin_list_ptr;
        while (next != 0) {
 	   pin = SHMPTR(next);
-	   owner = SHMPTR(pin->owner_ptr);
+	   owner = halpr_find_owning_comp(pin->owner_id);
 	   if ((owner->comp_id == comp->comp_id) &&
 	       !(pin->flags & PIN_DO_NOT_TRACK))
 	       tc->pin[n++] = pin;

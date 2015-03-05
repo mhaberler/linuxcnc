@@ -74,7 +74,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	    hal_print_error("insufficient memory for instance '%s'\n", name);
 	    return -ENOMEM;
 	}
-	inst->owner_ptr = SHMOFF(comp);
+	inst->owner_id = comp->comp_id;
 	inst->inst_id = rtapi_next_handle();
 	inst->inst_data = m;
 	*(inst_data) = m;
@@ -263,11 +263,9 @@ hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst, hal_funct_t * start
 
 hal_inst_t *halpr_find_inst_by_owner(hal_comp_t * owner, hal_inst_t *start)
 {
-    int owner_ptr, next;
+    int next;
     hal_inst_t *inst;
 
-    /* get offset of 'owner' component */
-    owner_ptr = SHMOFF(owner);
     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of inst list */
@@ -278,7 +276,7 @@ hal_inst_t *halpr_find_inst_by_owner(hal_comp_t * owner, hal_inst_t *start)
     }
     while (next != 0) {
 	inst = SHMPTR(next);
-	if (inst->owner_ptr == owner_ptr) {
+	if (inst->owner_id == owner->comp_id) {
 	    /* found a match */
 	    return inst;
 	}
@@ -307,7 +305,7 @@ static hal_inst_t *alloc_inst_struct(void)
     if (hi) {
 	/* make sure it's empty */
 	hi->next_ptr = 0;
-	hi->owner_ptr = 0;
+	hi->owner_id = 0;
 	hi->inst_id = 0;
 	hi->inst_data = NULL;
 	hi->inst_size = 0;
@@ -351,7 +349,7 @@ static void free_inst_struct(hal_inst_t * inst)
 
     // now that the funct is gone, call the dtor for this instance
     // get owning comp
-    hal_comp_t *comp = SHMPTR(inst->owner_ptr);
+    hal_comp_t *comp = halpr_find_owning_comp(inst->owner_id);
     if (comp->dtor) {
 	//NB - pins, params etc still intact
 	// this instance is owned by this comp, call destructor
@@ -406,7 +404,7 @@ static void free_inst_struct(hal_inst_t * inst)
 	    // this instance is owned by this comp
 	    *prev = ip->next_ptr;
 	    // zap the instance structure
-	    ip->owner_ptr = 0;
+	    ip->owner_id = 0;
 	    ip->inst_id = 0;
 	    ip->inst_data = NULL; // NB - loosing HAL memory here
 	    ip->inst_size = 0;

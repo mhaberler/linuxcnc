@@ -269,7 +269,7 @@ typedef struct {
 // it holds a void * to the instance data as required by the instance
 typedef struct {
     int next_ptr;		// next instance in list
-    int owner_ptr;               // shm pointer to owning hal_comp_t struct
+    int owner_id;               // comp_id of owning component
     int inst_id;                // allocated by rtapi_next_handle()
     void *inst_data;             // instance user data
     int inst_size;              // size of instdata blob
@@ -293,7 +293,7 @@ static inline bool halpr_ptr_in_inst(const hal_inst_t *inst, const void *halobj)
 typedef struct {
     int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
-    int owner_ptr;		/* component that owns this pin */
+    int owner_id;		/* component that owns this pin */
     int instance_ptr;           // instance that owns this pin
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
@@ -598,6 +598,8 @@ extern hal_comp_t *halpr_find_comp_by_id(int id);
     call, and return the next matching item.  If no match is found, they
     return NULL.
 */
+//INST these dont make much sense anymore
+//XXX replace by .._owner_id(int owner_id) ?
 extern hal_pin_t *halpr_find_pin_by_owner(hal_comp_t * owner,
     hal_pin_t * start);
 extern hal_param_t *halpr_find_param_by_owner(hal_comp_t * owner,
@@ -619,7 +621,18 @@ hal_vtable_t *halpr_find_vtable_by_id(int vtable_id);
 // private instance API:
 // lookup
 hal_inst_t *halpr_find_inst_by_name(const char *name);
+
+// given the owner_id of pin, param or funct,
+// find the owning instance
+// succeeds only for pins, params, functs owned by a hal_inst_t
+// returns NULL for legacy code using comp_id for pins/params/functs
 hal_inst_t *halpr_find_inst_by_id(const int id);
+
+// given the owner_id of pin, param or funct,
+// find the owning component regardless whether the object
+// was created by an instance id, or a comp id
+// always succeeds for pins, params, functs
+hal_comp_t *halpr_find_owning_comp(const int owner_id);
 
 // iterators
 // these work like find_xxx_by_owner() above

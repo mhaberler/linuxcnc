@@ -278,6 +278,30 @@ hal_comp_t *halpr_find_comp_by_id(int id)
     return 0;
 }
 
+// use only for owner_ids of pins, params or functs
+hal_comp_t *halpr_find_owning_comp(const int owner_id)
+{
+    hal_comp_t *comp = halpr_find_comp_by_id(owner_id);
+    if (comp != NULL)
+	return comp;
+
+    hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
+    if (inst == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL: BUG: %s(%d): owner_id refers neither to a hal_comp_t nor an hal_inst_t",
+			__FUNCTION__, owner_id);
+	return NULL;
+    }
+    comp =  halpr_find_comp_by_id(inst->owner_id);
+    if (comp == NULL) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"HAL: BUG: %s(%d): instance %d's owner_id %d refers to a non-existant comp",
+			__FUNCTION__, owner_id, inst->inst_id, inst->owner_id);
+    }
+    return comp;
+}
+
+
 hal_comp_t *halpr_alloc_comp_struct(void)
 {
     hal_comp_t *p;
@@ -341,7 +365,7 @@ static void free_comp_struct(hal_comp_t * comp)
 	next = hal_data->inst_list_ptr;
 	while (next != 0) {
 	    inst = SHMPTR(next);
-	    if (SHMPTR(inst->owner_ptr) == comp) {
+	    if (inst->owner_id == comp->comp_id) {
 		// this instance is owned by this comp, call destructor
 		hal_print_msg(RTAPI_MSG_DBG,
 			      "%s: calling custom destructor(%s,%s)", __FUNCTION__,
@@ -358,7 +382,7 @@ static void free_comp_struct(hal_comp_t * comp)
     next = *prev;
     while (next != 0) {
 	pin = SHMPTR(next);
-	if (SHMPTR(pin->owner_ptr) == comp) {
+	if (pin->owner_id == comp->comp_id) {
 	    /* this pin belongs to our component, unlink from list */
 	    *prev = pin->next_ptr;
 	    /* and delete it */
@@ -391,11 +415,11 @@ static void free_comp_struct(hal_comp_t * comp)
     next = *prev;
     while (next != 0) {
 	inst = SHMPTR(next);
-	if (SHMPTR(inst->owner_ptr) == comp) {
+	if (inst->owner_id == comp->comp_id) {
 	    // this instance is owned by this comp
 	    *prev = inst->next_ptr;
 	    // zap the instance structure
-	    inst->owner_ptr = 0;
+	    inst->owner_id = 0;
 	    inst->inst_id = 0;
 	    inst->inst_data = NULL; // NB - loosing HAL memory here
 	    inst->inst_size = 0;
