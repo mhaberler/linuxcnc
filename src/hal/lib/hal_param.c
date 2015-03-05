@@ -155,7 +155,7 @@ int halinst_param_s32_newf(hal_param_dir_t dir, hal_s32_t * data_addr,
 /* this is a generic function that does the majority of the work. */
 
 int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, volatile void *data_addr,
-		      int comp_id, int inst_id)
+		      int owner_id, int FIXME)
 {
     int *prev, next, cmp;
     hal_param_t *new, *ptr;
@@ -190,7 +190,6 @@ int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, vo
     }
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
-	hal_inst_t *inst = NULL;
 
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
@@ -198,14 +197,14 @@ int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, vo
 	hal_print_msg(RTAPI_MSG_DBG, "HAL: creating parameter '%s'\n", name);
 
 	/* validate comp_id */
-	comp = halpr_find_comp_by_id(comp_id);
+	comp = halpr_find_owning_comp(owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: component %d not found\n", comp_id);
+	    hal_print_error("%s(%s): owning component %d not found\n",
+			    __FUNCTION__, name, owner_id);
 	    return -EINVAL;
 	}
-
+#if 0 // FIXME
 	// validate inst_id if given
 	if (inst_id) { // pin is in an instantiable comp
 	    inst = halpr_find_inst_by_id(inst_id);
@@ -222,6 +221,7 @@ int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, vo
 		// unfortunately we cant make this fatal
 	    }
 	}
+#endif
 	/* validate passed in pointer - must point to HAL shmem */
 	if (! SHMCHK(data_addr)) {
 	    /* bad pointer */
@@ -229,7 +229,13 @@ int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, vo
 			    "HAL: ERROR: data_addr not in shared memory\n");
 	    return -EINVAL;
 	}
+
+	// this will be 0 for legacy comps which use comp_id
+	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
+	int inst_id = (inst ? inst->inst_id : 0);
+
 	// instances may create params post hal_ready
+	// never understood the restriction in the first place
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
 	    hal_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: param_new called after hal_ready\n");
@@ -244,8 +250,7 @@ int halinst_param_new(const char *name, hal_type_t type, hal_param_dir_t dir, vo
 	    return -ENOMEM;
 	}
 	/* initialize the structure */
-	new->owner_ptr = SHMOFF(comp);
-	new->instance_ptr = (inst_id == 0) ? 0 : SHMOFF(inst);
+	new->owner_id = owner_id;
 	new->data_ptr = SHMOFF(data_addr);
 	new->type = type;
 	new->dir = dir;
@@ -538,11 +543,9 @@ hal_param_t *halpr_find_param_by_name(const char *name)
 hal_param_t *halpr_find_param_by_owner(hal_comp_t * owner,
     hal_param_t * start)
 {
-    int owner_ptr, next;
+    int next;
     hal_param_t *param;
 
-    /* get offset of 'owner' component */
-    owner_ptr = SHMOFF(owner);
     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of param list */
@@ -553,7 +556,7 @@ hal_param_t *halpr_find_param_by_owner(hal_comp_t * owner,
     }
     while (next != 0) {
 	param = SHMPTR(next);
-	if (param->owner_ptr == owner_ptr) {
+	if (param->owner_id == owner->comp_id) {
 	    /* found a match */
 	    return param;
 	}
@@ -583,7 +586,7 @@ hal_param_t *alloc_param_struct(void)
 	/* make sure it's empty */
 	p->next_ptr = 0;
 	p->data_ptr = 0;
-	p->owner_ptr = 0;
+	p->owner_id = 0;
 	p->type = 0;
 	p->name[0] = '\0';
     }
@@ -595,8 +598,7 @@ void free_param_struct(hal_param_t * p)
     /* clear contents of struct */
     if ( p->oldname != 0 ) free_oldname_struct(SHMPTR(p->oldname));
     p->data_ptr = 0;
-    p->owner_ptr = 0;
-    p->instance_ptr = 0;
+    p->owner_id = 0;
     p->type = 0;
     p->name[0] = '\0';
     p->handle = -1;

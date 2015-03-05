@@ -320,7 +320,6 @@ int rtapi_app_main(void)
 	return -EINVAL;
     }
 
-
     hal_comp_id = hal_xinit("hal_lib", TYPE_RT, 0, 0, NULL, NULL);
 
     // export the instantiation userfuncts
@@ -328,7 +327,7 @@ int rtapi_app_main(void)
 	.type = FS_USERLAND,
 	.funct.u = create_instance,
 	.arg = NULL,
-	.comp_id = hal_comp_id
+	.owner_id = hal_comp_id
     };
     if (hal_export_xfunctf( &ni, "newinst"))
 	return -1;
@@ -337,7 +336,7 @@ int rtapi_app_main(void)
 	.type = FS_USERLAND,
 	.funct.u = delete_instance,
 	.arg = NULL,
-	.comp_id = hal_comp_id
+	.owner_id = hal_comp_id
     };
     if (hal_export_xfunctf( &di, "delinst"))
 	return -1;
@@ -701,8 +700,5 @@ EXPORT_SYMBOL(hal_call_usrfunct);
 
 EXPORT_SYMBOL(hal_inst_create);
 EXPORT_SYMBOL(hal_inst_delete);
-
-
-
 
 #endif /* rtapi */

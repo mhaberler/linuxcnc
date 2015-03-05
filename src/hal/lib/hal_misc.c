@@ -49,7 +49,7 @@ halpr_param_count(const char *name)
     int next = hal_data->param_list_ptr;
     while (next != 0) {
 	hal_param_t *param = (hal_param_t *)SHMPTR(next);
-	owner = (hal_comp_t *) SHMPTR(param->owner_ptr);
+	owner = halpr_find_owning_comp(param->owner_id);
 	if (owner->comp_id == comp->comp_id)
 	    count++;
 	next = param->next_ptr;

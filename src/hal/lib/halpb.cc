@@ -45,7 +45,7 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
     next = hal_data->param_list_ptr;
     while (next != 0) {
 	hal_param_t *param = (hal_param_t *)SHMPTR(next);
-	hal_comp_t *owner = (hal_comp_t *) SHMPTR(param->owner_ptr);
+	hal_comp_t *owner = halpr_find_owning_comp(param->owner_id);
 	if (owner->comp_id == comp->comp_id) {
 	    pb::Param *pbparam = pbcomp->add_param();
 	    pbparam->set_name(param->name);
@@ -82,7 +82,7 @@ halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 
 int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct)
 {
-    hal_comp_t *owner = (hal_comp_t *) SHMPTR(funct->owner_ptr);
+    hal_comp_t *owner = halpr_find_owning_comp(funct->owner_id);
 
     pbfunct->set_name(funct->name);
     pbfunct->set_handle(funct->handle);

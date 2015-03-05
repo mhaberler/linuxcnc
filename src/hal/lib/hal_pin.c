@@ -217,24 +217,7 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 			    __FUNCTION__, name, owner_id);
 	    return -EINVAL;
 	}
-#if 0 //FIXME
-	// validate inst_id if given
-	if (inst_id) { // pin is in an instantiable comp
-	    inst = halpr_find_inst_by_id(inst_id);
-	    if (inst == NULL) {
-		hal_print_error("instance %d not found\n", inst_id);
-		return -EINVAL;
-	    }
-	    // validate that the pin actually is allocated in the instance data blob
-	    if (!halpr_ptr_in_inst(inst, (void *) data_ptr_addr)) {
-		hal_print_msg(RTAPI_MSG_DBG,
-			      "note: memory for pin %s not within instance %s/%d memory range "
-			      "(ok for funct timing pins)",
-			      name, inst->name, inst_id);
-		// unfortunately we cant make this fatal
-	    }
-	}
-#endif 
+
 	/* validate passed in pointer - must point to HAL shmem */
 	if (! SHMCHK(data_ptr_addr)) {
 	    /* bad pointer */
@@ -265,7 +248,6 @@ int halinst_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
 	new->owner_id = comp->comp_id;
-	// new->instance_ptr = 0; // FIXME (inst_id == 0) ? 0 : SHMOFF(inst);
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;

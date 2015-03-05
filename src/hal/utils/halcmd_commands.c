@@ -2059,7 +2059,7 @@ static void print_param_info(int type, char **patterns)
     while (next != 0) {
 	param = SHMPTR(next);
 	if ( tmatch(type, param->type), match(patterns, param->name) ) {
-	    comp = SHMPTR(param->owner_ptr);
+	    comp =  halpr_find_owning_comp(param->owner_id);
 	    if (scriptmode == 0) {
 		halcmd_output(" %5d  %5s %-3s  %9s  %s\n",
 		    comp->comp_id, data_type((int) param->type),
@@ -2136,7 +2136,7 @@ static void print_funct_info(char **patterns)
     while (next != 0) {
 	fptr = SHMPTR(next);
 	if ( match(patterns, fptr->name) ) {
-	    comp = SHMPTR(fptr->owner_ptr);
+	    comp =  halpr_find_owning_comp(fptr->owner_id);
 	    if (scriptmode == 0) {
 		halcmd_output(" %05d  %08lx  %08lx  %-3s  %5d %-7s %s\n",
 			      comp->comp_id,

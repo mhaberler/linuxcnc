@@ -50,8 +50,7 @@ int halinst_export_functf(void (*funct) (void *, long),
 	.arg = arg,
 	.uses_fp = uses_fp,
 	.reentrant = reentrant,
-	.comp_id = comp_id,
-	.instance_id = inst_id
+	.owner_id = comp_id,
     };
     ret = hal_export_xfunctfv(&xf, fmt, ap);
     va_end(ap);
@@ -75,8 +74,7 @@ int hal_export_functf(void (*funct) (void *, long),
 	.arg = arg,
 	.uses_fp = uses_fp,
 	.reentrant = reentrant,
-	.comp_id = comp_id,
-	.instance_id = 0
+	.owner_id = comp_id,
     };
     ret = hal_export_xfunctfv(&xf, fmt, ap);
     va_end(ap);
@@ -106,6 +104,7 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 {
     return halinst_export_functf(funct, arg, uses_fp, reentrant, comp_id, 0, name);
 }
+
 
 static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap)
 {
@@ -137,20 +136,18 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 		  name, xf->type);
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
-	hal_inst_t *inst = NULL;
 
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
 
-	/* validate comp_id */
-	comp = halpr_find_comp_by_id(xf->comp_id);
+	comp = halpr_find_owning_comp(xf->owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: component %d not found\n", xf->comp_id);
+	    hal_print_error("%s(%s): owning component %d not found\n",
+			    __FUNCTION__, name, xf->owner_id);
 	    return -EINVAL;
 	}
-
+#if 0 // FIXME
 	// validate inst_id if given
 	if (xf->instance_id) { // pin is in an instantiable comp
 	    inst = halpr_find_inst_by_id(xf->instance_id);
@@ -159,16 +156,21 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 		return -EINVAL;
 	    }
 	}
-
+#endif
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
 	    hal_print_msg(RTAPI_MSG_ERR,
-			  "HAL: ERROR: component %d is not realtime (%d)\n",
-			  xf->comp_id, comp->type);
+			  "HAL: ERROR: component %s/%d is not realtime (%d)\n",
+			  comp->name, comp->comp_id, comp->type);
 	    return -EINVAL;
 	}
+
+	// this will be 0 for legacy comps which use comp_id
+	hal_inst_t *inst = halpr_find_inst_by_id(xf->owner_id);
+	int inst_id = (inst ? inst->inst_id : 0);
+
 	// instances may export functs post hal_ready
-	if ((xf->instance_id == 0) && (comp->state > COMP_INITIALIZING)) {
+	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
 	    hal_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: export_funct called after hal_ready\n");
 	    return -EINVAL;
@@ -183,8 +185,7 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	}
 	/* initialize the structure */
 	nf->uses_fp = xf->uses_fp;
-	nf->owner_ptr = SHMOFF(comp);
-	nf->instance_ptr = (xf->instance_id == 0) ? 0 : SHMOFF(inst);
+	nf->owner_id = xf->owner_id;
 	nf->reentrant = xf->reentrant;
 	nf->users = 0;
 	nf->handle = rtapi_next_handle();
@@ -239,8 +240,8 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     case FS_LEGACY_THREADFUNC:
     case FS_XTHREADFUNC:
 	/* create a pin with the function's runtime in it */
-	if (halinst_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->comp_id,
-				 xf->instance_id, "%s.time",name)) {
+	if (halinst_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->owner_id,
+				-42, "%s.time",name)) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: fail to create pin '%s.time'\n", name);
 	    return -EINVAL;
@@ -252,11 +253,11 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	   for debugging and testing use only */
 	/* create a parameter with the function's maximum runtime in it */
 	nf->maxtime = 0;
-	halinst_param_s32_newf(HAL_RW,  &(nf->maxtime), xf->comp_id, xf->instance_id, "%s.tmax", name);
+	halinst_param_s32_newf(HAL_RW,  &(nf->maxtime), xf->owner_id, -43, "%s.tmax", name);
 
 	/* create a parameter with the function's maximum runtime in it */
 	nf->maxtime_increased = 0;
-	halinst_param_bit_newf(HAL_RO, &(nf->maxtime_increased), xf->comp_id, xf->instance_id,
+	halinst_param_bit_newf(HAL_RO, &(nf->maxtime_increased), xf->owner_id, -44,
 			       "%s.tmax-increased", name);
 	break;
     case FS_USERLAND: // no timing pins/params
@@ -616,11 +617,9 @@ hal_funct_t *halpr_find_funct_by_name(const char *name)
 hal_funct_t *halpr_find_funct_by_owner(hal_comp_t * owner,
     hal_funct_t * start)
 {
-    int owner_ptr, next;
+    int next;
     hal_funct_t *funct;
 
-    /* get offset of 'owner' component */
-    owner_ptr = SHMOFF(owner);
     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of function list */
@@ -631,7 +630,7 @@ hal_funct_t *halpr_find_funct_by_owner(hal_comp_t * owner,
     }
     while (next != 0) {
 	funct = SHMPTR(next);
-	if (funct->owner_ptr == owner_ptr) {
+	if (funct->owner_id == owner->comp_id) {
 	    /* found a match */
 	    return funct;
 	}
@@ -663,7 +662,7 @@ hal_funct_t *alloc_funct_struct(void)
 	/* make sure it's empty */
 	p->next_ptr = 0;
 	p->uses_fp = 0;
-	p->owner_ptr = 0;
+	p->owner_id = 0;
 	p->reentrant = 0;
 	p->users = 0;
 	p->arg = 0;
@@ -716,8 +715,7 @@ void free_funct_struct(hal_funct_t * funct)
     }
     /* clear contents of struct */
     funct->uses_fp = 0;
-    funct->owner_ptr = 0;
-    funct->instance_ptr = 0;
+    funct->owner_id = 0;
     funct->reentrant = 0;
     funct->users = 0;
     funct->arg = 0;

@@ -1777,7 +1777,7 @@ static void getParamInfo(char *pattern, int valuesOnly, connectionRecType *conte
     while (next != 0) {
       param = SHMPTR(next);
       if ( strncmp(pattern, param->name, len) == 0 ) {
-        comp = SHMPTR(param->owner_ptr);
+        comp =  halpr_find_owning_comp(param->owner_id);
 	if (valuesOnly == 0)
           sprintf(context->outBuf, "PARAM %s %s %02d %s %s",
 	    param->name,
@@ -1808,7 +1808,7 @@ static void getFunctInfo(char *pattern, connectionRecType *context)
     while (next != 0) {
       fptr = SHMPTR(next);
       if (strncmp(pattern, fptr->name, len) == 0) {
-        comp = SHMPTR(fptr->owner_ptr);
+        comp =  halpr_find_owning_comp(fptr->owner_id);
 	sprintf(context->outBuf, "FUNCT %s %02d %08lX %08lX %s %3d", 
 	  fptr->name, 
 	  comp->comp_id, 

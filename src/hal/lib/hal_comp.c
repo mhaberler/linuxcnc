@@ -347,7 +347,7 @@ static void free_comp_struct(hal_comp_t * comp)
     next = *prev;
     while (next != 0) {
 	funct = SHMPTR(next);
-	if (SHMPTR(funct->owner_ptr) == comp) {
+	if (halpr_find_owning_comp(funct->owner_id) == comp) {
 	    /* this function belongs to our component, unlink from list */
 	    *prev = funct->next_ptr;
 	    /* and delete it */
@@ -398,7 +398,7 @@ static void free_comp_struct(hal_comp_t * comp)
     next = *prev;
     while (next != 0) {
 	param = SHMPTR(next);
-	if (SHMPTR(param->owner_ptr) == comp) {
+	if (param->owner_id == comp->comp_id) {
 	    /* this param belongs to our component, unlink from list */
 	    *prev = param->next_ptr;
 	    /* and delete it */

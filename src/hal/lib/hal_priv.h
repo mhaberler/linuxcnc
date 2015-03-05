@@ -294,7 +294,6 @@ typedef struct {
     int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
     int owner_id;		/* component that owns this pin */
-    //    int instance_ptr;           // instance that owns this pin
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
     int oldname;		/* old name if aliased, else zero */
@@ -330,8 +329,8 @@ typedef struct {
 typedef struct {
     int next_ptr;		/* next parameter in linked list */
     int data_ptr;		/* offset of parameter value */
-    int owner_ptr;		/* component that owns this signal */
-    int instance_ptr;           // instance that owns this param
+    int owner_id;		/* component that owns this signal */
+    //    int instance_ptr;           // instance that owns this param
     int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
@@ -425,8 +424,7 @@ typedef struct {
     void *arg;
     int uses_fp;
     int reentrant;
-    int comp_id;
-    int instance_id;
+    int owner_id;
 } hal_xfunct_t;
 
 int hal_export_xfunctf( const hal_xfunct_t *xf, const char *fmt, ...);
@@ -435,8 +433,7 @@ typedef struct hal_funct {
     int next_ptr;		/* next function in linked list */
     funct_signature_t type;     // drives call signature, addf
     int uses_fp;		/* floating point flag */
-    int owner_ptr;		/* component that added this funct */
-    int instance_ptr;           // instance that owns this funct
+    int owner_id;		/* component that added this funct */
     int reentrant;		/* non-zero if function is re-entrant */
     int users;			/* number of threads using function */
     void *arg;			/* argument for function */

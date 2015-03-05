@@ -82,7 +82,7 @@ int rtapi_app_main(void)
 	.arg = "x-instance-data",
 	.uses_fp = 0,
 	.reentrant = 0,
-	.comp_id = comp_id
+	.owner_id = comp_id
     };
     if (hal_export_xfunctf(&xtf,"%s.xthread-funct", compname))
 	return -1;
@@ -92,7 +92,7 @@ int rtapi_app_main(void)
 	.type = FS_USERLAND,
 	.funct.u = usrfunct_demo,
 	.arg = "u-instance-data",
-	.comp_id = comp_id
+	.owner_id = comp_id
     };
     if (hal_export_xfunctf( &uf, "%s.demo-funct", compname))
 	return -1;

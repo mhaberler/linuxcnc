@@ -198,11 +198,9 @@ hal_pin_t *halpr_find_pin_by_instance(hal_inst_t * inst, hal_pin_t * start)
 */
 hal_param_t *halpr_find_param_by_instance(hal_inst_t * inst, hal_param_t * start)
 {
-    int inst_ptr, next;
+    int next;
     hal_param_t *param;
 
-    /* get offset of 'inst'  */
-    inst_ptr = SHMOFF(inst);
     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of param list */
@@ -213,7 +211,7 @@ hal_param_t *halpr_find_param_by_instance(hal_inst_t * inst, hal_param_t * start
     }
     while (next != 0) {
 	param = SHMPTR(next);
-	if (param->instance_ptr == inst_ptr) {
+	if (param->owner_id == inst->inst_id) {
 	    /* found a match */
 	    return param;
 	}
@@ -233,12 +231,10 @@ hal_param_t *halpr_find_param_by_instance(hal_inst_t * inst, hal_param_t * start
 */
 hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst, hal_funct_t * start)
 {
-    int inst_ptr, next;
+    int next;
     hal_funct_t *funct;
 
-    /* get offset of 'inst'  */
-    inst_ptr = SHMOFF(inst);
-    /* is this the first call? */
+     /* is this the first call? */
     if (start == 0) {
 	/* yes, start at beginning of funct list */
 	next = hal_data->funct_list_ptr;
@@ -248,7 +244,7 @@ hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst, hal_funct_t * start
     }
     while (next != 0) {
 	funct = SHMPTR(next);
-	if (funct->instance_ptr == inst_ptr) {
+	if (funct->owner_id == inst->inst_id) {
 	    /* found a match */
 	    return funct;
 	}
@@ -333,7 +329,7 @@ static void free_inst_struct(hal_inst_t * inst)
     next = *prev;
     while (next != 0) {
 	funct = SHMPTR(next);
-	if (SHMPTR(funct->instance_ptr) == inst) {
+	if (funct->owner_id == inst->inst_id) {
 	    /* this function belongs to this instance, unlink from list */
 	    *prev = funct->next_ptr;
 	    /* and delete it */
@@ -379,7 +375,7 @@ static void free_inst_struct(hal_inst_t * inst)
     next = *prev;
     while (next != 0) {
 	param = SHMPTR(next);
-	if (SHMPTR(param->instance_ptr) == inst) {
+	if (param->owner_id == inst->inst_id) {
 	    /* this param belongs to our instance, unlink from list */
 	    *prev = param->next_ptr;
 	    /* and delete it */
