@@ -1739,7 +1739,7 @@ static void print_comp_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Loaded HAL Components:\n");
-	halcmd_output("ID      Type  Inst %-*s PID   State\n", HAL_NAME_LEN, "Name");
+	halcmd_output("    ID  Type Flags Inst %-*s PID   State\n", HAL_NAME_LEN, "Name");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->comp_list_ptr;
@@ -1751,16 +1751,17 @@ static void print_comp_info(char **patterns)
 	if ( match(patterns, comp->name) ) {
 	    if (has_ctor||has_dtor)
 
-	    halcmd_output(" %5d  %-4s%c%c  %-3d %-*s",
+	    halcmd_output(" %5d  %-4s %c%c%c%c  %4d %-*s",
 			  comp->comp_id,
 			  type_name(comp->type),
 			  has_ctor ? 'c': ' ',
 			  has_dtor ? 'd': ' ',
+			  ' ', ' ',
 			  inst_count(comp),
 			  HAL_NAME_LEN,
 			  comp->name);
 	    else
-		 halcmd_output(" %5d  %-4s    -    %-*s",
+		 halcmd_output(" %5d  %-4s            %-*s",
 			  comp->comp_id,
 			  type_name(comp->type),
 			  HAL_NAME_LEN,
@@ -1818,7 +1819,7 @@ static void print_inst_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Instances:\n");
-	halcmd_output(" Inst  Comp  Size  %-*s Owner\n", HAL_NAME_LEN, "Name");
+	halcmd_output(" Inst  Comp  Size  %-*s Owner\n", 25, "Name");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->inst_list_ptr;
@@ -1830,12 +1831,12 @@ static void print_inst_info(char **patterns)
 	if ( match(patterns, inst->name) ) {
 
 	    halcmd_output("%5d %5d %5d  %-*s %-*s",
-			  comp->comp_id,
 			  inst->inst_id,
+			  comp->comp_id,
 			  inst->inst_size,
-			  HAL_NAME_LEN,
+			  25, // HAL_NAME_LEN,
 			  inst->name,
-			  HAL_NAME_LEN,
+			  20, // HAL_NAME_LEN,
 			  comp->name);
 	    halcmd_output("\n");
 	}
