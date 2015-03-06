@@ -311,7 +311,6 @@ int rtapi_app_main(void)
     }
 
     retval = hal_proc_init();
-
     if ( retval ) {
 	hal_print_msg(RTAPI_MSG_ERR,
 			"HAL_LIB: ERROR:%d could not init /proc files\n",
@@ -321,35 +320,35 @@ int rtapi_app_main(void)
     }
 
     hal_comp_id = hal_xinit("hal_lib", TYPE_RT, 0, 0, NULL, NULL);
+    if (hal_comp_id > 0) {
+	// export the instantiation userfuncts
+	hal_xfunct_t ni = {
+	    .type = FS_USERLAND,
+	    .funct.u = create_instance,
+	    .arg = NULL,
+	    .owner_id = hal_comp_id
+	};
+	if ((retval = hal_export_xfunctf( &ni, "newinst")) < 0)
+	    return retval;
 
-    // export the instantiation userfuncts
-    hal_xfunct_t ni = {
-	.type = FS_USERLAND,
-	.funct.u = create_instance,
-	.arg = NULL,
-	.owner_id = hal_comp_id
-    };
-    if (hal_export_xfunctf( &ni, "newinst"))
-	return -1;
+	hal_xfunct_t di = {
+	    .type = FS_USERLAND,
+	    .funct.u = delete_instance,
+	    .arg = NULL,
+	    .owner_id = hal_comp_id
+	};
+	if ((retval = hal_export_xfunctf( &di, "delinst")) < 0)
+	    return retval;
 
-    hal_xfunct_t di = {
-	.type = FS_USERLAND,
-	.funct.u = delete_instance,
-	.arg = NULL,
-	.owner_id = hal_comp_id
-    };
-    if (hal_export_xfunctf( &di, "delinst"))
-	return -1;
+	hal_ready(hal_comp_id);
 
-    hal_ready(hal_comp_id);
-
-    /* done */
-    hal_print_msg(RTAPI_MSG_DBG,
-		    "HAL_LIB:%d lib installed successfully\n",
-		    rtapi_instance);
-
-
-    return 0;
+	/* done */
+	hal_print_msg(RTAPI_MSG_DBG,
+		      "HAL_LIB:%d lib installed successfully\n",
+		      rtapi_instance);
+	return 0;
+    }
+    return hal_comp_id;
 }
 
 void rtapi_app_exit(void)

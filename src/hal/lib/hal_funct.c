@@ -12,51 +12,6 @@ static hal_funct_entry_t *alloc_funct_entry_struct(void);
 hal_funct_t *alloc_funct_struct(void);
 static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap);
 
-/* // varargs helper for hal_export_funct() */
-/* static int hal_export_functfv(void (*funct) (void *, long), */
-/* 			      void *arg, */
-/* 			      int uses_fp, */
-/* 			      int reentrant, */
-/* 			      int comp_id, */
-/* 			      const char *fmt, */
-/* 			      va_list ap) */
-/* { */
-/*     char name[HAL_NAME_LEN + 1]; */
-/*     int sz; */
-/*     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap); */
-/*     if(sz == -1 || sz > HAL_NAME_LEN) { */
-/*         hal_print_msg(RTAPI_MSG_ERR, */
-/* 		      "%s: length %d too long for name starting '%s'\n", */
-/* 		      __FUNCTION__, sz, name); */
-/* 	return -ENOMEM; */
-/*     } */
-/*     return hal_export_funct(name, funct, arg, uses_fp, reentrant, comp_id); */
-/* } */
-
-/* int halinst_export_functf(void (*funct) (void *, long), */
-/* 			  void *arg, */
-/* 			  int uses_fp, */
-/* 			  int reentrant, */
-/* 			  int comp_id, */
-/* 			  int inst_id, */
-/* 			  const char *fmt, ...) */
-/* { */
-/*     va_list ap; */
-/*     int ret; */
-/*     va_start(ap, fmt); */
-/*     hal_xfunct_t xf = { */
-/* 	.type = FS_LEGACY_THREADFUNC, */
-/* 	.funct.l = funct, */
-/* 	.arg = arg, */
-/* 	.uses_fp = uses_fp, */
-/* 	.reentrant = reentrant, */
-/* 	.owner_id = comp_id, */
-/*     }; */
-/*     ret = hal_export_xfunctfv(&xf, fmt, ap); */
-/*     va_end(ap); */
-/*     return ret; */
-/* } */
-
 // printf-style version of hal_export_funct
 int hal_export_functf(void (*funct) (void *, long),
 		      void *arg,
@@ -81,7 +36,6 @@ int hal_export_functf(void (*funct) (void *, long),
     return ret;
 }
 
-
 int hal_export_xfunctf( const hal_xfunct_t *xf, const char *fmt, ...)
 {
     va_list ap;
@@ -92,13 +46,11 @@ int hal_export_xfunctf( const hal_xfunct_t *xf, const char *fmt, ...)
     return ret;
 }
 
-
 int hal_export_funct(const char *name, void (*funct) (void *, long),
 		     void *arg, int uses_fp, int reentrant, int owner_id)
 {
     return hal_export_functf(funct, arg, uses_fp, reentrant, owner_id, name);
 }
-
 
 static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list ap)
 {
@@ -141,16 +93,7 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 			    __FUNCTION__, name, xf->owner_id);
 	    return -EINVAL;
 	}
-#if 0 // FIXME
-	// validate inst_id if given
-	if (xf->instance_id) { // pin is in an instantiable comp
-	    inst = halpr_find_inst_by_id(xf->instance_id);
-	    if (inst == NULL) {
-		hal_print_error("instance %d not found\n", xf->instance_id);
-		return -EINVAL;
-	    }
-	}
-#endif
+
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
 	    hal_print_error("%s(%s): component %s/%d is not realtime (%d)",
