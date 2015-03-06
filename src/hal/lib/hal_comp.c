@@ -26,14 +26,8 @@ int hal_xinit(const char *name, const int type,
     // tag message origin field
     rtapi_set_logtag("hal_lib");
 
-    if (name == 0) {
-	hal_print_error("%s: no component name", __FUNCTION__);
-	return -EINVAL;
-    }
-    if (strlen(name) > HAL_NAME_LEN) {
-	hal_print_error("%s: component name '%s' is too long\n", __FUNCTION__, name);
-	return -EINVAL;
-    }
+    CHECK_STRLEN(name, HAL_NAME_LEN);
+
     if ((dtor != NULL) && (ctor == NULL)) {
 	hal_print_error("%s: %s - NULL constructor doesnt make sense with non-NULL destructor",
 			__FUNCTION__, name);
@@ -42,8 +36,8 @@ int hal_xinit(const char *name, const int type,
 
     // rtapi initialisation already done
     // since this happens through the constructor
-    hal_print_msg(RTAPI_MSG_DBG,
-		  "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x\n",
+    rtapi_print_msg(RTAPI_MSG_DBG,
+		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x\n",
 		  name, type, userarg1, userarg2, userarg2);
 
     /* copy name to local vars, truncating if needed */
@@ -53,7 +47,7 @@ int hal_xinit(const char *name, const int type,
     /* do RTAPI init */
     comp_id = rtapi_init(rtapi_name);
     if (comp_id < 0) {
-	hal_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: rtapi init failed\n");
+	HALERR("rtapi init failed\n");
 	return -EINVAL;
     }
     // tag message origin field since ulapi autoload re-tagged them
@@ -69,15 +63,14 @@ int hal_xinit(const char *name, const int type,
 	/* make sure name is unique in the system */
 	if (halpr_find_comp_by_name(hal_name) != 0) {
 	    /* a component with this name already exists */
-	    hal_print_error("%s: duplicate component name '%s'", __FUNCTION__, hal_name);
+	    HALERR("duplicate component name '%s'", hal_name);
 	    rtapi_exit(comp_id);
 	    return -EINVAL;
 	}
 	/* allocate a new component structure */
 	comp = halpr_alloc_comp_struct();
 	if (comp == 0) {
-	    /* couldn't allocate structure */
-	    hal_print_error("%s: insufficient memory for component '%s'", __FUNCTION__, hal_name);
+	    HALERR("insufficient memory for component '%s'", hal_name);
 	    rtapi_exit(comp_id);
 	    return -ENOMEM;
 	}
@@ -108,10 +101,10 @@ int hal_xinit(const char *name, const int type,
 
     }
     // scope exited - mutex released
-    /* done */
-    hal_print_msg(RTAPI_MSG_DBG,
-		  "%s(%s) component initialized id=%d",
-		  __FUNCTION__, hal_name, comp_id);
+
+    rtapi_print_msg(RTAPI_MSG_DBG,
+		    "%s(%s) component initialized id=%d",
+		    __FUNCTION__, hal_name, comp_id);
     return comp_id;
 }
 
@@ -121,11 +114,9 @@ int hal_exit(int comp_id)
     int *prev, next;
     char name[HAL_NAME_LEN + 1];
 
-    if (hal_data == 0) {
-	hal_print_error("%s(%d) exit called before init", __FUNCTION__, comp_id);
-	return -EINVAL;
-    }
-    hal_print_msg(RTAPI_MSG_DBG, "%s(%d) removing component",
+    CHECK_HALDATA();
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s(%d) removing component",
 		  __FUNCTION__, comp_id);
 
     {
@@ -138,7 +129,7 @@ int hal_exit(int comp_id)
 	next = *prev;
 	if (next == 0) {
 	    /* list is empty - should never happen, but... */
-	    hal_print_error("%s(%d) no component defined", __FUNCTION__, comp_id);
+	    HALERR("no components defined");
 	    return -EINVAL;
 	}
 	comp = SHMPTR(next);
@@ -148,7 +139,7 @@ int hal_exit(int comp_id)
 	    next = *prev;
 	    if (next == 0) {
 		/* reached end of list without finding component */
-		hal_print_error("%s(%d) no such component", __FUNCTION__, comp_id);
+		HALERR("no such component with id %d", comp_id);
 		return -EINVAL;
 	    }
 	    comp = SHMPTR(next);
@@ -175,8 +166,8 @@ int hal_exit(int comp_id)
     // on hal_lib shared library unload
     rtapi_exit(comp_id);
     /* done */
-    hal_print_msg(RTAPI_MSG_DBG,"%s(%d): component removed, name = '%s'\n",
-		  __FUNCTION__,comp_id, name);
+    rtapi_print_msg(RTAPI_MSG_DBG,"%s(%d): component removed, name = '%s'\n",
+		    __FUNCTION__,comp_id, name);
 
     return 0;
 }
@@ -192,7 +183,7 @@ int hal_ready(int comp_id) {
     next = hal_data->comp_list_ptr;
     if (next == 0) {
 	/* list is empty - should never happen, but... */
-	hal_print_error("%s(%d) BUG: not components defined", __FUNCTION__, comp_id);
+	HALERR("BUG: no components defined - %d", comp_id);
 	return -EINVAL;
     }
 
@@ -202,14 +193,14 @@ int hal_ready(int comp_id) {
 	next = comp->next_ptr;
 	if (next == 0) {
 	    /* reached end of list without finding component */
-	    hal_print_error("%s(%d) component not found", __FUNCTION__, comp_id);
+	    HALERR("component %d not found", comp_id);
 	    return -EINVAL;
 	}
 	comp = SHMPTR(next);
     }
     if(comp->state > COMP_INITIALIZING) {
-	hal_print_error("%s(%d) Component '%s' already ready (%d)",
-			__FUNCTION__, comp_id, comp->name, comp->state);
+	HALERR("component '%s' id %d already ready (state %d)",
+	       comp->name, comp->comp_id, comp->state);
         return -EINVAL;
     }
     comp->state = (comp->type == TYPE_REMOTE ?  COMP_UNBOUND : COMP_READY);
@@ -278,8 +269,8 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
     // nope, so it better be an instance
     hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
     if (inst == NULL) {
-	hal_print_error("BUG: %s(%d): owner_id refers neither to a hal_comp_t nor an hal_inst_t",
-			__FUNCTION__, owner_id);
+	HALERR("BUG: owner_id %d refers neither to a hal_comp_t nor an hal_inst_t",
+	       owner_id);
 	return NULL;
     }
 
@@ -287,8 +278,8 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
     comp =  halpr_find_comp_by_id(inst->owner_id);
     if (comp == NULL) {
 	// really bad. an instance which has no owning comp?
-	hal_print_error("BUG: %s(%d): instance %s/%d's owner_id %d refers to a non-existant comp",
-			__FUNCTION__, owner_id, inst->name, inst->inst_id, inst->owner_id);
+	HALERR("BUG: instance %s/%d's owner_id %d refers to a non-existant comp",
+	       inst->name, inst->inst_id, inst->owner_id);
     }
     return comp;
 }
@@ -360,9 +351,9 @@ static void free_comp_struct(hal_comp_t * comp)
 	    inst = SHMPTR(next);
 	    if (inst->owner_id == comp->comp_id) {
 		// this instance is owned by this comp, call destructor
-		hal_print_msg(RTAPI_MSG_DBG,
-			      "%s: calling custom destructor(%s,%s)", __FUNCTION__,
-			      comp->name, inst->name);
+		rtapi_print_msg(RTAPI_MSG_DBG,
+				"%s: calling custom destructor(%s,%s)", __FUNCTION__,
+				comp->name, inst->name);
 		comp->dtor(inst->name, inst->inst_data, inst->inst_size);
 	    }
 	    next = inst->next_ptr;

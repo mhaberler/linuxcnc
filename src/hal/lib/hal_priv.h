@@ -338,6 +338,76 @@ typedef struct {
     char name[HAL_NAME_LEN + 1];	/* parameter name */
 } hal_param_t;
 
+#define HALERR(fmt, ...) hal_print_errorloc(__FUNCTION__,__LINE__, fmt, ## __VA_ARGS__)
+
+#define HALASSERT(x)							\
+    do {								\
+	if (!(x)) {							\
+	hal_print_errorloc(__FUNCTION__,__LINE__,			\
+			   "ASSERTION VIOLATED: '%s'", #x);		\
+	}								\
+    } while(0)
+
+
+#define CHECK_HALDATA()							\
+    do {								\
+	if (hal_data == 0) {						\
+	    hal_print_errorloc(__FUNCTION__,__LINE__,			\
+			       "called before init");			\
+	    return -EINVAL;						\
+	}								\
+    } while (0)
+
+#define CHECK_NULL(p)							\
+    do {								\
+	if (p == NULL) {						\
+	    hal_print_errorloc(__FUNCTION__,__LINE__,			\
+			       #p  " is NULL");				\
+	    return -EINVAL;						\
+	}								\
+    } while (0)
+
+#define CHECK_LOCK(ll)				\
+    do {						  \
+	if (hal_data->lock & ll) {					\
+	    hal_print_errorloc(__FUNCTION__, __LINE__,			\
+			       "called while HAL is locked (%d)",	\
+			       ll);					\
+	    return -EPERM;						\
+	}								\
+    } while(0)
+
+
+#define CHECK_STR(name)							\
+    do {								\
+	if ((name) == NULL) {						\
+	    hal_print_errorloc(__FUNCTION__, __LINE__,			\
+			       "argument '" # name  "' is NULL");	\
+	    return -EPERM;						\
+	}								\
+    } while(0)
+
+
+#define CHECK_STRLEN(name, len)						\
+    do {								\
+	CHECK_STR(name);						\
+	if (strlen(name) > len) {					\
+	    hal_print_errorloc(__FUNCTION__, __LINE__,			\
+			       "argument '%s' too long (%d/%d)",	\
+			       name, strlen(name), len);		\
+	    return -EPERM;						\
+	}								\
+    } while(0)
+
+#define NOMEM(fmt, ...)							\
+    do {								\
+	hal_print_errorloc(__FUNCTION__, __LINE__,			\
+			   " insufficient memory for: "  fmt,		\
+			   ## __VA_ARGS__);				\
+	return -ENOMEM;							\
+    } while(0)
+
+
 /** the HAL uses functions and threads to handle synchronization of
     code.  In general, most control systems need to read inputs,
     perform control calculations, and write outputs, in that order.

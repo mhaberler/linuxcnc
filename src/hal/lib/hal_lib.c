@@ -353,8 +353,6 @@ int rtapi_app_main(void)
 
 void rtapi_app_exit(void)
 {
-    int retval;
-
     hal_print_msg(RTAPI_MSG_DBG,
 		    "HAL_LIB:%d removing RT support\n",rtapi_instance);
     hal_proc_clean();
@@ -378,6 +376,8 @@ void rtapi_app_exit(void)
     // do not release HAL shm here yet, as it might still be referenced
 
 #if 0 // actually done in hal_rtapi_detach
+    int retval;
+
     /* release RTAPI resources */
     retval = rtapi_shmem_delete(lib_mem_id, lib_module_id);
     if (retval) {
@@ -605,6 +605,21 @@ void hal_print_error(const char *fmt, ...)
     va_end(args);
 }
 
+void hal_print_errorloc(const char *file, const int line, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    const char *prefix = "%s:%d HAL error: ";
+    rtapi_snprintf(_hal_errmsg, HALPRINTBUFFERLEN,
+		   prefix, file  == NULL ? NULL:file, line);
+    int n = strlen(_hal_errmsg);
+
+    vsnprintf(_hal_errmsg + n, HALPRINTBUFFERLEN - n, fmt, args);
+    rtapi_print_msg(RTAPI_MSG_ERR, _hal_errmsg);
+    va_end(args);
+}
+
 const char *hal_lasterror()
 {
     return _hal_errmsg;
@@ -689,6 +704,7 @@ EXPORT_SYMBOL(halpr_find_pin_by_sig);
 EXPORT_SYMBOL(hal_print_msg);
 EXPORT_SYMBOL(hal_print_error);
 EXPORT_SYMBOL(hal_lasterror);
+EXPORT_SYMBOL(hal_print_errorloc);
 
 EXPORT_SYMBOL(hal_call_usrfunct);
 

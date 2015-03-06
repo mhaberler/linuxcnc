@@ -58,28 +58,19 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     hal_funct_t *nf, *fptr;
     char name[HAL_NAME_LEN + 1];
 
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: export_funct called before init\n");
-	return -EINVAL;
-    }
+    CHECK_HALDATA();
 
     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
-        hal_print_msg(RTAPI_MSG_ERR,
-	    "hal_export_xfunct: length %d too long for name starting '%s'\n",
-	    sz, name);
+        hal_print_error("%s length %d too long for name starting '%s'\n",
+			__FUNCTION__, sz, name);
         return -ENOMEM;
     }
 
-    if (hal_data->lock & HAL_LOCK_LOAD)  {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: export_funct called while HAL locked\n");
-	return -EPERM;
-    }
+    CHECK_LOCK(HAL_LOCK_LOAD);
 
-    hal_print_msg(RTAPI_MSG_DBG, "HAL: exporting function '%s' type %d\n",
-		  name, xf->type);
+    hal_print_msg(RTAPI_MSG_DBG, "%s: exporting function '%s' type %d\n",
+		  __FUNCTION__, name, xf->type);
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
 
@@ -105,8 +96,8 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 
 	// instances may export functs post hal_ready
 	if (legacy && (comp->state > COMP_INITIALIZING)) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: export_funct called after hal_ready\n");
+	    hal_print_error("%s(%s) export_funct called after hal_ready",
+			__FUNCTION__, name);
 	    return -EINVAL;
 	}
 	/* allocate a new function structure */
@@ -174,8 +165,8 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     case FS_XTHREADFUNC:
 	/* create a pin with the function's runtime in it */
 	if (hal_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->owner_id, "%s.time",name)) {
-	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: fail to create pin '%s.time'\n", name);
+	    hal_print_error("%s(%s): fail to create pin '%s.time'",
+			    __FUNCTION__, nf->name, name);
 	    return -EINVAL;
 	}
 	*(nf->runtime) = 0;
@@ -203,19 +194,23 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv)
 {
     hal_funct_t *funct;
 
-    if (name == NULL)
+    if (name == NULL) {
+	hal_print_error("%s: function name is NULL", __FUNCTION__);
 	return -EINVAL;
-    if (argc && (argv == NULL))
-	return -EINVAL;
+    }
+    if (argc && (argv == NULL)) {
+	hal_print_error("%s(%s) argc=%d but argv is NULL",
+			__FUNCTION__, name, argc);
 
+	return -EINVAL;
+    }
     {
 	int i __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 
 	funct = halpr_find_funct_by_name(name);
 	if (funct == NULL) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			  "HAL: ERROR: hal_call_usrfunct(%s): not found", name);
+	    hal_print_error("%s(%s) funct not found", __FUNCTION__, name);
 	    return -ENOENT;
 	}
 
@@ -229,9 +224,8 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv)
 	// argv sanity check - we dont want to fail this, esp in kernel land
 	for (i = 0; i < argc; i++) {
 	    if (argv[i] == NULL) {
-		hal_print_msg(RTAPI_MSG_ERR,
-			      "HAL: ERROR: hal_call_usrfunct(%s): argument %d NULL",
-			      name, i);
+		hal_print_error("%s(%s) argc=%d but argv[%d] is NULL",
+				__FUNCTION__, name, i, i);
 		return -EINVAL;
 	    }
 	}
@@ -259,18 +253,8 @@ int hal_add_funct_to_thread(const char *funct_name,
     int n;
     hal_funct_entry_t *funct_entry;
 
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: add_funct called before init\n");
-	return -EINVAL;
-    }
-
-    if (hal_data->lock & HAL_LOCK_CONFIG) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: add_funct_to_thread called"
-			" while HAL is locked\n");
-	return -EPERM;
-    }
+    CHECK_HALDATA();
+    CHECK_LOCK(HAL_LOCK_CONFIG);
 
     hal_print_msg(RTAPI_MSG_DBG,
 		    "HAL: adding function '%s' to thread '%s'\n",
@@ -398,18 +382,8 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *funct_entry;
 
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: del_funct called before init\n");
-	return -EINVAL;
-    }
-
-    if (hal_data->lock & HAL_LOCK_CONFIG) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: del_funct_from_thread called "
-			"while HAL is locked\n");
-	return -EPERM;
-    }
+    CHECK_HALDATA();
+    CHECK_LOCK(HAL_LOCK_CONFIG);
 
     hal_print_msg(RTAPI_MSG_DBG,
 		    "HAL: removing function '%s' from thread '%s'\n",

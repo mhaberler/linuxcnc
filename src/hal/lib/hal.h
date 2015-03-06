@@ -400,6 +400,13 @@ void hal_print_msg(int level, const char *fmt, ...)
 void hal_print_error(const char *fmt, ...)
     __attribute__((format(printf,1,2)));
 
+// shorthand - prints "HAL error: " + formatted part
+void hal_print_error(const char *fmt, ...)
+    __attribute__((format(printf,1,2)));
+
+// for macros expanding __FUNCTION__ and __LINE__
+void hal_print_errorloc(const char *file, const int line, const char *fmt, ...)
+    __attribute__((format(printf,3,4)));
 
 /** The HAL maintains lists of variables, functions, and so on in
     a central database, located in shared memory so all components
