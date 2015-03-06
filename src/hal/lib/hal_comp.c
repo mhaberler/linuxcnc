@@ -340,15 +340,6 @@ hal_comp_t *halpr_alloc_comp_struct(void)
     }
     return p;
 }
-#if 0
-Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt hal_exit(74) removing component
-Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt HAL error: funct delinst 67 owner? hal_lib OK
-
-BUG
-Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt HAL: BUG: halpr_find_owning_comp(74): owner_id refers neither to a hal_comp_t nor an hal_inst_t
-
-Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt HAL error: funct foo.funct 74 owner? NULL
-#endif
 
 static void free_comp_struct(hal_comp_t * comp)
 {
@@ -369,10 +360,6 @@ static void free_comp_struct(hal_comp_t * comp)
     while (next != 0) {
 	funct = SHMPTR(next);
 	hal_comp_t *owner = halpr_find_owning_comp(funct->owner_id);
-
-	hal_print_error("funct %s %d owner? %s",
-			funct->name, funct->owner_id, owner? owner->name:"NULL");
-
 	if (owner == comp) {
 	    /* this function belongs to our component, unlink from list */
 	    *prev = funct->next_ptr;
