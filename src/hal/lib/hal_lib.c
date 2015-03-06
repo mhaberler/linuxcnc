@@ -127,11 +127,6 @@ static int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
 */
 static int init_hal_data(void);
 
-#if defined(ULAPI) || (defined(RTAPI) && defined(BUILD_SYS_KBUILD))
-static int hal_rtapi_detach(void);
-#endif
-
-
 /** The alloc_xxx_struct() functions allocate a structure of the
     appropriate type and return a pointer to it, or 0 if they fail.
     They attempt to re-use freed structs first, if none are
@@ -378,10 +373,13 @@ void rtapi_app_exit(void)
 	// all threads stopped & deleted
     }
     // do not release HAL shm here yet, as it might still be referenced
-#if defined(BUILD_SYS_KBUILD)
-    hal_rtapi_detach();
-#endif
-#if 0 // actually done in hal_rtapi_detach
+ 
+    hal_exit(hal_comp_id);
+
+#if 1 // defined(BUILD_SYS_KBUILD)
+    //    hal_rtapi_detach();
+    //#endif
+    //#if 0 // actually done in hal_rtapi_detach
     int retval;
 
     /* release RTAPI resources */
@@ -399,6 +397,7 @@ void rtapi_app_exit(void)
 			rtapi_instance, lib_module_id, retval);
     }
 #endif
+
     /* done */
     hal_print_msg(RTAPI_MSG_DBG,
 		    "HAL_LIB:%d RT support removed successfully\n",
@@ -548,18 +547,6 @@ int hal_rtapi_attach()
     return 0;
 }
 
-// ULAPI-side cleanup. Called at shared library unload time as
-// a destructor.
-static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
-{
-    // detach the HAL data segment
-    hal_rtapi_detach();
-    // shut down ULAPI
-    ulapi_cleanup();
-}
-#endif
-
-#if defined(ULAPI) || (defined(RTAPI) && defined(BUILD_SYS_KBUILD))
 static int hal_rtapi_detach(void)
 {
     /* release RTAPI resources */
@@ -578,7 +565,7 @@ static int hal_rtapi_detach(void)
 	    hal_print_error("%s: rtapi_exit(%d) failed: %d",
 			    __FUNCTION__, lib_module_id, retval);
 	}
-	lib_mem_id = 0;
+	lib_mem_id = -1;
 	lib_module_id = -1;
 	hal_shmem_base = NULL;
 	hal_data = NULL;
@@ -586,7 +573,18 @@ static int hal_rtapi_detach(void)
     }
     return 0;
 }
+
+// ULAPI-side cleanup. Called at shared library unload time as
+// a destructor.
+static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
+{
+    // detach the HAL data segment
+    hal_rtapi_detach();
+    // shut down ULAPI
+    ulapi_cleanup();
+}
 #endif
+
 
 #define HALPRINTBUFFERLEN 1024
 static char _hal_errmsg[HALPRINTBUFFERLEN];
