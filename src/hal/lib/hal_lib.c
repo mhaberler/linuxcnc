@@ -565,6 +565,8 @@ static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
     ulapi_cleanup();
 }
 #endif
+
+
 #define HALPRINTBUFFERLEN 1024
 static char _hal_errmsg[HALPRINTBUFFERLEN];
 

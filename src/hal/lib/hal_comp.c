@@ -111,7 +111,8 @@ int hal_xinit(const char *name, const int type,
     // scope exited - mutex released
     /* done */
     hal_print_msg(RTAPI_MSG_DBG,
-		    "HAL: component '%s' initialized, ID = %02d\n", hal_name, comp_id);
+		  "%s(%s) component initialized id=%d",
+		  __FUNCTION__, hal_name, comp_id);
     return comp_id;
 }
 
@@ -122,11 +123,11 @@ int hal_exit(int comp_id)
     char name[HAL_NAME_LEN + 1];
 
     if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-	    "HAL: ERROR: exit called before init\n");
+	hal_print_error("%s(%d) exit called before init", __FUNCTION__, comp_id);
 	return -EINVAL;
     }
-    hal_print_msg(RTAPI_MSG_DBG, "HAL: removing component %02d\n", comp_id);
+    hal_print_msg(RTAPI_MSG_DBG, "%s(%d) removing component",
+		  __FUNCTION__, comp_id);
 
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -138,8 +139,7 @@ int hal_exit(int comp_id)
 	next = *prev;
 	if (next == 0) {
 	    /* list is empty - should never happen, but... */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: component %d not found\n", comp_id);
+	    hal_print_error("%s(%d) no component defined", __FUNCTION__, comp_id);
 	    return -EINVAL;
 	}
 	comp = SHMPTR(next);
@@ -149,18 +149,27 @@ int hal_exit(int comp_id)
 	    next = *prev;
 	    if (next == 0) {
 		/* reached end of list without finding component */
-		hal_print_msg(RTAPI_MSG_ERR,
-				"HAL: ERROR: component %d not found\n", comp_id);
+		hal_print_error("%s(%d) no such component", __FUNCTION__, comp_id);
 		return -EINVAL;
 	    }
 	    comp = SHMPTR(next);
 	}
-	/* found our component, unlink it from the list */
-	*prev = comp->next_ptr;
+
 	/* save component name for later */
 	rtapi_snprintf(name, sizeof(name), "%s", comp->name);
 	/* get rid of the component */
-	free_comp_struct(comp);
+	free_comp_struct(comp); //BUG-comp already unlinked!!!
+
+	// unlink the comp only now as free_comp_struct() must
+	// determine ownership of pins/params/functs and this
+	// requires access to the current comp, too
+	// since this is all under lock it should not matter
+	*prev = comp->next_ptr;
+
+	// add it to free list
+	comp->next_ptr = hal_data->comp_free_ptr;
+	hal_data->comp_free_ptr = SHMOFF(comp);
+
 	/*! \todo Another #if 0 */
 #if 0
 	/*! \todo FIXME - this is the beginning of a two pronged approach to managing
@@ -184,8 +193,8 @@ int hal_exit(int comp_id)
     // on hal_lib shared library unload
     rtapi_exit(comp_id);
     /* done */
-    hal_print_msg(RTAPI_MSG_DBG,
-	"HAL: component %02d removed, name = '%s'\n", comp_id, name);
+    hal_print_msg(RTAPI_MSG_DBG,"%s(%d): component removed, name = '%s'\n",
+		  __FUNCTION__,comp_id, name);
 
     return 0;
 }
@@ -279,24 +288,27 @@ hal_comp_t *halpr_find_comp_by_id(int id)
 }
 
 // use only for owner_ids of pins, params or functs
+// may return NULL if buggy using code
 hal_comp_t *halpr_find_owning_comp(const int owner_id)
 {
     hal_comp_t *comp = halpr_find_comp_by_id(owner_id);
     if (comp != NULL)
-	return comp;
+	return comp;  // legacy case: the owner_id refers to a comp
 
+    // nope, so it better be an instance
     hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
     if (inst == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: BUG: %s(%d): owner_id refers neither to a hal_comp_t nor an hal_inst_t",
+	hal_print_error("BUG: %s(%d): owner_id refers neither to a hal_comp_t nor an hal_inst_t",
 			__FUNCTION__, owner_id);
 	return NULL;
     }
+
+    // found the instance. Retrieve its owning comp:
     comp =  halpr_find_comp_by_id(inst->owner_id);
     if (comp == NULL) {
-	rtapi_print_msg(RTAPI_MSG_ERR,
-			"HAL: BUG: %s(%d): instance %d's owner_id %d refers to a non-existant comp",
-			__FUNCTION__, owner_id, inst->inst_id, inst->owner_id);
+	// really bad. an instance which has no owning comp?
+	hal_print_error("BUG: %s(%d): instance %s/%d's owner_id %d refers to a non-existant comp",
+			__FUNCTION__, owner_id, inst->name, inst->inst_id, inst->owner_id);
     }
     return comp;
 }
@@ -328,6 +340,15 @@ hal_comp_t *halpr_alloc_comp_struct(void)
     }
     return p;
 }
+#if 0
+Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt hal_exit(74) removing component
+Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt HAL error: funct delinst 67 owner? hal_lib OK
+
+BUG
+Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt HAL: BUG: halpr_find_owning_comp(74): owner_id refers neither to a hal_comp_t nor an hal_inst_t
+
+Mar  6 07:40:01 nwheezy msgd:0: hal_lib:15589:rt HAL error: funct foo.funct 74 owner? NULL
+#endif
 
 static void free_comp_struct(hal_comp_t * comp)
 {
@@ -347,7 +368,12 @@ static void free_comp_struct(hal_comp_t * comp)
     next = *prev;
     while (next != 0) {
 	funct = SHMPTR(next);
-	if (halpr_find_owning_comp(funct->owner_id) == comp) {
+	hal_comp_t *owner = halpr_find_owning_comp(funct->owner_id);
+
+	hal_print_error("funct %s %d owner? %s",
+			funct->name, funct->owner_id, owner? owner->name:"NULL");
+
+	if (owner == comp) {
 	    /* this function belongs to our component, unlink from list */
 	    *prev = funct->next_ptr;
 	    /* and delete it */
@@ -443,7 +469,5 @@ static void free_comp_struct(hal_comp_t * comp)
     comp->last_update = 0;
     comp->shmem_base = 0;
     comp->name[0] = '\0';
-    /* add it to free list */
-    comp->next_ptr = hal_data->comp_free_ptr;
-    hal_data->comp_free_ptr = SHMOFF(comp);
+
 }

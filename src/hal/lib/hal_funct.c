@@ -62,7 +62,7 @@ int hal_export_functf(void (*funct) (void *, long),
 		      void *arg,
 		      int uses_fp,
 		      int reentrant,
-		      int comp_id,
+		      int owner_id,
 		      const char *fmt, ... )
 {
     va_list ap;
@@ -74,7 +74,7 @@ int hal_export_functf(void (*funct) (void *, long),
 	.arg = arg,
 	.uses_fp = uses_fp,
 	.reentrant = reentrant,
-	.owner_id = comp_id,
+	.owner_id = owner_id,
     };
     ret = hal_export_xfunctfv(&xf, fmt, ap);
     va_end(ap);
@@ -94,9 +94,9 @@ int hal_export_xfunctf( const hal_xfunct_t *xf, const char *fmt, ...)
 
 
 int hal_export_funct(const char *name, void (*funct) (void *, long),
-		     void *arg, int uses_fp, int reentrant, int comp_id)
+		     void *arg, int uses_fp, int reentrant, int owner_id)
 {
-    return hal_export_functf(funct, arg, uses_fp, reentrant, comp_id, name);
+    return hal_export_functf(funct, arg, uses_fp, reentrant, owner_id, name);
 }
 
 
@@ -153,18 +153,15 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 #endif
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			  "HAL: ERROR: component %s/%d is not realtime (%d)\n",
-			  comp->name, comp->comp_id, comp->type);
+	    hal_print_error("%s(%s): component %s/%d is not realtime (%d)",
+			    __FUNCTION__, name, comp->name, comp->comp_id, comp->type);
 	    return -EINVAL;
 	}
 
-	// this will be 0 for legacy comps which use comp_id
-	hal_inst_t *inst = halpr_find_inst_by_id(xf->owner_id);
-	int inst_id = (inst ? inst->inst_id : 0);
+	bool legacy = (halpr_find_inst_by_id(xf->owner_id) == NULL);
 
 	// instances may export functs post hal_ready
-	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
+	if (legacy && (comp->state > COMP_INITIALIZING)) {
 	    hal_print_msg(RTAPI_MSG_ERR,
 			    "HAL: ERROR: export_funct called after hal_ready\n");
 	    return -EINVAL;
@@ -172,9 +169,8 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	/* allocate a new function structure */
 	nf = alloc_funct_struct();
 	if (nf == 0) {
-	    /* alloc failed */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: insufficient memory for function '%s'\n", name);
+	    hal_print_error("%s(%s): insufficient memory for function",
+			    __FUNCTION__, name);
 	    return -ENOMEM;
 	}
 	/* initialize the structure */
@@ -210,8 +206,8 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	    if (cmp == 0) {
 		/* name already in list, can't insert */
 		free_funct_struct(nf);
-		hal_print_msg(RTAPI_MSG_ERR,
-				"HAL: ERROR: duplicate function '%s'\n", name);
+		hal_print_error("%s(%s): duplicate function",
+				__FUNCTION__, name);
 		return -EINVAL;
 	    }
 	    /* didn't find it yet, look at next one */
