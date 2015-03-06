@@ -384,7 +384,6 @@ int hal_comp_state_by_name(const char *name);
 
 #ifdef ULAPI
 extern int hal_rtapi_attach();
-extern int hal_rtapi_detach();
 #endif
 
 

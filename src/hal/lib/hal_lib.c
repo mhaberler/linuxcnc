@@ -127,6 +127,9 @@ static int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
 */
 static int init_hal_data(void);
 
+#if defined(ULAPI) || (defined(RTAPI) && defined(BUILD_SYS_KBUILD))
+static int hal_rtapi_detach(void);
+#endif
 
 
 /** The alloc_xxx_struct() functions allocate a structure of the
@@ -375,7 +378,9 @@ void rtapi_app_exit(void)
 	// all threads stopped & deleted
     }
     // do not release HAL shm here yet, as it might still be referenced
-
+#if defined(BUILD_SYS_KBUILD)
+    hal_rtapi_detach();
+#endif
 #if 0 // actually done in hal_rtapi_detach
     int retval;
 
@@ -543,7 +548,19 @@ int hal_rtapi_attach()
     return 0;
 }
 
-int hal_rtapi_detach()
+// ULAPI-side cleanup. Called at shared library unload time as
+// a destructor.
+static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
+{
+    // detach the HAL data segment
+    hal_rtapi_detach();
+    // shut down ULAPI
+    ulapi_cleanup();
+}
+#endif
+
+#if defined(ULAPI) || (defined(RTAPI) && defined(BUILD_SYS_KBUILD))
+static int hal_rtapi_detach(void)
 {
     /* release RTAPI resources */
     if (lib_mem_id > -1) {
@@ -565,21 +582,11 @@ int hal_rtapi_detach()
 	lib_module_id = -1;
 	hal_shmem_base = NULL;
 	hal_data = NULL;
+	return retval;
     }
     return 0;
 }
-
-// ULAPI-side cleanup. Called at shared library unload time as
-// a destructor.
-static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
-{
-    // detach the HAL data segment
-    hal_rtapi_detach();
-    // shut down ULAPI
-    ulapi_cleanup();
-}
 #endif
-
 
 #define HALPRINTBUFFERLEN 1024
 static char _hal_errmsg[HALPRINTBUFFERLEN];
