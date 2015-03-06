@@ -374,8 +374,11 @@ void rtapi_app_exit(void)
 	    /* and delete it */
 	    free_thread_struct(thread);
 	}
+	// all threads stopped & deleted
     }
+    // do not release HAL shm here yet, as it might still be referenced
 
+#if 0 // actually done in hal_rtapi_detach
     /* release RTAPI resources */
     retval = rtapi_shmem_delete(lib_mem_id, lib_module_id);
     if (retval) {
@@ -390,6 +393,7 @@ void rtapi_app_exit(void)
 			"HAL_LIB:%d rtapi_exit(%d) failed: %d\n",
 			rtapi_instance, lib_module_id, retval);
     }
+#endif
     /* done */
     hal_print_msg(RTAPI_MSG_DBG,
 		    "HAL_LIB:%d RT support removed successfully\n",
@@ -543,10 +547,20 @@ int hal_rtapi_detach()
 {
     /* release RTAPI resources */
     if (lib_mem_id > -1) {
-	// if they were actually initialized
-	rtapi_shmem_delete(lib_mem_id, lib_module_id);
-	rtapi_exit(lib_module_id);
+	hal_print_msg(RTAPI_MSG_DBG, "%s: detaching HAL shm segment %d",
+		      __FUNCTION__, lib_mem_id);
 
+	// if they were actually initialized
+	int retval = rtapi_shmem_delete(lib_mem_id, lib_module_id);
+	if (retval) {
+	    hal_print_error("%s: rtapi_shmem_delete(%d,%d) failed: %d",
+			    __FUNCTION__, lib_mem_id, lib_module_id, retval);
+	}
+	retval = rtapi_exit(lib_module_id);
+	if (retval) {
+	    hal_print_error("%s: rtapi_exit(%d) failed: %d",
+			    __FUNCTION__, lib_module_id, retval);
+	}
 	lib_mem_id = 0;
 	lib_module_id = -1;
 	hal_shmem_base = NULL;
