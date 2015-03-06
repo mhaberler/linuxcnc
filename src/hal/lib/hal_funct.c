@@ -62,8 +62,8 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 
     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
-        hal_print_error("%s length %d too long for name starting '%s'\n",
-			__FUNCTION__, sz, name);
+        HALERR("length %d too long for name starting '%s'\n",
+	       sz, name);
         return -ENOMEM;
     }
 
@@ -80,15 +80,15 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	comp = halpr_find_owning_comp(xf->owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    hal_print_error("%s(%s): owning component %d not found\n",
-			    __FUNCTION__, name, xf->owner_id);
+	    HALERR("funct '%s': owning component %d not found\n",
+		   name, xf->owner_id);
 	    return -EINVAL;
 	}
 
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
-	    hal_print_error("%s(%s): component %s/%d is not realtime (%d)",
-			    __FUNCTION__, name, comp->name, comp->comp_id, comp->type);
+	    HALERR("funct '%s': component %s/%d is not realtime (%d)",
+		   name, comp->name, comp->comp_id, comp->type);
 	    return -EINVAL;
 	}
 
@@ -96,17 +96,14 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 
 	// instances may export functs post hal_ready
 	if (legacy && (comp->state > COMP_INITIALIZING)) {
-	    hal_print_error("%s(%s) export_funct called after hal_ready",
-			__FUNCTION__, name);
+	    HALERR("funct '%s': called after hal_ready", name);
 	    return -EINVAL;
 	}
 	/* allocate a new function structure */
 	nf = alloc_funct_struct();
-	if (nf == 0) {
-	    hal_print_error("%s(%s): insufficient memory for function",
-			    __FUNCTION__, name);
-	    return -ENOMEM;
-	}
+	if (nf == 0)
+	    NOMEM("function '%s'", name);
+
 	/* initialize the structure */
 	nf->uses_fp = xf->uses_fp;
 	nf->owner_id = xf->owner_id;
@@ -140,8 +137,7 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
 	    if (cmp == 0) {
 		/* name already in list, can't insert */
 		free_funct_struct(nf);
-		hal_print_error("%s(%s): duplicate function",
-				__FUNCTION__, name);
+		HALERR("duplicate function '%s'", name);
 		return -EINVAL;
 	    }
 	    /* didn't find it yet, look at next one */
@@ -165,8 +161,7 @@ static int hal_export_xfunctfv(const hal_xfunct_t *xf, const char *fmt, va_list 
     case FS_XTHREADFUNC:
 	/* create a pin with the function's runtime in it */
 	if (hal_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->owner_id, "%s.time",name)) {
-	    hal_print_error("%s(%s): fail to create pin '%s.time'",
-			    __FUNCTION__, nf->name, name);
+	    HALERR("failed to create pin '%s.time'", name);
 	    return -EINVAL;
 	}
 	*(nf->runtime) = 0;
@@ -194,38 +189,34 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv)
 {
     hal_funct_t *funct;
 
-    if (name == NULL) {
-	hal_print_error("%s: function name is NULL", __FUNCTION__);
-	return -EINVAL;
-    }
-    if (argc && (argv == NULL)) {
-	hal_print_error("%s(%s) argc=%d but argv is NULL",
-			__FUNCTION__, name, argc);
+    CHECK_HALDATA();
+    CHECK_STR(name);
 
+    if (argc && (argv == NULL)) {
+	HALERR("funct '%s': argc=%d but argv is NULL", name, argc);
 	return -EINVAL;
     }
+
     {
 	int i __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 
 	funct = halpr_find_funct_by_name(name);
 	if (funct == NULL) {
-	    hal_print_error("%s(%s) funct not found", __FUNCTION__, name);
+	    HALERR("funct '%s' not found", name);
 	    return -ENOENT;
 	}
 
 	if (funct->type != FS_USERLAND) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			  "HAL: ERROR: hal_call_usrfunct(%s): bad type %d",
-			  name, funct->type);
+	    HALERR("funct '%s': invalid type %d", name, funct->type);
 	    return -ENOENT;
 	}
 
 	// argv sanity check - we dont want to fail this, esp in kernel land
 	for (i = 0; i < argc; i++) {
 	    if (argv[i] == NULL) {
-		hal_print_error("%s(%s) argc=%d but argv[%d] is NULL",
-				__FUNCTION__, name, i, i);
+		HALERR("funct '%s': argc=%d but argv[%d] is NULL",
+		       name, i, i);
 		return -EINVAL;
 	    }
 	}
@@ -255,8 +246,10 @@ int hal_add_funct_to_thread(const char *funct_name,
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
+    CHECK_STR(funct_name);
+    CHECK_STR(thread_name);
 
-    hal_print_msg(RTAPI_MSG_DBG,
+    rtapi_print_msg(RTAPI_MSG_DBG,
 		    "HAL: adding function '%s' to thread '%s'\n",
 		    funct_name, thread_name);
     {
@@ -268,28 +261,14 @@ int hal_add_funct_to_thread(const char *funct_name,
 	/* make sure position is valid */
 	if (position == 0) {
 	    /* zero is not allowed */
-	    hal_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: bad position: 0\n");
+	    HALERR("bad position: 0\n");
 	    return -EINVAL;
 	}
-	/* make sure we were given a function name */
-	if (funct_name == 0) {
-	    /* no name supplied */
-	    hal_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: missing function name\n");
-	    return -EINVAL;
-	}
-	/* make sure we were given a thread name */
-	if (thread_name == 0) {
-	    /* no name supplied */
-	    hal_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: missing thread name\n");
-	    return -EINVAL;
-	}
+
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
 	if (funct == 0) {
-	    /* function not found */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: function '%s' not found\n",
-			    funct_name);
+	    HALERR("function '%s' not found\n", funct_name);
 	    return -EINVAL;
 	}
 	// type-check the functions which go onto threads
@@ -298,30 +277,26 @@ int hal_add_funct_to_thread(const char *funct_name,
 	case FS_XTHREADFUNC:
 	    break;
 	default:
-	    hal_print_msg(RTAPI_MSG_ERR,
-			  "HAL: ERROR: cant add type %d function '%s' "
-			  "to a thread\n", funct->type, funct_name);
+	    HALERR("cant add type %d function '%s' "
+		   "to a thread\n", funct->type, funct_name);
 	    return -EINVAL;
 	}
 	/* found the function, is it available? */
 	if ((funct->users > 0) && (funct->reentrant == 0)) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: function '%s' may only be added "
-			    "to one thread\n", funct_name);
+	    HALERR("function '%s' may only be added "
+		   "to one thread\n", funct_name);
 	    return -EINVAL;
 	}
 	/* search thread list for thread_name */
 	thread = halpr_find_thread_by_name(thread_name);
 	if (thread == 0) {
 	    /* thread not found */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: thread '%s' not found\n", thread_name);
+	    HALERR("thread '%s' not found\n", thread_name);
 	    return -EINVAL;
 	}
 	/* ok, we have thread and function, are they compatible? */
 	if ((funct->uses_fp) && (!thread->uses_fp)) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: function '%s' needs FP\n", funct_name);
+	    HALERR("function '%s' needs FP\n", funct_name);
 	    return -EINVAL;
 	}
 	/* find insertion point */
@@ -335,8 +310,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 		list_entry = list_next(list_entry);
 		if (list_entry == list_root) {
 		    /* reached end of list */
-		    hal_print_msg(RTAPI_MSG_ERR,
-				    "HAL: ERROR: position '%d' is too high\n", position);
+		    HALERR("position '%d' is too high\n", position);
 		    return -EINVAL;
 		}
 	    }
@@ -347,8 +321,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 		list_entry = list_prev(list_entry);
 		if (list_entry == list_root) {
 		    /* reached end of list */
-		    hal_print_msg(RTAPI_MSG_ERR,
-				    "HAL: ERROR: position '%d' is too low\n", position);
+		    HALERR("position '%d' is too low\n", position);
 		    return -EINVAL;
 		}
 	    }
@@ -357,12 +330,9 @@ int hal_add_funct_to_thread(const char *funct_name,
 	}
 	/* allocate a funct entry structure */
 	funct_entry = alloc_funct_entry_struct();
-	if (funct_entry == 0) {
-	    /* alloc failed */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: insufficient memory for thread->function link\n");
-	    return -ENOMEM;
-	}
+	if (funct_entry == 0)
+	    NOMEM("thread->function link\n");
+
 	/* init struct contents */
 	funct_entry->funct_ptr = SHMOFF(funct);
 	funct_entry->arg = funct->arg;
@@ -384,8 +354,10 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
+    CHECK_STR(funct_name);
+    CHECK_STR(thread_name);
 
-    hal_print_msg(RTAPI_MSG_DBG,
+    rtapi_print_msg(RTAPI_MSG_DBG,
 		    "HAL: removing function '%s' from thread '%s'\n",
 		    funct_name, thread_name);
     {
@@ -393,40 +365,23 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 
 	/* get mutex before accessing data structures */
 	rtapi_mutex_get(&(hal_data->mutex));
-	/* make sure we were given a function name */
-	if (funct_name == 0) {
-	    /* no name supplied */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: missing function name\n");
-	    return -EINVAL;
-	}
-	/* make sure we were given a thread name */
-	if (thread_name == 0) {
-	    /* no name supplied */
-	    hal_print_msg(RTAPI_MSG_ERR, "HAL: ERROR: missing thread name\n");
-	    return -EINVAL;
-	}
+
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
 	if (funct == 0) {
-	    /* function not found */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: function '%s' not found\n", funct_name);
+	    HALERR("function '%s' not found\n", funct_name);
 	    return -EINVAL;
 	}
 	/* found the function, is it in use? */
 	if (funct->users == 0) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: function '%s' is not in use\n",
-			    funct_name);
+	    HALERR("function '%s' is not in use\n", funct_name);
 	    return -EINVAL;
 	}
 	/* search thread list for thread_name */
 	thread = halpr_find_thread_by_name(thread_name);
 	if (thread == 0) {
 	    /* thread not found */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: thread '%s' not found\n", thread_name);
+	    HALERR("thread '%s' not found\n", thread_name);
 	    return -EINVAL;
 	}
 	/* ok, we have thread and function, does thread use funct? */
@@ -435,9 +390,8 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	while (1) {
 	    if (list_entry == list_root) {
 		/* reached end of list, funct not found */
-		hal_print_msg(RTAPI_MSG_ERR,
-				"HAL: ERROR: thread '%s' doesn't use %s\n",
-				thread_name, funct_name);
+		HALERR("thread '%s' doesn't use %s\n",
+		       thread_name, funct_name);
 		return -EINVAL;
 	    }
 	    funct_entry = (hal_funct_entry_t *) list_entry;
