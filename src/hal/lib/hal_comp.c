@@ -37,7 +37,7 @@ int hal_xinit(const char *name, const int type,
     // rtapi initialisation already done
     // since this happens through the constructor
     rtapi_print_msg(RTAPI_MSG_DBG,
-		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x\n",
+		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x",
 		  name, type, userarg1, userarg2, userarg2);
 
     /* copy name to local vars, truncating if needed */
@@ -47,7 +47,7 @@ int hal_xinit(const char *name, const int type,
     /* do RTAPI init */
     comp_id = rtapi_init(rtapi_name);
     if (comp_id < 0) {
-	HALERR("rtapi init failed\n");
+	HALERR("rtapi init failed");
 	return -EINVAL;
     }
     // tag message origin field since ulapi autoload re-tagged them
@@ -166,7 +166,7 @@ int hal_exit(int comp_id)
     // on hal_lib shared library unload
     rtapi_exit(comp_id);
     /* done */
-    rtapi_print_msg(RTAPI_MSG_DBG,"%s(%d): component removed, name = '%s'\n",
+    rtapi_print_msg(RTAPI_MSG_DBG,"%s(%d): component removed, name = '%s'",
 		    __FUNCTION__,comp_id, name);
 
     return 0;

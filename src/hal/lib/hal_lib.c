@@ -149,12 +149,9 @@ static int init_hal_data(void);
 /** The 'hal_set_lock()' function sets locking based on one of the
     locking types defined in hal.h
 */
-int hal_set_lock(unsigned char lock_type) {
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-	    "HAL: ERROR: set_lock called before init\n");
-	return -EINVAL;
-    }
+int hal_set_lock(unsigned char lock_type)
+{
+    CHECK_HALDATA();
     hal_data->lock = lock_type;
     return 0;
 }
@@ -163,12 +160,9 @@ int hal_set_lock(unsigned char lock_type) {
     locking types defined in hal.h
 */
 
-unsigned char hal_get_lock() {
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-	    "HAL: ERROR: get_lock called before init\n");
-	return -EINVAL;
-    }
+unsigned char hal_get_lock()
+{
+    CHECK_HALDATA();
     return hal_data->lock;
 }
 
@@ -182,9 +176,7 @@ void halpr_autorelease_mutex(void *variable)
 	rtapi_mutex_give(&(hal_data->mutex));
     else
 	// programming error
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d BUG: halpr_autorelease_mutex called before hal_data inited\n",
-			rtapi_instance);
+	HALERR("BUG: halpr_autorelease_mutex called before hal_data inited");
 }
 
 
@@ -200,26 +192,36 @@ static int create_instance(const hal_funct_args_t *fa)
     const int argc = fa_argc(fa);
     const char **argv = fa_argv(fa);
 
-    rtapi_print_msg(RTAPI_MSG_INFO, "%s: '%s' called, arg=%p argc=%d\n",
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: '%s' called, arg=%p argc=%d\n",
 		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
     int i;
     for (i = 0; i < argc; i++)
-	rtapi_print_msg(RTAPI_MSG_INFO, "    argv[%d] = \"%s\"\n",
+	rtapi_print_msg(RTAPI_MSG_DBG, "    argv[%d] = \"%s\"\n",
 			i,argv[i]);
 
-    if (argc < 2)
+    if (argc < 2) {
+	hal_print_error("need component name and instance name");
 	return -EINVAL;
+    }
+    const char *cname = argv[0];
+    const char *iname = argv[1];
 
-    hal_comp_t *comp = halpr_find_comp_by_name(argv[0]);
-    if (!comp)
+    hal_comp_t *comp = halpr_find_comp_by_name(cname);
+    if (!comp) {
+	hal_print_error("no such component '%s'", cname);
 	return -EINVAL;
-
-    if (!comp->ctor)
-	return -ENOENT;
-    hal_inst_t *inst = halpr_find_inst_by_name(argv[1]);
-    if (inst)
+    }
+    if (!comp->ctor) {
+	hal_print_error("component '%s' not instantiable", cname);
+	return -EINVAL;
+    }
+    hal_inst_t *inst = halpr_find_inst_by_name(iname);
+    if (inst) {
+	hal_print_error("instance '%s' already exists", iname);
 	return -EBUSY;
-    return comp->ctor(argv[1], 0, NULL);
+    }
+    return comp->ctor(iname, 0, NULL);
 
 }
 
@@ -229,17 +231,16 @@ static int delete_instance(const hal_funct_args_t *fa)
     const char **argv = fa_argv(fa);
 
 
-    rtapi_print_msg(RTAPI_MSG_INFO, "%s: '%s' called, arg=%p argc=%d\n",
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: '%s' called, arg=%p argc=%d\n",
 		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
     int i;
     for (i = 0; i < argc; i++)
-	rtapi_print_msg(RTAPI_MSG_INFO, "    argv[%d] = \"%s\"\n",
+	rtapi_print_msg(RTAPI_MSG_DBG, "    argv[%d] = \"%s\"\n",
 			i,argv[i]);
-
-
-    if (argc < 1)
+    if (argc < 1) {
+	hal_print_error("no instance name given");
 	return -EINVAL;
-
+    }
     return hal_inst_delete(argv[0]);
 }
 

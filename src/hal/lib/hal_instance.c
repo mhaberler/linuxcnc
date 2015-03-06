@@ -12,32 +12,12 @@ static hal_inst_t *alloc_inst_struct(void);
 static void free_inst_struct(hal_inst_t *inst);
 static void free_inst_struct(hal_inst_t *inst);
 
-#if 0
-int hal_init_inst(const char *name, hal_constructor_t ctor, hal_destructor_t dtor);
-
-int hal_init_inst(const char *name, hal_constructor_t ctor, hal_destructor_t dtor);
-
-// backwards compatibility:
-static inline int hal_init(const char *name) {
-#ifdef RTAPI
-    return hal_init_mode(name, TYPE_RT, 0, 0);
-#else
-    return hal_init_mode(name, TYPE_USER, 0, 0);
-#endif
-}
-
-#endif
 int hal_inst_create(const char *name, const int comp_id, const int size,
 		    void **inst_data)
 {
-    if (hal_data == 0) {
-	hal_print_error("%s: called before init", __FUNCTION__);
-	return -EINVAL;
-    }
-    if (name == NULL) {
-	hal_print_error("%s: called with NULL name", __FUNCTION__);
-	return -EINVAL;
-    }
+    CHECK_HALDATA();
+    CHECK_STR(name);
+
     if (size && (inst_data == NULL)) {
 	hal_print_error("%s: size %d but inst_data NULL", __FUNCTION__, size);
 	return -EINVAL;
@@ -50,30 +30,27 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 
 	// comp must exist
 	if ((comp = halpr_find_comp_by_id(comp_id)) == 0) {
-	    hal_print_error("%s: comp %d not found", __FUNCTION__, comp_id);
+	    HALERR("comp %d not found", comp_id);
 	    return -ENOENT;
 	}
 
 	// inst may not exist
 	if ((inst = halpr_find_inst_by_name(name)) != NULL) {
-	    hal_print_error("%s: instance %s already exists", __FUNCTION__, name);
+	    HALERR("instance '%s' already exists", name);
 	    return -EEXIST;
 	}
 
 	if (size > 0) {
 	    m = shmalloc_up(size);
-	    if (m == NULL) {
-		hal_print_error("%s: instance %s: cant allocate %d bytes", __FUNCTION__, name, size);
-		return -ENOMEM;
-	    }
+	    if (m == NULL)
+		NOMEM(" instance %s: cant allocate %d bytes", name, size);
 	}
 	memset(m, 0, size);
 
 	// allocate instance descriptor
-	if ((inst = alloc_inst_struct()) == NULL) {
-	    hal_print_error("insufficient memory for instance '%s'\n", name);
-	    return -ENOMEM;
-	}
+	if ((inst = alloc_inst_struct()) == NULL)
+	    NOMEM("instance '%s'", name);
+
 	inst->owner_id = comp->comp_id;
 	inst->inst_id = rtapi_next_handle();
 	inst->inst_data = m;
@@ -91,22 +68,17 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 
 int hal_inst_delete(const char *name)
 {
-    if (hal_data == 0) {
-	hal_print_error("%s: called before init", __FUNCTION__);
-	return -EINVAL;
-    }
-    if (name == NULL) {
-	hal_print_error("%s: called with NULL name", __FUNCTION__);
-	return -EINVAL;
-    }
+    CHECK_HALDATA();
+    CHECK_STR(name);
+
     {
 	hal_inst_t *inst  __attribute__((cleanup(halpr_autorelease_mutex)));
 	rtapi_mutex_get(&(hal_data->mutex));
 
 	// inst must exist
 	if ((inst = halpr_find_inst_by_name(name)) == NULL) {
-	    hal_print_error("%s: instance %s does not exist", __FUNCTION__, name);
-	    return -EEXIST;
+	    HALERR("instance '%s' does not exist", name);
+	    return -ENOENT;
 	}
 	// this does most of the heavy lifting
 	free_inst_struct(inst);
@@ -347,9 +319,9 @@ static void free_inst_struct(hal_inst_t * inst)
     if (comp->dtor) {
 	//NB - pins, params etc still intact
 	// this instance is owned by this comp, call destructor
-	hal_print_msg(RTAPI_MSG_DBG,
-		      "%s: calling custom destructor(%s,%s)", __FUNCTION__,
-		      comp->name, inst->name);
+	rtapi_print_msg(RTAPI_MSG_DBG,
+			"%s: calling custom destructor(%s,%s)", __FUNCTION__,
+			comp->name, inst->name);
 	comp->dtor(inst->name, inst->inst_data, inst->inst_size);
     }
 #endif /* RTAPI */
