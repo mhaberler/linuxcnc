@@ -43,8 +43,9 @@ int hal_xinit(const char *name, const int type,
     // rtapi initialisation already done
     // since this happens through the constructor
     hal_print_msg(RTAPI_MSG_DBG,
-		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x\n",
-		    name, type, userarg1, userarg2, userarg2);
+		  "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x\n",
+		  name, type, userarg1, userarg2, userarg2);
+
     /* copy name to local vars, truncating if needed */
     rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", name);
     rtapi_snprintf(hal_name, sizeof(hal_name), "%s", name);
@@ -68,8 +69,7 @@ int hal_xinit(const char *name, const int type,
 	/* make sure name is unique in the system */
 	if (halpr_find_comp_by_name(hal_name) != 0) {
 	    /* a component with this name already exists */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: duplicate component name '%s'\n", hal_name);
+	    hal_print_error("%s: duplicate component name '%s'", __FUNCTION__, hal_name);
 	    rtapi_exit(comp_id);
 	    return -EINVAL;
 	}
@@ -77,8 +77,7 @@ int hal_xinit(const char *name, const int type,
 	comp = halpr_alloc_comp_struct();
 	if (comp == 0) {
 	    /* couldn't allocate structure */
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL: ERROR: insufficient memory for component '%s'\n", hal_name);
+	    hal_print_error("%s: insufficient memory for component '%s'", __FUNCTION__, hal_name);
 	    rtapi_exit(comp_id);
 	    return -ENOMEM;
 	}
@@ -158,7 +157,7 @@ int hal_exit(int comp_id)
 	/* save component name for later */
 	rtapi_snprintf(name, sizeof(name), "%s", comp->name);
 	/* get rid of the component */
-	free_comp_struct(comp); //BUG-comp already unlinked!!!
+	free_comp_struct(comp);
 
 	// unlink the comp only now as free_comp_struct() must
 	// determine ownership of pins/params/functs and this
@@ -170,23 +169,6 @@ int hal_exit(int comp_id)
 	comp->next_ptr = hal_data->comp_free_ptr;
 	hal_data->comp_free_ptr = SHMOFF(comp);
 
-	/*! \todo Another #if 0 */
-#if 0
-	/*! \todo FIXME - this is the beginning of a two pronged approach to managing
-	  shared memory.  Prong 1 - re-init the shared memory allocator whenever
-	  it is known to be safe.  Prong 2 - make a better allocator that can
-	  reclaim memory allocated by components when those components are
-	  removed. To be finished later. */
-	/* was that the last component? */
-	if (hal_data->comp_list_ptr == 0) {
-	    /* yes, are there any signals or threads defined? */
-	    if ((hal_data->sig_list_ptr == 0) && (hal_data->thread_list_ptr == 0)) {
-		/* no, invalidate "magic" number so shmem will be re-inited when
-		   a new component is loaded */
-		hal_data->magic = 0;
-	    }
-	}
-#endif
 	// scope exit - mutex released
     }
     // the RTAPI resources are now released
@@ -210,8 +192,7 @@ int hal_ready(int comp_id) {
     next = hal_data->comp_list_ptr;
     if (next == 0) {
 	/* list is empty - should never happen, but... */
-	hal_print_msg(RTAPI_MSG_ERR,
-	    "HAL: ERROR: component %d not found\n", comp_id);
+	hal_print_error("%s(%d) BUG: not components defined", __FUNCTION__, comp_id);
 	return -EINVAL;
     }
 
@@ -221,16 +202,14 @@ int hal_ready(int comp_id) {
 	next = comp->next_ptr;
 	if (next == 0) {
 	    /* reached end of list without finding component */
-	    hal_print_msg(RTAPI_MSG_ERR,
-		"HAL: ERROR: component %d not found\n", comp_id);
+	    hal_print_error("%s(%d) component not found", __FUNCTION__, comp_id);
 	    return -EINVAL;
 	}
 	comp = SHMPTR(next);
     }
     if(comp->state > COMP_INITIALIZING) {
-        hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: Component '%s' already ready (%d)\n",
-			comp->name, comp->state);
+	hal_print_error("%s(%d) Component '%s' already ready (%d)",
+			__FUNCTION__, comp_id, comp->name, comp->state);
         return -EINVAL;
     }
     comp->state = (comp->type == TYPE_REMOTE ?  COMP_UNBOUND : COMP_READY);
@@ -247,6 +226,7 @@ char *hal_comp_name(int comp_id)
     rtapi_mutex_give(&(hal_data->mutex));
     return result;
 }
+
 hal_comp_t *halpr_find_comp_by_name(const char *name)
 {
     int next;
