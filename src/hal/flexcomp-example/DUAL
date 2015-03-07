@@ -8,3 +8,14 @@ hal_inst_t *halpr_find_owning_inst(owner_id);
 
 fix proto halpb iterators
 cython
+
+
+// unified HAL object headers
+
+struct ohdr {
+       int next_ptr;
+       int objtype;
+       int id;
+       int owner_id;
+       char name[HAL_NAME_LEN + 1];
+}
