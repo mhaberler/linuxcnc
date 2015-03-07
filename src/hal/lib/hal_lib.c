@@ -634,14 +634,18 @@ const char *hal_lasterror()
 #ifdef RTAPI
 /* only export symbols when we're building a realtime module */
 
+// ------------ public API:  ------------
+// hal_comp.c:
 EXPORT_SYMBOL(hal_init);
 EXPORT_SYMBOL(hal_xinit);
 EXPORT_SYMBOL(hal_ready);
-EXPORT_SYMBOL(hal_exit);
-EXPORT_SYMBOL(hal_malloc);
+EXPORT_SYMBOL(hal_xexit);
 EXPORT_SYMBOL(hal_comp_name);
 
+// hal_memory.c:
+EXPORT_SYMBOL(hal_malloc);
 
+// hal_pin.c:
 EXPORT_SYMBOL(hal_pin_new);
 EXPORT_SYMBOL(hal_pin_newf);
 
@@ -660,7 +664,7 @@ EXPORT_SYMBOL(hal_signal_delete);
 EXPORT_SYMBOL(hal_link);
 EXPORT_SYMBOL(hal_unlink);
 
-
+// hal_param.c:
 EXPORT_SYMBOL(hal_param_new);
 EXPORT_SYMBOL(hal_param_newf);
 
@@ -680,20 +684,33 @@ EXPORT_SYMBOL(hal_param_u32_set);
 EXPORT_SYMBOL(hal_param_s32_set);
 EXPORT_SYMBOL(hal_param_set);
 
+// hal_funct.c:
 EXPORT_SYMBOL(hal_export_funct);
 EXPORT_SYMBOL(hal_export_functf);
 EXPORT_SYMBOL(hal_export_xfunctf);
-
-EXPORT_SYMBOL(hal_create_thread);
-EXPORT_SYMBOL(hal_thread_delete);
-
 EXPORT_SYMBOL(hal_add_funct_to_thread);
 EXPORT_SYMBOL(hal_del_funct_from_thread);
+EXPORT_SYMBOL(hal_call_usrfunct);
 
+// hal_thread.c:
+EXPORT_SYMBOL(hal_create_thread);
+EXPORT_SYMBOL(hal_thread_delete);
 EXPORT_SYMBOL(hal_start_threads);
 EXPORT_SYMBOL(hal_stop_threads);
 
+// hal_inst.c:
+EXPORT_SYMBOL(hal_inst_create);
+EXPORT_SYMBOL(hal_inst_delete);
+
+// hal_lib.c:
+EXPORT_SYMBOL(hal_print_msg);
+EXPORT_SYMBOL(hal_print_error);
+EXPORT_SYMBOL(hal_lasterror);
+EXPORT_SYMBOL(hal_print_errorloc);
 EXPORT_SYMBOL(hal_shmem_base);
+
+// ------------ private API:  ------------
+//  found in their respective source files:
 EXPORT_SYMBOL(halpr_find_comp_by_name);
 EXPORT_SYMBOL(halpr_find_pin_by_name);
 EXPORT_SYMBOL(halpr_find_sig_by_name);
@@ -701,20 +718,9 @@ EXPORT_SYMBOL(halpr_find_param_by_name);
 EXPORT_SYMBOL(halpr_find_thread_by_name);
 EXPORT_SYMBOL(halpr_find_funct_by_name);
 EXPORT_SYMBOL(halpr_find_comp_by_id);
-
 EXPORT_SYMBOL(halpr_find_pin_by_owner);
 EXPORT_SYMBOL(halpr_find_param_by_owner);
 EXPORT_SYMBOL(halpr_find_funct_by_owner);
-
 EXPORT_SYMBOL(halpr_find_pin_by_sig);
-EXPORT_SYMBOL(hal_print_msg);
-EXPORT_SYMBOL(hal_print_error);
-EXPORT_SYMBOL(hal_lasterror);
-EXPORT_SYMBOL(hal_print_errorloc);
-
-EXPORT_SYMBOL(hal_call_usrfunct);
-
-EXPORT_SYMBOL(hal_inst_create);
-EXPORT_SYMBOL(hal_inst_delete);
 
 #endif /* rtapi */
