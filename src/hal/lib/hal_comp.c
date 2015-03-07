@@ -14,12 +14,16 @@
 hal_comp_t *halpr_alloc_comp_struct(void);
 static void free_comp_struct(hal_comp_t * comp);
 
+extern int init_hal_data(void);
 
-int hal_xinit(const char *name, const int type,
-	      const int userarg1, const int userarg2,
-	      const hal_constructor_t ctor,  const hal_destructor_t dtor)
+int hal_xinit(const char *name,
+	      const int type,
+	      const int userarg1,
+	      const int userarg2,
+	      const hal_constructor_t ctor,
+	      const hal_destructor_t dtor)
 {
-    int comp_id;
+    int comp_id, retval;
     char rtapi_name[RTAPI_NAME_LEN + 1];
     char hal_name[HAL_NAME_LEN + 1];
 
@@ -28,8 +32,14 @@ int hal_xinit(const char *name, const int type,
 
     CHECK_STRLEN(name, HAL_NAME_LEN);
 
+    // sanity: these must have been inited before by the
+    // respective rtapi.so/.ko module
+    CHECK_NULL(rtapi_switch);
+    CHECK_NULL(global_data);
+
     if ((dtor != NULL) && (ctor == NULL)) {
-	hal_print_error("%s: %s - NULL constructor doesnt make sense with non-NULL destructor",
+	hal_print_error("%s: %s - NULL constructor doesnt make"
+			" sense with non-NULL destructor",
 			__FUNCTION__, name);
 	return -EINVAL;
     }
@@ -38,7 +48,7 @@ int hal_xinit(const char *name, const int type,
     // since this happens through the constructor
     rtapi_print_msg(RTAPI_MSG_DBG,
 		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x",
-		  name, type, userarg1, userarg2, userarg2);
+		    name, type, userarg1, userarg2, userarg2);
 
     /* copy name to local vars, truncating if needed */
     rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", name);
@@ -47,13 +57,72 @@ int hal_xinit(const char *name, const int type,
     /* do RTAPI init */
     comp_id = rtapi_init(rtapi_name);
     if (comp_id < 0) {
-	HALERR("rtapi init failed");
+	HALERR("rtapi init(%s) failed", rtapi_name);
 	return -EINVAL;
     }
+
+    // NB: the HAL shm segment might not be in place yet
+    // (i.e. hal_data and hal_shmem_base might be NULL)
+    // this code is common for ULAPI and RTAPI.
+    if (lib_mem_id < 0) {
+
+	// the hal_lib component is initializing.
+	// acquire the HAL shm segment
+	// get HAL shared memory block from RTAPI
+	int shm_id = rtapi_shmem_new(HAL_KEY,
+				     comp_id,
+				     global_data->hal_size);
+	if (shm_id < 0) {
+	    HALERR("hal_lib(%d): failed to allocate HAL shm %x, rc=%d",
+		   comp_id, HAL_KEY, shm_id);
+	    rtapi_exit(comp_id);
+	    return -EINVAL;
+	}
+	// retrieve address of HAL shared memory segment
+	void *mem;
+	retval = rtapi_shmem_getptr(shm_id, &mem, 0);
+	if (retval < 0) {
+	    HALERR("hal_lib(%d): failed to acquire HAL shm %x, id=%d rc=%d",
+		   comp_id, HAL_KEY, shm_id, retval);
+	    rtapi_exit(comp_id);
+	    return -EINVAL;
+	}
+	// set up internal pointers to shared mem and data structure
+	hal_shmem_base = (char *) mem;
+	hal_data = (hal_data_t *) mem;
+
+	// record hal_lib comp_id
+	lib_module_id = comp_id;
+	// and the HAL shm segmed id
+	lib_mem_id = shm_id;
+
+#ifdef RTAPI
+	// RTAPI: only on hal_lib initialisation
+	// set up the HAL shm segment
+	if (type == TYPE_HALLIB) {
+	    retval = init_hal_data();
+
+	    if ( retval ) {
+		HALERR("could not init HAL shared memory rc=%d\n", retval);
+		rtapi_exit(comp_id);
+		return -EINVAL;
+	    }
+	    retval = hal_proc_init();
+	    if ( retval ) {
+		hal_print_msg(RTAPI_MSG_ERR,
+			      "HAL_LIB: ERROR:%d could not init /proc files\n",
+			      rtapi_instance);
+		rtapi_exit(lib_module_id);
+		return -EINVAL;
+	    }
+	}
+#endif
+    }
+
     // tag message origin field since ulapi autoload re-tagged them
     rtapi_set_logtag("hal_lib");
 #ifdef ULAPI
-    hal_rtapi_attach();
+    //    hal_rtapi_attach();
 #endif
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -109,7 +178,7 @@ int hal_xinit(const char *name, const int type,
 }
 
 
-int hal_exit(int comp_id)
+int hal_xexit(int comp_id,  const int type)
 {
     int *prev, next;
     char name[HAL_NAME_LEN + 1];

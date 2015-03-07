@@ -93,7 +93,7 @@ MODULE_LICENSE("GPL");
 char *hal_shmem_base = 0;
 hal_data_t *hal_data = 0;
 int lib_module_id = -1; 	/* RTAPI module ID for library module */
-static int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
+int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
 
 // the global data segment contains vital instance information and
 // the error message ringbuffer, so all HAL entities attach it
@@ -125,7 +125,7 @@ static int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
     if the structure has not already been initialized.  (The init
     is done by the first HAL component to be loaded.
 */
-static int init_hal_data(void);
+int init_hal_data(void);
 
 /** The alloc_xxx_struct() functions allocate a structure of the
     appropriate type and return a pointer to it, or 0 if they fail.
@@ -252,11 +252,50 @@ static int hal_comp_id;
 int rtapi_app_main(void)
 {
     int retval;
-    void *mem;
 
     rtapi_switch = rtapi_get_handle();
-    hal_print_msg(RTAPI_MSG_DBG,
-		    "HAL_LIB:%d loading RT support gd=%pp\n",rtapi_instance,global_data);
+
+    // sanity: these must have been inited before by the
+    // respective rtapi.so/.ko module
+    CHECK_NULL(rtapi_switch);
+    CHECK_NULL(global_data);
+
+    // TYPE_HALLIB tells the hal_xinit() code to init the
+    // HAL shm segment, which is really the only thing special about
+    // the hal_lib component
+    hal_comp_id = hal_xinit("hal_lib", TYPE_HALLIB, 0, 0, NULL, NULL);
+
+    if (hal_comp_id > 0) {
+	// export the instantiation userfuncts
+	hal_xfunct_t ni = {
+	    .type = FS_USERLAND,
+	    .funct.u = create_instance,
+	    .arg = NULL,
+	    .owner_id = hal_comp_id
+	};
+	if ((retval = hal_export_xfunctf( &ni, "newinst")) < 0)
+	    return retval;
+
+	hal_xfunct_t di = {
+	    .type = FS_USERLAND,
+	    .funct.u = delete_instance,
+	    .arg = NULL,
+	    .owner_id = hal_comp_id
+	};
+	if ((retval = hal_export_xfunctf( &di, "delinst")) < 0)
+	    return retval;
+
+	hal_ready(hal_comp_id);
+
+	hal_print_msg(RTAPI_MSG_DBG,
+		      "HAL_LIB RT lib installed successfully");
+	return 0;
+    }
+    return hal_comp_id;
+
+#ifdef LEGACY
+    /* hal_print_msg(RTAPI_MSG_DBG, */
+    /* 		    "HAL_LIB:%d loading RT support gd=%pp\n",rtapi_instance,global_data); */
 
     /* do RTAPI init */
     lib_module_id = rtapi_init("HAL_LIB");
@@ -267,13 +306,13 @@ int rtapi_app_main(void)
 	return -EINVAL;
     }
 
-    // paranoia
-    if (global_data == NULL) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL_LIB:%d ERROR: global_data == NULL\n",
-			rtapi_instance);
-	return -EINVAL;
-    }
+    /* // paranoia */
+    /* if (global_data == NULL) { */
+    /* 	hal_print_msg(RTAPI_MSG_ERR, */
+    /* 			"HAL_LIB:%d ERROR: global_data == NULL\n", */
+    /* 			rtapi_instance); */
+    /* 	return -EINVAL; */
+    /* } */
 
     /* get HAL shared memory block from RTAPI */
     lib_mem_id = rtapi_shmem_new(HAL_KEY, lib_module_id, global_data->hal_size);
@@ -348,6 +387,7 @@ int rtapi_app_main(void)
 	return 0;
     }
     return hal_comp_id;
+#endif // LEGACY
 }
 
 void rtapi_app_exit(void)
@@ -410,7 +450,7 @@ void rtapi_app_exit(void)
    a description of what they do.
 */
 
-static int init_hal_data(void)
+int init_hal_data(void)
 {
 
     /* has the block already been initialized? */

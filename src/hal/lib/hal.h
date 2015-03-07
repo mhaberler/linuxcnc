@@ -204,6 +204,11 @@ enum comp_type  {
     TYPE_RT,
     TYPE_USER,
     TYPE_REMOTE,
+
+    // internal use only for initing the very first component, hal_lib
+    // which needs extra care since the HAL shm segment needs to be
+    // allocated
+    TYPE_HALLIB,
 };
 
 enum comp_state {
@@ -336,7 +341,16 @@ extern int hal_retrieve_pinstate(const char *comp_name,
     On success, hal_exit() returns 0, on failure it
     returns a negative error code.
 */
-extern int hal_exit(int comp_id);
+extern int hal_xexit(int comp_id, const int type);
+
+// backwards compatibility:
+static inline int hal_exit(const int comp_id) {
+#ifdef RTAPI
+    return hal_xexit(comp_id, TYPE_RT);
+#else
+    return hal_xexit(comp_id, TYPE_USER);
+#endif
+}
 
 /** hal_malloc() allocates a block of memory from the main HAL
     shared memory area.  It should be used by all components to
