@@ -414,9 +414,9 @@ void rtapi_app_exit(void)
     }
     // do not release HAL shm here yet, as it might still be referenced
  
-    hal_exit(hal_comp_id);
+    hal_xexit(hal_comp_id, TYPE_HALLIB);
 
-#if 1 // defined(BUILD_SYS_KBUILD)
+#if 0 // defined(BUILD_SYS_KBUILD)
     //    hal_rtapi_detach();
     //#endif
     //#if 0 // actually done in hal_rtapi_detach

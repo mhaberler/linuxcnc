@@ -1453,6 +1453,9 @@ int do_unload_cmd(char *mod_name) {
 	case TYPE_USER:
 	case TYPE_REMOTE:
 	    return do_unloadusr_cmd(mod_name);
+	case TYPE_HALLIB:
+            halcmd_error("the hal_lib component should not be unloaded\n");
+            return -1;
 	default:
 	    return -1;
 	}
@@ -1695,9 +1698,8 @@ static const char *type_name(int mode){
 	return "User";
     case TYPE_REMOTE:
 	return "Rem";
-    /* case TYPE_INSTANCE: */
-    /* 	// this sobviously was never implemented */
-    /* 	return "Inst"; */
+    case TYPE_HALLIB:
+    	return "HAL";
     default:
 	return "***error***";
     }
@@ -1772,8 +1774,14 @@ static void print_comp_info(char **patterns)
 		halcmd_output(" %-5d %s", comp->pid,
 			      state_name(comp->state));
 		break;
+
 	    case TYPE_RT:
 		halcmd_output(" RT    %s",
+			      state_name(comp->state));
+		break;
+
+	    case TYPE_HALLIB:
+		halcmd_output(" HAL    %s",
 			      state_name(comp->state));
 		break;
 

@@ -35,7 +35,6 @@ int hal_xinit(const char *name,
     // sanity: these must have been inited before by the
     // respective rtapi.so/.ko module
     CHECK_NULL(rtapi_switch);
-    CHECK_NULL(global_data);
 
     if ((dtor != NULL) && (ctor == NULL)) {
 	hal_print_error("%s: %s - NULL constructor doesnt make"
@@ -60,6 +59,9 @@ int hal_xinit(const char *name,
 	HALERR("rtapi init(%s) failed", rtapi_name);
 	return -EINVAL;
     }
+
+    // global_data MUST be at hand now:
+    HALASSERT(global_data != NULL);
 
     // NB: the HAL shm segment might not be in place yet
     // (i.e. hal_data and hal_shmem_base might be NULL)
@@ -171,8 +173,7 @@ int hal_xinit(const char *name,
     }
     // scope exited - mutex released
 
-    rtapi_print_msg(RTAPI_MSG_DBG,
-		    "%s(%s) component initialized id=%d",
+    rtapi_print_msg(RTAPI_MSG_DBG,"%s: component '%s' id=%d initialized",
 		    __FUNCTION__, hal_name, comp_id);
     return comp_id;
 }
@@ -180,12 +181,12 @@ int hal_xinit(const char *name,
 
 int hal_xexit(int comp_id,  const int type)
 {
-    int *prev, next;
+    int *prev, next, comptype;
     char name[HAL_NAME_LEN + 1];
 
     CHECK_HALDATA();
 
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s(%d) removing component",
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: removing component %d",
 		  __FUNCTION__, comp_id);
 
     {
@@ -214,6 +215,9 @@ int hal_xexit(int comp_id,  const int type)
 	    comp = SHMPTR(next);
 	}
 
+	// record type, since we're about to zap the comp in free_comp_struct()
+	comptype = comp->type;
+
 	/* save component name for later */
 	rtapi_snprintf(name, sizeof(name), "%s", comp->name);
 	/* get rid of the component */
@@ -231,12 +235,40 @@ int hal_xexit(int comp_id,  const int type)
 
 	// scope exit - mutex released
     }
-    // the RTAPI resources are now released
-    // on hal_lib shared library unload
-    rtapi_exit(comp_id);
-    /* done */
-    rtapi_print_msg(RTAPI_MSG_DBG,"%s(%d): component removed, name = '%s'",
-		    __FUNCTION__,comp_id, name);
+
+    // if unloading the hal_lib component, destroy HAL shm
+    if (comptype == TYPE_HALLIB) {
+	int retval;
+
+	/* release RTAPI resources */
+	retval = rtapi_shmem_delete(lib_mem_id, comp_id);
+	if (retval) {
+	    hal_print_msg(RTAPI_MSG_ERR,
+			  "HAL_LIB:%d rtapi_shmem_delete(%d,%d) failed: %d\n",
+			  rtapi_instance, lib_mem_id, comp_id, retval);
+	}
+	// HAL shm is history, take note ASAP
+	lib_mem_id = -1;
+	hal_shmem_base = NULL;
+	hal_data = NULL;;
+
+	retval = rtapi_exit(comp_id);
+	if (retval) {
+	    hal_print_msg(RTAPI_MSG_ERR,
+			  "HAL_LIB:%d rtapi_exit(%d) failed: %d\n",
+			  rtapi_instance, lib_module_id, retval);
+	}
+	// the hal_lib RTAPI module is history, too
+	// in theory we'd be back to square 1
+	lib_module_id = -1;
+
+    } else {
+	// the standard case
+	rtapi_exit(comp_id);
+    }
+
+    rtapi_print_msg(RTAPI_MSG_DBG,"%s: component '%s' id=%d removed",
+		    __FUNCTION__, name, comp_id);
 
     return 0;
 }
