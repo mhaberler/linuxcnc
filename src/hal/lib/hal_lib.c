@@ -651,14 +651,14 @@ void hal_print_error(const char *fmt, ...)
     va_end(args);
 }
 
-void hal_print_errorloc(const char *file, const int line, const char *fmt, ...)
+void hal_print_errorloc(const char *func, const int line, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
 
     const char *prefix = "%s:%d HAL error: ";
     rtapi_snprintf(_hal_errmsg, HALPRINTBUFFERLEN,
-		   prefix, file  == NULL ? NULL:file, line);
+		   prefix, func  == NULL ? "(nil)" : func, line);
     int n = strlen(_hal_errmsg);
 
     vsnprintf(_hal_errmsg + n, HALPRINTBUFFERLEN - n, fmt, args);

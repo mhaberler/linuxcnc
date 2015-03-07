@@ -73,9 +73,6 @@ extern ringbuffer_t rtapi_message_buffer;
 
 static char logtag[TAGSIZE];
 
-// switch to exclusively using the ringbuffer from RT
-#define USE_MESSAGE_RING 1
-
 void vs_ring_write(msg_level_t level, const char *format, va_list ap)
 {
     int n;
@@ -230,6 +227,29 @@ void rtapi_print_msg(int level, const char *fmt, ...) {
 	va_end(args);
     }
 }
+#define RTAPIPRINTBUFFERLEN 256
+static char _rtapi_errmsg[RTAPIPRINTBUFFERLEN];
+
+void rtapi_print_errorloc(const char *func,
+			  const int line,
+			  const char *topic,
+			  const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    const char *prefix = "%s:%d %s error: ";
+    rtapi_snprintf(_rtapi_errmsg, RTAPIPRINTBUFFERLEN,
+		   prefix,
+		   topic == NULL ? "" : topic,
+		   func  == NULL ? "(nil)" : func,
+		   line);
+    int n = strlen(_rtapi_errmsg);
+
+    vsnprintf(_rtapi_errmsg + n, RTAPIPRINTBUFFERLEN - n, fmt, args);
+    rtapi_print_msg(RTAPI_MSG_ERR, _rtapi_errmsg);
+    va_end(args);
+}
 
 int rtapi_snprintf(char *buf, unsigned long int size,
 		   const char *fmt, ...) {
@@ -344,4 +364,5 @@ EXPORT_SYMBOL(rtapi_set_msg_level);
 EXPORT_SYMBOL(rtapi_get_msg_level);
 EXPORT_SYMBOL(rtapi_set_logtag);
 EXPORT_SYMBOL(rtapi_get_logtag);
+EXPORT_SYMBOL(rtapi_print_errorloc);
 #endif

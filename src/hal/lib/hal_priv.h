@@ -338,41 +338,45 @@ typedef struct {
     char name[HAL_NAME_LEN + 1];	/* parameter name */
 } hal_param_t;
 
-#define HALERR(fmt, ...) hal_print_errorloc(__FUNCTION__,__LINE__, fmt, ## __VA_ARGS__)
 
-#define HALASSERT(x)							\
+// checking & logging shorthands
+#define HALERR(fmt, ...)				\
+    rtapi_print_errorloc(__FUNCTION__,__LINE__,		\
+			 "HAL", fmt, ## __VA_ARGS__)
+
+#define HAL_ASSERT(x)							\
     do {								\
 	if (!(x)) {							\
-	hal_print_errorloc(__FUNCTION__,__LINE__,			\
-			   "ASSERTION VIOLATED: '%s'", #x);		\
+	    rtapi_print_errorloc(__FUNCTION__,__LINE__,"HAL",		\
+				 "ASSERTION VIOLATED: '%s'", #x);	\
 	}								\
     } while(0)
 
 
-#define CHECK_HALDATA()							\
-    do {								\
-	if (hal_data == 0) {						\
-	    hal_print_errorloc(__FUNCTION__,__LINE__,			\
-			       "called before init");			\
-	    return -EINVAL;						\
-	}								\
+#define CHECK_HALDATA()						\
+    do {							\
+	if (hal_data == 0) {					\
+	    rtapi_print_errorloc(__FUNCTION__,__LINE__,"HAL",	\
+				 "called before init");		\
+	    return -EINVAL;					\
+	}							\
     } while (0)
 
-#define CHECK_NULL(p)							\
-    do {								\
-	if (p == NULL) {						\
-	    hal_print_errorloc(__FUNCTION__,__LINE__,			\
-			       #p  " is NULL");				\
-	    return -EINVAL;						\
-	}								\
+#define CHECK_NULL(p)						\
+    do {							\
+	if (p == NULL) {					\
+	    rtapi_print_errorloc(__FUNCTION__,__LINE__,"HAL",	\
+				 #p  " is NULL");		\
+	    return -EINVAL;					\
+	}							\
     } while (0)
 
-#define CHECK_LOCK(ll)				\
-    do {						  \
+#define CHECK_LOCK(ll)							\
+    do {								\
 	if (hal_data->lock & ll) {					\
-	    hal_print_errorloc(__FUNCTION__, __LINE__,			\
-			       "called while HAL is locked (%d)",	\
-			       ll);					\
+	    rtapi_print_errorloc(__FUNCTION__, __LINE__,"HAL",		\
+				 "called while HAL is locked (%d)",	\
+				 ll);					\
 	    return -EPERM;						\
 	}								\
     } while(0)
@@ -381,9 +385,9 @@ typedef struct {
 #define CHECK_STR(name)							\
     do {								\
 	if ((name) == NULL) {						\
-	    hal_print_errorloc(__FUNCTION__, __LINE__,			\
-			       "argument '" # name  "' is NULL");	\
-	    return -EPERM;						\
+	    rtapi_print_errorloc(__FUNCTION__, __LINE__,"HAL",		\
+				 "argument '" # name  "' is NULL");	\
+	    return -EINVAL;						\
 	}								\
     } while(0)
 
@@ -392,16 +396,16 @@ typedef struct {
     do {								\
 	CHECK_STR(name);						\
 	if (strlen(name) > len) {					\
-	    hal_print_errorloc(__FUNCTION__, __LINE__,			\
+	    rtapi_print_errorloc(__FUNCTION__, __LINE__,"HAL",			\
 			       "argument '%s' too long (%d/%d)",	\
 			       name, strlen(name), len);		\
-	    return -EPERM;						\
+	    return -EINVAL;						\
 	}								\
     } while(0)
 
 #define NOMEM(fmt, ...)							\
     do {								\
-	hal_print_errorloc(__FUNCTION__, __LINE__,			\
+	rtapi_print_errorloc(__FUNCTION__, __LINE__,"HAL",			\
 			   " insufficient memory for: "  fmt,		\
 			   ## __VA_ARGS__);				\
 	return -ENOMEM;							\

@@ -61,7 +61,7 @@ int hal_xinit(const char *name,
     }
 
     // global_data MUST be at hand now:
-    HALASSERT(global_data != NULL);
+    HAL_ASSERT(global_data != NULL);
 
     // NB: the HAL shm segment might not be in place yet
     // (i.e. hal_data and hal_shmem_base might be NULL)

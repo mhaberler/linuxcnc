@@ -229,6 +229,49 @@ extern void rtapi_print(const char *fmt, ...)
 extern void rtapi_print_msg(int level, const char *fmt, ...)
     __attribute__((format(printf,2,3)));
 
+// shorthand for reporting macros
+void rtapi_print_errorloc(const char *func,
+			  const int line,
+			  const char *topic,
+			  const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
+
+// checking & logging shorthands
+#define RTAPIERR(fmt, ...)				\
+    rtapi_print_errorloc(__FUNCTION__,__LINE__,		\
+			 "RTAPI", fmt, ## __VA_ARGS__)
+
+#define RTAPI_ASSERT(x)							\
+    do {								\
+	if (!(x)) {							\
+	    rtapi_print_errorloc(__FUNCTION__,__LINE__,"RTAPI",		\
+				 "ASSERTION VIOLATED: '%s'", #x);	\
+	}								\
+    } while(0)
+
+#define RTAPI_CHECK_STR(name)							\
+    do {								\
+	if ((name) == NULL) {						\
+	    rtapi_print_errorloc(__FUNCTION__, __LINE__,"RTAPI",		\
+				 "argument '" # name  "' is NULL");	\
+	    return -EINVAL;						\
+	}								\
+    } while(0)
+
+#define RTAPI_CHECK_STRLEN(name, len)						\
+    do {								\
+	CHECK_STR(name);						\
+	if (strlen(name) > len) {					\
+	    rtapi_print_errorloc(__FUNCTION__, __LINE__,		\
+				 "RTAPI",				\
+				 "argument '%s' too long (%d/%d)",	\
+				 name, strlen(name), len);		\
+	    return -EINVAL;						\
+	}								\
+    } while(0)
+
+
 /** Set the maximum level of message to print.  In userspace code,
     each component has its own independent message level.  In realtime
     code, all components share a single message level.  Returns 0 for

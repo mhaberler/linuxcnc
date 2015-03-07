@@ -1781,7 +1781,7 @@ static void print_comp_info(char **patterns)
 		break;
 
 	    case TYPE_HALLIB:
-		halcmd_output(" HAL    %s",
+		halcmd_output(" HAL   %s",
 			      state_name(comp->state));
 		break;
 

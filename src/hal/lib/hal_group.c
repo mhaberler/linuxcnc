@@ -635,7 +635,7 @@ int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_
     hal_data_u *dp;
     hal_member_t *member;
 
-    HALASSERT(cg->magic ==  CGROUP_MAGIC);
+    HAL_ASSERT(cg->magic ==  CGROUP_MAGIC);
 
     // handles (value references) run from 0..cc->n_pin-1
     if ((handle < 0) || (handle > cg->n_members-1))
@@ -652,7 +652,7 @@ int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_
 
     switch (type) {
     case HAL_TYPE_UNSPECIFIED:
-	HALASSERT(type != HAL_TYPE_UNSPECIFIED);
+	HAL_ASSERT(type != HAL_TYPE_UNSPECIFIED);
 	return -EINVAL;
     case HAL_BIT:
 	dp->b = value.b;
@@ -680,7 +680,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
     hal_s32_t halu32;
     hal_float_t halfloat,delta;
 
-    HALASSERT(cg->magic ==  CGROUP_MAGIC);
+    HAL_ASSERT(cg->magic ==  CGROUP_MAGIC);
 
     // scan for changes if needed
     monitor = (cg->group->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS))
