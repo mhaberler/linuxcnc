@@ -413,7 +413,7 @@ typedef struct {
 	CHECK_STR(name);						\
 	if (strlen(name) > len) {					\
 	    rtapi_print_loc(RTAPI_MSG_ERR,__FUNCTION__, __LINE__,"HAL error:", \
-			    "argument '%s' too long (%d/%d)",		\
+			    "argument '%s' too long (%zu/%d)",		\
 			    name, strlen(name), len);			\
 	    return -EINVAL;						\
 	}								\
