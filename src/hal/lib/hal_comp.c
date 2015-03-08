@@ -333,7 +333,7 @@ int hal_exit(int comp_id)
 	rtapi_exit(comp_id);
     }
 
-    HALDBG("component '%s' id=%d removed", name, comp_id);
+    //HALDBG("component '%s' id=%d removed", name, comp_id);
     return 0;
 }
 
