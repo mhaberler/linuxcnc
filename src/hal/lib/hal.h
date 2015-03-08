@@ -227,6 +227,14 @@ int hal_xinit(const int type,
 	      const int userarg2,
 	      const hal_constructor_t ctor,
 	      const hal_destructor_t dtor,
+	      const char *name);
+
+// printf-style version of hal_xinit
+int hal_xinitf(const int type,
+	      const int userarg1,
+	      const int userarg2,
+	      const hal_constructor_t ctor,
+	      const hal_destructor_t dtor,
 	      const char *fmt, ...)
     __attribute__((format(printf,6,7)));
 

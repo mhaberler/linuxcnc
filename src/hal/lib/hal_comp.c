@@ -20,7 +20,7 @@ static int create_instance(const hal_funct_args_t *fa);
 static int delete_instance(const hal_funct_args_t *fa);
 #endif
 
-int hal_xinit(const int type,
+int hal_xinitf(const int type,
 	      const int userarg1,
 	      const int userarg2,
 	      const hal_constructor_t ctor,
@@ -28,25 +28,36 @@ int hal_xinit(const int type,
 	      const char *fmt, ...)
 {
     va_list ap;
-    int comp_id, retval;
-    char rtapi_name[RTAPI_NAME_LEN + 1];
     char hal_name[HAL_NAME_LEN + 1];
-
-    rtapi_set_logtag("hal_lib");
 
     CHECK_NULL(fmt);
     va_start(ap, fmt);
-
-    // sanity: these must have been inited before by the
-    // respective rtapi.so/.ko module
-    CHECK_NULL(rtapi_switch);
-
     int sz = rtapi_vsnprintf(hal_name, sizeof(hal_name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
         HALERR("invalid length %d for name starting with '%s'",
 	       sz, hal_name);
         return -EINVAL;
     }
+    return hal_xinit(type, userarg1, userarg2, ctor, dtor, hal_name);
+}
+
+int hal_xinit(const int type,
+	      const int userarg1,
+	      const int userarg2,
+	      const hal_constructor_t ctor,
+	      const hal_destructor_t dtor,
+	      const char *name)
+{
+    int comp_id, retval;
+    char rtapi_name[RTAPI_NAME_LEN + 1];
+    char hal_name[HAL_NAME_LEN + 1];
+
+    rtapi_set_logtag("hal_lib");
+    CHECK_STRLEN(name, HAL_NAME_LEN);
+
+    // sanity: these must have been inited before by the
+    // respective rtapi.so/.ko module
+    CHECK_NULL(rtapi_switch);
 
     if ((dtor != NULL) && (ctor == NULL)) {
 	HALERR("component '%s': NULL constructor doesnt make"
@@ -63,7 +74,8 @@ int hal_xinit(const int type,
 #ifdef RTAPI
 	retval = hal_xinit(TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib");
 #else
-	retval = hal_xinit(TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib%d", getpid());
+	retval = hal_xinitf(TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib%ld",
+			    (long) getpid());
 #endif
 	if (retval < 0)
 	    return retval;
@@ -74,7 +86,7 @@ int hal_xinit(const int type,
 
     /* copy name to local vars, truncating if needed */
     rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", hal_name);
-    sz = rtapi_vsnprintf(hal_name, sizeof(hal_name), fmt, ap);
+    rtapi_snprintf(hal_name, sizeof(hal_name), "%s", name);
 
     /* do RTAPI init */
     comp_id = rtapi_init(rtapi_name);

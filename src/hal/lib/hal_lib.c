@@ -295,6 +295,7 @@ const char *hal_lasterror()
 // hal_comp.c:
 EXPORT_SYMBOL(hal_init);
 EXPORT_SYMBOL(hal_xinit);
+EXPORT_SYMBOL(hal_xinitf);
 EXPORT_SYMBOL(hal_ready);
 EXPORT_SYMBOL(hal_exit);
 EXPORT_SYMBOL(hal_comp_name);
