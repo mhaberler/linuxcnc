@@ -21,11 +21,11 @@ static int delete_instance(const hal_funct_args_t *fa);
 #endif
 
 int hal_xinitf(const int type,
-	      const int userarg1,
-	      const int userarg2,
-	      const hal_constructor_t ctor,
-	      const hal_destructor_t dtor,
-	      const char *fmt, ...)
+	       const int userarg1,
+	       const int userarg2,
+	       const hal_constructor_t ctor,
+	       const hal_destructor_t dtor,
+	       const char *fmt, ...)
 {
     va_list ap;
     char hal_name[HAL_NAME_LEN + 1];
@@ -49,8 +49,6 @@ int hal_xinit(const int type,
 	      const char *name)
 {
     int comp_id, retval;
-    char rtapi_name[RTAPI_NAME_LEN + 1];
-    char hal_name[HAL_NAME_LEN + 1];
 
     rtapi_set_logtag("hal_lib");
     CHECK_STRLEN(name, HAL_NAME_LEN);
@@ -61,13 +59,13 @@ int hal_xinit(const int type,
 
     if ((dtor != NULL) && (ctor == NULL)) {
 	HALERR("component '%s': NULL constructor doesnt make"
-	       " sense with non-NULL destructor", hal_name);
+	       " sense with non-NULL destructor", name);
 	return -EINVAL;
     }
 
     // RTAPI initialisation already done
     HALDBG("initializing component '%s' type=%d arg1=%d arg2=%d/0x%x",
-	   hal_name, type, userarg1, userarg2, userarg2);
+	   name, type, userarg1, userarg2, userarg2);
 
     if ((lib_module_id < 0) && (type != TYPE_HALLIB)) {
 	// if hal_lib not inited yet, do so now - recurse
@@ -85,8 +83,11 @@ int hal_xinit(const int type,
     rtapi_set_logtag("hal_lib");
 
     /* copy name to local vars, truncating if needed */
-    rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", hal_name);
+    char rtapi_name[RTAPI_NAME_LEN + 1];
+    char hal_name[HAL_NAME_LEN + 1];
+
     rtapi_snprintf(hal_name, sizeof(hal_name), "%s", name);
+    rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", hal_name);
 
     /* do RTAPI init */
     comp_id = rtapi_init(rtapi_name);
@@ -333,7 +334,6 @@ int hal_exit(int comp_id)
     }
 
     HALDBG("component '%s' id=%d removed", name, comp_id);
-
     return 0;
 }
 
