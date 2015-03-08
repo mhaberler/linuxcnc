@@ -409,8 +409,8 @@ static int do_unload_cmd(int instance, string name)
     int retval = 0;
 
     if (w == NULL) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "unload: '%s' not loaded\n",
-			name.c_str());
+        // rtapi_print_msg(RTAPI_MSG_ERR, "unload: '%s' not loaded\n",
+	// 		name.c_str());
 	return -1;
     } else {
 	if (kernel_threads(flavor)) {
