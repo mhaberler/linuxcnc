@@ -184,70 +184,11 @@ void halpr_autorelease_mutex(void *variable)
 
 #ifdef RTAPI
 
-// instantiation handlers
-static int create_instance(const hal_funct_args_t *fa)
-{
-    const int argc = fa_argc(fa);
-    const char **argv = fa_argv(fa);
-
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: '%s' called, arg=%p argc=%d\n",
-		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
-    int i;
-    for (i = 0; i < argc; i++)
-	rtapi_print_msg(RTAPI_MSG_DBG, "    argv[%d] = \"%s\"\n",
-			i,argv[i]);
-
-    if (argc < 2) {
-	hal_print_error("need component name and instance name");
-	return -EINVAL;
-    }
-    const char *cname = argv[0];
-    const char *iname = argv[1];
-
-    hal_comp_t *comp = halpr_find_comp_by_name(cname);
-    if (!comp) {
-	hal_print_error("no such component '%s'", cname);
-	return -EINVAL;
-    }
-    if (!comp->ctor) {
-	hal_print_error("component '%s' not instantiable", cname);
-	return -EINVAL;
-    }
-    hal_inst_t *inst = halpr_find_inst_by_name(iname);
-    if (inst) {
-	hal_print_error("instance '%s' already exists", iname);
-	return -EBUSY;
-    }
-    return comp->ctor(iname, 0, NULL);
-
-}
-
-static int delete_instance(const hal_funct_args_t *fa)
-{
-    const int argc = fa_argc(fa);
-    const char **argv = fa_argv(fa);
-
-
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: '%s' called, arg=%p argc=%d\n",
-		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
-    int i;
-    for (i = 0; i < argc; i++)
-	rtapi_print_msg(RTAPI_MSG_DBG, "    argv[%d] = \"%s\"\n",
-			i,argv[i]);
-    if (argc < 1) {
-	hal_print_error("no instance name given");
-	return -EINVAL;
-    }
-    return hal_inst_delete(argv[0]);
-}
-
 
 
 /* these functions are called when the hal_lib module is insmod'ed
    or rmmod'ed.
 */
-static int hal_comp_id;
 
 int rtapi_app_main(void)
 {
@@ -260,12 +201,15 @@ int rtapi_app_main(void)
     CHECK_NULL(rtapi_switch);
     CHECK_NULL(global_data);
 
+    return hal_xinit("hal_lib", TYPE_HALLIB, 0, 0, NULL, NULL);
+
+#if 0
     // TYPE_HALLIB tells the hal_xinit() code to init the
     // HAL shm segment, which is really the only thing special about
     // the hal_lib component
-    hal_comp_id = hal_xinit("hal_lib", TYPE_HALLIB, 0, 0, NULL, NULL);
+    lib_module_id = hal_xinit("hal_lib", TYPE_HALLIB, 0, 0, NULL, NULL);
 
-    if (hal_comp_id > 0) {
+    if (lib_module_id > 0) {
 	// export the instantiation userfuncts
 	hal_xfunct_t ni = {
 	    .type = FS_USERLAND,
@@ -291,8 +235,8 @@ int rtapi_app_main(void)
 		      "HAL_LIB RT lib installed successfully");
 	return 0;
     }
-    return hal_comp_id;
-
+    return lib_module_id;
+#endif
 #ifdef LEGACY
     /* hal_print_msg(RTAPI_MSG_DBG, */
     /* 		    "HAL_LIB:%d loading RT support gd=%pp\n",rtapi_instance,global_data); */
@@ -414,7 +358,7 @@ void rtapi_app_exit(void)
     }
     // do not release HAL shm here yet, as it might still be referenced
  
-    hal_xexit(hal_comp_id, TYPE_HALLIB);
+    hal_xexit(lib_module_id, TYPE_HALLIB);
 
 #if 0 // defined(BUILD_SYS_KBUILD)
     //    hal_rtapi_detach();
@@ -590,6 +534,9 @@ int hal_rtapi_attach()
 static int hal_rtapi_detach(void)
 {
     /* release RTAPI resources */
+    if (lib_module_id > -1)
+	hal_exit(lib_module_id);
+#if 0
     if (lib_mem_id > -1) {
 	hal_print_msg(RTAPI_MSG_DBG, "%s: detaching HAL shm segment %d",
 		      __FUNCTION__, lib_mem_id);
@@ -611,11 +558,13 @@ static int hal_rtapi_detach(void)
 	hal_data = NULL;
 	return retval;
     }
+#endif
     return 0;
 }
 
-// ULAPI-side cleanup. Called at shared library unload time as
-// a destructor.
+// ULAPI-side cleanup. Exits the hal_lib component
+// and releases shared memory segments.
+// Called at shared library unload time as a destructor.
 static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
 {
     // detach the HAL data segment

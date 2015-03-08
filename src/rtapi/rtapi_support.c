@@ -228,26 +228,26 @@ void rtapi_print_msg(int level, const char *fmt, ...) {
     }
 }
 #define RTAPIPRINTBUFFERLEN 256
-static char _rtapi_errmsg[RTAPIPRINTBUFFERLEN];
+static char _rtapi_logmsg[RTAPIPRINTBUFFERLEN];
 
-void rtapi_print_errorloc(const char *func,
-			  const int line,
-			  const char *topic,
-			  const char *fmt, ...)
+void rtapi_print_loc(const int level,
+		     const char *func,
+		     const int line,
+		     const char *topic,
+		     const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
 
-    const char *prefix = "%s:%d %s error: ";
-    rtapi_snprintf(_rtapi_errmsg, RTAPIPRINTBUFFERLEN,
-		   prefix,
-		   topic == NULL ? "" : topic,
+    const char *pfmt = "%s:%d %s ";
+    rtapi_snprintf(_rtapi_logmsg, RTAPIPRINTBUFFERLEN, pfmt,
 		   func  == NULL ? "(nil)" : func,
-		   line);
-    int n = strlen(_rtapi_errmsg);
+		   line,
+		   topic == NULL ? "" : topic);
+    int n = strlen(_rtapi_logmsg);
 
-    vsnprintf(_rtapi_errmsg + n, RTAPIPRINTBUFFERLEN - n, fmt, args);
-    rtapi_print_msg(RTAPI_MSG_ERR, _rtapi_errmsg);
+    vsnprintf(_rtapi_logmsg + n, RTAPIPRINTBUFFERLEN - n, fmt, args);
+    rtapi_print_msg(level, _rtapi_logmsg);
     va_end(args);
 }
 
@@ -364,5 +364,5 @@ EXPORT_SYMBOL(rtapi_set_msg_level);
 EXPORT_SYMBOL(rtapi_get_msg_level);
 EXPORT_SYMBOL(rtapi_set_logtag);
 EXPORT_SYMBOL(rtapi_get_logtag);
-EXPORT_SYMBOL(rtapi_print_errorloc);
+EXPORT_SYMBOL(rtapi_print_loc);
 #endif

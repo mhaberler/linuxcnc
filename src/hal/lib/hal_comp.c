@@ -16,6 +16,67 @@ static void free_comp_struct(hal_comp_t * comp);
 
 extern int init_hal_data(void);
 
+#ifdef RTAPI
+
+// instantiation handlers
+static int create_instance(const hal_funct_args_t *fa)
+{
+    const int argc = fa_argc(fa);
+    const char **argv = fa_argv(fa);
+
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: '%s' called, arg=%p argc=%d\n",
+		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
+    int i;
+    for (i = 0; i < argc; i++)
+	rtapi_print_msg(RTAPI_MSG_DBG, "    argv[%d] = \"%s\"\n",
+			i,argv[i]);
+
+    if (argc < 2) {
+	hal_print_error("need component name and instance name");
+	return -EINVAL;
+    }
+    const char *cname = argv[0];
+    const char *iname = argv[1];
+
+    hal_comp_t *comp = halpr_find_comp_by_name(cname);
+    if (!comp) {
+	hal_print_error("no such component '%s'", cname);
+	return -EINVAL;
+    }
+    if (!comp->ctor) {
+	hal_print_error("component '%s' not instantiable", cname);
+	return -EINVAL;
+    }
+    hal_inst_t *inst = halpr_find_inst_by_name(iname);
+    if (inst) {
+	hal_print_error("instance '%s' already exists", iname);
+	return -EBUSY;
+    }
+    return comp->ctor(iname, 0, NULL);
+
+}
+
+static int delete_instance(const hal_funct_args_t *fa)
+{
+    const int argc = fa_argc(fa);
+    const char **argv = fa_argv(fa);
+
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: '%s' called, arg=%p argc=%d\n",
+		    __FUNCTION__,  fa_funct_name(fa), fa_arg(fa), argc);
+    int i;
+    for (i = 0; i < argc; i++)
+	rtapi_print_msg(RTAPI_MSG_DBG, "    argv[%d] = \"%s\"\n",
+			i,argv[i]);
+    if (argc < 1) {
+	hal_print_error("no instance name given");
+	return -EINVAL;
+    }
+    return hal_inst_delete(argv[0]);
+}
+#endif
+
 int hal_xinit(const char *name,
 	      const int type,
 	      const int userarg1,
@@ -43,11 +104,30 @@ int hal_xinit(const char *name,
 	return -EINVAL;
     }
 
-    // rtapi initialisation already done
-    // since this happens through the constructor
+    // RTAPI initialisation already done
     rtapi_print_msg(RTAPI_MSG_DBG,
 		    "HAL: initializing component '%s' type=%d arg1=%d arg2=%d/0x%x",
 		    name, type, userarg1, userarg2, userarg2);
+
+    //#ifdef RTAPI
+    if ((lib_module_id < 0) && (type != TYPE_HALLIB)) {
+	// if hal_lib not inited yet, do so now
+	// recurse
+#ifdef RTAPI
+	rtapi_snprintf(hal_name, sizeof(hal_name), "hal_lib");
+#else // ULAPI
+	rtapi_snprintf(hal_name, sizeof(hal_name), "hal_lib%d", getpid());
+#endif
+	retval = hal_xinit(hal_name, TYPE_HALLIB, 0, 0, NULL, NULL);
+	if (retval < 0) {
+	    HALERR("initializing %s: %d", hal_name, retval);
+	    return retval;
+	}
+    }
+    //#endif
+
+    // tag message origin field since ulapi autoload re-tagged them
+    rtapi_set_logtag("hal_lib");
 
     /* copy name to local vars, truncating if needed */
     rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", name);
@@ -60,22 +140,16 @@ int hal_xinit(const char *name,
 	return -EINVAL;
     }
 
-    // global_data MUST be at hand now:
-    HAL_ASSERT(global_data != NULL);
+    // recursing? init HAL shm
+    if ((lib_module_id < 0) && (type == TYPE_HALLIB)) {
+	// recursion case, we're initing hal_lib
 
-    // NB: the HAL shm segment might not be in place yet
-    // (i.e. hal_data and hal_shmem_base might be NULL)
-    // this code is common for ULAPI and RTAPI.
-    if (lib_mem_id < 0) {
-
-	// the hal_lib component is initializing.
-	// acquire the HAL shm segment
-	// get HAL shared memory block from RTAPI
+	// get HAL shared memory from RTAPI
 	int shm_id = rtapi_shmem_new(HAL_KEY,
 				     comp_id,
 				     global_data->hal_size);
 	if (shm_id < 0) {
-	    HALERR("hal_lib(%d): failed to allocate HAL shm %x, rc=%d",
+	    HALERR("hal_lib:%d failed to allocate HAL shm %x, rc=%d",
 		   comp_id, HAL_KEY, shm_id);
 	    rtapi_exit(comp_id);
 	    return -EINVAL;
@@ -84,7 +158,7 @@ int hal_xinit(const char *name,
 	void *mem;
 	retval = rtapi_shmem_getptr(shm_id, &mem, 0);
 	if (retval < 0) {
-	    HALERR("hal_lib(%d): failed to acquire HAL shm %x, id=%d rc=%d",
+	    HALERR("hal_lib:%d failed to acquire HAL shm %x, id=%d rc=%d",
 		   comp_id, HAL_KEY, shm_id, retval);
 	    rtapi_exit(comp_id);
 	    return -EINVAL;
@@ -93,39 +167,43 @@ int hal_xinit(const char *name,
 	hal_shmem_base = (char *) mem;
 	hal_data = (hal_data_t *) mem;
 
+#ifdef RTAPI
+	// only on RTAPI hal_lib initialization:
+	// initialize up the HAL shm segment
+	retval = init_hal_data();
+	if (retval) {
+	    HALERR("could not init HAL shared memory rc=%d\n", retval);
+	    rtapi_exit(lib_module_id);
+	    lib_module_id = -1;
+	    return -EINVAL;
+	}
+	retval = hal_proc_init();
+	if (retval) {
+	    HALERR("could not init /proc files");
+	    rtapi_exit(lib_module_id);
+	    lib_module_id = -1;
+	    return -EINVAL;
+	}
+#endif
 	// record hal_lib comp_id
 	lib_module_id = comp_id;
 	// and the HAL shm segmed id
 	lib_mem_id = shm_id;
 
-#ifdef RTAPI
-	// RTAPI: only on hal_lib initialisation
-	// set up the HAL shm segment
-	if (type == TYPE_HALLIB) {
-	    retval = init_hal_data();
+    }
+    // global_data MUST be at hand now:
+    HAL_ASSERT(global_data != NULL);
 
-	    if ( retval ) {
-		HALERR("could not init HAL shared memory rc=%d\n", retval);
-		rtapi_exit(comp_id);
-		return -EINVAL;
-	    }
-	    retval = hal_proc_init();
-	    if ( retval ) {
-		hal_print_msg(RTAPI_MSG_ERR,
-			      "HAL_LIB: ERROR:%d could not init /proc files\n",
-			      rtapi_instance);
-		rtapi_exit(lib_module_id);
-		return -EINVAL;
-	    }
-	}
-#endif
+    // paranoia
+    HAL_ASSERT(hal_shmem_base != NULL);
+    HAL_ASSERT(hal_data != NULL);
+    HAL_ASSERT(lib_module_id > -1);
+    HAL_ASSERT(lib_mem_id > -1);
+    if (lib_module_id < 0) {
+	HALERR("giving up");
+	return -EINVAL;
     }
 
-    // tag message origin field since ulapi autoload re-tagged them
-    rtapi_set_logtag("hal_lib");
-#ifdef ULAPI
-    //    hal_rtapi_attach();
-#endif
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
 
@@ -172,6 +250,38 @@ int hal_xinit(const char *name,
 
     }
     // scope exited - mutex released
+
+    // recursion case: finish hal_lib initialisation
+    if (type == TYPE_HALLIB) {
+#ifdef RTAPI
+	// only on RTAPI hal_lib initialization:
+	// export the instantiation support userfuncts
+	hal_xfunct_t ni = {
+	    .type = FS_USERLAND,
+	    .funct.u = create_instance,
+	    .arg = NULL,
+	    .owner_id = lib_module_id
+	};
+	if ((retval = hal_export_xfunctf( &ni, "newinst")) < 0)
+	    return retval;
+
+	hal_xfunct_t di = {
+	    .type = FS_USERLAND,
+	    .funct.u = delete_instance,
+	    .arg = NULL,
+	    .owner_id = lib_module_id
+	};
+	if ((retval = hal_export_xfunctf( &di, "delinst")) < 0)
+	    return retval;
+#endif
+
+	retval = hal_ready(lib_module_id);
+	if (retval)
+	    HALERR("hal_ready(%d) failed rc=%d", lib_module_id, retval);
+	else
+	    HALDBG("hal_lib delayed initialization complete");
+	return retval;
+    }
 
     rtapi_print_msg(RTAPI_MSG_DBG,"%s: component '%s' id=%d initialized",
 		    __FUNCTION__, hal_name, comp_id);
