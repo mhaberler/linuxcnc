@@ -163,14 +163,14 @@ int init_module(void) {
 	sm.size = sizeof(global_data_t);
 	sm.flags = 0;
 	if ((retval = shmdrv_detach(&sm)) < 0)
-	    RTAPIERR("shmdrv_detach(rtapi=0x%x,%d) returns %d",
+	    RTAPIERR("shmdrv_detach(rtapi=0x%x,%zu) returns %d",
 		     sm.key, sm.size, retval);
 
 	sm.key = OS_KEY(GLOBAL_KEY, rtapi_instance);
 	sm.size = sizeof(global_data_t);
 	sm.flags = 0;
 	if ((retval = shmdrv_detach(&sm)) < 0)
-	    RTAPIERR("shmdrv_detach(global=0x%x,%d) returns %d",
+	    RTAPIERR("shmdrv_detach(global=0x%x,%zu) returns %d",
 		     sm.key, sm.size, retval);
 
 	return -EINVAL;
