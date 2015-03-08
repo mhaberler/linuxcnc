@@ -23,8 +23,8 @@ cdef extern from "hal.h":
 
 
     # superset of hal_init()
-    int hal_xinit(char *name, int mode, int userarg1, int userarg2,
-                  hal_constructor_t ctor, hal_destructor_t dtor)
+    int hal_xinit(int mode, int userarg1, int userarg2,
+                  hal_constructor_t ctor, hal_destructor_t dtor, char *name)
 
     ctypedef int hal_bit_t
     ctypedef float hal_float_t

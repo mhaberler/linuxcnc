@@ -19,7 +19,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
     CHECK_STR(name);
 
     if (size && (inst_data == NULL)) {
-	hal_print_error("%s: size %d but inst_data NULL", __FUNCTION__, size);
+	HALERR("size %d but inst_data NULL", size);
 	return -EINVAL;
     }
     {
@@ -319,9 +319,7 @@ static void free_inst_struct(hal_inst_t * inst)
     if (comp->dtor) {
 	//NB - pins, params etc still intact
 	// this instance is owned by this comp, call destructor
-	rtapi_print_msg(RTAPI_MSG_DBG,
-			"%s: calling custom destructor(%s,%s)", __FUNCTION__,
-			comp->name, inst->name);
+	HALDBG("calling custom destructor(%s,%s)", comp->name, inst->name);
 	comp->dtor(inst->name, inst->inst_data, inst->inst_size);
     }
 #endif /* RTAPI */

@@ -92,7 +92,7 @@ RTAPI_MP_INT(answer, "a random module parameter");
 int rtapi_app_main(void)
 {
     // to use default destructor, use NULL instead of delete
-    comp_id = hal_xinit(compname, TYPE_RT, 0, 0, instantiate, delete);
+    comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate, delete, compname);
     if (comp_id < 0)
 	return -1;
 

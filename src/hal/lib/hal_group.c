@@ -23,9 +23,8 @@ int hal_group_new(const char *name, int arg1, int arg2)
     CHECK_STRLEN(name, HAL_NAME_LEN);
     CHECK_LOCK(HAL_LOCK_LOAD);
 
-    hal_print_msg(RTAPI_MSG_DBG,
-		  "%s creating group '%s' arg1=%d arg2=%d/0x%x",
-		  __FUNCTION__, name, arg1, arg2, arg2);
+    HALDBG("creating group '%s' arg1=%d arg2=%d/0x%x",
+	   name, arg1, arg2, arg2);
 
     {
 	hal_group_t *new, *chan;
@@ -83,8 +82,7 @@ int hal_group_delete(const char *name)
     CHECK_STR(name);
     CHECK_LOCK(HAL_LOCK_CONFIG);
 
-    hal_print_msg(RTAPI_MSG_DBG, "HAL:%d deleting group '%s'",
-		    rtapi_instance, name);
+    HALDBG("deleting group '%s'", name);
 
     // this block is protected by hal_data->mutex with automatic
     // onlock on scope exit
@@ -217,9 +215,7 @@ static int resolve_members( int *nvisited, int level, hal_group_t **groups,
 		    HALERR("maximum group nesting exceeded for '%s'",
 			   groups[0]->name);
 		    while (level) {
-			rtapi_print_msg(RTAPI_MSG_ERR,
-					"\t%d: %s",
-					level, groups[level]->name);
+			HALERR("\t%d: %s", level, groups[level]->name);
 			level--;
 		    }
 		    return -EINVAL;
@@ -331,9 +327,8 @@ hal_group_t *halpr_find_group_of_member(const char *name)
 
 		sig = SHMPTR(member->sig_member_ptr);
 		if (strcmp(name, sig->name) == 0) {
-		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "HAL:%d  find_group_of_member(%s): found signal in group '%s'",
-				    rtapi_instance, name, group->name);
+		    HALDBG("find_group_of_member(%s): found signal in group '%s'",
+			   name, group->name);
 		    return group;
 		}
 		nextm = member->next_ptr;
@@ -341,9 +336,8 @@ hal_group_t *halpr_find_group_of_member(const char *name)
 	    if (member->group_member_ptr) { // a nested group
 		tgrp = SHMPTR(member->group_member_ptr);
 		if (strcmp(name, tgrp->name) == 0) {
-		    rtapi_print_msg(RTAPI_MSG_DBG,
-				    "find_group_of_member(%s): found group in group '%s'",
-				    name, group->name);
+		    HALDBG("find_group_of_member(%s): found group in group '%s'",
+			   name, group->name);
 		    return group;
 		}
 		nextm = member->next_ptr;
@@ -368,8 +362,8 @@ int hal_member_new(const char *group, const char *member,
 	return -EINVAL;
     }
 
-    hal_print_msg(RTAPI_MSG_DBG, "HAL:%d creating member '%s' arg1=%d epsilon[%d]=%f",
-		    rtapi_instance, member, arg1, eps_index, hal_data->epsilon[eps_index]);
+    HALDBG("creating member '%s' arg1=%d epsilon[%d]=%f",
+	   member, arg1, eps_index, hal_data->epsilon[eps_index]);
 
     {
 	hal_group_t *grp __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -390,13 +384,11 @@ int hal_member_new(const char *group, const char *member,
 
 	// TBD: handle remote signal case
 	if ((sig = halpr_find_sig_by_name(member)) != NULL) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,"%s adding signal '%s' to group '%s'",
-			    __FUNCTION__, member, group);
+	    HALDBG("adding signal '%s' to group '%s'",  member, group);
 	    goto found;
 	}
 	if ((mgrp = halpr_find_group_by_name(member)) != NULL) {
-	    rtapi_print_msg(RTAPI_MSG_DBG,"%s adding nested group '%s' to group '%s'",
-			    __FUNCTION__, member, group);
+	    HALDBG("adding nested group '%s' to group '%s'", member, group);
 	    goto found;
 	}
 	HALERR("undefined member '%s'", member);
@@ -485,8 +477,7 @@ int hal_member_delete(const char *group, const char *member)
 	    HALERR("undefined member '%s'", member);
 	    return -EINVAL;
 	}
-	hal_print_msg(RTAPI_MSG_DBG,"%s deleting signal '%s' from group '%s'",
-		      __FUNCTION__,  member, group);
+	HALDBG("deleting signal '%s' from group '%s'",  member, group);
 
 	/* delete member structure */
 	prev = &(grp->member_ptr);
@@ -532,15 +523,6 @@ static int cgroup_init_members_cb(int level, hal_group_t **groups, hal_member_t 
 {
     hal_compiled_group_t *tc = cb_data;
 
-#if 0
-    hal_sig_t *sig;
-
-    sig = SHMPTR(member->sig_member_ptr);
-    if ((sig->writers + sig->bidirs) == 0)
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL:%d WARNING: group '%s': member signal '%s' has no updater",
-			rtapi_instance, groups[0]->name, sig->name);
-#endif
     tc->member[tc->mbr_index] = member;
     tc->mbr_index++;
     if ((member->userarg1 & MEMBER_MONITOR_CHANGE) ||
@@ -575,9 +557,8 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
     // this fills sets the n_members and n_monitored fields
     result = halpr_foreach_member(name, cgroup_size_cb,
 				  tc, RESOLVE_NESTED_GROUPS);
-    rtapi_print_msg(RTAPI_MSG_DBG,
-		    "%s hal_group_compile(%s): %d signals %d monitored",
-		    __FUNCTION__, name, tc->n_members, tc->n_monitored );
+    HALDBG("hal_group_compile(%s): %d signals %d monitored",
+	   name, tc->n_members, tc->n_monitored );
     if ((tc->member =
 	 malloc(sizeof(hal_member_t  *) * tc->n_members )) == NULL)
 	NOMEM("%d hal_members",  tc->n_members);
@@ -646,9 +627,8 @@ int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_
     dp = SHMPTR(sig->data_ptr);
 
     if (sig->writers > 0)
-	hal_print_msg(RTAPI_MSG_WARN,
-		      "%s WARNING: group '%s': member signal '%s' already has updater",
-		      __FUNCTION__, cg->group->name, sig->name);
+	HALWARN("group '%s': member signal '%s' already has updater",
+		cg->group->name, sig->name);
 
     switch (type) {
     case HAL_TYPE_UNSPECIFIED:

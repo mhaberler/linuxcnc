@@ -96,9 +96,9 @@ int hal_ring_new(const char *name, int size, int sp_size, int mode)
 		       shmid, retval);
 	}
 
-	rtapi_print_msg(RTAPI_MSG_DBG, "HAL: created ring '%s' in %s, total_size=%d",
-			name, (rbdesc->flags & ALLOC_HALMEM) ? "halmem" : "shm",
-			rbdesc->total_size);
+	HALDBG("created ring '%s' in %s, total_size=%d",
+	       name, (rbdesc->flags & ALLOC_HALMEM) ? "halmem" : "shm",
+	       rbdesc->total_size);
 
 	ringheader_init(rhptr, rbdesc->flags, size, sp_size);
 	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
@@ -189,7 +189,7 @@ int hal_ring_delete(const char *name)
 	    return -EBUSY;
 	}
 
-	rtapi_print_msg(RTAPI_MSG_DBG, "HAL: deleting ring '%s'", name);
+	HALDBG("deleting ring '%s'", name);
 	if (hrptr->flags & ALLOC_HALMEM) {
 	    ; // if there were a HAL memory free function, call it here
 	} else {
@@ -372,16 +372,14 @@ static int next_ring_id(void)
     int i, ring_shmkey;
     for (i = 0; i < HAL_MAX_RINGS; i++) {
 	if (!RTAPI_BIT_TEST(hal_data->rings,i)) {  // unused
-#if 1  // paranoia
+	    // paranoia
 	    ring_shmkey = OS_KEY(HAL_KEY, rtapi_instance);
 	    // test if foreign instance exists
 	    if (!rtapi_shmem_exists(ring_shmkey)) {
-		hal_print_msg(RTAPI_MSG_ERR,
-				"HAL_LIB: BUG: next_ring_id(%d) - shm segment exists (%x)",
+		HALERR("BUG: next_ring_id(%d) - shm segment exists (%x)",
 				i, ring_shmkey);
 		return -EEXIST;
 	    }
-#endif
 	    RTAPI_BIT_SET(hal_data->rings,i);      // allocate
 	    return i;
 	}

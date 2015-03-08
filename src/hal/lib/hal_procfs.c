@@ -41,38 +41,32 @@ static int proc_write_rtapicmd(struct file *file,
     if (!strncmp(buffer,"newthread", 9)) {
 	if ((retval = sscanf(buffer, "%s %s %lu %d %d",
 			     cmd, name, &period, &fp, &cpu)) != 5) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL:newthread: expecting 5 items (s:cmd s:name d:period d:fp d:cpu), got %d\n",
-			    retval);
+	    HALERR("newthread: expecting 5 items (s:cmd s:name d:period d:fp d:cpu), got %d",
+		   retval);
 	    return -EINVAL;
 	}
 	if ((period > 0) &&
 	    (strlen(name) > 0)) {
 	    retval = hal_create_thread(name, period, fp, cpu);
 	    if (retval < 0) {
-		hal_print_msg(RTAPI_MSG_ERR,
-				"HAL:newthread: could not create thread '%s' - error %d\n",
-				name, retval);
+		HALERR("newthread: could not create thread '%s' - error %d",
+		       name, retval);
 		return retval;
 	    } else {
-		hal_print_msg(RTAPI_MSG_INFO,
-				"HAL:newthread: created %ld uS thread '%s' fp=%d cpu=%d\n",
-				period / 1000, name, fp, cpu);
+		HALINFO("newthread: created %ld uS thread '%s' fp=%d cpu=%d",
+			period / 1000, name, fp, cpu);
 	    }
 	}
     } else if (!strncmp(buffer, "delthread", 9)) {
 	if ((retval = sscanf(buffer, "%s %s", cmd, name)) != 2) {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL:delthread: expecting 2 items: 'delthread <threadname>'\n");
+	    HALERR("delthread: expecting 2 items: 'delthread <threadname>'");
 	    return -EINVAL;
 	}
 	if ((retval = hal_thread_delete(name)))  {
-	    hal_print_msg(RTAPI_MSG_ERR,
-			    "HAL:delthread '%s' error %d\n", name, retval);
+	    HALERR("delthread '%s' error %d", name, retval);
 	    return retval;
 	}
-	hal_print_msg(RTAPI_MSG_INFO,
-			"HAL:delthread - thread '%s' deleted\n", name);
+	HALINFO("elthread - thread '%s' deleted", name);
     } else {
 	// rtapi_argvize modifies its third argument in-place
 	char rwbuf[1024];
@@ -86,8 +80,7 @@ static int proc_write_rtapicmd(struct file *file,
 	    }
 	}
 
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: unrecognized rtapicmd: '%s'\n", cmd);
+	HALERR("unrecognized rtapicmd: '%s'", cmd);
 	return -EINVAL;
     }
     return count;

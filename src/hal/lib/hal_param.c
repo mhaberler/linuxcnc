@@ -23,8 +23,8 @@ static int hal_param_newfv(hal_type_t type,
     int sz;
     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
-        hal_print_error("%s: length %d too long for name starting '%s'\n",
-			__FUNCTION__, sz, name);
+        HALERR("length %d invalid too long for name starting '%s'\n",
+	       sz, name);
 	return -ENOMEM;
     }
     return hal_param_new(name, type, dir, (void *) data_addr, owner_id);
@@ -132,22 +132,21 @@ int hal_param_new(const char *name,
 	/* get mutex before accessing shared data */
 	rtapi_mutex_get(&(hal_data->mutex));
 
-	hal_print_msg(RTAPI_MSG_DBG, "HAL: creating parameter '%s'\n", name);
+	HALDBG("creating parameter '%s'\n", name);
 
 	/* validate comp_id */
 	comp = halpr_find_owning_comp(owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    hal_print_error("%s(%s): owning component %d not found\n",
-			    __FUNCTION__, name, owner_id);
+	    HALERR("param '%s': owning component %d not found\n",
+		   name, owner_id);
 	    return -EINVAL;
 	}
 
 	/* validate passed in pointer - must point to HAL shmem */
 	if (! SHMCHK(data_addr)) {
 	    /* bad pointer */
-	    hal_print_error("%s(%s): data_addr not in shared memory\n",
-			    __FUNCTION__, name);
+	    HALERR("param '%s': data_addr not in shared memory\n", name);
 	    return -EINVAL;
 	}
 
@@ -158,15 +157,14 @@ int hal_param_new(const char *name,
 	// instances may create params post hal_ready
 	// never understood the restriction in the first place
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
-	    hal_print_error("%s(%s): called after hal_ready",
-			    __FUNCTION__, name);
+	    HALERR("component '%s': %s called after hal_ready",
+		   name,  __FUNCTION__);
 	    return -EINVAL;
 	}
 	/* allocate a new parameter structure */
 	new = alloc_param_struct();
 	if (new == 0) {
-	    hal_print_error("%s(%s): insufficient memory for parameter",
-			    __FUNCTION__, name);
+	    HALERR("param '%s': insufficient memory for parameter", name);
 	    return -ENOMEM;
 	}
 	/* initialize the structure */
@@ -197,8 +195,7 @@ int hal_param_new(const char *name,
 	    if (cmp == 0) {
 		/* name already in list, can't insert */
 		free_param_struct(new);
-		hal_print_error("%s(%s): duplicate parameter",
-			    __FUNCTION__, name);
+		HALERR("duplicate parameter '%s'", name);
 		return -EINVAL;
 	    }
 	    /* didn't find it yet, look at next one */
@@ -237,17 +234,11 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
 
     void *d_ptr;
 
-    if (hal_data == 0) {
-	hal_print_error("%s: called before init", __FUNCTION__);
-	return -EINVAL;
-    }
+    CHECK_HALDATA();
+    CHECK_LOCK(HAL_LOCK_PARAMS);
+    CHECK_STRLEN(name, HAL_NAME_LEN);
 
-    if (hal_data->lock & HAL_LOCK_PARAMS)  {
-	hal_print_error("%s: called while HAL locked", __FUNCTION__);
-	return -EPERM;
-    }
-
-    hal_print_msg(RTAPI_MSG_DBG, "HAL: setting parameter '%s'\n", name);
+    HALDBG("setting parameter '%s'\n", name);
 
     {
 	hal_param_t *param __attribute__((cleanup(halpr_autorelease_mutex)));
@@ -259,18 +250,18 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
 	param = halpr_find_param_by_name(name);
 	if (param == 0) {
 	    /* parameter not found */
-	    hal_print_error("%s(%s): parameter not found\n", __FUNCTION__, name);
+	    HALERR("parameter '%s' not found\n", name);
 	    return -EINVAL;
 	}
 	/* found it, is type compatible? */
 	if (param->type != type) {
-	    hal_print_error("%s(%s): type mismatch %d != %d\n",
-			    __FUNCTION__, name, param->type, type);
+	    HALERR("parameter '%s': type mismatch %d != %d\n",
+		   name, param->type, type);
 	    return -EINVAL;
 	}
 	/* is it read only? */
 	if (param->dir == HAL_RO) {
-	    hal_print_error("%s(%s): param is not writable\n",__FUNCTION__, name);
+	    HALERR("parameter '%s': param is not writable\n", name);
 	    return -EINVAL;
 	}
 	/* everything is OK, set the value */
@@ -294,8 +285,8 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
 	    break;
 	default:
 	    /* Shouldn't get here, but just in case... */
-	    hal_print_error("%s(%s): bad type %d setting param\n",
-			    __FUNCTION__, name, param->type);
+	    HALERR("parameter '%s': bad type %d setting param\n",
+		   name, param->type);
 	    return -EINVAL;
 	}
     }
@@ -307,21 +298,13 @@ int hal_param_alias(const char *param_name, const char *alias)
     int *prev, next, cmp;
     hal_param_t *param, *ptr;
 
+    CHECK_HALDATA();
+    CHECK_LOCK(HAL_LOCK_CONFIG);
+    CHECK_STRLEN(param_name, HAL_NAME_LEN);
 
-    if (hal_data == 0) {
-	hal_print_error(
-			"HAL: ERROR: param_alias called before init\n");
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_CONFIG)  {
-	hal_print_error(
-			"HAL: ERROR: param_alias called while HAL locked\n");
-	return -EPERM;
-    }
     if (alias != NULL ) {
 	if (strlen(alias) > HAL_NAME_LEN) {
-	    hal_print_error(
-			    "HAL: ERROR: alias name '%s' is too long\n", alias);
+	    HALERR("alias name '%s' is too long\n", alias);
 	    return -EINVAL;
 	}
     }
@@ -335,8 +318,7 @@ int hal_param_alias(const char *param_name, const char *alias)
 	if (alias != NULL ) {
 	    param = halpr_find_param_by_name(alias);
 	    if ( param != NULL ) {
-		hal_print_error(
-				"HAL: ERROR: duplicate pin/alias name '%s'\n", alias);
+		HALERR("duplicate pin/alias name '%s'\n", alias);
 		return -EINVAL;
 	    }
 	}
@@ -348,8 +330,7 @@ int hal_param_alias(const char *param_name, const char *alias)
 	   to succeed since at least one struct is on the free list. */
 	oldname = halpr_alloc_oldname_struct();
 	if ( oldname == NULL ) {
-	    hal_print_error(
-			    "HAL: ERROR: insufficient memory for param_alias\n");
+	    HALERR("param '%s': insufficient memory for param_alias\n", param_name);
 	    return -EINVAL;
 	}
 	free_oldname_struct(oldname);
@@ -359,8 +340,7 @@ int hal_param_alias(const char *param_name, const char *alias)
 	while (1) {
 	    if (next == 0) {
 		/* reached end of list, not found */
-		hal_print_error(
-				"HAL: ERROR: param '%s' not found\n", param_name);
+		HALERR("param '%s': not found\n", param_name);
 		return -EINVAL;
 	    }
 	    param = SHMPTR(next);

@@ -222,19 +222,21 @@ enum comp_state {
 typedef int (*hal_constructor_t) (const char *name, const int argc, const char**argv);
 typedef int (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
 
-extern int hal_xinit(const char *name,
-		     int mode,
-		     int userarg1,
-		     int userarg2,
-		     hal_constructor_t ctor,
-		     hal_destructor_t dtor);
+int hal_xinit(const int type,
+	      const int userarg1,
+	      const int userarg2,
+	      const hal_constructor_t ctor,
+	      const hal_destructor_t dtor,
+	      const char *fmt, ...)
+    __attribute__((format(printf,6,7)));
+
 
 // backwards compatibility:
 static inline int hal_init(const char *name) {
 #ifdef RTAPI
-    return hal_xinit(name, TYPE_RT, 0, 0, NULL, NULL);
+    return hal_xinit(TYPE_RT, 0, 0, NULL, NULL, name);
 #else
-    return hal_xinit(name, TYPE_USER, 0, 0, NULL, NULL);
+    return hal_xinit(TYPE_USER, 0, 0, NULL, NULL, name);
 #endif
 }
 
@@ -341,16 +343,7 @@ extern int hal_retrieve_pinstate(const char *comp_name,
     On success, hal_exit() returns 0, on failure it
     returns a negative error code.
 */
-extern int hal_xexit(int comp_id, const int type);
-
-// backwards compatibility:
-static inline int hal_exit(const int comp_id) {
-#ifdef RTAPI
-    return hal_xexit(comp_id, TYPE_RT);
-#else
-    return hal_xexit(comp_id, TYPE_USER);
-#endif
-}
+extern int hal_exit(int comp_id);
 
 /** hal_malloc() allocates a block of memory from the main HAL
     shared memory area.  It should be used by all components to

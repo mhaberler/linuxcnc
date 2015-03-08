@@ -343,6 +343,12 @@ typedef struct {
 #define HALERR(fmt, ...)					\
     rtapi_print_loc(RTAPI_MSG_ERR,__FUNCTION__,__LINE__,	\
 		    "HAL error:", fmt, ## __VA_ARGS__)
+#define HALWARN(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_WARN,__FUNCTION__,__LINE__,	\
+		    "HAL WARNING:", fmt, ## __VA_ARGS__)
+#define HALINFO(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_INFO,__FUNCTION__,__LINE__,	\
+		    "HAL info:", fmt, ## __VA_ARGS__)
 
 #define HALDBG(fmt, ...)					\
     rtapi_print_loc(RTAPI_MSG_DBG,__FUNCTION__,__LINE__,	\

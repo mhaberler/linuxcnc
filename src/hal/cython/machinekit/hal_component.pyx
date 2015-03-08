@@ -13,7 +13,7 @@ cdef class Component:
         global _comps
         self._itemdict = dict()
         if not wrap:
-            id = hal_xinit(name, mode, userarg1, userarg2, NULL, NULL)
+            id = hal_xinit(mode, userarg1, userarg2, NULL, NULL, name)
             if id < 0:
                 raise RuntimeError("Failed to create component '%s': %d - %s" % (name,id, hal_lasterror()))
             _comps.append(id)  # to exit list

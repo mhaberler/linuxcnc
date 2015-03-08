@@ -1690,8 +1690,8 @@ int do_waitusr_cmd(char *arg1, char *arg2)
     return 0;
 }
 
-static const char *type_name(int mode){
-    switch (mode) {
+static const char *type_name(hal_comp_t *comp){
+    switch (comp->type) {
     case TYPE_RT:
 	return "RT";
     case TYPE_USER:
@@ -1699,7 +1699,8 @@ static const char *type_name(int mode){
     case TYPE_REMOTE:
 	return "Rem";
     case TYPE_HALLIB:
-    	return "HAL";
+	if (comp->pid) return "uHAL";
+    	return "rHAL";
     default:
 	return "***error***";
     }
@@ -1749,27 +1750,24 @@ static void print_comp_info(char **patterns)
 	comp = SHMPTR(next);
 	bool has_ctor = (comp->ctor != NULL) ;
 	bool has_dtor = (comp->dtor != NULL) ;
+	bool is_hallib = (comp->type == TYPE_HALLIB) ;
 
 	if ( match(patterns, comp->name) ) {
-	    if (has_ctor||has_dtor)
 
 	    halcmd_output(" %5d  %-4s %c%c%c%c  %4d %-*s",
 			  comp->comp_id,
-			  type_name(comp->type),
+			  type_name(comp),
 			  has_ctor ? 'c': ' ',
 			  has_dtor ? 'd': ' ',
-			  ' ', ' ',
+			  is_hallib ? 'i': ' ',
+			  ' ',
 			  inst_count(comp),
 			  HAL_NAME_LEN,
 			  comp->name);
-	    else
-		 halcmd_output(" %5d  %-4s            %-*s",
-			  comp->comp_id,
-			  type_name(comp->type),
-			  HAL_NAME_LEN,
-			  comp->name);
+
 	    switch (comp->type) {
 	    case TYPE_USER:
+	    case TYPE_HALLIB:
 
 		halcmd_output(" %-5d %s", comp->pid,
 			      state_name(comp->state));
@@ -1780,10 +1778,9 @@ static void print_comp_info(char **patterns)
 			      state_name(comp->state));
 		break;
 
-	    case TYPE_HALLIB:
-		halcmd_output(" HAL   %s",
-			      state_name(comp->state));
-		break;
+		/* halcmd_output(" HAL   %s", */
+		/* 	      state_name(comp->state)); */
+		/* break; */
 
 	    case TYPE_REMOTE:
 		halcmd_output(" %-5d %s", comp->pid,
@@ -3293,7 +3290,7 @@ int do_newcomp_cmd(char *comp, char *opt[])
 	    }
 	}
     }
-    int comp_id = hal_xinit(comp, type, arg1, arg2, NULL, NULL);
+    int comp_id = hal_xinit(type, arg1, arg2, NULL, NULL, comp);
 
     if (comp_id < 1) {
 	halcmd_error("newcomp: cant create component '%s' type %d: %s\n",

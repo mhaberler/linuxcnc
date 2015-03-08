@@ -163,11 +163,7 @@ int hal_retrieve_compstate(const char *comp_name,
     int result;
     hal_compstate_t state;
 
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: hal_retrieve_compstate called before ULAPI init");
-	return -EINVAL;
-    }
+    CHECK_HALDATA();
     {
 	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
 
@@ -231,11 +227,9 @@ int hal_retrieve_pinstate(const char *comp_name,
     hal_comp_t *owner;
     hal_pinstate_t pinstate;
 
-    if (hal_data == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: hal_retrieve_pinstate called before ULAPI init");
-	return -EINVAL;
-    }
+    CHECK_HALDATA();
+    CHECK_STRLEN(comp_name, HAL_NAME_LEN);
+
     {
 	hal_pin_t *pin __attribute__((cleanup(halpr_autorelease_mutex)));
 
@@ -293,9 +287,7 @@ int hal_retrieve_pinstate(const char *comp_name,
 	    /* no match, try the next one */
 	    next = pin->next_ptr;
 	}
-	rtapi_print_msg(RTAPI_MSG_DBG,
-			"%s: hal_retrieve_pinstate: visited %d pins",
-			__FUNCTION__, nvisited);
+	HALDBG("hal_retrieve_pinstate: visited %d pins", nvisited);
 	/* if we get here, we ran through all the pins, so return count */
 	return nvisited;
     }
@@ -380,8 +372,7 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        tc->magic = CCOMP_MAGIC;
        *ccomp = tc;
    }
-   rtapi_print_msg(RTAPI_MSG_DBG, "%s(%s): %d pins, %d tracked",
-		   __FUNCTION__, name, pincount, tc->n_pins);
+   HALDBG("ccomp '%s': %d pins, %d tracked", name, pincount, tc->n_pins);
    return 0;
 }
 
