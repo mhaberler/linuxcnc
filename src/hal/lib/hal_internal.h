@@ -19,6 +19,7 @@ int hal_proc_init(void);
 
 void free_thread_struct(hal_thread_t * thread);
 extern int lib_module_id;
+extern int lib_mem_id;
 
 void free_param_struct(hal_param_t * param);
 
