@@ -25,6 +25,8 @@ static void legacy_funct(void *arg, long period)
 // time observation for free!
 static int xthread_funct(const void *arg, const hal_funct_args_t *fa)
 {
+    long period __attribute__((unused))  = fa_period(fa);
+
     // the following accessors are available here:
 
     // fa_period(fa) - formerly 'long period'
