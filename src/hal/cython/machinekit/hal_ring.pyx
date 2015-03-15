@@ -1,10 +1,6 @@
 # TODO:
 # make create and attach free factory functions
 # which return a Stream/Record/MessageRing wrapper depending on type
-# make wrapper __dealloc__ a detach (in place)
-# create StreamRing wrapper
-# predefine ring flags bits in ring.pxd, export
-# use the halpr_foreach_ring() iterator to create ring namelist
 
 from libc.errno cimport EAGAIN
 from libc.string cimport memcpy
