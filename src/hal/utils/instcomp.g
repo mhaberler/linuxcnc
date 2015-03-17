@@ -118,7 +118,7 @@ mp_decl_map = {'int': 'RTAPI_MP_INT', 'dummy': None}
 # names.  That includes not only global variables and functions, but also
 # HAL pins & parameters, because comp adds #defines with the names of HAL
 # pins & params.
-reserved_names = [ 'comp_id', 'fperiod', 'rtapi_app_main', 'rtapi_app_exit', 'extra_inst_setup', 'extra_inst_cleanup']
+reserved_names = [ 'comp_id', 'fperiod', 'rtapi_app_main', 'rtapi_app_exit', 'extra_inst_setup', 'extra_inst_cleanup', 'xthreads']
 
 def _parse(rule, text, filename=None):
     global P, S
@@ -491,6 +491,22 @@ static int comp_id;
 
     print >>f
 
+###################################  xthread_funct()  #######################################
+
+    if options.get("xthreads"):
+        print >>f, "static int xthread_funct(const void *arg, const hal_funct_args_t *fa)\n{"
+        print >>f, "long period __attribute__((unused)) = fa_period(fa);\n"
+    
+        print >>f, "    // the following accessors are available here:"
+        print >>f, "    // fa_period(fa) - formerly 'long period'"
+        print >>f, "    // fa_thread_start_time(fa): _actual_ start time of thread invocation"
+        print >>f, "    // fa_start_time(fa): _actual_ start time of function invocation"
+        print >>f, "    // fa_thread_name(fa): name of the calling thread (char *)"
+        print >>f, "    // fa_funct_name(fa): name of the this called function (char *)"
+        print >>f, "    return 0;\n}\n"
+
+
+
 ###########################  export_halobjs()  ######################################################
 
     print >>f, "static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)\n{"
@@ -624,11 +640,30 @@ static int comp_id;
     print >>f, "    if (comp_id < 0)"
     print >>f, "        return -1;\n"
 
+    if options.get("xthreads"):
+        print >>f, "    // exporting an extended thread function:"
+        print >>f, "    hal_export_xfunct_args_t xtf = "
+        print >>f, "        {"
+        print >>f, "        .type = FS_XTHREADFUNC,"
+        print >>f, "        .funct.x = xthread_funct,"
+        print >>f, "        .arg = \"x-instance-data\","
+        print >>f, "        .uses_fp = 0,"
+        print >>f, "        .reentrant = 0,"
+        print >>f, "        .owner_id = comp_id"
+        print >>f, "        };\n"
+    
+        print >>f, "    if (hal_export_xfunctf(&xtf,\"%s.xthread-funct\", compname))"
+        print >>f, "        return -1;"
+
     print >>f, "    hal_ready(comp_id);\n"
+    
+
+    
     print >>f, "    return 0;\n}\n"
+    
 ###############################  rtapi_app_exit()  #####################################################
 
-    print >>f, "void rtapi_app_exit(void)\n {"
+    print >>f, "void rtapi_app_exit(void)\n{"
     if options.get("extra_inst_cleanup"):
             print >>f, "    extra_inst_cleanup();"
     print >>f, "    hal_exit(comp_id);"
