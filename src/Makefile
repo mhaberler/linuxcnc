@@ -1462,6 +1462,20 @@ motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 # vtexport-objs := hal/vtable-example/vtexport.o
 # vtexport-objs += hal/vtable-example/vcode.o
 
+# comps using RT-CAN. Build only on xenomai-user
+
+ifeq ($(HAVE_XENOMAI_THREADS),yes)
+
+obj-m += rtcantest.o
+rtcantest-objs := hal/rtcan-example/rtcantest.o
+
+# compile this one with Xenomai library/include flags
+$(call TOOBJSDEPS, hal/rtcan-example/rtcantest.c): EXTRA_CFLAGS += -D_________FOO=1 $(XENOMAI_THREADS_RTFLAGS)
+
+endif
+#endif
+
+
 obj-m += icomp.o
 icomp-objs := hal/icomp-example/icomp.o
 
@@ -1648,6 +1662,14 @@ $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
 $(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
+
+# RT-CAN modules, xenomai-user only
+ifeq ($(HAVE_XENOMAI_THREADS),yes)
+
+$(RTLIBDIR)/rtcantest$(MODULE_EXT): EXTRA_LDFLAGS += $(XENOMAI_THREADS_LDFLAGS) -lrtdm
+$(RTLIBDIR)/rtcantest$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(rtcantest-objs))
+endif
+#endif
 
 ifeq ($(TRIVIAL_BUILD),no)
 READ_RTDEPS = $(wildcard $(RTDEPS))
