@@ -620,7 +620,7 @@ hal_inst_t *halpr_find_inst_by_owning_comp(const int comp_id, hal_inst_t *start)
 // iterators - by owner id, which can refer to either a comp or an instance
 hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start);
 hal_param_t *halpr_find_param_by_owner_id(const int owner_id, hal_param_t * start);
-hal_funct_t *halpr_find_funct_by_owner(const int owner_id, hal_funct_t * start);
+hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id, hal_funct_t * start);
 
 // automatically release the local hal_data->mutex on scope exit.
 // if a local variable is declared like so:
