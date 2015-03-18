@@ -485,11 +485,13 @@ static void free_comp_struct(hal_comp_t * comp)
 #endif /* RTAPI */
     hal_pin_t *pin;
     hal_param_t *param;
-    hal_inst_t *inst;
 
     /* can't delete the component until we delete its "stuff" */
     /* need to check for functs only if a realtime component */
 #ifdef RTAPI
+    // first unlink and destroy all functs, so an RT thread
+    // cant trample on the comp while it's being destroyed
+
     /* search the function list for this component's functs */
     prev = &(hal_data->funct_list_ptr);
     next = *prev;
@@ -507,23 +509,26 @@ static void free_comp_struct(hal_comp_t * comp)
 	}
 	next = *prev;
     }
+    // here, technically all the comp's functs are
+    // delf'd and not visible anymore
 
-    // now that the funct is gone, call the dtor for each instance
-    if (comp->dtor) {
-	//NB - pins, params etc still intact
-	next = hal_data->inst_list_ptr;
-	while (next != 0) {
-	    inst = SHMPTR(next);
-	    if (inst->comp_id == comp->comp_id) {
-		// this instance is owned by this comp, call destructor
-		HALDBG("calling custom destructor(%s,%s)",
-		       comp->name, inst->name);
-		comp->dtor(inst->name, SHMPTR(inst->inst_data_ptr), inst->inst_size);
-	    }
-	    next = inst->next_ptr;
+    // now that the funct is gone,
+    // exit all the comp's instances
+    next = hal_data->inst_list_ptr;
+    while (next != 0) {
+	hal_inst_t *inst = SHMPTR(next);
+	next = inst->next_ptr;
+	if (inst->comp_id == comp->comp_id) {
+	    // this instance is owned by this comp
+	    free_inst_struct(inst);
 	}
     }
+    // here all insts, their pins, params and functs are gone.
+
 #endif /* RTAPI */
+
+    // now work the legacy pins and params which are
+    // directly owned by the comp.
 
     /* search the pin list for this component's pins */
     prev = &(hal_data->pin_list_ptr);
@@ -554,29 +559,6 @@ static void free_comp_struct(hal_comp_t * comp)
 	} else {
 	    /* no match, try the next one */
 	    prev = &(param->next_ptr);
-	}
-	next = *prev;
-    }
-
-    // search the instance list and unlink instances owned by this comp
-    prev = &(hal_data->inst_list_ptr);
-    next = *prev;
-    while (next != 0) {
-	inst = SHMPTR(next);
-	if (inst->comp_id == comp->comp_id) {
-	    // this instance is owned by this comp
-	    *prev = inst->next_ptr;
-	    // zap the instance structure
-	    inst->comp_id = 0;
-	    inst->inst_id = 0;
-	    inst->inst_data_ptr = 0; // NB - loosing HAL memory here
-	    inst->inst_size = 0;
-	    inst->name[0] = '\0';
-	    // add it to free list
-	    inst->next_ptr = hal_data->inst_free_ptr;
-	    hal_data->inst_free_ptr = SHMOFF(inst);
-	} else {
-	    prev = &(inst->next_ptr);
 	}
 	next = *prev;
     }
