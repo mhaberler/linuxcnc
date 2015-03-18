@@ -1,0 +1,5 @@
+
+
+
+# compile userland PCI support with udev cflags if any
+$(call TOOBJSDEPS, rtapi/rtapi_pci.c): EXTRAFLAGS += $(LIBUDEV_CFLAGS)

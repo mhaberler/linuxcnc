@@ -1,0 +1,9 @@
+
+
+loadrt rtcantest
+newinst rtcantest motor1
+
+newthread servo 1000000 fp
+
+addf motor1.funct servo
+start
