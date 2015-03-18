@@ -66,7 +66,7 @@ struct inst_data {
 };
 
 
-static char *interface = "rtcan0";
+static char *interface = "rtcan1";
 RTAPI_IP_STRING(interface, "RT-CAN interface name, see /proc/rtcan");
 
 static int can_id = 1;
@@ -112,6 +112,7 @@ static int can_funct(const void *arg, const hal_funct_args_t *fa)
 			    sizeof(can_frame_t), 0,
 			    (struct sockaddr *)&ip->to_addr,
 			    sizeof(ip->to_addr));
+
 	if (ret < 0) {
 	    *(ip->err_msgs) += 1;
 	    switch (ret) {
@@ -155,6 +156,9 @@ static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
     ip->frame.can_id = can_id;
     ip->can_mask = can_mask;
     ip->motor = motor;
+
+    HALDBG("if=%s ifindex=%d can_id=%d can_mask=%d motor=%d",
+	   interface,  ifr.ifr_ifindex, can_id, can_mask);
 
     if (hal_pin_u32_newf(HAL_OUT, &ip->in_msgs, owner_id, "%s.in-msgs", name))
 	return -1;
