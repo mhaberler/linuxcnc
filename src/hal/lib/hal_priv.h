@@ -606,12 +606,12 @@ hal_inst_t *halpr_find_inst_by_id(const int owner_id);
 hal_comp_t *halpr_find_owning_comp(const int owner_id);
 
 // iterators - by instance id
-hal_pin_t *halpr_find_pin_by_instance(hal_inst_t *inst,
-				      hal_pin_t * start);
-hal_param_t *halpr_find_param_by_instance(hal_inst_t *inst,
-				      hal_param_t * start);
-hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst,
-				      hal_funct_t * start);
+hal_pin_t *halpr_find_pin_by_instance_id(const int inst_id,
+					 const hal_pin_t * start);
+hal_param_t *halpr_find_param_by_instance_id(const int inst_id,
+					     const hal_param_t * start);
+hal_funct_t *halpr_find_funct_by_instance_id(const int inst_id,
+					     const hal_funct_t * start);
 
 // iterate over insts owned by a particular comp.
 // if comp_id < 0, return ALL instances, regardless which comp owns them.
