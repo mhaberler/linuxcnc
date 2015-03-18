@@ -23,6 +23,35 @@ MODULE_LICENSE("GPL");
 static int comp_id;
 static char *compname = "rtcantest";
 
+#if 0
+typedef struct can_frame {
+	/** CAN ID of the frame
+	 *
+	 *  See @ref CAN_xxx_FLAG "CAN ID flags" for special bits.
+	 */
+	can_id_t can_id;
+
+	/** Size of the payload in bytes */
+	uint8_t can_dlc;
+
+	/** Payload data bytes */
+	uint8_t data[8] __attribute__ ((aligned(8)));
+} can_frame_t;
+cansend can1  001#04.01.00.00.0f.ff.e7.00
+
+/**
+ * Structure containing a TMCL command and related data.
+ *
+ * @see TMCLComm
+ */
+typedef struct TMCLCommandStruct {
+  uint8_t 	command;   /**< @ref TMCLComm "Command" */
+  uint8_t 	type;  	   /**< Type */
+  uint32_t	value; 	   /**< Value */
+} TMCLCommand;
+
+#endif
+
 struct inst_data {
     int can_mask;
     int socket;
@@ -66,15 +95,17 @@ static int can_funct(const void *arg, const hal_funct_args_t *fa)
     hal_s32_t p = *(ip->motor_cmd_pos);
     if (p != ip->prev_motor_cmd_pos) {
 
-	ip->frame.data[0] = 4;
-	ip->frame.data[1] = 0; // ABS
-	ip->frame.data[2] = ip->motor;
+	ip->frame.data[0] = 4; // instruction
+	ip->frame.data[1] = 0; // type, 0=abs 1=rel
+	ip->frame.data[2] = ip->motor; // motor/bank
 
 	ip->frame.data[3] = p >> 3;
 	ip->frame.data[4] = p >> 2;
 	ip->frame.data[5] = p >> 1;
 	ip->frame.data[6] = p;
-	ip->frame.data[7] = 0; // chksum
+	//	ip->frame.data[7] = 0; // chksum
+
+	ip->frame.can_dlc = 7;
 
 	ret = rt_dev_sendto(ip->socket,
 			    (void *)&ip->frame,
@@ -217,14 +248,6 @@ void rtapi_app_exit(void)
     hal_exit(comp_id); // calls delete() on all insts
 }
 
-// make xenomai RTCAN API visible
-EXPORT_SYMBOL(rt_dev_socket);
-EXPORT_SYMBOL(rt_dev_ioctl);
-EXPORT_SYMBOL(rt_dev_close);
-EXPORT_SYMBOL(rt_dev_send);
-EXPORT_SYMBOL(rt_dev_sendto);
-EXPORT_SYMBOL(rt_dev_setsockopt);
-EXPORT_SYMBOL(rt_dev_bind);
 
 #else
 #warning "creating null module for flavor " THREAD_FLAVOR_ID
