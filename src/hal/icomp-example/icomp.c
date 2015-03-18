@@ -148,14 +148,14 @@ int rtapi_app_main(void)
     comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate, delete, compname);
     if (comp_id < 0)
 	return -1;
-
+#if 0
     struct inst_data *ip = hal_malloc(sizeof(struct inst_data));
 
     // traditional behavior: these pins/params/functs will be owned by the component
     // NB: this 'instance' cannot be exited
     if (export_halobjs(ip, comp_id, "foo"))
 	return -1;
-
+#endif
     // unittest only
     if ((cd = export_observer_pins(comp_id, compname)) == NULL)
 	return -1;
