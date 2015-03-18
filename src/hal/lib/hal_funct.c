@@ -529,14 +529,13 @@ hal_funct_t *alloc_funct_struct(void)
     return p;
 }
 
+
 void free_funct_struct(hal_funct_t * funct)
 {
     int next_thread;
     hal_thread_t *thread;
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *funct_entry;
-
-/*  int next_thread, next_entry;*/
 
     if (funct->users > 0) {
 	/* We can't casually delete the function, there are thread(s) which
@@ -579,6 +578,7 @@ void free_funct_struct(hal_funct_t * funct)
     funct->funct.l = 0;
     funct->runtime = 0;
     funct->name[0] = '\0';
+
     /* add it to free list */
     funct->next_ptr = hal_data->funct_free_ptr;
     hal_data->funct_free_ptr = SHMOFF(funct);
