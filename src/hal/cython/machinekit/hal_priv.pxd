@@ -180,7 +180,7 @@ cdef extern from "hal_priv.h":
 
     hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start)
     hal_param_t *halpr_find_param_by_owner_id(const int owner_id, hal_param_t * start)
-    hal_funct_t *halpr_find_funct_by_owner(const int owner_id, hal_funct_t * start)
+    hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id, hal_funct_t * start)
 
     hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
 
