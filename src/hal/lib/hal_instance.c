@@ -8,7 +8,6 @@
 
 // interal: alloc/free
 static hal_inst_t *alloc_inst_struct(void);
-static void free_inst_struct(hal_inst_t *inst);
 
 int hal_inst_create(const char *name, const int comp_id, const int size,
 		    void **inst_data)
@@ -291,10 +290,12 @@ static hal_inst_t *alloc_inst_struct(void)
 }
 
 // almost a copy of free_comp_struct(), but based on instance
-// unlinks & deletes all pins owned by this instance
-// deletes params owned by this instance
-// unlinks and frees functs expored by this instance
-static void free_inst_struct(hal_inst_t * inst)
+//
+// unlinks and frees functs exported by this instance
+// then calls any custom destructor
+// then unlinks & deletes all pins owned by this instance
+// then deletes params owned by this instance
+void free_inst_struct(hal_inst_t * inst)
 {
     int *prev, next;
 #ifdef RTAPI
