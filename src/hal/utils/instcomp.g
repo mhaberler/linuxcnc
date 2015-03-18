@@ -509,8 +509,7 @@ static int comp_id;
 ###########################  export_halobjs()  ######################################################
 
     print >>f, "static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)\n{"
-    if len(functions) > 1:
-        print >>f, "    char buf[HAL_NAME_LEN + 1];"
+    print >>f, "    char buf[HAL_NAME_LEN + 1];"
     print >>f, "    int r = 0;"
     if has_array:
         print >>f, "    int j = 0;"
@@ -565,11 +564,29 @@ static int comp_id;
         else:
             print >>f, "    ip->%s = %s;" % (name, value)
 
+    print >>f, "    // exporting an extended thread function:"
+    print >>f, "    hal_export_xfunct_args_t instxf = "
+    print >>f, "        {"
+    print >>f, "        .type = FS_XTHREADFUNC,"
+    print >>f, "        .funct.x = xthread_funct,"
+    print >>f, "        .arg = \"x-instance-data\","
+    print >>f, "        .uses_fp = 0,"
+    print >>f, "        .reentrant = 0,"
+    print >>f, "        .owner_id = owner_id"
+    print >>f, "        };\n"
+
     for name, fp in functions:
-        strg = "    r = hal_export_functf(%s, ip, 0, 0, owner_id," % (to_c(name))
-        strg +=  "\"%s.funct\", name);"
-        print >>f, strg
-        print >>f, "    if(r != 0) return r;"
+        print >>f, "    instxf.uses_fp = %d;" % int(fp)
+        strng =  "    rtapi_snprintf(buf, sizeof(buf),\"%s."
+        if (name == "" or name == "_" or name == " ") :
+            strng += "xthread-funct\", name);"
+        else :
+            strng += "%s.xthread-funct\", name);" % (to_hal(name))
+        print >>f, strng
+
+        print >>f, "    r = hal_export_xfunctf(&instxf, buf, name);"
+
+        print >>f, "    if(r != 0)\n        return r;"
 
     print >>f, "    return 0;"
     print >>f, "}"
