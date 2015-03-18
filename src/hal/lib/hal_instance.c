@@ -133,14 +133,15 @@ hal_inst_t *halpr_find_inst_by_id(const int id)
     return 0;
 }
 
-/** The 'halpr_find_pin_by_instance()' function find pins owned by a specific
+/** The 'halpr_find_pin_by_instance_id()' function find pins owned by a specific
     instance.  If 'start' is NULL, they start at the beginning of the
     appropriate list, and return the first item owned by 'instance'.
     Otherwise they assume that 'start' is the value returned by a prior
     call, and return the next matching item.  If no match is found, they
     return NULL.
 */
-hal_pin_t *halpr_find_pin_by_instance(hal_inst_t * inst, hal_pin_t * start)
+hal_pin_t *halpr_find_pin_by_instance_id(const int inst_id,
+					 const hal_pin_t *start)
 {
     int next;
     hal_pin_t *pin;
@@ -155,7 +156,7 @@ hal_pin_t *halpr_find_pin_by_instance(hal_inst_t * inst, hal_pin_t * start)
     }
     while (next != 0) {
 	pin = SHMPTR(next);
-	if (pin->owner_id == inst->inst_id) {
+	if (pin->owner_id == inst_id) {
 	    /* found a match */
 	    return pin;
 	}
@@ -166,14 +167,15 @@ hal_pin_t *halpr_find_pin_by_instance(hal_inst_t * inst, hal_pin_t * start)
     return 0;
 }
 
-/** The 'halpr_find_param_by_instance()' function find params owned by a specific
+/** The 'halpr_find_param_by_instance_id()' function find params owned by a specific
     instance.  If 'start' is NULL, they start at the beginning of the
     appropriate list, and return the first item owned by 'instance'.
     Otherwise they assume that 'start' is the value returned by a prior
     call, and return the next matching item.  If no match is found, they
     return NULL.
 */
-hal_param_t *halpr_find_param_by_instance(hal_inst_t * inst, hal_param_t * start)
+hal_param_t *halpr_find_param_by_instance_id(const int inst_id,
+					     const hal_param_t *start)
 {
     int next;
     hal_param_t *param;
@@ -188,7 +190,7 @@ hal_param_t *halpr_find_param_by_instance(hal_inst_t * inst, hal_param_t * start
     }
     while (next != 0) {
 	param = SHMPTR(next);
-	if (param->owner_id == inst->inst_id) {
+	if (param->owner_id == inst_id) {
 	    /* found a match */
 	    return param;
 	}
@@ -199,14 +201,15 @@ hal_param_t *halpr_find_param_by_instance(hal_inst_t * inst, hal_param_t * start
     return 0;
 }
 
-/** The 'halpr_find_funct_by_instance()' function find functs owned by a specific
-    instance.  If 'start' is NULL, they start at the beginning of the
+/** The 'halpr_find_funct_by_instance_id()' function find functs owned by a specific
+    instance id.  If 'start' is NULL, they start at the beginning of the
     appropriate list, and return the first item owned by 'instance'.
     Otherwise they assume that 'start' is the value returned by a prior
     call, and return the next matching item.  If no match is found, they
     return NULL.
 */
-hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst, hal_funct_t * start)
+hal_funct_t *halpr_find_funct_by_instance_id(const int inst_id,
+					     const hal_funct_t * start)
 {
     int next;
     hal_funct_t *funct;
@@ -221,7 +224,7 @@ hal_funct_t *halpr_find_funct_by_instance(hal_inst_t * inst, hal_funct_t * start
     }
     while (next != 0) {
 	funct = SHMPTR(next);
-	if (funct->owner_id == inst->inst_id) {
+	if (funct->owner_id == inst_id) {
 	    /* found a match */
 	    return funct;
 	}
