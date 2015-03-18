@@ -23,9 +23,6 @@ instanceparam string pinprefix = "compnew";
 option extra_inst_setup;
 option extra_inst_cleanup;
 
-    // Will create and export xthread funct
-option xthreads;
-
 license "GPL";
 
 function _;
