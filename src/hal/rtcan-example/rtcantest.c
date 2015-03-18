@@ -158,7 +158,7 @@ static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
     ip->motor = motor;
 
     HALDBG("if=%s ifindex=%d can_id=%d can_mask=%d motor=%d",
-	   interface,  ifr.ifr_ifindex, can_id, can_mask);
+	   interface,  ifr.ifr_ifindex, can_id, can_mask, motor);
 
     if (hal_pin_u32_newf(HAL_OUT, &ip->in_msgs, owner_id, "%s.in-msgs", name))
 	return -1;
