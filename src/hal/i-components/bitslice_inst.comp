@@ -5,14 +5,7 @@ pin out bit out-##[pincount];
 
 instanceparam int maxpincount = 32;
 
-    // This is the default number of pins for a component
-    // Can be varied <= maxpincount
-
 instanceparam int pincount = 16;
-
-// The default prefix for the new instantiation will be bitslice.<pin> etc
-// This param will change that name if used at newinst
-// eg.  halcmd newinst bitslice pinprefix=slice8 pincount=8
 
 instanceparam string pinprefix = "";
 

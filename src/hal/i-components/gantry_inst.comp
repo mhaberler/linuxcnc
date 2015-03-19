@@ -53,14 +53,7 @@ function write fp "Update joint pos-cmd outputs based on position-cmd in";
 
 instanceparam int maxpincount = 7;
 
-    // This is the default number of pins for a component
-    // Can be varied <= maxpincount
-
 instanceparam int pincount = 7;
-
-// The default prefix for the new instantiation will be bitslice.<pin> etc
-// This param will change that name if used at newinst
-// eg.  halcmd newinst bitslice pinprefix=slice8 pincount=8
 
 instanceparam string pinprefix = "gantry7";
 
