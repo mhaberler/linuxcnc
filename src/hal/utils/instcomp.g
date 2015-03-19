@@ -429,10 +429,26 @@ static int comp_id;
 
     for name, type, array, dir, value in params:
         if array:
-            print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), int(array))
+            q = check_pincount(array)
+            r = check_pinmax()
+            if r != None: # will be if not found at all
+                q = r  # pinmax takes precedence
+                maxpins = q
+            if int(q):
+                print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), int(q) )
+            else:
+                print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), array )
         else:
-            print >>f, "    hal_%s_t %s;" % (type, to_c(name))
+            print >>f, "    hal_%s_t *%s;" % (type, to_c(name))
         names[name] = 1
+
+#    for name, type, array, dir, value in params:
+#        if array:
+#
+#            print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), int(array))
+#        else:
+#            print >>f, "    hal_%s_t %s;" % (type, to_c(name))
+#        names[name] = 1
 
 
 
@@ -509,6 +525,7 @@ static int comp_id;
 ###########################  export_halobjs()  ######################################################
 
     print >>f, "static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)\n{"
+
     print >>f, "    char buf[HAL_NAME_LEN + 1];"
     print >>f, "    int r = 0;"
     if has_array:
@@ -538,18 +555,17 @@ static int comp_id;
 
     for name, type, array, dir, value in params:
         if array:
-            if isinstance(array, tuple): array = array[1]
-            print >>f, "    for(j=0; j < %s; j++) {" % array
-            print >>f, "        r = hal_param_%s_newf(%s, &(ip->%s[j]), owner_id," % (
-                type, dirmap[dir], to_c(name))
+#            if isinstance(array, tuple): array = array[1]
+            print >>f, "    for(j=0; j < z; j++) {"
+#            print >>f, "        r = hal_param_%s_newf(%s, &(ip->%s[j]), owner_id," % (type, dirmap[dir], to_c(name))
+            print >>f, "        r = hal_param_%s_newf(%s, ip->%s[j], owner_id," % (type, dirmap[dir], to_c(name))
             print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
             print >>f, "        if(r != 0) return r;"
             if value is not None:
                 print >>f, "    ip->%s[j] = %s;" % (to_c(name), value)
             print >>f, "    }"
         else:
-            print >>f, "    r = hal_param_%s_newf(%s, &(ip->%s), owner_id," % (
-                type, dirmap[dir], to_c(name))
+            print >>f, "    r = hal_param_%s_newf(%s, ip->%s, owner_id," % (type, dirmap[dir], to_c(name))
             print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
             if value is not None:
                 print >>f, "    ip->%s = %s;" % (to_c(name), value)
@@ -585,7 +601,6 @@ static int comp_id;
         print >>f, strng
 
         print >>f, "    r = hal_export_xfunctf(&instxf, buf, name);"
-
         print >>f, "    if(r != 0)\n        return r;"
 
     print >>f, "    return 0;"
