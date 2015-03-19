@@ -12,7 +12,7 @@ param rw s32 iter;
 instanceparam int maxpincount = 32;
 
     // This is the default number of pins for a component
-    // Can be varied <= maxpincount
+    // Can be varied pincount <= maxpincount
 instanceparam int pincount = 8;
 
     // The default name for the new instantiation 
