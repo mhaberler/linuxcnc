@@ -2,8 +2,8 @@
 // usage:
 //
 // halcmd loadrt lutn
-// halcmd newinst lutn and2.0 inputs=2 function=0x8
-// halcmd newinst lutn or2.0  inputs=2 function=0xe
+// halcmd newinst lutn and2.0 pincount=2 function=0x8
+// halcmd newinst lutn or2.0  pincount=2 function=0xe
 
 
 //
@@ -38,7 +38,7 @@ static int comp_id;
 static char *compname = "lutn";
 
 struct inst_data {
-    int inputs;
+    int pincount;
     hal_u32_t function;
     hal_bit_t *out;
     hal_bit_t *in[0];
@@ -47,8 +47,8 @@ struct inst_data {
 static int function = 0;
 RTAPI_IP_INT(function, "lookup function - see man lut5");
 
-static int inputs = 0;
-RTAPI_IP_INT(inputs, "number of input pins, in0..inN");
+static int pincount = 0;
+RTAPI_IP_INT(pincount, "number of input pins, in0..inN");
 
 static void lutn(void *arg, long period)
 {
@@ -56,7 +56,7 @@ static void lutn(void *arg, long period)
 
     int shift = 0, i;
 
-    for (i = 0; i < ip->inputs; i++)
+    for (i = 0; i < ip->pincount; i++)
 	if (*(ip->in[i])) shift += (1 << i);
 
     *(ip->out) = (ip->function & (1 << shift)) != 0;
@@ -71,10 +71,10 @@ static int instantiate_lutn(const char *name,
 
 
 
-    if ((inputs < 1) || (inputs > 5)) {
+    if ((pincount < 1) || (pincount > 5)) {
 	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: invalid parameter inputs=%d, valid range=1..5",
-		      name, inputs);
+		      "%s: invalid parameter pincount=%d, valid range=1..5",
+		      name, pincount);
 	return -1;
     }
     if ((function == 0) || (function == -1)) {
@@ -85,19 +85,19 @@ static int instantiate_lutn(const char *name,
     }
 
     if ((inst_id = hal_inst_create(name, comp_id,
-				  sizeof(struct inst_data) + inputs * sizeof(hal_bit_t *),
+				  sizeof(struct inst_data) + pincount * sizeof(hal_bit_t *),
 				   (void **)&ip)) < 0)
 	return -1;
 
     hal_print_msg(RTAPI_MSG_DBG,
-		  "%s: name='%s' inputs=%d function=0x%x ip=%p",
-		  __FUNCTION__, name, inputs, function, ip);
+		  "%s: name='%s' pincount=%d function=0x%x ip=%p",
+		  __FUNCTION__, name, pincount, function, ip);
     // record instance params
-    ip->inputs = inputs;
+    ip->pincount = pincount;
     ip->function = function;
 
     // export per-instance HAL objects
-    for (i = 0; i < ip->inputs; i++)
+    for (i = 0; i < ip->pincount; i++)
 	if (hal_pin_bit_newf(HAL_IN, &(ip->in[i]), inst_id, "%s.in%d", name, i))
 	    return -1;
     if (hal_pin_bit_newf(HAL_OUT, &(ip->out), inst_id, "%s.out", name))
