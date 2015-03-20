@@ -403,7 +403,7 @@ static int do_newinst_cmd(int instance,
 	}
 	void *w = modules[comp];
 	if (w == NULL) {
-	    // TBD: maybe eventually autoload instantiable comps here
+	    // if newinst via halcmd, it should have been automatically loaded already
 	    note_printf(pbreply,
 			"newinst: component '%s' not loaded",
 			comp.c_str());
@@ -417,7 +417,7 @@ static int do_newinst_cmd(int instance,
 	retval = do_module_args(w, args, RTAPI_IP_SYMPREFIX, pbreply);
 	if (retval < 0) {
 	    note_printf(pbreply,
-			"passing args for '%' failed: '%s'",
+			"passing args for '%s' failed: '%s'",
 			instname.c_str(), s.c_str());
 	    return retval;
 	}
