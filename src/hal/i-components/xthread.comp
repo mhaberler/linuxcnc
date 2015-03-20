@@ -18,7 +18,7 @@ instanceparam int pincount = 8;
     // The default name for the new instantiation
     // Pins will have name used to create it on the halcmd line
     // This param will change that name
-instanceparam string pinprefix = "compnew";
+instanceparam string iprefix = "compnew";
 
 option extra_inst_setup;
 option extra_inst_cleanup;
