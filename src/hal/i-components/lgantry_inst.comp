@@ -58,7 +58,7 @@ instanceparam int maxpincount = 7;
 
 instanceparam int pincount = 7;
 
-instanceparam string pinprefix = "lgantry7";
+instanceparam string iprefix = "lgantry7";
 
 description """
 Drives multiple physical motors (joints) from a single axis input

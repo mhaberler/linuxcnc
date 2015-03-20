@@ -7,7 +7,7 @@ instanceparam int maxpincount = 32;
 
 instanceparam int pincount = 16;
 
-instanceparam string pinprefix = "";
+instanceparam string iprefix = "";
 
 
 author "Andy Pugh";

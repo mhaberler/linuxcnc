@@ -296,12 +296,12 @@ def prologue(f):
 
 static int comp_id;
 """
-    have_pinprefix = False
-    pinprefix_string = ""
+    have_iprefix = False
+    iprefix_string = ""
     maxpins = 0
     have_maxpins = False
     numpins = 0
-    
+        
     print >>f, "static char *compname = \"%s\";\n" % (comp_name)
 
     for name in includes:
@@ -365,10 +365,10 @@ static int comp_id;
                 print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
                 print >>f, "RTAPI_IP_INT(%s, \"Instance integer param '%s'\");\n" % (to_c(name), to_c(name))
             else:
-                if name == 'pinprefix': 
+                if name == 'iprefix': 
                     if value != None:
-                        pinprefix_string = to_noquotes(value)
-                        have_pinprefix = 1
+                        iprefix_string = to_noquotes(value)
+                        have_iprefix = 1
                 if value == None: strng = "\"\\0\"";
                 else: strng = value
                 print >>f, "static char *%s = %s;" % (to_c(name), strng)
@@ -407,7 +407,7 @@ static int comp_id;
                 
     def check_prefix_name():
         for name, mptype, value in instanceparams:
-            if (mptype == 'string' and name == 'pinprefix'):
+            if (mptype == 'string' and name == 'iprefix'):
                 return value
 
     print >>f, "struct inst_data {"
@@ -435,11 +435,11 @@ static int comp_id;
                 q = r  # pinmax takes precedence
                 maxpins = q
             if int(q):
-                print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), int(q) )
+                print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), int(q) )
             else:
-                print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), array )
+                print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), array )
         else:
-            print >>f, "    hal_%s_t *%s;" % (type, to_c(name))
+            print >>f, "    hal_%s_t %s;" % (type, to_c(name))
         names[name] = 1
 
 #    for name, type, array, dir, value in params:
@@ -473,9 +473,9 @@ static int comp_id;
         print >>f, "static int maxpins = %d;" % int(maxpins)    
     else:
         print >>f, "static int maxpins = %d;" % int(numpins)        
-    # make sure this exists for later test with strlen(pinprefix)
-    if (not have_pinprefix): 
-        print >>f, "static char *pinprefix = \"\";"   
+    # make sure this exists for later test with strlen(iprefix)
+    if (not have_iprefix): 
+        print >>f, "static char *iprefix = \"\";"   
         
     for name, fp in functions:
         if names.has_key(name):
@@ -525,18 +525,19 @@ static int comp_id;
 ###########################  export_halobjs()  ######################################################
 
     print >>f, "static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)\n{"
-
+    
     print >>f, "    char buf[HAL_NAME_LEN + 1];"
     print >>f, "    int r = 0;"
-    if has_array:
-        print >>f, "    int j = 0;"
+    print >>f, "    int j = 0;"
     if has_data:
         print >>f, "    ip->_data = (char*)ip + sizeof(struct inst_data);"
     # safety checking, if maxpincount set use it
     # otherwise use the same max determined during processing with default pin numbers from the comp
-    print >>f, "    int z;"
-    print >>f, "    if(pincount > maxpins)\n        z = maxpins;"
-    print >>f, "    else\n      z = pincount;"
+    if has_array and have_maxpins:
+        print >>f, "    int z;"
+        print >>f, "    if(pincount > maxpins)\n        z = maxpins;"
+        print >>f, "    else\n      z = pincount;"
+        
     for name, type, array, dir, value in pins:
         if array:
             print >>f, "    for(j=0; j < z; j++) {" 
@@ -555,17 +556,15 @@ static int comp_id;
 
     for name, type, array, dir, value in params:
         if array:
-#            if isinstance(array, tuple): array = array[1]
             print >>f, "    for(j=0; j < z; j++) {" 
-#            print >>f, "        r = hal_param_%s_newf(%s, &(ip->%s[j]), owner_id," % (type, dirmap[dir], to_c(name))
-            print >>f, "        r = hal_param_%s_newf(%s, ip->%s[j], owner_id," % (type, dirmap[dir], to_c(name))    
+            print >>f, "        r = hal_param_%s_newf(%s, &(ip->%s[j]), owner_id," % (type, dirmap[dir], to_c(name))    
             print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)                
             print >>f, "        if(r != 0) return r;"
             if value is not None:
                 print >>f, "    ip->%s[j] = %s;" % (to_c(name), value)
             print >>f, "    }"
         else:
-            print >>f, "    r = hal_param_%s_newf(%s, ip->%s, owner_id," % (type, dirmap[dir], to_c(name))
+            print >>f, "    r = hal_param_%s_newf(%s, &(ip->%s), owner_id," % (type, dirmap[dir], to_c(name))
             print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
             if value is not None:
                 print >>f, "    ip->%s = %s;" % (to_c(name), value)
@@ -635,9 +634,9 @@ static int comp_id;
             print >>f, strg
 
     print >>f, "\n// These pins - params - functs will be owned by the instance, and can be separately exited with delinst"
-#    To get param updates have to test in C code not this script, for pinprefix
-    print >>f, "    if(strlen(pinprefix))"
-    print >>f, "        r = export_halobjs(ip, inst_id, pinprefix);"
+#    To get param updates have to test in C code not this script, for iprefix
+    print >>f, "    if(strlen(iprefix))"
+    print >>f, "        r = export_halobjs(ip, inst_id, iprefix);"
     print >>f, "    else"
     print >>f, "        r = export_halobjs(ip, inst_id, name);"
     if options.get("extra_inst_setup"):
@@ -918,6 +917,9 @@ def to_hal_man(s):
     return s
 
 def document(filename, outfilename):
+    return
+    ## don't process docs for now
+        
     if outfilename is None:
         outfilename = os.path.splitext(filename)[0] + ".9comp"
 
