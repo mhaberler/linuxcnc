@@ -1,7 +1,6 @@
 // instantiable lookup table component with configurable number of pins
 // usage:
 //
-// halcmd loadrt lutn
 // halcmd newinst lutn and2.0 pincount=2 function=0x8
 // halcmd newinst lutn or2.0  pincount=2 function=0xe
 
@@ -102,7 +101,7 @@ static int instantiate_lutn(const char *name,
 	    return -1;
     if (hal_pin_bit_newf(HAL_OUT, &(ip->out), inst_id, "%s.out", name))
 	return -1;
-   if (hal_export_functf(lutn, ip, 0, 0, inst_id, "%s.funct", name))
+   if (hal_export_functf(lutn, ip, 0, 0, inst_id, "%s", name))
 	return -1;
     return 0;
 }
