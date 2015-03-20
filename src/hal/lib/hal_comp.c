@@ -584,11 +584,13 @@ static int create_instance(const hal_funct_args_t *fa)
     const int argc = fa_argc(fa);
     const char **argv = fa_argv(fa);
 
+#if 0
     HALDBG("'%s' called, arg=%p argc=%d",
 	   fa_funct_name(fa), fa_arg(fa), argc);
     int i;
     for (i = 0; i < argc; i++)
 	HALDBG("    argv[%d] = \"%s\"", i,argv[i]);
+#endif
 
     if (argc < 2) {
 	HALERR("need component name and instance name");
@@ -611,8 +613,7 @@ static int create_instance(const hal_funct_args_t *fa)
 	HALERR("instance '%s' already exists", iname);
 	return -EBUSY;
     }
-    return comp->ctor(iname, 0, NULL);
-
+    return comp->ctor(iname, argc - 2, &argv[2]);
 }
 
 static int delete_instance(const hal_funct_args_t *fa)
