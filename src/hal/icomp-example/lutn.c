@@ -63,12 +63,10 @@ static void lutn(void *arg, long period)
 
 static int instantiate_lutn(const char *name,
 			    const int argc,
-			    const char**argv)
+			    const char **argv)
 {
     struct inst_data *ip;
     int i, inst_id;
-
-
 
     if ((pincount < 1) || (pincount > 5)) {
 	hal_print_msg(RTAPI_MSG_ERR,
@@ -88,9 +86,11 @@ static int instantiate_lutn(const char *name,
 				   (void **)&ip)) < 0)
 	return -1;
 
-    hal_print_msg(RTAPI_MSG_DBG,
-		  "%s: name='%s' pincount=%d function=0x%x ip=%p",
-		  __FUNCTION__, name, pincount, function, ip);
+    HALDBG("name='%s' pincount=%d function=0x%x argc=%d",
+	   name, pincount, function, argc);
+    for (i = 0; i < argc; i++)
+	HALDBG("    argv[%d] = \"%s\"", i,argv[i]);
+
     // record instance params
     ip->pincount = pincount;
     ip->function = function;
