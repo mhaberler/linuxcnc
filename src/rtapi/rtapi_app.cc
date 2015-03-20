@@ -240,10 +240,9 @@ static int do_module_args(void *module,
 				  "address_" +
 				  param_name);
         if (!item) {
-	    const char *err = dlerror();
 	    note_printf(pbreply,
-			"Unknown parameter `%s': '%s'",
-			s.c_str(), err ? err:"NULL");
+			"Unknown parameter `%s'",
+			s.c_str());
             return -1;
         }
 	dlerror();
@@ -324,10 +323,16 @@ static int do_kmodinst_args(const string &comp,
 	// max_part  rd_nr  rd_size
 
 	string path = "/sys/module/" + comp + "/parameters/" + param_name;
+	struct stat sb;
+	if (stat(path.c_str(), &sb) < 0) {
+	    // if param_name is an instance param, it's exported in sysfs
+	    note_printf(pbreply, "newinst '%s': no such instance parameter '%s'",
+			comp.c_str(),
+			param_name.c_str());
+	    return -ENOENT;
+	}
 	int retval = procfs_cmd(path.c_str(), param_value.c_str());
 	if (retval < 0) {
-	    // note_printf(pbreply, "path='%s' value='%s'",path.c_str(), param_value.c_str());
-	    // note_printf(pbreply, "path='%s'",path.c_str());
 	    note_printf(pbreply, "newinst %s: setting param %s to %s failed:  %d - %s",
 			comp.c_str(),
 			param_name.c_str(),
@@ -377,6 +382,21 @@ static void usrfunct_error(const int retval,
 		func.c_str(), s.c_str(), retval, strerror(-retval));
 }
 
+// split arg array into key=value, others
+static void separate_kv(pbstringarray_t &kvpairs,
+		    pbstringarray_t &leftovers,
+		    const pbstringarray_t &args)
+{
+    for(int i = 0; i < args.size(); i++) {
+        string s(args.Get(i));
+	remove_quotes(s);
+        if (s.find('=') == string::npos)
+	    leftovers.Add()->assign(s);
+	else
+	    kvpairs.Add()->assign(s);
+    }
+}
+
 static int do_newinst_cmd(int instance,
 			  string comp,
 			  string instname,
@@ -413,8 +433,12 @@ static int do_newinst_cmd(int instance,
 	string s;
 	pbconcat(s, args);
 
-	// pass the instance parameters
-	retval = do_module_args(w, args, RTAPI_IP_SYMPREFIX, pbreply);
+	pbstringarray_t kvpairs, leftovers;
+
+	separate_kv(kvpairs, leftovers, args);
+
+	// set the instance parameters
+	retval = do_module_args(w, kvpairs, RTAPI_IP_SYMPREFIX, pbreply);
 	if (retval < 0) {
 	    note_printf(pbreply,
 			"passing args for '%s' failed: '%s'",
@@ -430,8 +454,8 @@ static int do_newinst_cmd(int instance,
 	pbstringarray_t a;
 	a.Add()->assign(comp);
 	a.Add()->assign(instname);
-	a.MergeFrom(args);
-	const char **argv = pbargv(a);
+	a.MergeFrom(leftovers); 
+	const char **argv = pbargv(a); // pass non-kv pairs only
 	int ureturn = 0;
 	retval = call_usrfunct("newinst", a.size(), argv, &ureturn );
 	if (argv) free(argv);
