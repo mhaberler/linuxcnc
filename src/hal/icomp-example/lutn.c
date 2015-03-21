@@ -49,6 +49,9 @@ RTAPI_IP_INT(function, "lookup function - see man lut5");
 static int pincount = 0;
 RTAPI_IP_INT(pincount, "number of input pins, in0..inN");
 
+static char *iprefix = "";
+RTAPI_IP_STRING(iprefix, "pin prefix to use for this instance (default 'in')");
+
 static void lutn(void *arg, long period)
 {
     struct inst_data *ip = arg;
@@ -96,8 +99,10 @@ static int instantiate_lutn(const char *name,
     ip->function = function;
 
     // export per-instance HAL objects
+    const char *prefix = (strlen(iprefix) ? iprefix : "in");
     for (i = 0; i < ip->pincount; i++)
-	if (hal_pin_bit_newf(HAL_IN, &(ip->in[i]), inst_id, "%s.in%d", name, i))
+	if (hal_pin_bit_newf(HAL_IN, &(ip->in[i]), inst_id, "%s.%s%d",
+			     name, prefix, i))
 	    return -1;
     if (hal_pin_bit_newf(HAL_OUT, &(ip->out), inst_id, "%s.out", name))
 	return -1;
