@@ -96,10 +96,9 @@ static int instantiate(const char *name, const int argc, const char**argv)
 	return -1;
 
     // here ip is guaranteed to point to a blob of HAL memory of size sizeof(struct inst_data).
-    hal_print_msg(RTAPI_MSG_ERR,"%s: inst=%s argc=%d\n",__FUNCTION__, name, argc);
-
-    hal_print_msg(RTAPI_MSG_ERR,"%s: instance parms: repeat=%d prefix='%s'",__FUNCTION__, repeat, prefix);
-    hal_print_msg(RTAPI_MSG_ERR,"%s: module parms: answer=%d text='%s'",__FUNCTION__, answer, text);
+    HALERR("inst=%s argc=%d\n", name, argc);
+    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALERR("module parms: answer=%d text='%s'", answer, text);
 
     // these pins/params/functs will be owned by the instance, and can be separately exited
     int retval = export_halobjs(ip, inst_id, name);
@@ -129,11 +128,9 @@ static int instantiate(const char *name, const int argc, const char**argv)
 static int delete(const char *name, void *inst, const int inst_size)
 {
 
-    hal_print_msg(RTAPI_MSG_ERR,"%s inst=%s size=%d %p\n",
-		  __FUNCTION__, name, inst_size, inst);
-
-    hal_print_msg(RTAPI_MSG_ERR,"%s: instance parms: repeat=%d prefix='%s'",__FUNCTION__, repeat, prefix);
-    hal_print_msg(RTAPI_MSG_ERR,"%s: module parms: answer=%d text='%s'",__FUNCTION__, answer, text);
+    HALERR("inst=%s size=%d %p\n", name, inst_size, inst);
+    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALERR("module parms: answer=%d text='%s'", answer, text);
 
     return 0;
 }
@@ -141,8 +138,8 @@ static int delete(const char *name, void *inst, const int inst_size)
 int rtapi_app_main(void)
 {
 
-    hal_print_msg(RTAPI_MSG_ERR,"%s: instance parms: repeat=%d prefix='%s'",__FUNCTION__, repeat, prefix);
-    hal_print_msg(RTAPI_MSG_ERR,"%s: module parms: answer=%d text='%s'",__FUNCTION__, answer, text);
+    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALERR("module parms: answer=%d text='%s'", answer, text);
 
     // to use default destructor, use NULL instead of delete
     comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate, delete, compname);
