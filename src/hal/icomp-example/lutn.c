@@ -69,25 +69,25 @@ static int instantiate_lutn(const char *name,
 			    const char **argv)
 {
     struct inst_data *ip;
-    int i, inst_id;
+    int i, inst_id, retval;
 
     if ((pincount < 1) || (pincount > 5)) {
-	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: invalid parameter pincount=%d, valid range=1..5",
-		      name, pincount);
-	return -1;
+	HALERR("%s: invalid parameter pincount=%d, valid range=1..5",
+	       name, pincount);
+	return -EINVAL;
     }
     if ((function == 0) || (function == -1)) {
-	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: function=0x%x does not make sense",
-		      name, function);
-	return -1;
+	HALERR("%s: function=0x%x does not make sense",
+	       name, function);
+	return -EINVAL;
     }
 
-    if ((inst_id = hal_inst_create(name, comp_id,
+    if ((retval = hal_inst_create(name, comp_id,
 				  sizeof(struct inst_data) + pincount * sizeof(hal_bit_t *),
 				   (void **)&ip)) < 0)
-	return -1;
+	return retval;
+
+    inst_id = retval;
 
     HALDBG("name='%s' pincount=%d function=0x%x argc=%d",
 	   name, pincount, function, argc);
@@ -101,13 +101,13 @@ static int instantiate_lutn(const char *name,
     // export per-instance HAL objects
     const char *prefix = (strlen(iprefix) ? iprefix : "in");
     for (i = 0; i < ip->pincount; i++)
-	if (hal_pin_bit_newf(HAL_IN, &(ip->in[i]), inst_id, "%s.%s%d",
-			     name, prefix, i))
-	    return -1;
-    if (hal_pin_bit_newf(HAL_OUT, &(ip->out), inst_id, "%s.out", name))
-	return -1;
-   if (hal_export_functf(lutn, ip, 0, 0, inst_id, "%s", name))
-	return -1;
+	if ((retval = hal_pin_bit_newf(HAL_IN, &(ip->in[i]), inst_id, "%s.%s%d",
+				       name, prefix, i)) < 0)
+	    return retval;
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(ip->out), inst_id, "%s.out", name)) < 0)
+	return retval;
+    if ((retval = hal_export_functf(lutn, ip, 0, 0, inst_id, "%s", name)) < 0)
+	return retval;
     return 0;
 }
 
@@ -116,7 +116,7 @@ int rtapi_app_main(void)
 {
     comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate_lutn, NULL, compname);
     if (comp_id < 0)
-	return -1;
+	return comp_id;
 
     hal_ready(comp_id);
     return 0;
