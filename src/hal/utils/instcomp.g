@@ -905,10 +905,10 @@ def to_hal_man_unnumbered(s):
 
 
 def to_hal_man(s):
-    if options.get("singleton"):
-        s = "%s.%s" % (comp_name, s)
-    else:
-        s = "%s.\\fIN\\fB.%s" % (comp_name, s)
+#    if options.get("singleton"):
+#        s = "%s.%s" % (comp_name, s)
+#   else:
+    s = "%s.\\fIN\\fB.%s" % (comp_name, s)
     s = s.replace("_", "-")
     s = s.rstrip("-")
     s = s.rstrip(".")
@@ -917,7 +917,7 @@ def to_hal_man(s):
     return s
 
 def document(filename, outfilename):
-    return
+    #return
     ## don't process docs for now
 
     if outfilename is None:
@@ -951,10 +951,10 @@ def document(filename, outfilename):
             print >>f, rest
         else:
             print >>f, ".HP"
-            if options.get("singleton") or options.get("count_function"):
-                print >>f, ".B loadrt %s" % comp_name,
-            else:
-                print >>f, ".B loadrt %s [count=\\fIN\\fB|names=\\fIname1\\fB[,\\fIname2...\\fB]]" % comp_name,
+#            if options.get("singleton") or options.get("count_function"):
+#                print >>f, ".B loadrt %s" % comp_name,
+#            else:
+            print >>f, ".B loadrt %s [count=\\fIN\\fB|names=\\fIname1\\fB[,\\fIname2...\\fB]]" % comp_name,
             for type, name, default, doc in modparams:
                 print >>f, "[%s=\\fIN\\fB]" % name,
             print >>f
@@ -975,8 +975,8 @@ def document(filename, outfilename):
                     print >>f, doc
                 print >>f, ".RE"
 
-        if options.get("constructable") and not options.get("singleton"):
-            print >>f, ".PP\n.B newinst %s \\fIname\\fB" % comp_name
+#        if options.get("constructable") and not options.get("singleton"):
+#            print >>f, ".PP\n.B newinst %s \\fIname\\fB" % comp_name
 
     doc = finddoc('descr')
     if doc and doc[1]:
