@@ -497,7 +497,6 @@ HEADERS := \
     hal/lib/config_module.h \
     hal/lib/hal_group.h \
     hal/lib/hal.h \
-    hal/lib/hal_list.h \
     hal/lib/hal_internal.h \
     hal/lib/hal_iter.h \
     hal/lib/hal_list.h \
