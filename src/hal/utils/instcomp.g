@@ -349,46 +349,47 @@ static int comp_id;
     print >>f
 
 ############################  RTAPI_IP / MP declarations ########################################################
-    if not options.get("userspace"):
-        print >>f
-        for name, mptype, value in instanceparams:
-            if name == 'pincount':
+    if options.get("userspace"):
+        raise SystemExit, "instcomp does not support userspace components"
+    print >>f
+    for name, mptype, value in instanceparams:
+        if name == 'pincount':
+            if value != None:
+                numpins = int(value)
+        if name == 'maxpincount':
+            if value != None:
+                maxpins = int(value)
+                have_maxpins = True
+        if (mptype == 'int'):
+            if value == None: v = 0
+            else: v = value
+            print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
+            print >>f, "RTAPI_IP_INT(%s, \"Instance integer param '%s'\");\n" % (to_c(name), to_c(name))
+        else:
+            if name == 'iprefix':
                 if value != None:
-                    numpins = int(value)
-            if name == 'maxpincount':
-                if value != None:
-                    maxpins = int(value)
-                    have_maxpins = True
-            if (mptype == 'int'):
-                if value == None: v = 0
-                else: v = value
-                print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
-                print >>f, "RTAPI_IP_INT(%s, \"Instance integer param '%s'\");\n" % (to_c(name), to_c(name))
-            else:
-                if name == 'iprefix':
-                    if value != None:
-                        iprefix_string = to_noquotes(value)
-                        have_iprefix = 1
-                if value == None: strng = "\"\\0\"";
-                else: strng = value
-                print >>f, "static char *%s = %s;" % (to_c(name), strng)
-                print >>f, "RTAPI_IP_STRING(%s, \"Instance string param '%s'\");\n" % (to_c(name), to_c(name))
+                    iprefix_string = to_noquotes(value)
+                    have_iprefix = 1
+            if value == None: strng = "\"\\0\"";
+            else: strng = value
+            print >>f, "static char *%s = %s;" % (to_c(name), strng)
+            print >>f, "RTAPI_IP_STRING(%s, \"Instance string param '%s'\");\n" % (to_c(name), to_c(name))
 
 #  Still process these but don't advertise them
 
-        for name, mptype, value in moduleparams:
-            if (mptype == 'int'):
-                if value == None: v = 0
-                else: v = value
-                print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
-                print >>f, "RTAPI_MP_INT(%s, \"Module integer param '%s'\");\n" % (to_c(name), to_c(name))
-            else:
-                if value == None: strng = "\"\\0\"";
-                else: strng = value
-                print >>f, "static char *%s = %s;" % (to_c(name), strng)
-                print >>f, "RTAPI_MP_STRING(%s, \"Module string param '%s'\");\n" % (to_c(name), to_c(name))
+    for name, mptype, value in moduleparams:
+        if (mptype == 'int'):
+            if value == None: v = 0
+            else: v = value
+            print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
+            print >>f, "RTAPI_MP_INT(%s, \"Module integer param '%s'\");\n" % (to_c(name), to_c(name))
+        else:
+            if value == None: strng = "\"\\0\"";
+            else: strng = value
+            print >>f, "static char *%s = %s;" % (to_c(name), strng)
+            print >>f, "RTAPI_MP_STRING(%s, \"Module string param '%s'\");\n" % (to_c(name), to_c(name))
 
-################# struct declaration ##########################
+################ struct declaration ##########################
 
     def check_pincount(array):
         for name, mptype, value in instanceparams:
@@ -464,8 +465,8 @@ static int comp_id;
 
 ############## extra headers and forward defines of functions  ##########################
 
-    if options.get("userspace"):
-        print >>f, "#include <stdlib.h>"
+#    if options.get("userspace"):
+#        print >>f, "#include <stdlib.h>"
 
     print >>f
 
@@ -700,22 +701,22 @@ static int comp_id;
 
 ###########################  user_mainloop()  &  user_init()  ############################################
 
-    if options.get("userspace"):
-        print >>f, "static void user_mainloop(void);"
-        if options.get("userinit"):
-            print >>f, "static void userinit(int argc, char **argv);"
-        print >>f, "int argc=0; char **argv=0;"
-        print >>f, "int main(int argc_, char **argv_) {"
-        print >>f, "    argc = argc_; argv = argv_;"
-        print >>f
-        if options.get("userinit", 0):
-            print >>f, "    userinit(argc, argv);"
-        print >>f
-        print >>f, "    if(rtapi_app_main() < 0) return 1;"
-        print >>f, "    user_mainloop();"
-        print >>f, "    rtapi_app_exit();"
-        print >>f, "    return 0;"
-        print >>f, "}"
+#    if options.get("userspace"):
+#        print >>f, "static void user_mainloop(void);"
+#        if options.get("userinit"):
+#            print >>f, "static void userinit(int argc, char **argv);"
+#        print >>f, "int argc=0; char **argv=0;"
+#        print >>f, "int main(int argc_, char **argv_) {"
+#        print >>f, "    argc = argc_; argv = argv_;"
+#        print >>f
+#        if options.get("userinit", 0):
+#            print >>f, "    userinit(argc, argv);"
+#        print >>f
+#        print >>f, "    if(rtapi_app_main() < 0) return 1;"
+#        print >>f, "    user_mainloop();"
+#        print >>f, "    rtapi_app_exit();"
+#        print >>f, "    return 0;"
+#        print >>f, "}"
 
 #########################   delete()  ####################################################################
 
@@ -795,9 +796,9 @@ static int comp_id;
             print >>f, "#undef data"
             print >>f, "#define data (*(%s*)(ip->_data))" % options['data']
 
-        if options.get("userspace"):
-            print >>f, "#undef FOR_ALL_INSTS"
-            print >>f, "#define FOR_ALL_INSTS() for(ip = __comp_first_inst; ip; ip = ip->_next)"
+#        if options.get("userspace"):
+#            print >>f, "#undef FOR_ALL_INSTS"
+#            print >>f, "#define FOR_ALL_INSTS() for(ip = __comp_first_inst; ip; ip = ip->_next)"
     print >>f
     print >>f
 
@@ -831,25 +832,25 @@ def find_modinc():
 #
 #   NB. add patch that jepler rejected for extra link args
 
-def build_usr(tempdir, filename, mode, origfilename):
-    binname = os.path.basename(os.path.splitext(filename)[0])
+#def build_usr(tempdir, filename, mode, origfilename):
+#    binname = os.path.basename(os.path.splitext(filename)[0])
 
-    makefile = os.path.join(tempdir, "Makefile")
-    f = open(makefile, "w")
-    print >>f, "%s: %s" % (binname, filename)
-    print >>f, "\t$(CC) $(EXTRA_CFLAGS) -URTAPI -U__MODULE__ -DULAPI -Os %s -o $@ $< -Wl,-rpath,$(LIBDIR) -L$(LIBDIR) -llinuxcnchal %s" % (
-        options.get("extra_compile_args", ""),
-        options.get("extra_link_args", ""))
-    print >>f, "include %s" % find_modinc()
-    f.close()
-    result = os.system("cd %s && make -S %s" % (tempdir, binname))
-    if result != 0:
-        raise SystemExit, os.WEXITSTATUS(result) or 1
-    output = os.path.join(tempdir, binname)
-    if mode == INSTALL:
-        shutil.copy(output, os.path.join(BASE, "bin", binname))
-    elif mode == COMPILE:
-        shutil.copy(output, os.path.join(os.path.dirname(origfilename),binname))
+#    makefile = os.path.join(tempdir, "Makefile")
+#    f = open(makefile, "w")
+#    print >>f, "%s: %s" % (binname, filename)
+#    print >>f, "\t$(CC) $(EXTRA_CFLAGS) -URTAPI -U__MODULE__ -DULAPI -Os %s -o $@ $< -Wl,-rpath,$(LIBDIR) -L$(LIBDIR) -llinuxcnchal %s" % (
+#        options.get("extra_compile_args", ""),
+#        options.get("extra_link_args", ""))
+#    print >>f, "include %s" % find_modinc()
+#    f.close()
+#    result = os.system("cd %s && make -S %s" % (tempdir, binname))
+#    if result != 0:
+#        raise SystemExit, os.WEXITSTATUS(result) or 1
+#    output = os.path.join(tempdir, binname)
+#    if mode == INSTALL:
+#        shutil.copy(output, os.path.join(BASE, "bin", binname))
+#    elif mode == COMPILE:
+#        shutil.copy(output, os.path.join(os.path.dirname(origfilename),binname))
 
 #   build_rt  #######################################################################
 #
@@ -944,36 +945,36 @@ def document(filename, outfilename):
 
 
     print >>f, ".SH SYNOPSIS"
-    if options.get("userspace"):
-        print >>f, ".B %s" % comp_name
+#    if options.get("userspace"):
+#        print >>f, ".B %s" % comp_name
+#    else:
+    if rest:
+        print >>f, rest
     else:
-        if rest:
-            print >>f, rest
-        else:
-            print >>f, ".HP"
+        print >>f, ".HP"
 #            if options.get("singleton") or options.get("count_function"):
 #                print >>f, ".B loadrt %s" % comp_name,
 #            else:
-            print >>f, ".B loadrt %s [count=\\fIN\\fB|names=\\fIname1\\fB[,\\fIname2...\\fB]]" % comp_name,
-            for type, name, default, doc in modparams:
-                print >>f, "[%s=\\fIN\\fB]" % name,
-            print >>f
+        print >>f, ".B loadrt %s [count=\\fIN\\fB|names=\\fIname1\\fB[,\\fIname2...\\fB]]" % comp_name,
+        for type, name, default, doc in modparams:
+            print >>f, "[%s=\\fIN\\fB]" % name,
+        print >>f
 
-            hasparamdoc = False
-            for type, name, default, doc in modparams:
-                if doc: hasparamdoc = True
+        hasparamdoc = False
+        for type, name, default, doc in modparams:
+            if doc: hasparamdoc = True
 
-            if hasparamdoc:
-                print >>f, ".RS 4"
-                for type, name, default, doc in modparams:
-                    print >>f, ".TP"
-                    print >>f, "\\fB%s\\fR" % name,
-                    if default:
-                        print >>f, "[default: %s]" % default
-                    else:
-                        print >>f
-                    print >>f, doc
-                print >>f, ".RE"
+        if hasparamdoc:
+            print >>f, ".RS 4"
+            for type, name, default, doc in modparams:
+                print >>f, ".TP"
+                print >>f, "\\fB%s\\fR" % name,
+                if default:
+                    print >>f, "[default: %s]" % default
+                else:
+                    print >>f
+                print >>f, doc
+            print >>f, ".RE"
 
 #        if options.get("constructable") and not options.get("singleton"):
 #            print >>f, ".PP\n.B newinst %s \\fIname\\fB" % comp_name
@@ -1105,41 +1106,41 @@ def process(filename, mode, outfilename):
         a, b = parse(filename)
         f = open(outfilename, "w")
 
-        if options.get("userinit") and not options.get("userspace"):
-            print >> sys.stderr, "Warning: comp '%s' sets 'userinit' without 'userspace', ignoring" % filename
+#        if options.get("userinit") and not options.get("userspace"):
+#            print >> sys.stderr, "Warning: comp '%s' sets 'userinit' without 'userspace', ignoring" % filename
 
-        if options.get("userspace"):
-            if functions:
-                raise SystemExit, "Userspace components may not have functions"
+#        if options.get("userspace"):
+#            if functions:
+#                raise SystemExit, "Userspace components may not have functions"
         if not pins:
             raise SystemExit, "Component must have at least one pin"
         prologue(f)
         lineno = a.count("\n") + 3
 
-        if options.get("userspace"):
-            if functions:
-                raise SystemExit, "May not specify functions with a userspace component."
+#        if options.get("userspace"):
+#            if functions:
+#                raise SystemExit, "May not specify functions with a userspace component."
+#            f.write("#line %d \"%s\"\n" % (lineno, filename))
+#            f.write(b)
+#        else:
+        if not functions or "FUNCTION" in b:
             f.write("#line %d \"%s\"\n" % (lineno, filename))
             f.write(b)
+        elif len(functions) == 1:
+            f.write("FUNCTION(%s) {\n" % functions[0][0])
+            f.write("#line %d \"%s\"\n" % (lineno, filename))
+            f.write(b)
+            f.write("}\n")
         else:
-            if not functions or "FUNCTION" in b:
-                f.write("#line %d \"%s\"\n" % (lineno, filename))
-                f.write(b)
-            elif len(functions) == 1:
-                f.write("FUNCTION(%s) {\n" % functions[0][0])
-                f.write("#line %d \"%s\"\n" % (lineno, filename))
-                f.write(b)
-                f.write("}\n")
-            else:
-                raise SystemExit, "Must use FUNCTION() when more than one function is defined"
+            raise SystemExit, "Must use FUNCTION() when more than one function is defined"
         epilogue(f)
         f.close()
 
         if mode != PREPROCESS:
-            if options.get("userspace"):
-                build_usr(tempdir, outfilename, mode, filename)
-            else:
-                build_rt(tempdir, outfilename, mode, filename)
+#            if options.get("userspace"):
+#                build_usr(tempdir, outfilename, mode, filename)
+#            else:
+            build_rt(tempdir, outfilename, mode, filename)
 
     finally:
         shutil.rmtree(tempdir)
@@ -1150,12 +1151,15 @@ def usage(exitval=0):
 Usage:
            %(name)s [--compile|--preprocess|--document|--view-doc] compfile...
     [sudo] %(name)s [--install|--install-doc] compfile...
-           %(name)s --compile --userspace cfile...
-    [sudo] %(name)s --install --userspace cfile...
-    [sudo] %(name)s --install --userspace pyfile...
            %(name)s --print-modinc
 """ % {'name': os.path.basename(sys.argv[0])}
     raise SystemExit, exitval
+
+#           %(name)s --compile --userspace cfile...
+#    [sudo] %(name)s --install --userspace cfile...
+#    [sudo] %(name)s --install --userspace pyfile...
+
+
 
 #####################################  main  ##################################
 
@@ -1175,7 +1179,8 @@ def main():
 
     for k, v in opts:
         if k in ("-u", "--userspace"):
-            userspace = True
+            #userspace = True
+            raise SystemExit, "instcomp does not support userspace components"
         if k in ("-i", "--install"):
             mode = INSTALL
         if k in ("-c", "--compile"):
@@ -1245,10 +1250,10 @@ def main():
                 tempdir = tempfile.mkdtemp()
                 try:
                     shutil.copy(f, tempdir)
-                    if userspace:
-                        build_usr(tempdir, os.path.join(tempdir, os.path.basename(f)), mode, f)
-                    else:
-                        build_rt(tempdir, os.path.join(tempdir, os.path.basename(f)), mode, f)
+#                    if userspace:
+#                        build_usr(tempdir, os.path.join(tempdir, os.path.basename(f)), mode, f)
+#                    else:
+                    build_rt(tempdir, os.path.join(tempdir, os.path.basename(f)), mode, f)
                 finally:
                     shutil.rmtree(tempdir)
             else:
