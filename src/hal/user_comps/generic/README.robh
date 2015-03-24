@@ -1,0 +1,24 @@
+I assume master
+
+before building, in a separate dir:
+
+git clone https://github.com/stephane/libmodbus.git
+cd libmodbus
+./autogen.sh
+./configure
+make
+sudo make install
+
+The fact that the modbus library was installed is only picked up by linuxcnc src/configure, so run that again and build
+it should compile and link bin/generic
+
+- setup the drive for modbus comms, RTU mode, 19200, 8N1 (page43)
+- setup the drives for different slave addresses like 1,2,3... (page62 - Pn701 - MODBUS shaft address)
+- make sure those slave addresses are enumerated in multi-rs485.ini (TARGET=...)
+- edit device name in multi-rs485.ini
+
+- run explicitly with debug on like so to see if it does anything sensible:
+
+src/hal/user_comps/generic$ ../../../../bin/generic -I  multi-rs485.ini -d  -r
+
+- integrate  multi-rs485.ini into the linuxcnc ini file

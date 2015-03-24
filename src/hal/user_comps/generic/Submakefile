@@ -1,0 +1,19 @@
+MODNAME=generic
+DIRNAME=generic
+
+ifeq ($(HAVE_LIBMODBUS3),yes)
+
+GENMOD_SRCS = hal/user_comps/$(DIRNAME)/$(MODNAME).c
+GENMOD_CFLAGS = -DDEBUG $(LIBMODBUS_CFLAGS)
+GENMOD_LIBS = $(LIBMODBUS_LIBS)
+
+$(call TOOBJSDEPS, $(GENMOD_SRCS)) : EXTRAFLAGS += $(GENMOD_CFLAGS)
+
+USERSRCS += $(GENMOD_SRCS)
+../bin/$(MODNAME): $(call TOOBJS, $(GENMOD_SRCS)) ../lib/liblinuxcnchal.so.0 ../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(GENMOD_LIBS) 
+
+TARGETS += ../bin/$(MODNAME)
+endif
+
