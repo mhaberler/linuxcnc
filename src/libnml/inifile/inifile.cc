@@ -672,3 +672,24 @@ iniFindDouble(FILE *fp, const char *tag, const char *section, double *result)
     IniFile f(false, fp);
     return(f.Find(result, tag, section));
 }
+extern "C" const char *
+iniFindN(FILE *fp, const char *tag, const char *section, int num)
+{
+    IniFile f(false, fp);
+
+    return(f.Find(tag, section, num));
+}
+
+extern "C" const int
+iniFindIntN(FILE *fp, const char *tag, const char *section, int *result, int num)
+{
+    IniFile f(false, fp);
+    return(f.Find(result, tag, section, num));
+}
+
+extern "C" const int
+iniFindDoubleN(FILE *fp, const char *tag, const char *section, double *result, int num)
+{
+    IniFile f(false, fp);
+    return(f.Find(result, tag, section, num));
+}
