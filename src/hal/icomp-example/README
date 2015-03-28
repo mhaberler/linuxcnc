@@ -1,3 +1,6 @@
 demonstrates the HAL instantiation API
 
 doubles as unit test - see nosetests/unittest_icomp.py
+
+/converted_components 
+contains components added to show changes to convert old components to icomp components
