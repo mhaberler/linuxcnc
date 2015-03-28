@@ -95,7 +95,7 @@ static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
             "%s.out", name, j);
     if(r != 0) return r;
     // exporting an extended thread function:
-    hal_export_xfunct_args_t instxf =
+    hal_export_xfunct_args_t instxf = 
         {
         .type = FS_XTHREADFUNC,
         .funct.x = xthread_funct,
@@ -166,7 +166,7 @@ int rtapi_app_main(void)
         return -1;
 
     // exporting an extended thread function:
-    hal_export_xfunct_args_t xtf =
+    hal_export_xfunct_args_t xtf = 
         {
         .type = FS_XTHREADFUNC,
         .funct.x = xthread_funct,
@@ -234,14 +234,14 @@ struct inst_data *ip;
 #line 21 "lutn_inst.comp"
 
 
-FUNCTION(_)
+FUNCTION(_) 
 {
 int i;
 ip = arg;
 int shift = 0;
 
     for (i = 0; i < pincount; i++)
-	if (in(i))
+	if (in(i)) 
 	    shift += (1 << i);
 
     out = (function_hex & (1 << shift)) != 0;
@@ -256,3 +256,5 @@ int x;
 
     return 0;
 }
+
+

@@ -1,0 +1,21 @@
+component i_consttest "";
+
+license "GPL";
+
+// Input Pins
+pin in float in = 25.66;
+pin out float out;
+param rw s32 iter = 1234;
+
+function _;
+;;
+
+
+FUNCTION(_)
+{
+     ip = arg;
+// use the instance pointer passed in halinst_export_funct()
+
+    out = in;
+    iter++;
+}
