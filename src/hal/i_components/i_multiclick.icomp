@@ -1,7 +1,7 @@
 
 //
 //   This is a single-, double-, triple-, and quadruple-click detector
-//   component i_for LinuxCNC.
+//   component for Machinekit
 //
 //   Copyright 2012 Sebastian Kuzminsky <seb@highlab.com>
 //

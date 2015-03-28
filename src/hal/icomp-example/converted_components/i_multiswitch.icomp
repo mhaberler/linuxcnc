@@ -1,6 +1,6 @@
 /*******************************************************************************
 
-EMC2 HAL component i_to implement Multistate toggle switch
+Machinekit HAL component to implement Multistate toggle switch
 Authors ArcEye 15122011 schooner30@tiscali.co.uk / Andy Pugh andy@bodgesoc.org
 License GPL
 Copyright 2011 
@@ -15,12 +15,12 @@ net state1 multiswitch.0.state1 => parport.N.pin-nn-in
 net state1 multiswitch.0.state2 => parport.N.pin-nn-in
 net state1 multiswitch.0.state3 => parport.N.pin-nn-in
 
-If you require an "all off" state, then make the component i_one bit oversize and
+If you require an "all off" state, then make the component one bit oversize and
 don't connect the extra pin. 
 
 *******************************************************************************/
 
-component i_multiswitch           """This component i_toggles between a specified number of output bits""";
+component i_multiswitch           """This component toggles between a specified number of output bits""";
 
 pin in bit up = false           "Receives signal to toggle up";
 pin in bit down = false         "Receives signal to toggle down";
@@ -38,7 +38,7 @@ instanceparam string iprefix = "mswitch6";
 
 
 function _ ;
-option extra_setup yes;
+option extra_inst_setup yes;
 //option count_function yes;
 
 variable int old_up = 0;
