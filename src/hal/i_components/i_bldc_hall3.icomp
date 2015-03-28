@@ -1,7 +1,7 @@
 component i_bldc_hall3 
 """3-wire BLDC motor driver using Hall sensors and trapezoidal commutation.
-The functionality of this component i_is now included in the generic "bldc" 
-component. This component i_is likely to be removed in a future release""";
+The functionality of this component is now included in the generic "bldc" 
+component. This component is likely to be removed in a future release""";
 
 pin in bit hall1 "Hall sensor signal 1";
 pin in bit hall2 "Hall sensor signal 2";
@@ -159,7 +159,7 @@ _
 """;
 
 description """
-This component i_produces a 3-wire bipolar output. This suits upstream drivers 
+This component produces a 3-wire bipolar output. This suits upstream drivers 
 that interpret a negative input as a low-side drive and positive as a high-side 
 drive. This includes the Hostmot2 3pwmgen function, which is likely to be the 
 most common application of this component. 

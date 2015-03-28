@@ -39,7 +39,7 @@
  *
  ******************************************************************************/
 
-component i_lgantry "LinuxCNC HAL component i_for driving multiple joints from a single axis";
+component i_lgantry "LinuxCNC HAL component for driving multiple joints from a single axis";
 pin out float joint.##.pos-cmd [pincount] "Per-joint commanded position";
 pin in  float joint.##.pos-fb  [pincount] "Per-joint position feedback";
 pin in  bit   joint.##.home    [pincount] "Per-joint home switch";

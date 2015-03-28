@@ -1,4 +1,4 @@
-//   This is a component i_for EMC2 HAL
+//   This is a component for Machinekit
 //   Copyright 2006 John Kasunich <jmkasunich@users.sourceforge.net>
 //
 //   This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@ param rw bit rising=TRUE "Trigger on rising edge";
 param rw bit falling=FALSE "Trigger on falling edge";
 
 option data internal;
-option extra_setup yes;
+option extra_inst_setup yes;
 
 function _ "Produce output pulses from input edges";
 license "GPL";
@@ -46,7 +46,7 @@ typedef struct {
     char old_in;
 } internal;
 
-EXTRA_SETUP(){
+EXTRA_INST_SETUP(){
     data.timer = 0.0;
     data.old_in = 0;
     return 0;

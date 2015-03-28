@@ -61,7 +61,7 @@ param rw float s1 = 0.0;
 param rw float s2 = 0.0;
 
 option data Internal;
-option extra_setup;
+option extra_inst_setup;
 
 function _;
 
@@ -91,7 +91,7 @@ typedef struct {
 } Internal;
 
 
-EXTRA_SETUP()
+EXTRA_INST_SETUP()
 {
     data.lastEnable = 0;
 
