@@ -90,12 +90,12 @@ The homing input must be connected to the axis homing output motion in order to 
 the gantry component. When the axis is not homing latching will not be activated.
 """;
 license "GPL";
-variable float offset[7] = 0.0;
+variable float offset[pincount] = 0.0;
 variable float prev_cmd = 0.0;
 variable int   fb_joint = 0;
-variable int   prev_home[7] = 0;
-variable int   curr_home[7] = 0;
-variable float pos_fb_target[7] = 0.0;
+variable int   prev_home[pincount] = 0;
+variable int   curr_home[pincount] = 0;
+variable float pos_fb_target[pincount] = 0.0;
 ;;
 FUNCTION(read) {
     int i;
