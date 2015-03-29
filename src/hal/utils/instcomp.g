@@ -219,7 +219,6 @@ def param(name, type, array, dir, doc, value):
     params.append((name, type, array, dir, value))
 
 def instanceparam(name, type, doc, value):
-#    checkarray(name, array)
     type = type2type(type)
     check_name_ok(name)
     docs.append(('instanceparam', name, type, doc, value))
@@ -231,7 +230,6 @@ def instanceparam(name, type, doc, value):
 ##  module could be a working rt module if required
 
 def moduleparam(name, type, doc, value):
-#    checkarray(name, array)
     type = type2type(type)
     check_name_ok(name)
     docs.append(('moduleparam', name, type, doc, value))
@@ -278,6 +276,7 @@ def to_c(name):
 def to_noquotes(name):
     name = name.replace("\"", "")
     return name
+    
 
 ##################### Start ########################################
 
@@ -308,18 +307,23 @@ def prologue(f):
 
 static int comp_id;
 """
-##  pincount maxpins and iprefix are reserved instanceparam names
+##  pincount, maxpins and iprefix are reserved instanceparam names
 ##
-##  local holds iprefix
+    global have_iprefix
     have_iprefix = False
+    global iprefix_string
     iprefix_string = ""
-## local holds maxpins
+
+    global maxpins
     maxpins = 0
+    global have_maxpins
     have_maxpins = False
-## local holds pincount
+    
+    global numpins
     numpins = 0
+    global have_numpins
     have_numpins = False
-##  other instanceparam int values just go in list
+    # lists of array size specifiers and values
     iplist = []
     ipvlist = []
     
@@ -369,6 +373,8 @@ static int comp_id;
 
     print >>f
 
+###  Get the values from the instanceparams ############################################################
+
     for name, mptype, value in instanceparams:
         if (name == 'pincount') or (name == 'maxpincount') or (name == 'iprefix'):
             if name == 'pincount':
@@ -397,8 +403,82 @@ static int comp_id;
                 if value == None: v = 0
                 else: v = int(value)
                 ipvlist.append(v)
-          
-############################  RTAPI_IP / MP declarations ########################################################
+
+############################################################################################################
+##  Helper functions
+
+    def StrIsInt(s):
+        try: 
+            int(s)
+            return True
+        except ValueError:
+            return False
+            
+    def get_varval(array):
+        m = 0
+        q = 0
+        global maxpins
+        if (len(iplist)) :
+            while (m < len(iplist)) :
+                if iplist[m] == array :
+                    q = ipvlist[m]
+                    if have_maxpins and q > maxpins:
+                        q = maxpins
+                    return q
+                else :   
+                    if StrIsInt(array) :
+                        q = int(array)
+                        if q > maxpins :
+                            q = maxpins
+                        return q
+                m += 1
+                
+    def setmax(array) :
+        m = 0
+        q = 0
+        global maxpins
+        if array == None : return
+        if (len(iplist)) :
+            while (m < len(iplist)) :
+                # if initialiser is name string
+                if iplist[m] == array :
+                    if ipvlist[m] > maxpins :
+                        maxpins = ipvlist[m] 
+                # or if it is just an int
+                else :   
+                    if StrIsInt(array) :
+                        q = int(array)
+                        if q > maxpins :
+                            maxpins = q       
+                m += 1
+                        
+############################################################################## 
+#  Set maxpins to highest value used as array size specifier
+#  All arrays are set to this size, allowing any <= values in instances
+#  preventing any array overruns
+##############################################################################
+
+#  if numpins and or maxpins specified
+    if have_numpins and (not have_maxpins) :
+        maxpins = numpins
+        have_maxpins = True
+    if numpins > maxpins :
+        numpins = maxpins
+
+#  if value of any array sizing param is higher than maxpins - reset maxpins   
+    for name, type, array, dir, value in pins:
+        setmax(array)
+                    
+    for name, type, array, dir, value in params:
+        setmax(array)
+                        
+    for type, name, array, value in variables:
+        setmax(array)
+                                 
+    if maxpins :
+        have_maxpins = True
+
+############################  RTAPI_IP / MP declarations ########################
                 
     for name, mptype, value in instanceparams:            
         if (mptype == 'int'):
@@ -428,51 +508,20 @@ static int comp_id;
 
 ################ struct declaration ##########################
 
-    def get_varval(array):
-        m = 0
-        q = 0
-        if (len(iplist)) :
-            while (m < len(iplist)) :
-                if iplist[m] == array :
-                    q = ipvlist[m]
-                    if have_maxpins and q > maxpins:
-                        q = maxpins
-                    return q
-                m += 1;
-                
-    def StrIsInt(s):
-        try: 
-            int(s)
-            return True
-        except ValueError:
-            return False
+
 
     print >>f, "struct inst_data\n    {"
 
     for name, type, array, dir, value in pins:
         if array:
-            if StrIsInt(array):
-                print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), int(array) )
-            else :
-                q = 0
-                q = get_varval(array)
-                if q == 0 :
-                    raise SystemExit, "pin array %s cannot have size 0" % to_c(name)
-                print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), int(q) )
+            print >>f, "    hal_%s_t *%s[%s];" % (type, to_c(name), maxpins ) 
         else:
             print >>f, "    hal_%s_t *%s;" % (type, to_c(name))
         names[name] = 1
 
     for name, type, array, dir, value in params:
         if array:
-            if StrIsInt(array):
-                print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), int(array) )
-            else :
-                q = 0
-                q = get_varval(array)
-                if q == 0 :
-                    raise SystemExit, "param array %s cannot have size 0" % to_c(name)
-                print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), int(q) )
+            print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), maxpins) 
         else:
             print >>f, "    hal_%s_t %s;" % (type, to_c(name)) 
         names[name] = 1
@@ -480,14 +529,7 @@ static int comp_id;
 
     for type, name, array, value in variables:
         if array:
-            if StrIsInt(array):
-                print >>f, "    %s %s[%d];\n" % (type, name, int(array))
-            else :
-                q = 0
-                q = get_varval(array)
-                if q == 0 :
-                    raise SystemExit, "variable array %s cannot have size 0" % to_c(name)
-                print >>f, "    %s %s[%d];\n" % (type, name, int(q))
+            print >>f, "    %s %s[%d];\n" % (type, name, maxpins )
         else:
             print >>f, "    %s %s;\n" % (type, name)
     if has_data:
@@ -559,18 +601,16 @@ static int comp_id;
     print >>f, "    char buf[HAL_NAME_LEN + 1];"
     print >>f, "    int r = 0;"
     print >>f, "    int j = 0;"
+    print >>f, "    int z = 0;"
+    
     if has_data:
         print >>f, "    ip->_data = (char*)ip + sizeof(struct inst_data);"
 
     for name, type, array, dir, value in pins:
         if array:
-            if StrIsInt(array):
-                print >>f, "    for(j=0; j < %d; j++)\n        {" % int(array)
-            else :
-                q = 0
-                q = get_varval(array)
-                print >>f, "    for(j=0; j < %d; j++)\n        {" % int(q)
-                
+            print >>f, "    z = %s;" % array
+            print >>f, "    if(z > maxpins)\n       z = maxpins;"
+            print >>f, "    for(j=0; j < z; j++)\n        {" 
             print >>f, "        r = hal_pin_%s_newf(%s, &(ip->%s[j]), owner_id," % (type, dirmap[dir], to_c(name))
             print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
             print >>f, "        if(r != 0) return r;"
@@ -586,13 +626,9 @@ static int comp_id;
 
     for name, type, array, dir, value in params:
         if array:
-            if StrIsInt(array):
-                print >>f, "    for(j=0; j < %d; j++)\n        {" % int(array)
-            else :
-                q = 0
-                q = get_varval(array)
-                print >>f, "    for(j=0; j < %d; j++)\n        {" % int(q)
-        
+            print >>f, "    z = %s;" % array
+            print >>f, "    if(z > maxpins)\n       z = maxpins;"
+            print >>f, "    for(j=0; j < z; j++)\n        {" 
             print >>f, "        r = hal_param_%s_newf(%s, &(ip->%s[j]), owner_id," % (type, dirmap[dir], to_c(name))
             print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
             print >>f, "        if(r != 0) return r;"
@@ -609,12 +645,9 @@ static int comp_id;
     for type, name, array, value in variables:
         if value is None: continue
         if array:
-            if StrIsInt(array):
-                print >>f, "    for(j=0; j < %s; j++)\n       {" % array
-            else :
-                q = 0
-                q = get_varval(array)
-                print >>f, "    for(j=0; j < %s; j++)\n       {" % int(q)
+            print >>f, "    z = %s;"  % array
+            print >>f, "    if(z > maxpins)\n       z = maxpins;"
+            print >>f, "    for(j=0; j < z; j++)\n       {"
             print >>f, "        ip->%s[j] = %s;" % (name, value)
             print >>f, "        }\n"
         else:
@@ -897,9 +930,6 @@ def to_hal_man_unnumbered(s):
 
 
 def to_hal_man(s):
-#    if options.get("singleton"):
-#        s = "%s.%s" % (comp_name, s)
-#   else:
     s = "%s.\\fIN\\fB.%s" % (comp_name, s)
     s = s.replace("_", "-")
     s = s.rstrip("-")
@@ -936,16 +966,10 @@ def document(filename, outfilename):
 
 
     print >>f, ".SH SYNOPSIS"
-#    if options.get("userspace"):
-#        print >>f, ".B %s" % comp_name
-#    else:
     if rest:
         print >>f, rest
     else:
         print >>f, ".HP"
-#            if options.get("singleton") or options.get("count_function"):
-#                print >>f, ".B loadrt %s" % comp_name,
-#            else:
         print >>f, ".B loadrt %s [count=\\fIN\\fB|names=\\fIname1\\fB[,\\fIname2...\\fB]]" % comp_name,
         for type, name, default, doc in modparams:
             print >>f, "[%s=\\fIN\\fB]" % name,
@@ -966,9 +990,6 @@ def document(filename, outfilename):
                     print >>f
                 print >>f, doc
             print >>f, ".RE"
-
-#        if options.get("constructable") and not options.get("singleton"):
-#            print >>f, ".PP\n.B newinst %s \\fIname\\fB" % comp_name
 
     doc = finddoc('descr')
     if doc and doc[1]:
