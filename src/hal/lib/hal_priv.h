@@ -399,7 +399,7 @@ typedef struct {
 
 // signatures
 typedef void (*legacy_funct_t) (void *, long);
-typedef int  (*xthread_funct_t) (const void *, const hal_funct_args_t *);
+typedef int  (*xthread_funct_t) (void *, const hal_funct_args_t *);
 typedef int  (*userland_funct_t) (const hal_funct_args_t *);
 
 typedef union {
