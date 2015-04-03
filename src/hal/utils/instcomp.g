@@ -19,7 +19,7 @@
 #    Adapted and rewritten in part for instantiatable components
 #    ArcEye March 2015 <arceyeATmgwareDOTcoDOTuk>
 
-import os, sys, tempfile, shutil, getopt, time
+import os, sys, tempfile, shutil, getopt, time, fnmatch
 BASE = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), ".."))
 sys.path.insert(0, os.path.join(BASE, "lib", "python"))
 
@@ -284,6 +284,13 @@ def prologue(f):
 
     if options.get("userspace"):
         raise SystemExit, "instcomp does not support userspace components"
+    
+    if not functions :
+        raise SystemExit, """\
+                        Component code must declare a function. \
+                        For single functions the default  \
+                        function _; declaration is fine. \
+                        Multiple functions must be uniquely named."""
         
     if options.get("singleton"):
         print " 'option singleton' has no effect in a instantiated component"
@@ -529,9 +536,9 @@ static int comp_id;
 
     for type, name, array, value in variables:
         if array:
-            print >>f, "    %s %s[%d];\n" % (type, name, maxpins )
+            print >>f, "    %s %s[%d];" % (type, name, maxpins )
         else:
-            print >>f, "    %s %s;\n" % (type, name)
+            print >>f, "    %s %s;" % (type, name)
     if has_data:
         print >>f, "    void *_data;"
 
@@ -552,7 +559,7 @@ static int comp_id;
     for name, fp in functions:
         if names.has_key(name):
             Error("Duplicate item name: %s" % name)
-        print >>f, "static void %s(void *arg, long period);\n" % to_c(name)
+        print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % to_c(name)
         names[name] = 1
     data = options.get('data')
     if(data) :
@@ -653,19 +660,26 @@ static int comp_id;
         else:
             print >>f, "    ip->%s = %s;" % (name, value)
 
-    print >>f, "    // exporting an extended thread function:"
-    print >>f, "    hal_export_xfunct_args_t instxf = "
-    print >>f, "        {"
-    print >>f, "        .type = FS_XTHREADFUNC,"
-    print >>f, "        .funct.x = xthread_funct,"
-    print >>f, "        .arg = \"x-instance-data\","
-    print >>f, "        .uses_fp = 0,"
-    print >>f, "        .reentrant = 0,"
-    print >>f, "        .owner_id = owner_id"
-    print >>f, "        };\n"
-
+# TODO
+#     need to insert the funct name and make required number of calls
+#     use 'functions' to get the names
+# for name, fp in functions:
+#        if names.has_key(name):
+#            Error("Duplicate item name: %s" % name)
+#        print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % to_c(name)
     for name, fp in functions:
-        print >>f, "    instxf.uses_fp = %d;" % int(fp)
+        print >>f, "    // exporting an extended thread function:"
+        print >>f, "    hal_export_xfunct_args_t %s_xf = " % to_c(name)
+        print >>f, "        {"
+        print >>f, "        .type = FS_XTHREADFUNC,"
+        print >>f, "        .funct.x = (void *)%s," % to_c(name)
+        print >>f, "        .arg = ip,"
+        print >>f, "        .uses_fp = %d," % int(fp)
+        print >>f, "        .reentrant = 0,"
+        print >>f, "        .owner_id = owner_id"
+        print >>f, "        };\n"
+    
+#        print >>f, "    %s_xf.uses_fp = %d;" % ( to_c(name), int(fp))
         strng =  "    rtapi_snprintf(buf, sizeof(buf),\"%s."
         if (name == "" or name == "_" or name == " ") :
             strng += "xthread-funct\", name);"
@@ -673,7 +687,7 @@ static int comp_id;
             strng += "%s.xthread-funct\", name);" % (to_hal(name))
         print >>f, strng
 
-        print >>f, "    r = hal_export_xfunctf(&instxf, buf, name);"
+        print >>f, "    r = hal_export_xfunctf(&%s_xf, buf, name);" % to_c(name)
         print >>f, "    if(r != 0)\n        return r;"
 
     print >>f, "    return 0;"
@@ -748,7 +762,7 @@ static int comp_id;
     print >>f, "    hal_export_xfunct_args_t xtf = "
     print >>f, "        {"
     print >>f, "        .type = FS_XTHREADFUNC,"
-    print >>f, "        .funct.x = xthread_funct,"
+    print >>f, "        .funct.x = (void *) xthread_funct,"
     print >>f, "        .arg = \"x-instance-data\","
     print >>f, "        .uses_fp = 0,"
     print >>f, "        .reentrant = 0,"
@@ -808,12 +822,12 @@ static int comp_id;
 ######################  preliminary defines before user FUNCTION(_) ######################################
 
     print >>f
-    print >>f, "struct inst_data *ip;\n"
+ #   print >>f, "struct inst_data *ip;\n"
 
     print >>f
     if not options.get("no_convenience_defines"):
         print >>f, "#undef FUNCTION"
-        print >>f, "#define FUNCTION(name) static void name(void *arg, long period)"
+        print >>f, "#define FUNCTION(name) static int name(void *arg, const hal_funct_args_t *fa)"
         if options.get("extra_inst_setup"):
             print >>f, "// if the extra_inst_setup returns non zero it will abort the module creation"
             print >>f, "#undef EXTRA_INST_SETUP"
@@ -1114,7 +1128,7 @@ def process(filename, mode, outfilename):
             else:
                 outfilename = os.path.join(tempdir,
                     os.path.splitext(os.path.basename(filename))[0] + ".c")
-
+        # a contains before '\n;;\n' and b after
         a, b = parse(filename)
         f = open(outfilename, "w")
 
@@ -1123,12 +1137,50 @@ def process(filename, mode, outfilename):
         prologue(f)
         lineno = a.count("\n") + 3
 
-        if not functions or "FUNCTION" in b:
-            f.write("#line %d \"%s\"\n" % (lineno, filename))
-            f.write(b)
+        #   parse the remainder of the file to add the function prelims
+        have_func = False
+        insert = False
+        
+        if "FUNCTION" in b:
+            c = ""
+            f.write("#line %d \"%s\"\n" % (lineno, filename))  
+            linelist = b.split("\n")
+            z = len(linelist)
+            y = 0
+            while(y < z) :
+                q = linelist[y]
+                if have_func :
+                    if "{" in q:
+                        have_func = False
+                        insert = True
+                else :
+                    if "FUNCTION" in q and not "{" in q:
+                        have_func = True
+                    else :
+                        if "FUNCTION" in q and "{" in q:
+                            insert = True
+                if insert :
+                    g,h = q.split("{")
+                    c += g
+                    c += "{"
+                    c += "\nlong period __attribute__((unused)) = fa_period(fa);\n"
+                    c += "struct inst_data *ip = arg;\n\n"
+                    c += h
+                    insert = False
+                else :
+                    c += q
+                    c += "\n"
+
+                y = y + 1
+                
+            f.write(c)
+            
+        # if the code is loose because there is just one function
         elif len(functions) == 1:
-            f.write("FUNCTION(%s) {\n" % functions[0][0])
-            f.write("#line %d \"%s\"\n" % (lineno, filename))
+            f.write("FUNCTION(%s)\n{\n" % functions[0][0])
+            f.write("long period __attribute__((unused)) = fa_period(fa);\n")
+            f.write("struct inst_data *ip = arg;\n\n")
+            f.write("#line %d \"%s\"\n" % (lineno, filename))            
             f.write(b)
             f.write("}\n")
         else:

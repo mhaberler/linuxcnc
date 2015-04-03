@@ -4,108 +4,223 @@
 
 == Introduction
 
-instcomp is the Machinekit component compiler for instantiable components
+instcomp is the Machinekit component compiler for instantiable components (.icomp)
 
-This manual describes its operation in respect to how it differs from comp / halcompile, 
+This manual describes its operation in respect to how it differs from comp, 
 the default inherited Linuxcnc component compiler.
 
 A familiarity with comp is therefore necessary and assumed.
 
-To differentiate between instantiated components and normal rt components all 
-instantiate components are prefixed with i_<componentname>
-
-The comp file has the extension .icomp
-
-This will allow both types of component and comp file to co-exist without name clashes
-or the chance of using the wrong processing and building script ( comp v instcomp )
-
 The essential difference between normal realtime components and instantiable components
-is................................
+is......KILLER EXPLANATION HERE..........................
+
+== Naming Conventions
+
+All instantiable components are named to differentiate them from normal components
+
+The component files have the extension *'.icomp'*
+
+The component is prefixed with *i_*
+
+eg
+
+*'i_ddt.icomp'*  is the component file
+
+produces a component called
+
+*'i_ddt'*
 
 == Definitions
 
-* 'component' - A component is a single real-time base module, which is loaded with 'halcmd
-    loadrt'. One '.comp' file specifies one component.
+=== component - 
+A component is a single real-time base module, which is loaded with 'halcmd loadrt'. 
 
-* 'newinstance' - 
-    Each instance of a component created with a call to newinst.
-    It is created roughly equal (they all have the same functions, and data) 
-    in basic configuration, but with greater or lesser numbers of pins or parameters, different names etc
-    New instances can be created ad hoc for the use at that time and another differing one created at a later stage.
+One '.icomp' file specifies one component.
+
+=== newinstance - 
+Each instance of a component created with a call to *'newinst'*
+
+It is created roughly equal (they all have the same functions, and data) 
+
+in basic configuration, but with greater or lesser numbers of pins or parameters, different names etc
+    
+New instances can be created ad hoc, one for the use at this time and another differing instance created at a later stage.
+
+=== function -
+The function is the part of the code that is attached to a thread and called at every thread period
+    
+You MUST declare at least one function in the declaration part of the icomp file above the *';;'* delimiters
+
+In this instcomp differs from comp
+    
+eg.
+    
+*'function _;'*
+
+*';;'*
+    
+This is perfectly sufficient where there is just one function
+    
+If there are more than one function, they must all be declared and uniquely named
+    
+eg.
+    
+*'function read nofp;'*
+    
+*'function write;'*
+
+*';;'*
+    
+The function is exported as a xthread function.
+    
+The following accessors are available within the function:
+    
+        fa_period(fa) - formerly 'long period'"
+    
+        fa_thread_start_time(fa): _actual_ start time of thread invocation"
+    
+        fa_start_time(fa): _actual_ start time of function invocation"
+    
+        fa_thread_name(fa): name of the calling thread (char *)"
+    
+        fa_funct_name(fa): name of the this called function (char *)"
+        
+    
+The function will have the suffix *xthread-funct*
+    
+eg
+    
+*'i_ddt.xthread-funct'*
+
 
 == Instance creation
 
-'loadrt somecomponent'
+*'loadrt i_somecomponent'*
 
 Loads the component base making it ready for instantiation
 
-'newinst somecomponent somecomp1 <iprefix=""> <pincount=0> extra_arg1 extra_arg2 ......'
+*'newinst i_somecomponent somecomp <iprefix=""> <pincount=0> <other_instanceparam=> extra_arg1 extra_arg2 ......'*
 
-Creates a new instance of somecomponent called somecomp1
+Creates a new instance of i_somecomponent called somecomp
 
 If iprefix is supplied, it overrules any iprefix set in the .comp file and is the prefix for all pin, param and thread names for that instance.
-Thus a component xor_inst that returns the xor value of a value passed to its IN pins, in its OUT pins, could be instantiated
-as xor2, xor4, xor6 etc by setting the iprefix to the name reflecting its use and setting pincount to the relevant number
 
-'pincount' is the reserved instance parameter name, which can be used as a numerator and index for arrays
+Thus a component i_xor_inst that returns the xor value of a value passed to its IN pins, in its OUT pins, could be instantiated
+as i_xor2, i_xor4, i_xor6 etc by setting the iprefix to the name reflecting its use and setting pincount to the relevant number
+
+Generally however it will be easier just to name the instance relevantly and leave the instanceparam iprefix empty in the .icomp file
+
+eg
+
+*'newinst i_somecomponent somecomp8 pincount=8'*
+
+then
+
+*'addf somecomp8.xthread-funct servo-thread'*
+
+adds the function to a thread
+
+== Reserved declarations etc.
+
+=== 'pincount' 
+is the reserved instance parameter name, which can be used as a numerator and index for arrays
 
 Setting in the comp file:-
 
+*'instanceparam int pincount = 8;'*
+
+It can be used directly in the icomp file header as an array index size specifier
+
+eg
+
 pin in float in-##[pincount];
 
-instanceparam int maxpincount = 32;
+or in the function
 
-instanceparam int pincount = 8;
+for( x = 0; x < pincount; x++)
+    {
+    // do stuff
+    }
+
+=== 'maxpincount'
+is the reserved instance parameter name, which sets the maximum pins allowed to be created
+
+It can only be set in the icomp header itself and cannot be altered
+
+If it is not set in the icomp file, it will be computed based upon the highest array size specifier given
+or pincount, whichever is greater
+
+eg.
+
+*'instanceparam int maxpincount = 32;'*
+
+*'instanceparam int pincount = 8;'*
 
 will create a default number of 8 in pins, up to a max of 32
 If maxpincount is not set in the comp file, the maxpincount will be set to 8.
 
-If pincount is supplied as an argument to the newinst call, it overrules the preset number of pins in arrays using 'pinprefix' as an index, 
-up to a maximum (maxpincount) which was set in the .comp file and fixed when the component base was loaded
+If pincount is supplied as an argument to the newinst call, 
+
+it overrules the preset number of pins in arrays using 'pinprefix' as an index, 
+
+up to a maximum (maxpincount) which was set in the .comp file and fixed when the component base was compiled
+
+=== 'iprefix'
+is the reserved instance parameter name, which sets the prefix to the new instance name
+
+example as previous in Instance Creation
+
+== Extra args
 
 Any additional args which do not match the RTAPI_IP_PARAM parameters expected, are passed through the argc / argv mechanism to the new component
 
 Using in the comp file:-
 
-option extra_inst_setup; 
+'*option extra_inst_setup; '*
 
-allows you to create a function in your component, EXTRA_INST_SETUP, which will receive the argc / argv data.
+allows you to create a function in your component, EXTRA_INST_SETUP(), which will receive the argc / argv data.
 You can the parse and act upon extra arguments passed before the component is set 'ready'
+
 A return value other than zero from this function will abort instance creation.
+
+See the i_lutn example
 
 
 == Syntax and Options differences
 
 Some syntax and options are deprecated.
 
-*   'personality' has no meaning in these components, since instances are created singly and externally rather than within the component
+*   *'personality'* has no meaning in these components, since instances are created singly and externally rather than within the component
 
-*   'singleton'  likewise not used, as all instances are single, but there can be multiple numbers of them
-                If your component must only have one instance in existence, use the comp compiler, there is no point in using instcomp.
+*   *'singleton'*  likewise not used, as all instances are single, but there can be multiple numbers of them
+
+    If your component must only have one instance in existence, use the comp compiler, there is no point in using instcomp.
+
+    If you declare it you will get a warning but compilation will continue
                 
-*   'count'     Not used for the same reason as personality, only one instance is created at a time 
+*   *'count'*     Not used for the same reason as personality, only one instance is created at a time 
 
-*   'names'     Just a synonym for count really, same comments apply
+*   *'names'*     Just a synonym for count really, same comments apply
 
-*   'userspace'  No support for userspace at this time, use the comp / halcompile compiler                
+*   *'userspace'*  No support for userspace at this time, use the comp / halcompile compiler                
 
 
 == Options
 
 The differing options are:
 
-* 'option extra_inst_setup yes' - (default: no)
+* *'option extra_inst_setup yes'* - (default: no)
    If specified, call the function defined by 'EXTRA_INST_SETUP' for each
    instance. 
    argc and argv are passed to this function, so it is a good place to parse
    additional arguments passed to the component in the newinst call
 
-* 'option extra_cleanup yes' - (default: no)
+* *'option extra_cleanup yes'* - (default: no)
    If specified, call the function defined by 'EXTRA_INST_CLEANUP' from the
    automatically defined 'rtapi_app_exit', or if an error is detected
    in the automatically defined 'rtapi_app_main'.
 
-* 'instanceparam [int / string] param_name = <value>
+* *'instanceparam [int / string] param_name = <value>'*
     Instanceparams that may be passed to the component at newinst
     If value not set, will be set to 0 or "\0" respectively
 
@@ -117,7 +232,7 @@ name, instcomp does not.
 Variable and function names that can not be used or are likely to cause
 problems include:
 
-* Anything beginning with '__instcomp_'.
+* Anything beginning with 'inst'
 
 * 'comp_id'
 
@@ -151,7 +266,7 @@ Same syntax and options as comp, just use instcomp instead.
 Best form of explanation, below are 3 components demonstrating the
 differing option usages etc.
 
-=== constant
+=== i_constant
 
 Note this component is no different to the standard component.
 The C code that is created is different and allows instantiation
@@ -160,7 +275,7 @@ preset an iprefix for the default pin numbers, it all looks the same
 
 [source,c]
 ----
-component constant_inst "Use a parameter to set the value of a pin";
+component i_constant_inst "Use a parameter to set the value of a pin";
 pin out float out;
 param rw float value;
 
@@ -172,7 +287,7 @@ FUNCTION(_) {
 }
 ----
 
-=== multiswitch
+=== i_multiswitch
 
 This component uses an array of bit pins indexed with pincount
 Maximum number of pins are 32 and the default is 6, 
@@ -184,7 +299,7 @@ before entering the main loop
 [source,c]
 
 ----
-component multiswitch_inst           """This component toggles between a specified number of output bits""";
+component i_multiswitch_inst           """This component toggles between a specified number of output bits""";
 
 pin in bit up = false           "Receives signal to toggle up";
 pin in bit down = false         "Receives signal to toggle down";
@@ -237,7 +352,7 @@ EXTRA_INST_SETUP(){
 
 ----
 
-=== lutn
+=== i_lutn
 
 This component has the same instanceparam features as before,
 with an extra instanceparam defined - functn which takes a hex value
@@ -255,7 +370,7 @@ through the argc / argv mechanism and printed in extra_inst_setup()
 
 
 
-component lutn_inst "instantiable lookup table component with configurable number of pins";
+component i_lutn "instantiable lookup table component with configurable number of pins";
 
     // Input Pins
 pin in bit in-##[pincount];
@@ -281,7 +396,6 @@ function _;
 FUNCTION(_) 
 {
 int i;
-ip = arg;
 int shift = 0;
 
     for (i = 0; i < pincount; i++)

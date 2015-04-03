@@ -76,7 +76,7 @@ license "GPL";
 #define PI                      3.141592653589
 
 
-void                            Biquad_CalcCoeffs(unsigned long period);
+void Biquad_CalcCoeffs(void *arg, unsigned long period);
 
 
 typedef enum {
@@ -105,7 +105,7 @@ FUNCTION(_)
         data.lastEnable = enable;
 
         if(enable)
-            Biquad_CalcCoeffs(period);
+            Biquad_CalcCoeffs(arg, period);
     }
 
     if(!enable || !valid){
@@ -120,8 +120,10 @@ FUNCTION(_)
 
 
 void
-Biquad_CalcCoeffs(unsigned long period)
+Biquad_CalcCoeffs(void *arg, unsigned long period)
 {
+struct inst_data *ip = arg;
+
     double                      sampleRate, w0, alpha;
     double                      b0, b1, b2, a0, a1, a2;
 
