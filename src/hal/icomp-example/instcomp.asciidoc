@@ -86,11 +86,11 @@ The following accessors are available within the function:
         fa_funct_name(fa): name of the this called function (char *)"
         
     
-The function will have the suffix *xthread-funct*
+The function will have the suffix *funct*
     
 eg
     
-*'i_ddt.xthread-funct'*
+*'i_ddt.funct'*
 
 
 == Instance creation
@@ -116,7 +116,7 @@ eg
 
 then
 
-*'addf somecomp8.xthread-funct servo-thread'*
+*'addf somecomp8.funct servo-thread'*
 
 adds the function to a thread
 

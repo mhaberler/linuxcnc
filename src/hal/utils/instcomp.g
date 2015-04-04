@@ -586,9 +586,9 @@ static int comp_id;
 
     print >>f
 
-###################################  xthread_funct()  #######################################
+###################################  funct()  #######################################
 
-    print >>f, "static int xthread_funct(const void *arg, const hal_funct_args_t *fa)\n{"
+    print >>f, "static int funct(const void *arg, const hal_funct_args_t *fa)\n{"
     print >>f, "long period __attribute__((unused)) = fa_period(fa);\n"
 
     print >>f, "    // the following accessors are available here:"
@@ -682,9 +682,9 @@ static int comp_id;
 #        print >>f, "    %s_xf.uses_fp = %d;" % ( to_c(name), int(fp))
         strng =  "    rtapi_snprintf(buf, sizeof(buf),\"%s."
         if (name == "" or name == "_" or name == " ") :
-            strng += "xthread-funct\", name);"
+            strng += "funct\", name);"
         else :
-            strng += "%s.xthread-funct\", name);" % (to_hal(name))
+            strng += "%s.funct\", name);" % (to_hal(name))
         print >>f, strng
 
         print >>f, "    r = hal_export_xfunctf(&%s_xf, buf, name);" % to_c(name)
@@ -762,14 +762,14 @@ static int comp_id;
     print >>f, "    hal_export_xfunct_args_t xtf = "
     print >>f, "        {"
     print >>f, "        .type = FS_XTHREADFUNC,"
-    print >>f, "        .funct.x = (void *) xthread_funct,"
+    print >>f, "        .funct.x = (void *) funct,"
     print >>f, "        .arg = \"x-instance-data\","
     print >>f, "        .uses_fp = 0,"
     print >>f, "        .reentrant = 0,"
     print >>f, "        .owner_id = comp_id"
     print >>f, "        };\n"
 
-    print >>f, "    if (hal_export_xfunctf(&xtf,\"%s.xthread-funct\", compname))"
+    print >>f, "    if (hal_export_xfunctf(&xtf,\"%s.funct\", compname))"
     print >>f, "        return -1;"
 
     print >>f, "    hal_ready(comp_id);\n"
