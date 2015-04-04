@@ -203,6 +203,7 @@ SUBDIRS := \
 	\
 	hal/lib \
 	hal/components \
+	hal/i_components \
 	hal/vtable-example \
 	hal/userfunct-example \
 	hal/drivers \
