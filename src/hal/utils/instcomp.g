@@ -549,9 +549,9 @@ static int comp_id;
     print >>f
 
     if have_maxpins:
-        print >>f, "static int maxpins = %d;" % int(maxpins)
+        print >>f, "static int maxpins __attribute__((unused)) = %d;" % int(maxpins)
     else:
-        print >>f, "static int maxpins = %d;" % int(numpins)
+        print >>f, "static int maxpins __attribute__((unused)) = %d;" % int(numpins)
     # make sure this exists for later test with strlen(iprefix)
     if (not have_iprefix):
         print >>f, "static char *iprefix = \"\";"
@@ -562,8 +562,6 @@ static int comp_id;
         print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % to_c(name)
         names[name] = 1
     data = options.get('data')
-    if(data) :
-        print >>f, "static int __comp_get_data_size(void);\n"
 
     print >>f, "static int instantiate(const char *name, const int argc, const char**argv);\n"
 
@@ -607,8 +605,8 @@ static int comp_id;
 
     print >>f, "    char buf[HAL_NAME_LEN + 1];"
     print >>f, "    int r = 0;"
-    print >>f, "    int j = 0;"
-    print >>f, "    int z = 0;"
+    print >>f, "    int j __attribute__((unused)) = 0;"
+    print >>f, "    int z __attribute__((unused)) = 0;"
     
     if has_data:
         print >>f, "    ip->_data = (char*)ip + sizeof(struct inst_data);"
@@ -626,7 +624,7 @@ static int comp_id;
             print >>f, "        }\n"
         else:
             print >>f, "    r = hal_pin_%s_newf(%s, &(ip->%s), owner_id," % (type, dirmap[dir], to_c(name))
-            print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
+            print >>f, "            \"%%s%s\", name);" % to_hal("." + name)
             print >>f, "    if(r != 0) return r;\n"
             if value is not None:
                 print >>f, "    *(ip->%s) = %s;" % (to_c(name), value)
@@ -644,7 +642,7 @@ static int comp_id;
             print >>f, "        }\n"
         else:
             print >>f, "    r = hal_param_%s_newf(%s, &(ip->%s), owner_id," % (type, dirmap[dir], to_c(name))
-            print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
+            print >>f, "            \"%%s%s\", name);" % to_hal("." + name)
             if value is not None:
                 print >>f, "    ip->%s = %s;" % (to_c(name), value)
             print >>f, "    if(r != 0) return r;\n"
@@ -672,7 +670,7 @@ static int comp_id;
         print >>f, "    hal_export_xfunct_args_t %s_xf = " % to_c(name)
         print >>f, "        {"
         print >>f, "        .type = FS_XTHREADFUNC,"
-        print >>f, "        .funct.x = (void *)%s," % to_c(name)
+        print >>f, "        .funct.x = %s," % to_c(name)
         print >>f, "        .arg = ip,"
         print >>f, "        .uses_fp = %d," % int(fp)
         print >>f, "        .reentrant = 0,"
@@ -873,11 +871,6 @@ static int comp_id;
 def epilogue(f):
     data = options.get('data')
     print >>f
-    if data:
-        print >>f, "static int __comp_get_data_size(void) { return sizeof(%s); }" % data
-## no point in defining if it does nothing and is not used?
-#    else:
-#        print >>f, "static int __comp_get_data_size(void) { return 0; }"
 
 INSTALL, COMPILE, PREPROCESS, DOCUMENT, INSTALLDOC, VIEWDOC, MODINC = range(7)
 modename = ("install", "compile", "preprocess", "document", "installdoc", "viewdoc", "print-modinc")
@@ -1141,7 +1134,7 @@ def process(filename, mode, outfilename):
         #   parse the remainder of the file to add the function prelims
         have_func = False
         insert = False
-        
+
         if "FUNCTION" in b:
             c = ""
             f.write("#line %d \"%s\"\n" % (lineno, filename))  
@@ -1173,7 +1166,7 @@ def process(filename, mode, outfilename):
                     c += "\n"
 
                 y = y + 1
-                
+
             f.write(c)
             
         # if the code is loose because there is just one function
