@@ -177,6 +177,7 @@ SUBDIRS := \
 	machinetalk \
 	machinetalk/support \
 	machinetalk/messagebus \
+	machinetalk/msginfo \
 	machinetalk/msgcomponents \
 	machinetalk/lib \
 	machinetalk/config-service \
@@ -509,6 +510,12 @@ HEADERS := \
     hal/lib/vtable.h \
     hal/drivers/hal_gpiomap.h \
     hal/drivers/hal_spi.h \
+    machinetalk/include/msginfo.h \
+    machinetalk/include/pb-machinekit.h \
+    machinetalk/nanopb/pb.h \
+    machinetalk/nanopb/pb_decode.h \
+    machinetalk/nanopb/pb_encode.h \
+    machinetalk/nanopb/pb_common.h \
     libnml/buffer/locmem.hh \
     libnml/buffer/memsem.hh \
     libnml/buffer/phantom.hh \
@@ -579,6 +586,7 @@ HEADERS := \
     rtapi/rtapi_heap_private.h \
     rtapi/ring.h \
     rtapi/multiframe.h \
+    rtapi/multiframe_flag.h \
     rtapi/rtapi_mbarrier.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
@@ -713,6 +721,7 @@ clean: depclean modclean webtalk-clean
 	    rm -rf ../lib/$$flav; \
 	done
 	-rm -rf ../rtlib
+	-rm -rf machinetalk/generated
 	-rm -f $(COPY_CONFIGS)
 	-rm -f $(RTLIBDIR)/*.$(MODULE_EXT)
 	-rm -f hal/components/conv_*.comp
@@ -1088,11 +1097,12 @@ ifneq ($(KERNELRELEASE),)
 # module's obj-m and foo-objs definitions may remain in the Submakefile
 include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
+include $(BASEPWD)/machinetalk/msginfo/Submakefile
+include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/i_components/Submakefile
 include $(BASEPWD)/hal/vtable-example/Submakefile
 include $(BASEPWD)/hal/userfunct-example/Submakefile
-include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
 include $(BASEPWD)/rtapi/xeno_math/Submakefile
@@ -1121,6 +1131,8 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
 	-I$(BASEPWD)/machinetalk/nanopb \
+	-I$(BASEPWD)/machinetalk/include \
+	-I$(BASEPWD)/machinetalk/msgcomponents \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
