@@ -3,6 +3,7 @@
 // convert to text format
 // parse from encoded buffer
 
+#include <config.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -15,6 +16,11 @@
 #include <machinetalk/generated/object.pb.h>
 
 #include <json2pb.hh>
+
+#ifdef HAVE_TINYXML
+#include <xml_message.h>
+using namespace google::protobuf::xml;
+#endif
 
 using namespace pb;
 using namespace std;
@@ -68,6 +74,22 @@ int main(int argc, char* argv[])
 	    printf("json2pb exception: %s\n", ex.what());
 	}
 	// printf("c.DebugString=%s\n",c.DebugString().c_str());
+
+#ifdef HAVE_TINYXML
+
+	XmlMessage xmlMsg(container);
+
+	string out = xmlMsg.SerializeToString();
+	cout << "Container converted to XML: " << out  << endl;
+
+	Container c2;
+	XmlMessage xmlMsg2(c2);
+
+	bool ok = xmlMsg2.ParseFromString(out);
+	if(!ok) {
+	    cerr << "Fail: " << xmlMsg2.GetErrorText() << endl;
+	}
+#endif
 
 	if (TextFormat::PrintToString(c, &buffer)) {
 	    cout << "FromJson: \n" <<  buffer << endl;
