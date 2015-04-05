@@ -9,6 +9,7 @@ package pb;
 // a value for 'passing around'.
 
 message Value {
+    option (nanopb_msgopt).msgid = 1500; // see README.msgid
 
     required ValueType   type = 10;
     // actual values
@@ -22,7 +23,7 @@ message Value {
     optional sfixed32  hals32   = 102;
     optional fixed32  halu32   = 103;
 
-    optional bytes     v_bytes  = 120;
+    // optional bytes     v_bytes  = 120;
     optional sfixed32  v_int32  = 130;
     optional sfixed64  v_int64  = 140;
     optional fixed32   v_uint32 = 150;
