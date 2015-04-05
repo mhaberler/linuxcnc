@@ -46,6 +46,9 @@
 #include "hal_rcomp.h"	        /* remote component declarations */
 #include "halcmd_commands.h"
 #include "halcmd_rtapiapp.h"
+#include "rtapi_hexdump.h"
+
+#include <machinetalk/generated/types.npb.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1730,11 +1733,12 @@ static void print_comp_info(char **patterns)
 		    halcmd_output(", unbound:%lds", comp->last_unbound-now);
 		} else
 		    halcmd_output(", unbound:never");
+		halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
 		break;
 	    default:
 		halcmd_output(" %-5s %s", "", state_name(comp->state));
 	    }
-	    halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
+
 	    halcmd_output("\n");
 	}
 	next = comp->next_ptr;
@@ -2981,98 +2985,121 @@ static void print_ring_names(char **patterns)
     halcmd_output("\n");
 }
 
-#ifdef RINGDEBUG
-void dump_rings(const char *where, int attach, int detach)
+static void print_hal_ringflags(const hal_ring_t *r, ringheader_t *rh)
 {
-    int next,retval;
-    hal_ring_t *rptr;
-    ringbuffer_t ringbuffer;
-
-    printf("place: %s attach=%d detach=%d\n", where, attach, detach);
-    next =  hal_data->ring_list_ptr;
-    while (next) {
-	rptr = SHMPTR(next);
-	printf("name=%s next=%d ring_id=%d owner=%d\n",
-	       rptr->name, rptr->next_ptr, rptr->ring_id, rptr->owner);
-	if (attach) {
-	    if ((retval = rtapi_ring_attach(rptr->ring_id, &ringbuffer, comp_id))) {
-		halcmd_error("%s: rtapi_ring_attach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-	    }
-	}
-	if (detach) {
-
-	    if ((retval = rtapi_ring_detach(rptr->ring_id, comp_id))) {
-		halcmd_error("%s: rtapi_ring_detach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-	    }
-	}
-	next = rptr->next_ptr;
+    if (rh->type == RINGTYPE_MULTIPART)
+	halcmd_output(" enc:0x%x", r->encodings);
+    if (r->haltalk_adopt) {
+	halcmd_output(" adopt");
+	if (r->haltalk_announce)
+	    halcmd_output(" announce");
+	halcmd_output(" haltalk_%s ", r->haltalk_writes ? "writes" : "reads") ;
+    }
+    if (r->paired_handle) {
+	halcmd_output(" pair:%d", r->paired_handle);  // FIXME improve - use name
     }
 }
-#endif
 
+static void print_recordring_stats(const ringbuffer_t *rb)
+{
+    ringiter_t ri;
+    size_t nr = 0, nb = 0;
+    size_t size;
+    const void *data;
+    int result;
 
+    if (record_iter_init(rb, &ri))
+	return;
+
+    while (1) {
+	while ((result = record_iter_read(&ri,&data, &size)) == EINVAL)
+	    record_iter_init(rb, &ri); // renew
+
+	switch (result) {
+	case EAGAIN:   // done
+	    halcmd_output(" records:%zu used:%zu", nr, nb);
+	    return;
+	default:
+	    if ((record_iter_shift(&ri)) == EINVAL)
+		continue;
+	    nr++;
+	    nb += size;
+	}
+    }
+}
 
 static void print_ring_info(char **patterns)
 {
     int next_ring, retval;
-    hal_ring_t *rptr;
+
     ringheader_t *rh;
     ringbuffer_t ringbuffer;
 
     if (scriptmode == 0) {
 	halcmd_output("Rings:\n");
-	halcmd_output("Name           Size       Type   Rdr Wrt Ref Flags \n");
+	halcmd_output("ID    Name           Size       Type   Rdr Wrt Ref Flags \n");
     }
+    {
+	hal_ring_t *rptr __attribute__((cleanup(halpr_autorelease_mutex)));
+	rtapi_mutex_get(&(hal_data->mutex));
 
-    //    rtapi_mutex_get(&(hal_data->mutex));
-    next_ring = hal_data->ring_list_ptr;
-    while (next_ring != 0) {
-	rptr = SHMPTR(next_ring);
-	if ( match(patterns, rptr->name) ) {
-	    unsigned flags;
-	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, &flags))) {
-		halcmd_error("%s: hal_ring_attach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-		goto failed;
+	next_ring = hal_data->ring_list_ptr;
+	while (next_ring != 0) {
+	    rptr = SHMPTR(next_ring);
+	    if ( match(patterns, rptr->name) ) {
+		unsigned flags;
+		if ((retval = halpr_ring_attach_by_name(rptr->name, &ringbuffer, &flags)) < 0) {
+		    halcmd_error("%s: hal_ring_attach_by_name(%d) failed ",
+				 rptr->name, rptr->ring_id);
+		    goto failed;
+		}
+		rh = ringbuffer.header;
+		/* Name           Size       Type   Rdr Wrt Ref Flags  */
+		/* ring_0         16392      record 0   0   2   recmax:16376  */
+		char *rtype = "unknown";
+		switch (rh->type) {
+		case RINGTYPE_RECORD:    rtype = "record"; break;
+		case RINGTYPE_MULTIPART: rtype = "multi"; break;
+		case RINGTYPE_STREAM:    rtype = "stream"; break;
+		}
+		halcmd_output("%-5d %-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
+			      rptr->handle,
+			      rptr->name,
+			      rh->size,
+			      rtype,
+			      rh->reader,rh->reader_instance,
+			      rh->writer,rh->writer_instance,
+			      rh->refcount-1);
+		if (rh->use_rmutex)
+		    halcmd_output(" rmutex");
+		if (rh->use_wmutex )
+		    halcmd_output(" wmutex");
+
+		switch (rh->type) {
+		case RINGTYPE_STREAM:
+		    halcmd_output(" queued:%zu", stream_read_space(rh));
+		    halcmd_output(" free:%zu", stream_write_space(rh));
+		    break;
+		case RINGTYPE_MULTIPART:
+		    // fall through
+		case RINGTYPE_RECORD:
+		    print_recordring_stats(&ringbuffer);
+		    halcmd_output(" recmax:%zu",   record_write_space(rh));
+		}
+		if (ring_scratchpad_size(&ringbuffer))
+		    halcmd_output(" scratchpad:%zu", ring_scratchpad_size(&ringbuffer));
+
+		print_hal_ringflags(rptr, rh);
+
+		halcmd_output("\n");
+		if ((retval = halpr_ring_detach(&ringbuffer)) < 0) {
+		    halcmd_error("%s: halpr_ring_detach(%d) failed ",
+				 rptr->name, rptr->ring_id);
+		    goto failed;
+		}
 	    }
-	    rh = ringbuffer.header;
-/* Name           Size       Type   Rdr Wrt Ref Flags  */
-/* ring_0         16392      record 0   0   2   recmax:16376  */
-	    char *rtype = "unknown";
-	    switch (rh->type) {
-	    case RINGTYPE_RECORD:    rtype = "record"; break;
-	    case RINGTYPE_MULTIPART: rtype = "multi"; break;
-	    case RINGTYPE_STREAM:    rtype = "stream"; break;
-	    }
-	    halcmd_output("%-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
-			  rptr->name,
-			  rh->size,
-			  rtype,
-			  rh->reader,rh->reader_instance,
-			  rh->writer,rh->writer_instance,
-			  rh->refcount-1);
-	    if (rh->use_rmutex)
-		halcmd_output(" rmutex");
-	    if (rh->use_wmutex )
-		halcmd_output(" wmutex");
-	    if (rh->type == RINGTYPE_STREAM)
-		halcmd_output(" free:%zu ",
-			      stream_write_space(rh));
-	    else
-		halcmd_output(" recmax:%zu ",
-			      record_write_space(rh));
-	    if (ring_scratchpad_size(&ringbuffer))
-		halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
-	    halcmd_output("\n");
-	    if ((retval = hal_ring_detach(rptr->name,  &ringbuffer)) < 0) {
-		halcmd_error("%s: rtapi_ring_detach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-		goto failed;
-	    }
+	    next_ring = rptr->next_ptr;
 	}
-	next_ring = rptr->next_ptr;
     }
  failed:
     halcmd_output("\n");
@@ -3086,11 +3113,18 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
     size_t rmax = 50000000;  // XXX: make MAX_RINGSIZE
     char *s;
     unsigned long mode = 0; // defaults
-    int i = 0;
-    int retval;
+    int i = 0,n;
+    int retval, handle;
     char *cp;
+    unsigned adopt = 0, encodings = 0, announce=0,
+	writes = 0, sockettype = pb_socketType_ST_ZMQ_INVALID;
+    hal_ring_t *paired = NULL;
+    char *pname = NULL;
 
 #define SCRATCHPAD "scratchpad="
+#define ENCODINGS "encodings="
+#define PAIRED "paired="
+#define ZMQTYPE "zmq="
 #define MAX_SPSIZE (1024*1024)
 
     size = strtol(ring_size, &r, 0);
@@ -3111,17 +3145,72 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	    // default
 	}  else if  (!strcasecmp(s,"stream")) {
 	    mode |=  RINGTYPE_STREAM;
+	}  else if  (!strcasecmp(s,"multi")) {
+	    mode |=  RINGTYPE_MULTIPART;
+
+	}  else if  (!strcasecmp(s,"adopt")) {
+	    adopt = 1;
+	}  else if  (!strcasecmp(s,"announce")) {
+	    announce = 1;
+	}  else if  (!strcasecmp(s,"haltalk_writes")) {
+	    writes = 1;
+	}  else if  (!strcasecmp(s,"haltalk_reads")) {
+	    if (writes) {
+		halcmd_error("use either 'haltalk_reads' or 'haltalk_writes' but not both\n");
+		return(-EINVAL);
+	    }
 	} else if (!strncasecmp(s, SCRATCHPAD, strlen(SCRATCHPAD))) {
 	    spsize = strtol(strchr(s,'=') + 1, &cp, 0);
 	    if ((*cp != '\0') && (!isspace(*cp))) {
 		/* invalid chars in string */
 		halcmd_error("string '%s' invalid for scratchpad size\n", s);
-		retval = -EINVAL;
+		return(-EINVAL);
 	    }
 	    if ((spsize < 0) || (spsize > MAX_SPSIZE)) {
 		halcmd_error("scratchpad size out of bounds (0..%d)\n", MAX_SPSIZE);
-		retval = -EINVAL;
+		return(-EINVAL);
 	    }
+	} else if (!strncasecmp(s, ENCODINGS, strlen(ENCODINGS))) {
+	    n = strtol(strchr(s,'=') + 1, &cp, 0);
+	    if ((*cp != '\0') && (!isspace(*cp))) {
+		/* invalid chars in string */
+		halcmd_error("string '%s' invalid for encodings\n", s);
+		return(-EINVAL);
+	    }
+	    if ((n < 0) || (n > RE_MAX)) {
+		halcmd_error("encodings size out of bounds (0..%d)\n", RE_MAX);
+		return(-EINVAL);
+	    }
+	    encodings = (unsigned) n;
+	} else if (!strncasecmp(s, ZMQTYPE, strlen(ZMQTYPE))) {
+	    n = strtol(strchr(s,'=') + 1, &cp, 0);
+	    if ((*cp != '\0') && (!isspace(*cp))) {
+		/* invalid chars in string */
+		halcmd_error("string '%s' invalid for zeromq socket type\n", s);
+		return(-EINVAL);
+	    }
+	    if ((n < 0) || (n > pb_socketType_ST_ZMQ_STREAM)) {
+		halcmd_error("zeromq socket type out of bounds (0..%d)\n",
+			     pb_socketType_ST_ZMQ_STREAM);
+		return(-EINVAL);
+	    }
+	    sockettype = (unsigned) n;
+	} else if (!strncasecmp(s, PAIRED, strlen(PAIRED))) {
+	    pname = strchr(s,'=');
+	    if (pname) pname++;
+	    if ((pname == NULL) || (*pname == '\0')) {
+		/* invalid chars in string */
+		halcmd_error("string '%s' invalid for paired ring name\n", s);
+		return(-EINVAL);
+	    }
+	    // FIXME HAL lock
+	    paired = halpr_find_ring_by_name(pname);
+	    if (paired == NULL) {
+		halcmd_error("paired=%s: no such ring\n", pname);
+		return(-EINVAL);
+	    }
+	    // FIXME check paired has no r/w, haltalk_flags
+
 	} else {
 	    halcmd_error("newring: invalid option '%s' (use one or several of: record stream"
 			 " rtapi hal rmutex wmutex scratchpad=<size>)\n",s);
@@ -3129,36 +3218,319 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	}
     }
     // this will happen under hal_data->mutex locked
-    if ((retval = hal_ring_new(ring, size, spsize, mode))) {
+    if ((handle  = hal_ring_new(ring, size, spsize, mode)) < 0) {
 	halcmd_error("newring: failed to create new ring %s: %s\n",
-		     ring, strerror(-retval));
+		     ring, strerror(-handle));
 	return -EINVAL;
     }
+    if (paired) {
+	retval = hal_ring_pair(handle, paired->handle);
+	switch (retval) {
+	case -EBUSY:
+	    halcmd_error("newring: ring %s/%d already paired with ring %d\n",
+			 pname, paired->handle, paired->paired_handle);
+	    return retval;
+	    break;
+	default: ;
+	}
+    }
+    if (announce)
+	hal_ring_setflag(handle,  HF_HALTALK_ANNOUNCE, 1);
+    if (encodings)
+	hal_ring_setflag(handle,  HF_ENCODINGS, encodings );
+    if (writes)
+	hal_ring_setflag(handle,  HF_HALTALK_WRITES, 1);
+
+    hal_ring_setflag(handle,  HF_ZEROMQ_SOCKETTYPE, sockettype);
+
+    if (adopt)
+	hal_ring_setflag(handle,  HF_HALTALK_ADOPT, 1);
     return 0;
 }
 
 int do_delring_cmd(char *ring)
 {
-    halcmd_output("delring NIY: ring='%s'\n", ring);
-    // return halpr_group_delete(group);
+    return hal_ring_deletef(ring);
+}
+
+typedef int (*ring_attached_t)(const char *name, ringbuffer_t *rb, void *arg);
+static int with_ring_attached(const char *ring, ring_attached_t func, void *arg)
+{
+    ringbuffer_t ringbuffer;
+    unsigned flags;
+    int retval;
+
+    if (hal_ring_attachf(NULL, NULL, ring) < 0) {
+	halcmd_error("no such ring '%s'\n", ring);
+	return -EINVAL;
+    }
+    if ((retval = hal_ring_attachf(&ringbuffer, &flags, ring)) < 0) {
+	halcmd_error("hal_ring_attachf(%s) failed\n", ring);
+	return -EINVAL;
+    }
+    int result = func(ring, &ringbuffer, arg);
+
+    if ((retval = hal_ring_detach(&ringbuffer)) < 0) {
+	halcmd_error("hal_ring_detach(%s) failed\n",ring);
+	return -EINVAL;
+    }
+    return result;
+}
+
+static void hdprinter(int level, const char *fmt, ...)
+{
+    char buf[BUFFERLEN + 1];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, BUFFERLEN, fmt, ap);
+    va_end(ap);
+    halcmd_output(buf);
+}
+
+static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
+{
+    ringheader_t *rh = rb->header;
+    size_t size;
+    size_t nr = 0, nb = 0, tfc = 0, fc;
+    const void *data;
+    ringiter_t ri;
+    int result;
+
+    switch (rh->type) {
+    default:
+	halcmd_output("%s: %s ring\n", name, rh->type == RINGTYPE_RECORD? "record" : "multi");
+
+	if ((result = record_iter_init(rb, &ri)) != 0)
+	    return result;
+
+	while (1) {
+	    size = 0;
+	    while ((result = record_iter_read(&ri, &data, &size)) == EINVAL)
+		record_iter_init(rb, &ri); // renew
+
+	    switch (result) {
+	    case EAGAIN:   // done
+		halcmd_output("records:%zu", nr);
+		if (rh->type == RINGTYPE_MULTIPART)
+		    halcmd_output(" frames:%zu", tfc);
+		halcmd_output(" used:%zu", nb);
+		halcmd_output("\n");
+		return 0;
+
+	    default:
+		// printf("data=%p size=%d\n", data, size);
+		if (rh->type == RINGTYPE_RECORD) {
+		    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+					 16, 1, data, size, true,
+					 hdprinter, "%6zu ", size);
+		    halcmd_output("\n");
+		} else {
+		    // multiframe
+		    msgbuffer_t mrb;
+		    msgbuffer_init(&mrb, rb);
+		    // just iterate the record we already pulled above
+		    mrb._read = data;
+		    mrb.read_size = size;
+		    ringvec_t rv;
+		    mflag_t *mp = (mflag_t *) &rv.rv_flags;
+		    fc = 0;
+		    while (frame_readv(&mrb, &rv) == 0) {
+			halcmd_output("record %d/%d  msgid=%d format=%d %s %s\n",
+				      nr, fc,
+				      mp->f.msgid, mp->f.format,
+				      mp->f.more ? "more":"",
+				      mp->f.eor ? "eor":"");
+			rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+					     16, 1, rv.rv_base, rv.rv_len, true,
+					     hdprinter, "%6zu ", rv.rv_len);
+			frame_shift(&mrb);
+			fc++;
+		    }
+
+		    halcmd_output("\n");
+		}
+		if ((record_iter_shift(&ri)) == EINVAL)
+		    continue;
+		nr++;
+		nb += size;
+		tfc += fc;
+	    }
+	}
+	break;
+
+    case RINGTYPE_STREAM:
+	size = stream_read_space(rh);
+	halcmd_output("%s: stream ring, %zu bytes unread\n", name, size);
+	if (size) {
+	    void *data = malloc(size);
+	    if (!data) return -ENOMEM;
+	    size = stream_peek(rb, data, size);
+	    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+				 16, 1, data, size, true,
+				 hdprinter, NULL);
+
+	    free(data);
+	}
+	break;
+    }
     return 0;
 }
 
 int do_ringdump_cmd(char *ring)
 {
-    halcmd_output("ringdump NIY: ring='%s'\n", ring);
-    return 0;
+    return with_ring_attached(ring, ringdump, NULL);
 }
-int do_ringwrite_cmd(char *ring,char *content)
+
+//convert hexstring to len bytes of data
+//returns 0 on success, -1 on error
+//data is a buffer of at least len bytes
+//hexstring is upper or lower case hexadecimal, NOT prepended with "0x"
+//http://stackoverflow.com/questions/3408706/hexadecimal-string-to-byte-array-in-c
+int hex2data(char *data, const char *hexstring, unsigned int len)
 {
-    halcmd_output("ringwrite NIY: ring='%s'\n", ring);
+    const char *pos = hexstring;
+    char *endptr;
+    size_t count = 0;
+
+    if ((hexstring[0] == '\0') || (strlen((char *)hexstring) % 2)) {
+        //hexstring contains no data
+        //or hexstring has an odd length
+        return -1;
+    }
+
+    for(count = 0; count < len; count++) {
+        char buf[5] = {'0', 'x', pos[0], pos[1], 0};
+        data[count] = strtol(buf, &endptr, 0);
+        pos += 2 * sizeof(char);
+
+        if (endptr[0] != '\0') {
+            //non-hexadecimal character encountered
+            return -1;
+        }
+    }
     return 0;
 }
 
-int do_ringread_cmd(char *ring, char *tokens[])
+static int ringwrite(const char *name, ringbuffer_t *rb, void *arg)
 {
-    halcmd_output("ringread NIY: ring='%s'\n", ring);
+    char **tokens = arg;
+    ringheader_t *rh = rb->header;
+    size_t size,wsize;
+    int i, retval;
+    msgbuffer_t mrb;
+    if (rh->type == RINGTYPE_MULTIPART)
+	msgbuffer_init(&mrb, rb);
+
+    for(i = 0; tokens[i] && *tokens[i]; i++) {
+	char *s = tokens[i];
+	unsigned flags = 0;
+	char buf[1024];
+	char *data, *sep;
+	if ((sep = strchr(s,':')) != NULL) {
+	    *sep = '\0';
+	    char *cp = s;
+	    flags = strtoul(s, &cp, 0);
+	    if ((*cp != '\0') && (!isspace(*cp))) {
+		halcmd_error("value '%s' invalid for flag (integer required)\n", s);
+		return -EINVAL;
+	    }
+	    s = sep + 1;
+	}
+	if (strncasecmp(s, "0x",2) == 0) {
+	    int count = strlen(s+2);
+	    if (count & 1) {
+		halcmd_error("%s: '%s' - odd number of hex nibbles: %d\n",
+			     name, s, count);
+		return -EINVAL;
+	    }
+	    count /= 2;
+	    int n = hex2data(buf, s + 2, count);
+	    if (n < 0) {
+		halcmd_error("%s: '%s' - invalid hex string\n", name, s);
+		return -EINVAL;
+	    }
+	    data = buf;
+	    wsize = count;
+	} else {
+	    data = s;
+	    wsize = strlen(s);
+	}
+	//printf("flag=%u data='%s' wsize=%zu\n",flags, data, wsize);
+
+	switch (rh->type) {
+	case RINGTYPE_MULTIPART:
+	    retval = frame_write(&mrb, data, wsize, flags);
+	    switch (retval) {
+	    case EAGAIN:
+		halcmd_error("%s: insufficient space for %zu bytes\n",name, wsize);
+		break;
+	    case ERANGE:
+		halcmd_error("%s: write size %zu exceeds ringbuffer size \n",name, wsize);
+		break;
+	    default: ; // success
+	    }
+	    break;
+	case RINGTYPE_RECORD:
+	    retval = record_write(rb, data, wsize);
+	    switch (retval) {
+	    case EAGAIN:
+		halcmd_error("%s: insufficient space for %zu bytes\n",name, wsize);
+		break;
+	    case ERANGE:
+		halcmd_error("%s: write size %zu exceeds ringbuffer size \n",name, wsize);
+		break;
+	    default: ; // success
+	    }
+	    break;
+	case RINGTYPE_STREAM:
+	    size = stream_write(rb, data, wsize);
+	    if (size < wsize) {
+		halcmd_error("%s: '%s' - space only for %zu out of %zu bytes\n",
+			     name, data, size, wsize);
+	    }
+	}
+    }
+    switch (rh->type) {
+    case RINGTYPE_MULTIPART:
+	msg_write_flush(&mrb);
+	break;
+    case RINGTYPE_RECORD:
+	break;
+    case RINGTYPE_STREAM:;
+    }
     return 0;
+}
+
+int do_ringwrite_cmd(char *ring,char *tokens[])
+{
+    return with_ring_attached(ring, ringwrite, tokens);
+}
+
+static int ringflush(const char *name, ringbuffer_t *rb, void *arg)
+{
+    ringheader_t *rh = rb->header;
+    int result;
+    size_t n;
+    switch (rh->type) {
+    case RINGTYPE_RECORD:
+	result = record_flush(rb);
+	halcmd_output("%s: %d records flushed\n", name, result);
+	break;
+    case RINGTYPE_MULTIPART:
+	result = record_flush(rb);
+	halcmd_output("%s: %d multiframes flushed\n", name, result);
+	break;
+    case RINGTYPE_STREAM:
+	n = stream_flush(rb);
+	halcmd_output("%s: %zu bytes flushed\n", name, n);
+	break;
+    }
+    return 0;
+}
+
+int do_ringflush_cmd(char *ring)
+{
+    return with_ring_attached(ring, ringflush, NULL);
 }
 // ----- end ring support
 
