@@ -1,7 +1,3 @@
-# TODO:
-# make create and attach free factory functions
-# which return a Stream/Record/MessageRing wrapper depending on type
-
 from libc.errno cimport EAGAIN
 from libc.string cimport memcpy
 from buffer cimport PyBuffer_FillInfo
@@ -23,18 +19,25 @@ cdef class mview:
         r = PyBuffer_FillInfo(view, self, self.base, self.size, 0, flags)
         view.obj = self
 
-cdef class Ring:
+cdef class  _Ring:
     cdef ringbuffer_t _rb
     cdef hal_ring_t *_hr
-    cdef uint32_t flags,aflags
+    cdef public uint32_t flags,aflags
 
-    def __cinit__(self, char *name,
+    def __cinit__(self,
+                  char *name = NULL,
+                  int id = 0,
                   int size = 0,
                   int scratchpad_size = 0,
                   int type = RINGTYPE_RECORD,
                   bool use_rmutex = False,
                   bool use_wmutex = False,
-                  bool in_halmem = False):
+                  bool in_halmem = False,
+                  bool adopt = False,
+                  bool announce = False,
+                  bool haltalk_writes = False,
+                  int sockettype = -1,
+                  int encodings = 0):
         self._hr = NULL
         self.flags = (type & RINGTYPE_MASK);
         if use_rmutex: self.flags |= USE_RMUTEX;
@@ -42,57 +45,68 @@ cdef class Ring:
         if in_halmem:  self.flags |= ALLOC_HALMEM;
 
         hal_required()
-        if size:
-            if hal_ring_new(name, size, scratchpad_size, self.flags):
+        if size == 0:
+            with HALMutex():
+                if id > 0:
+                    # wrap existing ring by id
+                    if name != NULL:
+                        raise RuntimeError("cant give both name=<string> and id=<int>")
+                    self._hr = halpr_find_ring_by_id(id)
+                    if self._hr == NULL:
+                        raise NameError("no such existing ring id %d" % id)
+                else:
+                    # wrap existing ring by name
+                    if name == NULL:
+                        raise RuntimeError("no name= given")
+                    self._hr = halpr_find_ring_by_name(name)
+                    if self._hr == NULL:
+                        raise NameError("no such existing ring '%s'" % name)
+        else:
+            # size > 0, so create - must have a name
+            if name == NULL:
+                raise RuntimeError("no name= given")
+            if hal_ring_new(name, size, scratchpad_size, self.flags) < 0:
                 raise RuntimeError("hal_ring_new(%s) failed: %s" %
                                    (name, hal_lasterror()))
-        if hal_ring_attach(name, &self._rb, &self.aflags):
-                raise NameError("hal_ring_attach(%s) failed: %s" %
+            with HALMutex():
+                self._hr = halpr_find_ring_by_name(name)
+                if self._hr == NULL:
+                    raise RuntimeError("BUG: ring '%s' not found after creating!" % (name))
+
+        # ok, created or looked up - self._hr is valid, now attach:
+        if hal_ring_attachf(&self._rb, &self.aflags, name) < 0:
+                raise NameError("hal_ring_attachf(%s) failed: %s" %
                                    (name, hal_lasterror()))
 
-        with HALMutex():
-            self._hr = halpr_find_ring_by_name(name)
-            if self._hr == NULL:
-                raise RuntimeError("halpr_find_ring_by_name(%s) failed: %s" %
-                                   (name, hal_lasterror()))
+        # if this ring was freshly created, fill in flags
+        if size:
+            self._hr.encodings = encodings
+            self._hr.haltalk_zeromq_stype = sockettype
+            self._hr.haltalk_adopt = adopt
+            self._hr.haltalk_announce = announce
+            self._hr.haltalk_writes = haltalk_writes
+
     def __dealloc__(self):
         if self._hr != NULL:
             name = self._hr.name
-            r = hal_ring_detach(self._hr.name, &self._rb)
+            r = hal_ring_detach(&self._rb)
             if r:
                 raise RuntimeError("hal_ring_detach() failed: %d %s" %
                                        (r, hal_lasterror()))
 
-    def write(self, s):
-        cdef void * ptr
-        cdef size_t size = PyBytes_Size(s)
-        cdef int r = record_write_begin(&self._rb, &ptr, size)
-        if r:
-            if r != EAGAIN:
-                raise IOError("Ring %s write failed: %d %s" %
-                                   (r,self._hr.name))
-            return False
-        memcpy(ptr, PyBytes_AsString(s), size)
-        record_write_end(&self._rb, ptr, size)
-        return True
-
-    def read(self):
-        cdef const void * ptr
-        cdef size_t size
-
-        cdef int r = record_read(&self._rb, &ptr, &size)
-        if r:
-            if r != EAGAIN:
-                raise IOError("Ring %s read failed: %d %s" %
-                                   (r,self._hr.name))
-            return None
-        return memoryview(mview(<long>ptr, size))
-
-    def shift(self):
-        record_shift(&self._rb)
-
     def __iter__(self):
         return RingIter(self)
+
+    def paired_ring(self):
+        if self._hr.paired_handle == 0:
+            raise KeyError("ring %s has no paired ring" % (self._hr.name))
+        with HALMutex():
+            name = ""
+            pr = halpr_find_ring_by_id(self._hr.paired_handle)
+            if pr == NULL:
+                raise RuntimeError("BUG: no such ring id %d" % (self._hr.paired_handle))
+            name = pr.name
+        return Ring(name=pr.name)
 
     property available:
         def __get__(self): return record_write_space(self._rb.header)
@@ -134,12 +148,186 @@ cdef class Ring:
                 return None
             return memoryview(mview(<long>self._rb.scratchpad, ss))
 
+    property id:
+        ''' HAL object id '''
+        def __get__(self): return self._hr.handle
+
+    property paired_id:
+        ''' HAL object id of a paired ring'''
+        def __get__(self): return self._hr.paired_handle
+        def __set__(self,int value):  self._hr.paired_handle = value
+
+    property encodings:
+        ''' encodings understood by reader, advisory in nature.'''
+        def __get__(self): return self._hr.encodings
+        def __set__(self,unsigned value):  self._hr.encodings = value
+
+    property adopt:
+        ''' adopt by haltalk, advisory'''
+        def __get__(self): return self._hr.haltalk_adopt
+        def __set__(self,bint value):  self._hr.haltalk_adopt = value
+
+    property announce:
+        ''' announce via mDNS by haltalk, advisory'''
+        def __get__(self): return self._hr.haltalk_announce
+        def __set__(self,bint value):  self._hr.haltalk_announce = value
+
+    property haltalk_writes:
+        ''' haltalk should serve write side of this ring, advisory'''
+        def __get__(self): return self._hr.haltalk_writes
+        def __set__(self,bint value):  self._hr.haltalk_writes = value
+
+    property sockettype:
+        ''' zeroMQ socket type to serve this ring, advisory'''
+        def __get__(self): return self._hr.haltalk_zeromq_stype
+        def __set__(self,unsigned value):  self._hr.haltalk_zeromq_stype = value
+
+
+cdef class _RecordRing(_Ring):
+
+    def __cinit__(self, **kwargs):
+        if self._rb.header.type != RINGTYPE_RECORD:
+            raise RuntimeError("ring '%s' not a record ring: type=%d" %
+                               (self._hr.name,self._rb.header.type))
+
+    def write(self, s):
+        cdef void * ptr
+        cdef size_t size = PyBytes_Size(s)
+        cdef int r = record_write_begin(&self._rb, &ptr, size)
+        if r:
+            if r != EAGAIN:
+                raise IOError("Ring %s write failed: %d %s" %
+                                   (r,self._hr.name))
+            return False
+        memcpy(ptr, PyBytes_AsString(s), size)
+        record_write_end(&self._rb, ptr, size)
+        return True
+
+    def read(self):
+        cdef const void * ptr
+        cdef size_t size
+
+        cdef int r = record_read(&self._rb, &ptr, &size)
+        if r:
+            if r != EAGAIN:
+                raise IOError("Ring %s read failed: %d %s" %
+                                   (r,self._hr.name))
+            return None
+        return memoryview(mview(<long>ptr, size))
+
+    def shift(self):
+        record_shift(&self._rb)
+
+
+
+
+cdef class _StreamRing(_Ring):
+
+    def __cinit__(self, **kwargs):
+        if self._rb.header.type != RINGTYPE_STREAM:
+            raise RuntimeError("ring '%s' not a stream ring: type=%d" %
+                               (self._hr.name,self._rb.header.type))
+
+
+    def flush(self):
+        '''clear the buffer contents. Note this is not thread-safe
+        unless all readers and writers use a r/w mutex.'''
+
+        return stream_flush(&self._rb)
+
+    def consume(self, int nbytes):
+        '''remove argument number of bytes from stream.
+        May raise IOError if more than the number of
+        available bytes are consumed'''
+
+        cdef size_t avail
+        avail = stream_read_space(self._rb.header)
+        if (nbytes > <int>avail):
+            raise IOError("consume(%d): argument larger than bytes available (%zu)" %
+                          (nbytes, avail))
+        stream_read_advance(&self._rb, nbytes);
+
+    def next(self):
+        '''returns the number of bytes readable or 0 if no data is available.'''
+        return stream_read_space(self._rb.header)
+
+    def write(self, s):
+        '''write to ring. Returns 0 on success.
+        nozero return value indicates the number
+	of bytes actually written. '''
+
+        return stream_write(&self._rb,  PyBytes_AsString(s), PyBytes_Size(s))
+
+    def read(self):
+        ''' return all bytes readable as a string, or None'''
+        cdef ringvec_t v[2]
+        stream_get_read_vector(&self._rb, v)
+
+        if v[0].rv_len:
+            b1 = PyString_FromStringAndSize(<const char *>v[0].rv_base, v[0].rv_len)
+            if v[1].rv_len == 0:
+                stream_read_advance(&self._rb, v[0].rv_len)
+                return b1
+
+            b2 = PyString_FromStringAndSize(<const char *>v[1].rv_base, v[1].rv_len)
+            stream_read_advance(&self._rb, v[0].rv_len + v[1].rv_len)
+            return b1 + b2
+        return None
+
+
+cdef class _MultiframeRing(_Ring):
+    cdef msgbuffer_t _mrb
+
+    def __cinit__(self, **kwargs):
+        self._mrb.ring = &self._rb
+        if self._rb.header.type != RINGTYPE_MULTIPART:
+            raise RuntimeError("ring '%s' not a multiframe ring: type=%d" %
+                               (self._hr.name,self._rb.header.type))
+
+    def read(self):
+        cdef ringvec_t rv
+        msg_read_abort(&self._mrb)
+        while frame_readv(&self._mrb, &rv) == 0:
+            yield ringvec(<long>rv.rv_base, rv.rv_len, rv.rv_flags)
+            frame_shift(&self._mrb)
+
+    def shift(self):
+        msg_read_flush(&self._mrb)
+
+    def write(self, s, format = 0, more = 0, msgid = 0, unused = 0, eor = 0, flags = 0):
+        cdef mflag_t param
+        if format+more+msgid+unused > 0:
+            if flags > 0:
+                raise IOError("either use flags=, or format=,"
+                              "more=,msgid=,eor=,unused=, but not both")
+            param.f.msgid = msgid
+            param.f.format = format
+            param.f.more = more
+            param.f.eor = eor
+            param.f.unused = unused
+        else:
+            param.u = flags
+        cdef void * ptr
+        cdef size_t size = PyBytes_Size(s)
+        r = frame_write(&self._mrb, PyBytes_AsString(s), size, param.u)
+        if not r:
+            return True
+        if r != EAGAIN:
+            raise IOError("Ring write failed")
+        return False
+
+    def flush(self):
+        msg_write_flush(&self._mrb)
+
+    def ready(self):
+        return record_next_size(self._mrb.ring) > -1
+
 
 cdef class RingIter:
     cdef ringiter_t _iter
 
-    def __cinit__(self, Ring ring):
-        if record_iter_init(&(<Ring>(ring))._rb, &self._iter):
+    def __cinit__(self, _Ring ring):
+        if record_iter_init(&(<_Ring>(ring))._rb, &self._iter):
             raise RuntimeError("Failed to initialize ring iter")
 
     def read(self):
@@ -170,119 +358,34 @@ cdef class RingIter:
 
 cdef class ringvec:
     cdef mview data
-    cdef int flags
+    cdef mflag_t flags
 
     def __cinit__(self, long base, size, flags):
         self.data = mview(base, size)
-        self.flags = flags
+        self.flags.u = flags
 
     property data:
         def __get__(self):
             return memoryview(self.data)
 
     property flags:
-        def __get__(self): return self.flags
+        def __get__(self): return self.flags.u
 
+    property msgid:
+        def __get__(self): return self.flags.f.msgid
 
-cdef class StreamRing:
-    cdef ringbuffer_t *_rb
-    cdef hal_ring_t *_hr
+    property format:
+        def __get__(self): return self.flags.f.format
 
-    def __cinit__(self, ring):
-        self._rb = &(<Ring>ring)._rb
-        self._hr = (<Ring>ring)._hr
-        if self._rb.header.type != RINGTYPE_STREAM:
-            raise RuntimeError("ring '%s' not a stream ring: type=%d" %
-                               (self._hr.name,self._rb.header.type))
+    property more:
+        def __get__(self): return self.flags.f.more
 
-    def spaceleft(self):
-        '''return number of bytes available to write.'''
+    property eor:
+        def __get__(self): return self.flags.f.eor
 
-        return stream_write_space(self._rb.header)
+    property unused:
+        def __get__(self): return self.flags.f.unused
 
-    def flush(self):
-        '''clear the buffer contents. Note this is not thread-safe
-        unless all readers and writers use a r/w mutex.'''
-
-        return stream_flush(self._rb)
-
-    def consume(self, int nbytes):
-        '''remove argument number of bytes from stream.
-        May raise IOError if more than the number of
-        available bytes are consumed'''
-
-        cdef size_t avail
-        avail = stream_read_space(self._rb.header);
-        if (nbytes > <int>avail):
-            raise IOError("consume(%d): argument larger than bytes available (%zu)" %
-                          (nbytes, avail))
-        stream_read_advance(self._rb, nbytes);
-
-    def next(self):
-        '''returns the number of bytes readable or 0 if no data is available.'''
-        return stream_read_space(self._rb.header)
-
-    def write(self, s):
-        '''write to ring. Returns 0 on success.
-        nozero return value indicates the number
-	of bytes actually written. '''
-
-        return stream_write(self._rb,  PyBytes_AsString(s), PyBytes_Size(s))
-
-    def read(self):
-        ''' return all bytes readable as a string, or None'''
-        cdef ringvec_t v[2]
-        stream_get_read_vector(self._rb, v)
-
-        if v[0].rv_len:
-            b1 = PyString_FromStringAndSize(<const char *>v[0].rv_base, v[0].rv_len)
-            if v[1].rv_len == 0:
-                stream_read_advance(self._rb,v[0].rv_len)
-                return b1
-
-            b2 = PyString_FromStringAndSize(<const char *>v[1].rv_base, v[1].rv_len)
-            stream_read_advance(self._rb,v[0].rv_len + v[1].rv_len)
-            return b1 + b2
-        return None
-
-
-cdef class MultiframeRing:
-    cdef msgbuffer_t _rb
-    cdef object _pyring
-
-    def __cinit__(self, ring):
-        self._pyring = ring
-        self._rb.ring = &(<Ring>ring)._rb
-        self._rb.ring.header.type = RINGTYPE_MULTIPART
-
-    def __init__(self, ring):
-        pass
-
-    def read(self):
-        cdef ringvec_t rv
-        msg_read_abort(&self._rb)
-        while frame_readv(&self._rb, &rv) == 0:
-            yield ringvec(<long>rv.rv_base, rv.rv_len, rv.rv_flags)
-            frame_shift(&self._rb)
-
-    def shift(self):
-        msg_read_flush(&self._rb)
-
-    def write(self, s, flags = 0):
-        cdef void * ptr
-        cdef size_t size = PyBytes_Size(s)
-        r = frame_write(&self._rb, PyBytes_AsString(s), size, flags)
-        if not r:
-            return True
-        if r != EAGAIN:
-            raise IOError("Ring write failed")
-        return False
-
-    def flush(self):
-        msg_write_flush(&self._rb)
-
-    def ready(self):
-        return record_next_size(self._rb.ring) > -1
 
 # hal_iter callback: add ring names into list
 cdef int _collect_ring_names(hal_ring_t *ring,  void *userdata):
@@ -299,3 +402,64 @@ def rings():
         if rc < 0:
             raise RuntimeError("halpr_foreach_ring failed %d" % rc)
     return names
+
+def delete_ring(char *name):
+    hal_required()
+    rc = hal_ring_delete(name)
+    if rc < 0:
+        raise RuntimeError("deleting ring '%s' failed: %s" % (name,strerror(-rc)))
+
+def pair_rings(char *r1, char *r2):
+    hal_required()
+    id1 = 0
+    id2 = 0
+    with HALMutex():
+        hr1 = halpr_find_ring_by_name(r1)
+        if hr1 == NULL:
+            raise RuntimeError("no such ring '%s'" % (r1))
+        hr2 = halpr_find_ring_by_name(r2)
+        if hr2 == NULL:
+            raise RuntimeError("no such ring '%s'" % (r2))
+        id1 = hr1.handle
+        id2 = hr2.handle
+    rc = hal_ring_pair(id1,id2)
+    if rc < 0:
+        raise RuntimeError("pairing '%s' '%s' failed: %s" % (r1,r2,strerror(-rc)))
+
+def Ring(*args, **kwargs):
+    ''' factory for new and existing rings'''
+
+    cdef int type
+    cdef hal_ring_t *hr
+    hal_required()
+
+    if len(args) == 1:
+        # fixup old calling convention
+        kwargs["name"] = args[0]
+
+    type =  kwargs.get('type', RINGTYPE_RECORD) # the default
+
+    # need to determine type for existing rings to properly wrap them
+    if 'name' in kwargs:
+        # wrapping by name
+        with HALMutex():
+            hr = halpr_find_ring_by_name(kwargs["name"])
+            if hr != NULL:
+                type = (hr.flags  & RINGTYPE_MASK)
+
+    if 'id' in kwargs:
+        # wrapping by id
+        with HALMutex():
+            hr = halpr_find_ring_by_id(kwargs["id"])
+            if hr:
+                type = (hr.flags  & RINGTYPE_MASK)
+
+    if type == RINGTYPE_RECORD:
+        return _RecordRing(**kwargs)
+    if type == RINGTYPE_MULTIPART:
+        return _MultiframeRing(**kwargs)
+    if type == RINGTYPE_STREAM:
+        return _StreamRing(**kwargs)
+
+    raise RuntimeError("no such ring type: %d" % (type))
+
