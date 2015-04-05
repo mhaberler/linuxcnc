@@ -3,6 +3,7 @@
 from libc.stdint cimport uint64_t, uint8_t, uint32_t, int32_t
 from libc.stddef cimport size_t
 from .rtapi cimport rtapi_atomic_type
+from .multiframe_flag cimport *
 
 cdef extern from "ring.h":
     int RINGTYPE_RECORD
@@ -133,3 +134,7 @@ cdef extern from "multiframe.h":
     int frame_shift(msgbuffer_t *mb)
     int msg_read_flush(msgbuffer_t *mb)
     int msg_read_abort(msgbuffer_t *mb)
+
+
+
+
