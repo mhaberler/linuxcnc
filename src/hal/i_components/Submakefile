@@ -25,6 +25,11 @@ endif # TRIVIAL_BUILD == no
 endif
 
 
+ifeq ($(BUILD_THREAD_MODULES),yes)
+obj-m += \
+	$(patsubst hal/i_components/%.icomp, %.o, $(ICOMPS))
+endif
+
 ICOMP_MANPAGES := $(patsubst $(HALICOMPDIR)/%.icomp, ../man/man9/%.9icomp, \
 	$(ICOMPS))
 
