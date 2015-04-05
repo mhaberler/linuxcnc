@@ -29,11 +29,12 @@ container = Container()
 container.type = MT_HALUPDATE
 container.serial = 34567
 
-arg = container.args.add()
-arg.type = HAL_PIN
-arg.pin.type = HAL_S32
-arg.pin.name = "foo.1.bar"
-arg.pin.hals32 = 4711
+if False:
+    pin = container.pin.add()
+    pin.type = HAL_S32
+    pin.name = "foo.1.bar"
+    pin.hals32 = 4711
+    print "Pin msgid:", msgid(pin)
 
 print "Container msgid:", msgid(container)
 print "payload:", container.ByteSize()
@@ -41,6 +42,12 @@ print "text format:", str(container)
 
 buffer = container.SerializeToString()
 print "wire format length=%d %s" % (len(buffer), binascii.hexlify(buffer))
+
+cstruct = nanopb.pb2nanopb_cstruct(buffer, msgid(container))
+print "cstruct: ", len(cstruct), cstruct
+
+npb = nanopb.nanopb_cstruct2pb(bytes(bytearray(cstruct)), msgid(container))
+print "npb: ",len(npb), binascii.hexlify(bytearray(npb))
 
 jsonout = container.SerializeToJSON()
 print "json format:",json.dumps(json.loads(jsonout), indent=4)
