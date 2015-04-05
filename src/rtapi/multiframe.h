@@ -75,7 +75,7 @@ typedef struct {
 typedef struct {
     __s32 size;
     __u32 flags;
-    char data[0];  // actual frame contents
+    __u8  data[0];  // actual frame contents
 } frameheader_t;
 
 // initialize a msgbuffer from an existing ringbuffer instance.
