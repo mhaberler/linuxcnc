@@ -325,7 +325,7 @@ add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_PIN;
 	hi->o.pin = pin;
-	hi->ptr = SHMPTR(pin->data_ptr_addr);
+	hi->v.pinptr = (hal_data_u **)SHMPTR(pin->data_ptr_addr);
 	self->items[pin->handle] = hi;
     }
     return 0;

@@ -25,7 +25,6 @@
 #include <sys/socket.h>
 // #include "halpb.hh"
 // #include "pbutil.hh"
-// #include "rtapi_hexdump.h"
 
 // #include <google/protobuf/text_format.h>
 

@@ -52,6 +52,7 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	if (!self->rx.ParseFromArray(zframe_data(f), zframe_size(f))) {
 	    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
 				 16, 1, zframe_data(f), zframe_size(f), true,
+				 NULL,
 				 "%s: invalid pb ", origin.c_str());
 	} else {
 	    if (self->cfg->debug) {
@@ -241,8 +242,8 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 	    goto EXIT_COMP;
 	}
 	// storage for the pin
-	hi->ptr = hal_malloc(sizeof(void *));
-	if (hi->ptr == NULL) {
+	hi->v.pinptr = (hal_data_u **) hal_malloc(sizeof(void *));
+	if (hi->v.pinptr == NULL) {
 	    note_printf(self->tx,"hal_malloc() failed");
 	    goto EXIT_COMP;
 	}
@@ -250,7 +251,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 	retval = hal_pin_new(p.name().c_str(),
 			     (hal_type_t) p.type(),
 			     (hal_pin_dir_t) p.dir(),
-			     (void **) hi->ptr,
+			     (void **) hi->v.pinptr,
 			     comp_id);
 	if (retval < 0) {
 	    note_printf(self->tx, "hal_pin_new() failed");
@@ -752,7 +753,7 @@ int describe_pin_by_name(htself_t *self, const char *name)
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_PIN;
 	hi->o.pin = hp;
-	hi->ptr = SHMPTR(hp->data_ptr_addr);
+	hi->v.pinptr = (hal_data_u **)SHMPTR(hp->data_ptr_addr);
 	self->items[hp->handle] = hi;
 	// printf("add pin %s to items\n", hp->name);
     }
@@ -782,7 +783,7 @@ int describe_signal_by_name(htself_t *self, const char *name)
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_SIGNAL;
 	hi->o.signal = hs;
-	hi->ptr = SHMPTR(hs->data_ptr);
+	hi->v.sigptr = (hal_data_u *) SHMPTR(hs->data_ptr);
 	self->items[hs->handle] = hi;
 	// printf("add signal %s to items\n", hs->name);
     }
