@@ -285,12 +285,12 @@ int main(int argc, char **argv)
     assert((pi = calloc(sizeof(prodinfo_t),conf.n_producers)) != NULL);
     assert((ep = calloc(sizeof(int),conf.n_producers)) != NULL);
 
-    if ((retval = hal_ring_new(ringname, conf.size, 0, comp_id, conf.mode | conf.alloc))) {
+    if ((retval = hal_ring_new(ringname, conf.size, 0, comp_id, conf.mode | conf.alloc)) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"ringbench: failed to create new ring %s: %d\n",
 			ringname, retval);
     }
-    if ((retval = hal_ring_attach(ringname, &rb, comp_id, NULL))) {
+    if ((retval = hal_ring_attachf(&rb, comp_id, NULL,ringname)) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"ringbench: failed to attach to ring %s: %d\n",
 			ringname, retval);

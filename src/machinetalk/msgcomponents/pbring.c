@@ -7,7 +7,7 @@
 // the nanopb library and compiled message definitions are brought in once by
 // 'halcmd loadrt pbmsgs' (message descriptors for parsing and generating pb msgs)
 // the nanopb library functions per se are now linked into hal_lib.so
-#include <machinetalk/include/pb-linuxcnc.h>
+#include <machinetalk/include/pb-machinekit.h>
 #include <machinetalk/nanopb/pb_decode.h>
 #include <machinetalk/nanopb/pb_encode.h>
 #include <machinetalk/include/container.h>
@@ -254,7 +254,7 @@ static int create_or_attach(const char *ringname, int size, ringbuffer_t * rb)
 
     // for messaging with protobuf, use record mode
     // default mode 0 = record mode
-    if ((retval = hal_ring_new(ringname, size, 0, 0))) {
+    if ((retval = hal_ring_new(ringname, size, 0, 0)) < 0) {
 	if (retval == -EEXIST) {
 	    rtapi_print_msg(RTAPI_MSG_INFO,
 			    "%s: using existing ring '%s'\n", name, ringname);
@@ -264,9 +264,9 @@ static int create_or_attach(const char *ringname, int size, ringbuffer_t * rb)
 	    return retval;
 	}
     }
-    if ((retval = hal_ring_attach(ringname, rb, NULL))) {
+    if ((retval = hal_ring_attachf(rb, NULL, ringname)) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: hal_ring_attach(%s) failed - %d\n",
+			"%s: hal_ring_attachf(%s) failed - %d\n",
 			name, command, retval);
 	return retval;
     }
@@ -320,7 +320,7 @@ void rtapi_app_exit(void)
 
 	rtapi_snprintf(ringname, sizeof(ringname), "%s.%d.in", name, i);
 	p->to_rt_rb.header->reader = 0;
-	if ((retval = hal_ring_detach(ringname, &p->to_rt_rb)) < 0)
+	if ((retval = hal_ring_detach(&p->to_rt_rb)) < 0)
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed: %d\n",
 			    name, ringname, retval);
@@ -328,7 +328,7 @@ void rtapi_app_exit(void)
 
 	p->from_rt_rb.header->writer = 0;
 	rtapi_snprintf(ringname, sizeof(ringname), "%s.%d.out", name, i);
-	if ((retval = hal_ring_detach(ringname, &p->from_rt_rb)) < 0)
+	if ((retval = hal_ring_detach(&p->from_rt_rb)) < 0)
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "%s: hal_ring_detach(%s) failed: %d\n",
 			    name, ringname, retval);

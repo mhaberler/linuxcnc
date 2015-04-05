@@ -188,15 +188,15 @@ int rtapi_app_main(void)
 			name, comp_id);
 	return -1;
     }
-    if ((retval = hal_ring_attach(command, &command_rb, NULL))) {
+    if ((retval = hal_ring_attachf(&command_rb, NULL, command))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: ERROR: hal_ring_attach(%s) failed: %d\n",
+			"%s: ERROR: hal_ring_attachf(%s) failed: %d\n",
 			name, command, retval);
 	goto error;
     }
-    if ((retval = hal_ring_attach(response, &response_rb, NULL))) {
+    if ((retval = hal_ring_attachf( &response_rb, NULL, response))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: ERROR: hal_ring_attach(%s) failed: %d\n",
+			"%s: ERROR: hal_ring_attachf(%s) failed: %d\n",
 			name, response, retval);
 	goto error;
     }

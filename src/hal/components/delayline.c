@@ -157,7 +157,7 @@ void rtapi_app_exit(void)
     for (n = 0; n < count; n++) {
 	if (instance[n]) {
 	    hal_delayline_t *hd = instance[n]->scratchpad;
-	    hal_ring_detachf(instance[n], "%s.samples", hd->name);
+	    hal_ring_detach(instance[n]);
 	    hal_ring_deletef("%s.samples", hd->name);
 	}
     }
@@ -393,7 +393,7 @@ static int export_delayline(int n)
     // HAL pins and other shared data
     if ((instance[n] = hal_malloc(sizeof(ringbuffer_t))) == NULL)
 	return -1;
-    if ((retval = hal_ring_attach(buf, instance[n], NULL))) {
+    if ((retval = hal_ring_attachf(instance[n], NULL, buf))) {
 	hal_print_msg(RTAPI_MSG_ERR,
 		      "%s: attach to ring %s failed: %d\n",
 		      cname, buf, retval);

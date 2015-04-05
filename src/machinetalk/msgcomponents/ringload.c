@@ -4,6 +4,7 @@
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private API decls */
 #include "hal_ring.h"	        /* ringbuffer declarations */
+#include <machinetalk/generated/types.npb.h>
 
 /* module information */
 MODULE_AUTHOR("Michael Haberler");
@@ -26,7 +27,6 @@ static int comp_id;		/* component ID */
 int rtapi_app_main(void)
 {
     int n, retval;
-    char ringname[HAL_NAME_LEN + 1];
     int flags = 0;
 
     comp_id = hal_init("ringload");
@@ -41,15 +41,21 @@ int rtapi_app_main(void)
 	flags |= ALLOC_HALMEM;
 
     for (n = 0; n < num_rings; n++) {
-	snprintf(ringname, HAL_NAME_LEN, "ring_%d",n);
-	if ((retval = hal_ring_new(ringname, size, spsize,flags))) {
+	if ((retval = hal_ring_newf( size, spsize,flags,"ring_%d",n )) < 0) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "ringload: failed to create new ring %s: %d\n",
-			    ringname, retval);
+			    "ringload: failed to create new ring: %d\n",
+			    retval);
+	    continue;
 	}
+	hal_ring_setflag(retval,  HF_ENCODINGS, RE_TEXT | RE_PROTOBUF | RE_NPB_CSTRUCT );
+	hal_ring_setflag(retval,  HF_HALTALK_ADOPT, 1);
+	hal_ring_setflag(retval,  HF_HALTALK_ANNOUNCE, 1);
+	hal_ring_setflag(retval,  HF_HALTALK_WRITES, 1);
+	hal_ring_setflag(retval,  HF_ZEROMQ_SOCKETTYPE,pb_socketType_ST_ZMQ_PUB);
+
 	rtapi_print_msg(RTAPI_MSG_DBG,
-			"ringload: ring '%s' %s mode created\n",
-			ringname, mode ? "stream":"record");
+			"ringload: %s ring  mode created\n",
+			mode ? "stream":"record");
     }
     hal_ready(comp_id);
     return 0;
