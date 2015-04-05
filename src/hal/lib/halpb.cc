@@ -76,8 +76,23 @@ halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 {
     pbring->set_name(ring->name);
     pbring->set_handle(ring->handle);
-    //FIXME use new attach function to query flags
+    pbring->set_paired_handle(ring->paired_handle);
+    pbring->set_encodings(ring->encodings);
+    pbring->set_haltalk_zeromq_stype((pb::socketType)ring->haltalk_zeromq_stype);
+    pbring->set_haltalk_adopt(ring->haltalk_adopt);
+    pbring->set_haltalk_announce(ring->haltalk_announce);
+    pbring->set_haltalk_writes(ring->haltalk_writes);
+    pbring->set_total_size(ring->total_size);
+    bool halmem = (ring->flags &  ALLOC_HALMEM) != 0;
+    pbring->set_rtapi_shm(! halmem);
+    if (!halmem)
+	pbring->set_ring_shmkey(ring->ring_shmkey);
+
+
+    //FIXME use new attach function to query RTAPI flags
     // XXX describing more detail would require a temporary attach.
+
+
     return 0;
 }
 
