@@ -1,4 +1,4 @@
-component i_or2s "Two-input OR gate";
+component i_or2 "Two-input OR gate";
 pin in bit in0;
 pin in bit in1;
 pin out bit out """\
