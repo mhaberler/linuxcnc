@@ -120,9 +120,9 @@ int rtapi_app_main(void)
 			name, comp_id);
 	return -1;
     }
-    if ((retval = hal_ring_attach(ring, &rb,NULL))) {
+    if ((retval = hal_ring_attachf( &rb, NULL, ring)) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: ERROR: hal_ring_attach(%s) failed: %d\n",
+			"%s: ERROR: hal_ring_attachf(%s) failed: %d\n",
 			name, ring, retval);
 	return -1;
     }
@@ -155,7 +155,7 @@ void rtapi_app_exit(void)
 {
     int retval;
     rb.header->reader = 0;
-    if ((retval = hal_ring_detach(ring, &rb)) < 0)
+    if ((retval = hal_ring_detach(&rb)) < 0)
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: ERROR: hal_ring_detach(%s) failed: %d\n",
 			name, ring, retval);

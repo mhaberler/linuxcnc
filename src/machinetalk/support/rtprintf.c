@@ -18,7 +18,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-#include <machinetalk/include/pb-linuxcnc.h>
+#include <machinetalk/include/pb-machinekit.h>
 #include <machinetalk/nanopb/pb_encode.h>
 
 #include <machinetalk/generated/types.npb.h>
