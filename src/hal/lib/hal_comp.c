@@ -241,7 +241,7 @@ int hal_xinit(const int type,
     }
 
     HALDBG("%s component '%s' id=%d initialized%s",
-	   (ctor != NULL) ? "instantiable" : "legacy",
+	   (ctor != NULL) ? "instantiable" : "singleton",
 	   hal_name, comp_id,
 	   (dtor != NULL) ? ", has destructor" : "");
     return comp_id;
