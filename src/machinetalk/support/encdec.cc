@@ -14,6 +14,7 @@
 #include <machinetalk/generated/value.pb.h>
 #include <machinetalk/generated/message.pb.h>
 #include <machinetalk/generated/object.pb.h>
+#include <machinetalk/generated/nanopb.pb.h>
 
 #include <json2pb.hh>
 
@@ -22,9 +23,23 @@
 using namespace google::protobuf::xml;
 #endif
 
+
+// nanopb
+#include <machinetalk/include/pb-machinekit.h>
+#include <machinetalk/nanopb/pb_decode.h>
+#include <machinetalk/nanopb/pb_encode.h>
+#include <machinetalk/generated/message.npb.h>
+
 using namespace pb;
 using namespace std;
 using namespace google::protobuf;
+
+
+uint32 msgid(const ::google::protobuf::Message  &m)
+{
+  const ::google::protobuf::MessageOptions& options = m.GetDescriptor()->options();
+  return options.GetExtension(nanopb_msgopt).msgid();
+}
 
 int main(int argc, char* argv[])
 {
@@ -53,6 +68,9 @@ int main(int argc, char* argv[])
     value = container.add_value();
     value->set_type(DOUBLE);
     value->set_v_double(3.14159);
+
+    cerr << "container.msgid=" << msgid(container) << endl;
+    cerr << "pin.msgid=" << msgid(*pin) << endl;
 
     // ready to serialize to wire format.
     if (argc == 1) {

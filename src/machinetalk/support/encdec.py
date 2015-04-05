@@ -9,6 +9,7 @@ from types_pb2 import *
 from value_pb2 import *
 from object_pb2 import *
 from message_pb2 import *
+from nanopb_pb2 import *
 
 import google.protobuf.text_format
 
@@ -19,7 +20,10 @@ import google.protobuf.text_format
 # msg.ParseFromJSON(buf)
 import pb2json
 import json  # pretty printer
+from machinekit import nanopb
 
+def msgid(m):
+    return m.DESCRIPTOR.GetOptions().Extensions[nanopb_msgopt].msgid
 
 container = Container()
 container.type = MT_HALUPDATE
@@ -31,6 +35,7 @@ arg.pin.type = HAL_S32
 arg.pin.name = "foo.1.bar"
 arg.pin.hals32 = 4711
 
+print "Container msgid:", msgid(container)
 print "payload:", container.ByteSize()
 print "text format:", str(container)
 
