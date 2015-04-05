@@ -3,7 +3,7 @@ component i_thc "Torch Height Control";
 description 
 """
 Torch Height Control
-Mesa THC > Encoder > LinuxCNC THC component
+Mesa THC > Encoder > Machinekit THC component
 
 The Mesa THC sends a frequency based on the voltage detected to the encoder.
 The velocity from the encoder is converted to volts with the velocity scale
