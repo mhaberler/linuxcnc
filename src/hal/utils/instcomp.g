@@ -944,7 +944,8 @@ def to_hal_man_unnumbered(s):
 
 
 def to_hal_man(s):
-    s = "%s.\\fIN\\fB.%s" % (comp_name, s)
+#    s = "%s.\\fIN\\fB.%s" % (comp_name, s)
+    s = "%s.%s" % (comp_name, s)
     s = s.replace("_", "-")
     s = s.rstrip("-")
     s = s.rstrip(".")
@@ -984,7 +985,10 @@ def document(filename, outfilename):
         print >>f, rest
     else:
         print >>f, ".HP"
-        print >>f, ".B loadrt %s [count=\\fIN\\fB|names=\\fIname1\\fB[,\\fIname2...\\fB]]" % comp_name,
+        print >>f, ".B loadrt %s" % comp_name
+        print >>f, ".HP"
+        print >>f, ".B newinst %s <newinstname> [ pincount=\\fIN\\fB | iprefix=\\fIprefix\\fB ]" % comp_name
+        print >>f, ".B                          [instanceparamX=\\fIX\\fB | argX=\\fIX\\fB ]" 
         for type, name, default, doc in modparams:
             print >>f, "[%s=\\fIN\\fB]" % name,
         print >>f
@@ -1014,7 +1018,10 @@ def document(filename, outfilename):
         print >>f, ".SH FUNCTIONS"
         for _, name, fp, doc in finddocs('funct'):
             print >>f, ".TP"
-            print >>f, "\\fB%s\\fR" % to_hal_man(name),
+            if name != None and name != "_":
+                print >>f, "\\fB<newinstname>.%s.funct\\fR"  % name ,
+            else :
+                print >>f, "\\fB<newinstname>.funct\\fR" ,
             if fp:
                 print >>f, "(requires a floating-point thread)"
             else:
@@ -1029,10 +1036,7 @@ def document(filename, outfilename):
         print >>f, type, dir,
         if array:
             sz = name.count("#")
-            if isinstance(array, tuple):
-                print >>f, " (%s=%0*d..%s)" % ("M" * sz, sz, 0, array[1]),
-            else:
-                print >>f, " (%s=%0*d..%0*d)" % ("M" * sz, sz, 0, sz, array-1),
+            print >>f, " (%s=%s..%s)" % ("M" * sz, "0" * sz , array),                                
         if value:
             print >>f, "\\fR(default: \\fI%s\\fR)" % value
         else:
@@ -1052,10 +1056,7 @@ def document(filename, outfilename):
             print >>f, type, dir,
             if array:
                 sz = name.count("#")
-                if isinstance(array, tuple):
-                    print >>f, " (%s=%0*d..%s)" % ("M" * sz, sz, 0, array[1]),
-                else:
-                    print >>f, " (%s=%0*d..%0*d)" % ("M" * sz, sz, 0, sz, array-1),
+                print >>f, " (%s=%s..%s)" % ("M" * sz, "0" * sz , array),                    
             if value:
                 print >>f, "\\fR(default: \\fI%s\\fR)" % value
             else:
@@ -1071,7 +1072,7 @@ def document(filename, outfilename):
         print >>f, ".SH INST_PARAMETERS"
         for _, name, type, doc, value in finddocs('instanceparam'):
             print >>f, lead
-            print >>f, ".B %s\\fR" % to_hal_man(name),
+            print >>f, ".B %s\\fR" % name,
             print >>f, type,
             if value:
                 print >>f, "\\fR(default: \\fI%s\\fR)" % value
@@ -1087,7 +1088,7 @@ def document(filename, outfilename):
         print >>f, ".SH MODULE_PARAMETERS"
         for _, name, type, doc, value in finddocs('moduleparam'):
             print >>f, lead
-            print >>f, ".B %s\\fR" % to_hal_man(name),
+            print >>f, ".B %s\\fR" % name,
             print >>f, type,
             if value:
                 print >>f, "\\fR(default: \\fI%s\\fR)" % value
