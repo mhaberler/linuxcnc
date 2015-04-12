@@ -25,6 +25,7 @@ $(HALNGMKDIR)/hal.c: $(wildcard $(HALNGMKDIR)/*.pyx $(HALNGMKDIR)/*.pxd)
 
 TARGETS += ../lib/python/machinekit/hal.so
 ../lib/python/machinekit/hal.so:	../lib/liblinuxcnchal.so.0 \
+	../lib/libmtalk.so.0 \
 	 $(patsubst %.c,objects/%.o,$(HALSO_SRCS)) \
 	 $(patsubst %.cc,objects/%.o,$(HALSO_CXXSRCS))
 	$(ECHO) Linking $($@)
