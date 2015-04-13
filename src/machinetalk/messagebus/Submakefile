@@ -3,7 +3,7 @@
 MBDIR := $(MACHINETALK)/messagebus
 
 
-ifeq ($(BUILD_DEV),yes)
+#ifeq ($(BUILD_DEV),yes)
 
 MESSAGEBUS_SRCS :=  $(addprefix $(MBDIR)/, \
 	messagebus.cc \
@@ -19,8 +19,7 @@ $(call TOOBJSDEPS, $(MESSAGEBUS_SRCS)) : EXTRAFLAGS += $(MESSAGEBUS_CXX_CFLAGS)
 	../lib/libmtalk.so.0 \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
-	../lib/liblinuxcnc-npb.so.0
+	../lib/libmkprotobuf.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
 	 $(MESSAGEBUS_CXX_LDFLAGS)
@@ -46,8 +45,7 @@ $(call TOOBJSDEPS, $(RFRAME_SRCS)) : EXTRAFLAGS += $(RFRAME_CXX_CFLAGS)
 ../bin/rframe: $(call TOOBJS, $(RFRAME_SRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
-	../lib/liblinuxcnc-npb.so.0
+	../lib/libmkprotobuf.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  \
 	 $(RFRAME_CXX_LDFLAGS)
@@ -59,5 +57,5 @@ TARGETS += ../bin/rframe
 endif
 
 
-endif # BUILD_DEV
+#endif # BUILD_DEV
 
