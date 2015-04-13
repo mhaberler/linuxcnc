@@ -1,0 +1,13 @@
+# zmq=6: ZMQ_ROUTER
+
+newring no-adopt 1000 multi
+
+newring to-rt    10000 multi  adopt haltalk_writes announce encodings=0x7 zmq=6
+newring from-rt  10000 multi  paired=to-rt
+
+newring from-rt-stream  10000 stream
+newring to-rt-stream    10000 stream adopt announce  haltalk_writes paired=from-rt-stream  zmq=6
+
+
+
+#loadusr -W haltalk

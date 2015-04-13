@@ -9,6 +9,13 @@ socket.bind("tcp://127.0.0.1:5700")
 
 count = 0
 while True:
-    req = socket.recv_multipart()
-    print "got: ", req
-    socket.send_multipart([req[0], "reply to %s" % req[1]])
+    msg = socket.recv_multipart()
+    sep		= msg.index( '' )
+    cli		= msg[:sep]
+    request	= msg[sep+1:]
+
+    print "cli: ", cli
+    print "request: ", request
+    reply = "reply to %s" % (request)
+
+    socket.send_multipart(cli +  [reply])
