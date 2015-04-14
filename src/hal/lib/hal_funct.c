@@ -176,7 +176,10 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 			    "%s.tmax-increased", name);
 	break;
     case FS_USERLAND: // no timing pins/params
-	;
+	break;
+    case FS_TRIGGER: // no timing pins/params
+	break;
+
     }
 
     return 0;
@@ -205,7 +208,11 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *
 	    return -ENOENT;
 	}
 
-	if (funct->type != FS_USERLAND) {
+	switch (funct->type) {
+	case FS_USERLAND:
+	case FS_TRIGGER:
+	    break;
+	default:
 	    HALERR("funct '%s': invalid type %d", name, funct->type);
 	    return -ENOENT;
 	}
@@ -230,16 +237,27 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *
 	.argc = argc,
 	.argv = argv,
     };
-    int retval = funct->funct.u(&fa);
-    if (ureturn)
-	*ureturn = retval;
+    int retval;
+
+    switch (funct->type) {
+
+    case FS_USERLAND:
+    case FS_TRIGGER:
+	retval = funct->funct.u(&fa);
+	if (ureturn)
+	    *ureturn = retval;
+	return 0;
+
+    default:
+	return -EINVAL;
+    }
     return 0;
 }
 
 int hal_add_funct_to_thread(const char *funct_name,
 			    const char *thread_name, int position)
 {
-    hal_funct_t *funct;
+    hal_funct_t *funct, *ufunct;
     hal_list_t *list_root, *list_entry;
     int n;
     hal_funct_entry_t *funct_entry;
@@ -285,21 +303,28 @@ int hal_add_funct_to_thread(const char *funct_name,
 		   "to one thread", funct_name);
 	    return -EINVAL;
 	}
-	/* search thread list for thread_name */
+	// see if this is chained onto a thread or a userfunct
 	thread = halpr_find_thread_by_name(thread_name);
-	if (thread == 0) {
-	    /* thread not found */
-	    HALERR("thread '%s' not found", thread_name);
+	ufunct = halpr_find_funct_by_name(thread_name);
+
+	if ((thread == NULL) && (ufunct == NULL)) {
+	    HALERR("no such thread or userfunct: '%s'", thread_name);
 	    return -EINVAL;
 	}
 	/* ok, we have thread and function, are they compatible? */
-	if ((funct->uses_fp) && (!thread->uses_fp)) {
-	    HALERR("function '%s' needs FP", funct_name);
-	    return -EINVAL;
+	if (thread != NULL) {
+	    if ((funct->uses_fp) && (!thread->uses_fp)) {
+		HALERR("function '%s' needs FP", funct_name);
+		return -EINVAL;
+	    }
+	    /* find insertion point */
+	    list_root = &(thread->funct_list);
+	    list_entry = list_root;
+	} else {
+	    list_root = &(ufunct->funct_list);
+	    list_entry = list_root;
 	}
-	/* find insertion point */
-	list_root = &(thread->funct_list);
-	list_entry = list_root;
+
 	n = 0;
 	if (position > 0) {
 	    /* insertion is relative to start of list */
@@ -346,7 +371,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 
 int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 {
-    hal_funct_t *funct;
+    hal_funct_t *funct, *ufunct;
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *funct_entry;
 
@@ -373,20 +398,28 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	    HALERR("function '%s' is not in use", funct_name);
 	    return -EINVAL;
 	}
-	/* search thread list for thread_name */
+	// see if this is chained onto a thread or a userfunct
 	thread = halpr_find_thread_by_name(thread_name);
-	if (thread == 0) {
-	    /* thread not found */
-	    HALERR("thread '%s' not found", thread_name);
+	ufunct = halpr_find_funct_by_name(thread_name);
+
+	if ((thread == NULL) && (ufunct == NULL)) {
+	    HALERR("no such thread or userfunct: '%s'", thread_name);
 	    return -EINVAL;
 	}
-	/* ok, we have thread and function, does thread use funct? */
-	list_root = &(thread->funct_list);
-	list_entry = list_next(list_root);
+
+	/* find insertion point */
+	if (thread != NULL) {
+	    list_root = &(thread->funct_list);
+	    list_entry = list_root;
+	} else {
+	    list_root = &(ufunct->funct_list);
+	    list_entry = list_root;
+	}
 	while (1) {
 	    if (list_entry == list_root) {
 		/* reached end of list, funct not found */
-		HALERR("thread '%s' doesn't use %s",
+		HALERR("%s '%s' doesn't use %s",
+		       thread ? "thread" : "userfunct",
 		       thread_name, funct_name);
 		return -EINVAL;
 	    }
@@ -525,6 +558,7 @@ hal_funct_t *alloc_funct_struct(void)
 	p->arg = 0;
 	p->funct.l = 0;
 	p->name[0] = '\0';
+	list_init_entry(&(p->funct_list));
     }
     return p;
 }
@@ -567,6 +601,18 @@ void free_funct_struct(hal_funct_t * funct)
 	    }
 	    /* move on to the next thread */
 	    next_thread = thread->next_ptr;
+	}
+    }
+    // in case this was a userfunct with chained functs, unlink those
+    if (funct->type == FS_TRIGGER) {
+	list_root = &(funct->funct_list);
+	list_entry = list_next(list_root);
+	while (list_entry != list_root) {
+	    funct_entry = (hal_funct_entry_t *) list_entry;
+	    hal_funct_t *f = SHMPTR(funct_entry->funct_ptr);
+	    HALDBG("unlink %s from %s", f->name, funct->name);
+	    list_entry = list_remove_entry(list_entry);
+	    free_funct_entry_struct(funct_entry);
 	}
     }
     /* clear contents of struct */
