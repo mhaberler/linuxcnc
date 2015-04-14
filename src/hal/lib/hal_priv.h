@@ -370,6 +370,7 @@ typedef enum {
     FS_LEGACY_THREADFUNC,  // legacy API
     FS_XTHREADFUNC,        // extended API
     FS_USERLAND,           // userland-callable, with argc/arv vector
+    FS_TRIGGER,            // userland-callable, may be addf'd to
 } hal_funct_signature_t;
 
 typedef struct hal_thread hal_thread_t;
@@ -433,6 +434,7 @@ typedef struct hal_funct {
     hal_s32_t* runtime;	        /* (pin) duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
     hal_bit_t maxtime_increased;	/* on last call, maxtime increased */
+    hal_list_t funct_list;	/* list of functions to run if functs chained */
     char name[HAL_NAME_LEN + 1];	/* function name */
 } hal_funct_t;
 
