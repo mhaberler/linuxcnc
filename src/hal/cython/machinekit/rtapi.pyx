@@ -127,7 +127,7 @@ cdef class RTAPILogger:
 cdef char ** _to_argv(args):
     l = len(args)
     cdef char **ret = <char **>malloc((l+1) * sizeof(char *))
-    if not ret:
+    if ret == NULL:
         raise MemoryError()
     for i in xrange(l):
         ret[i] = PyString_AsString(args[i])
@@ -153,13 +153,13 @@ class RTAPIcommand:
         cdef char *c_name = name
         r = rtapi_newthread(instance, c_name, period, cpu, use_fp)
         if r:
-            raise RuntimeError("rtapi_newthread failed:  %s" % strerror(-r))
+            raise RuntimeError("rtapi_newthread '%s' failed: %d\n%s" % (name, -r, rtapi_rpcerror()))
 
     def delthread(self,char *name, instance=0):
         cdef char *c_name = name
         r = rtapi_delthread(instance, c_name)
         if r:
-            raise RuntimeError("rtapi_delthread failed:  %s" % strerror(-r))
+            raise RuntimeError("rtapi_delthread '%s' failed: %d\n%s" % (name, -r, rtapi_rpcerror()))
 
     def loadrt(self,*args, instance=0):
         cdef char** argv
@@ -169,17 +169,19 @@ class RTAPIcommand:
             raise RuntimeError("loadrt needs at least the module name as argument")
         name = args[0]
         argv = _to_argv(args[1:])
-        r = rtapi_loadrt( instance, name, <const char **>argv)
-        free(argv)
+        try:
+            r = rtapi_loadrt( instance, name, <const char **>argv)
+        finally:
+            free(argv)
         if r:
-            raise RuntimeError("rtapi_loadrt '%s' failed: %s" % (args,strerror(-r)))
+            raise RuntimeError("rtapi_loadrt '%s' failed: %d\n%s" % (name, -r, rtapi_rpcerror()))
 
     def unloadrt(self,char *name, int instance=0):
         if name == NULL:
             raise RuntimeError("unloadrt needs at least the module name as argument")
         r = rtapi_unloadrt( instance, name)
         if r:
-            raise RuntimeError("rtapi_unloadrt '%s' failed: %s" % (name,strerror(-r)))
+            raise RuntimeError("rtapi_unloadrt '%s' failed: %d\n%s" % (name, -r, rtapi_rpcerror()))
 
     def newinst(self, *args, instance=0):
         cdef char** argv
@@ -190,15 +192,30 @@ class RTAPIcommand:
         comp = args[0]
         instname = args[1]
         argv = _to_argv(args[2:])
-        r = rtapi_newinst( instance, comp, instname, <const char **>argv)
-        free(argv)
+        try:
+            r = rtapi_newinst( instance, comp, instname, <const char **>argv)
+        finally:
+            free(argv)
         if r:
-            raise RuntimeError("rtapi_newinst '%s' failed: %s" % (args,strerror(-r)))
+            raise RuntimeError("rtapi_newinst '%s' failed: %d\n%s" % (args, -r, rtapi_rpcerror()))
 
     def delinst(self, char *instname, instance=0):
         r = rtapi_delinst( instance, instname)
         if r:
-            raise RuntimeError("rtapi_delinst '%s' failed: %s" % (instname,strerror(-r)))
+            raise RuntimeError("rtapi_delinst '%s' failed: %d\n%s" % (instname, -r, rtapi_rpcerror()))
+
+    def callfunc(self, char *fname, *args, instance=0):
+        cdef char** argv
+        cdef char *name
+
+        argv = _to_argv(args[0:])
+        try:
+            r = rtapi_callfunc(instance, fname, <const char **>argv)
+        finally:
+            free(argv)
+        if r < 0:
+            raise RuntimeError("rtapi_callfunc '%s' failed: %d\n%s" % (fname, -r,rtapi_rpcerror()))
+        return r
 
 
 # default module to connect to RTAPI:

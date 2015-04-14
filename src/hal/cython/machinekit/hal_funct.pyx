@@ -12,3 +12,4 @@ def delf(const char *funct_name, const char *thread_name):
     r = hal_del_funct_from_thread(funct_name,thread_name)
     if r:
         raise RuntimeError("hal_del_funct_from_thread failed: %d %s" % (r, hal_lasterror()))
+
