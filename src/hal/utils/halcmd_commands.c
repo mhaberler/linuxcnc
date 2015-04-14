@@ -2071,6 +2071,7 @@ static const char *ftype(int ft)
     case FS_LEGACY_THREADFUNC: return "thread";
     case FS_XTHREADFUNC: return "xthread";
     case FS_USERLAND: return "user";
+    case FS_TRIGGER: return "trigger";
     default: return "*invalid*";
     }
 }
@@ -2188,11 +2189,11 @@ static void print_thread_stats(hal_thread_t *tptr)
 
 static void print_thread_info(char **patterns)
 {
-    int next_thread, n;
+    int next_thread, next_funct, n;
     hal_thread_t *tptr;
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *fentry;
-    hal_funct_t *funct;
+    hal_funct_t *funct, *fptr;
     int named = patterns && patterns[0] && strlen(patterns[0]);
 
     if (scriptmode == 0) {
@@ -2236,6 +2237,45 @@ static void print_thread_info(char **patterns)
 	}
 	next_thread = tptr->next_ptr;
     }
+    if (scriptmode == 0) {
+	halcmd_output("\nTrigger chains:\n");
+	//	halcmd_output("     Period  FP     Name               (     Time, Max-Time )\n");
+    }
+
+    next_funct = hal_data->funct_list_ptr;
+    while (next_funct != 0) {
+	fptr = SHMPTR(next_funct);
+	if ( (fptr->type == FS_TRIGGER) && match(patterns, fptr->name) ) {
+	    halcmd_output("\t%s\n", fptr->name);
+	    /* halcmd_output(((scriptmode == 0) ? "%11ld  %-3s  %20s ( %8ld, %8ld )\n" : "%ld %s %s %ld %ld"), */
+	    /* 	tptr->period, (tptr->uses_fp ? "YES" : "NO"), tptr->name, (long)tptr->runtime, (long)tptr->maxtime); */
+
+	    list_root = &(fptr->funct_list);
+	    list_entry = list_next(list_root);
+	    n = 1;
+	    while (list_entry != list_root) {
+		/* print the function info */
+		fentry = (hal_funct_entry_t *) list_entry;
+		funct = SHMPTR(fentry->funct_ptr);
+		/* scriptmode only uses one line per thread, which contains: 
+		   thread period, FP flag, name, then all functs separated by spaces  */
+		if (scriptmode == 0) {
+		    halcmd_output("                 %2d %s\n", n, funct->name);
+		} else {
+		    halcmd_output(" %s", funct->name);
+		}
+		n++;
+		list_entry = list_next(list_entry);
+	    }
+	    if (scriptmode != 0) {
+		halcmd_output("\n");
+	    } else {
+
+	    }
+	}
+	next_funct = fptr->next_ptr;
+    }
+
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");
 }
@@ -3446,11 +3486,14 @@ int do_waitunbound_cmd(char *comp_name, char *tokens[])
 int do_callfunc_cmd(char *func, char *args[])
 {
     int retval = rtapi_callfunc(rtapi_instance, func, (const char **)args);
-    if ( retval < 0 ) {
+    switch (retval) {
+    case -EBUSY:
+	halcmd_error("realtime threads not started (rc=%d)\n", retval);
+	break;
+    default:
 	halcmd_error("function call %s returned %d\n%s", func, retval, rtapi_rpcerror());
 	return retval;
     }
-    halcmd_info("function '%s' returned %d\n", func, retval);
     return 0;
 }
 
