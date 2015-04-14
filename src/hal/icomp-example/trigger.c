@@ -99,9 +99,15 @@ static int run_chain(const hal_funct_args_t *trigger)
     return 0;
 }
 
-static int export_halobjs(struct inst_data *ip, int inst_id, const char *name)
+static int instantiate(const char *name, const int argc, const char**argv)
 {
-    int retval;
+    struct inst_data *ip;
+    int inst_id, retval;
+
+    if ((inst_id = hal_inst_create(name, comp_id,
+				   sizeof(struct inst_data),
+				   (void **)&ip)) < 0)
+	return inst_id;
 
     if ((retval = hal_pin_u32_newf(HAL_OUT, &ip->count, inst_id, "%s.count", name)) < 0)
 	return retval;
@@ -116,22 +122,6 @@ static int export_halobjs(struct inst_data *ip, int inst_id, const char *name)
 	return retval;
 
     return 0;
-}
-
-static int instantiate(const char *name, const int argc, const char**argv)
-{
-    struct inst_data *ip;
-    int inst_id, retval;
-
-    if ((inst_id = hal_inst_create(name, comp_id,
-				   sizeof(struct inst_data),
-				   (void **)&ip)) < 0)
-	return inst_id;
-
-    HALDBG("inst=%s argc=%d\n", name, argc);
-
-    retval = export_halobjs(ip, inst_id, name);
-    return retval;
 }
 
 int rtapi_app_main(void)
