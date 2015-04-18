@@ -3491,6 +3491,7 @@ int main(int argc, char *argv[])
 	} else {
 	    timer->wait();
 	}
+	assert(interp_list.len() < emc_task_interp_max_len + 1);
     }
     // end of while (! done)
 
