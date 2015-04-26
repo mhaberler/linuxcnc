@@ -1120,6 +1120,9 @@ int do_loadrt_cmd(char *mod_name, char *args[])
     strcat(modpath,"/");
     strcat(modpath,mod_name);
     strcat(modpath, flavor->mod_ext);
+
+    fprintf(stderr, "modpath='%s'\n", modpath);
+
     const char **caps = get_capv(modpath);
 
     char **p = (char **)caps;
