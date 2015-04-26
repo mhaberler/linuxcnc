@@ -170,6 +170,18 @@ extern int get_rtapi_config(char *result, const char *param, int n);
 
 extern const char *rtapi_get_rpath(void);
 
+
+// inspection of Elf objects (.so, .ko):
+// retrieve raw data of Elf section section_name.
+// returned in *dest on success.
+// caller must free().
+// returns size, or < 0 on failure.
+int get_elf_section(const char *const fname, const char *section_name, void **dest);
+
+// split the null-delimited strings in an .rtapi_caps Elf section into an argv.
+// caller must free.
+const char **get_capv(const char *const fname);
+
 SUPPORT_END_DECLS
 
 #endif // MODULE

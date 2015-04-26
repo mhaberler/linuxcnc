@@ -974,7 +974,13 @@ extern void ulapi_cleanup(void);
 extern void ulapi_kernel_compat_check(rtapi_switch_t *rtapi_switch,
 				      char *ulapi_lib);
 extern int ulapi_loaded(void);
+
 #endif
+
+// elf section name where capability strings reside
+#define RTAPI_TAGS  ".rtapi_tags"
+
+#define RTAPI_PASTE(a,b)	a##b
 
 /***********************************************************************
 *                      MODULE PARAMETER MACROS                         *
@@ -1148,6 +1154,20 @@ static const char __module_license[] __attribute__((section(".modinfo"))) =   \
 "license=" license
 #endif
 #endif
+
+
+// module tagging for feature inspection
+
+#define _RTAPI_TAG(line, tag)						\
+    __attribute__((section(RTAPI_TAGS)))				\
+    const char RTAPI_PASTE(rtapi_info_,line)[] =  {tag};
+
+#define RTAPI_TAG(tag) _RTAPI_TAG(__LINE__, tag)
+
+// usage:
+// RTAPI_TAG("caps=4711");
+// RTAPI_TAG("foo=815");
+// retrieved by const char **get_capv(const char *const fname);
 
 #endif /* RTAPI */
 
