@@ -1109,6 +1109,22 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 	halcmd_error("HAL is locked, loading of modules is not permitted\n");
 	return -EPERM;
     }
+    flavor_ptr flavor = flavor_byid(global_data->rtapi_thread_flavor);
+
+    char modpath[PATH_MAX];
+    if (get_rtapi_config(modpath,"RTLIB_DIR",PATH_MAX) != 0)
+	return -1;
+
+    strcat(modpath,"/");
+    strcat(modpath, flavor->name);
+    strcat(modpath,"/");
+    strcat(modpath,mod_name);
+    strcat(modpath, flavor->mod_ext);
+    const char **caps = get_capv(modpath);
+
+    char **p = (char **)caps;
+    while (p && *p && strlen(*p))
+	fprintf(stderr,"cap: '%s'\n", *p++);
 
     retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
     if ( retval != 0 ) {
