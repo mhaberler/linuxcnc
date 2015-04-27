@@ -1131,14 +1131,23 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 	strcat(modpath,mod_name);
 	strcat(modpath, flavor->mod_ext);
     }
-    fprintf(stderr, "modpath='%s'\n", modpath);
 
-    const char **caps = get_capv(modpath);
+    bool instantiable;
+    const char *hal_cap = get_cap(modpath, "HAL");
+    instantiable =  (hal_cap && (atoi(hal_cap) & HC_INSTANTIABLE));
+    if (hal_cap)
+	free(hal_cap);
+
+#if 1
+    fprintf(stderr, "modpath='%s' instantiable = %d\n", modpath, instantiable);
+
+    const char **caps = get_caps(modpath);
 
     char **p = (char **)caps;
     while (p && *p && strlen(*p))
 	fprintf(stderr,"cap: '%s'\n", *p++);
-
+    free(caps);
+#endif
     retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
     if ( retval != 0 ) {
 	halcmd_error("insmod failed, returned %d:\n%s\n"
