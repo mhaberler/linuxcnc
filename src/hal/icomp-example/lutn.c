@@ -32,8 +32,7 @@
 MODULE_AUTHOR("Michael Haberler");
 MODULE_DESCRIPTION("instantiable lookup table component with configurable number of pins");
 MODULE_LICENSE("GPL");
-
-RTAPI_TAG("instantiable=1");
+RTAPI_TAG(HAL,HC_INSTANTIABLE);
 
 static int comp_id;
 static char *compname = "lutn";
