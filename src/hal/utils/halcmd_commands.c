@@ -39,6 +39,7 @@
 
 #include "config.h"
 #include "rtapi.h"		/* RTAPI realtime OS API */
+#include "rtapi_compat.h"
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"	/* private HAL decls */
 #include "hal_ring.h"	        /* ringbuffer declarations */
@@ -1109,18 +1110,27 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 	halcmd_error("HAL is locked, loading of modules is not permitted\n");
 	return -EPERM;
     }
-    flavor_ptr flavor = flavor_byid(global_data->rtapi_thread_flavor);
 
     char modpath[PATH_MAX];
-    if (get_rtapi_config(modpath,"RTLIB_DIR",PATH_MAX) != 0)
-	return -1;
 
-    strcat(modpath,"/");
-    strcat(modpath, flavor->name);
-    strcat(modpath,"/");
-    strcat(modpath,mod_name);
-    strcat(modpath, flavor->mod_ext);
+    flavor_ptr flavor = flavor_byid(global_data->rtapi_thread_flavor);
 
+    if (kernel_threads(flavor)) {
+	if (module_path(modpath, mod_name) < 0) {
+	    halcmd_error("cant determine module_path for %s ?\n", mod_name);
+	    return -1;
+	}
+    } else {
+	if (get_rtapi_config(modpath,"RTLIB_DIR",PATH_MAX) != 0){
+	    halcmd_error("cant get  RTLIB_DIR ?\n");
+	    return -1;
+	}
+	strcat(modpath,"/");
+	strcat(modpath, flavor->name);
+	strcat(modpath,"/");
+	strcat(modpath,mod_name);
+	strcat(modpath, flavor->mod_ext);
+    }
     fprintf(stderr, "modpath='%s'\n", modpath);
 
     const char **caps = get_capv(modpath);
