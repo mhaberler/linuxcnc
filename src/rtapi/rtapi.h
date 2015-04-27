@@ -1158,11 +1158,11 @@ static const char __module_license[] __attribute__((section(".modinfo"))) =   \
 
 // module tagging for feature inspection
 
-#define _RTAPI_TAG(line, tag)						\
+#define _RTAPI_TAG(line, key, value)					\
     __attribute__((section(RTAPI_TAGS)))				\
-    const char RTAPI_PASTE(rtapi_info_,line)[] =  {tag};
+    const char RTAPI_PASTE(rtapi_info_,line)[] =  { key "=" #value };
 
-#define RTAPI_TAG(tag) _RTAPI_TAG(__LINE__, tag)
+#define RTAPI_TAG(key, value) _RTAPI_TAG(__LINE__, #key , value)
 
 // usage:
 // RTAPI_TAG("caps=4711");
