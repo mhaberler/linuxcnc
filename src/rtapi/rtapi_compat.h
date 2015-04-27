@@ -184,7 +184,13 @@ int get_elf_section(const char *const fname, const char *section_name, void **de
 
 // split the null-delimited strings in an .rtapi_caps Elf section into an argv.
 // caller must free.
-const char **get_capv(const char *const fname);
+const char **get_caps(const char *const fname);
+
+// given a path to an elf binary, and a capability name, return its value
+// or NULL if not present.
+// caller must free().
+const char *get_cap(const char *const fname, const char *cap);
+
 
 SUPPORT_END_DECLS
 

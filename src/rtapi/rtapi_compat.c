@@ -594,7 +594,7 @@ int get_elf_section(const char *const fname, const char *section_name, void **de
     return size;
 }
 
-const char **get_capv(const char *const fname)
+const char **get_caps(const char *const fname)
 {
     void  *dest;
     int n = 0;
@@ -621,3 +621,28 @@ const char **get_capv(const char *const fname)
     rv[n] = NULL;
     return rv;
 }
+
+const char *get_cap(const char *const fname, const char *cap)
+{
+    if ((cap == NULL) || (fname == NULL))
+	return NULL;
+
+    const char **cv = get_caps(fname);
+    if (cv == NULL)
+	return NULL;
+
+    const char **p = cv;
+    size_t len = strlen(cap);
+
+    while (p && *p && strlen(*p)) {
+	if (strncasecmp(*p, cap, len) == 0) {
+	    const char *result = strdup(*p + len + 1); // skip over '='
+	    free(cv);
+	    return result;
+	}
+    }
+    free(cv);
+    return NULL;
+}
+
+
