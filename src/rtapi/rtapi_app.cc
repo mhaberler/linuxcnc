@@ -354,12 +354,6 @@ static const char **pbargv(const pbstringarray_t &args)
     return argv;
 }
 
-static inline bool kernel_threads(flavor_ptr f) {
-    assert(f);
-    return (f->flags & FLAVOR_KERNEL_BUILD) != 0;
-}
-
-
 static void usrfunct_error(const int retval,
 			   const string &func,
 			   pbstringarray_t args,

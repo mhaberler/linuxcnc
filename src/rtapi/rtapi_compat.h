@@ -122,6 +122,11 @@ extern flavor_ptr flavor_byname(const char *flavorname);
 extern flavor_ptr flavor_byid(int flavor_id);
 extern flavor_ptr default_flavor(void);
 
+// determine if this is a userland or kthreads flavor
+static inline int kernel_threads(flavor_ptr f) {
+    return (f->flags & FLAVOR_KERNEL_BUILD) != 0;
+}
+
 /*
  * Given a result buffer of PATH_MAX size and a module or shared
  * library's basename (e.g. 'rtapi' with no directory or '.ko'), find
@@ -169,7 +174,6 @@ extern int get_rtapi_config(char *result, const char *param, int n);
 // rtapi_get_rpath() will return "/usr/local/lib:/usr/lib"
 
 extern const char *rtapi_get_rpath(void);
-
 
 // inspection of Elf objects (.so, .ko):
 // retrieve raw data of Elf section section_name.
