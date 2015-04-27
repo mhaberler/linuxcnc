@@ -1136,7 +1136,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
     const char *hal_cap = get_cap(modpath, "HAL");
     instantiable =  (hal_cap && (atoi(hal_cap) & HC_INSTANTIABLE));
     if (hal_cap)
-	free(hal_cap);
+	free((char *)hal_cap);
 
 #if 1
     fprintf(stderr, "modpath='%s' instantiable = %d\n", modpath, instantiable);
