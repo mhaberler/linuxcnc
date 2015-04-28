@@ -1099,93 +1099,314 @@ int do_autoload_cmd(char *what)
     return 0;
 }
 
-int do_loadrt_cmd(char *mod_name, char *args[])
+//////////////////////////////////////////////////////////////////////////////
+// helper functions to check if base module is loaded and what instances exist
+
+bool module_loaded(char *mod_name)
 {
-    char arg_string[MAX_CMD_LEN+1];
-    int  n=0, retval;
-    hal_comp_t *comp;
-    char *cp1;
+hal_comp_t *comp;
+bool loaded;
 
-    if (hal_get_lock()&HAL_LOCK_LOAD) {
-	halcmd_error("HAL is locked, loading of modules is not permitted\n");
-	return -EPERM;
-    }
+    rtapi_mutex_get(&(hal_data->mutex));
+    comp = halpr_find_comp_by_name(mod_name);
+    if(comp == 0) 
+        loaded = false;
+    else
+        loaded = true;
+    rtapi_mutex_give(&(hal_data->mutex));
 
-    char modpath[PATH_MAX];
+    return loaded;
+}
+
+
+bool inst_name_exists(char *name)
+{
+hal_inst_t *ins;
+bool exists;
+
+    rtapi_mutex_get(&(hal_data->mutex));
+    ins = halpr_find_inst_by_name(name);
+    if (ins == NULL) 
+        exists = false;
+    else
+        exists = true;
+    rtapi_mutex_give(&(hal_data->mutex));
+    
+    return exists;
+}
+
+
+int get_tags(char *mod_name)
+{
+char modpath[PATH_MAX];
+int result = 0, n = 0;
+char *cp1 = "";
 
     flavor_ptr flavor = flavor_byid(global_data->rtapi_thread_flavor);
 
-    if (kernel_threads(flavor)) {
-	if (module_path(modpath, mod_name) < 0) {
-	    halcmd_error("cant determine module_path for %s ?\n", mod_name);
-	    return -1;
-	}
-    } else {
-	if (get_rtapi_config(modpath,"RTLIB_DIR",PATH_MAX) != 0){
-	    halcmd_error("cant get  RTLIB_DIR ?\n");
-	    return -1;
-	}
-	strcat(modpath,"/");
-	strcat(modpath, flavor->name);
-	strcat(modpath,"/");
-	strcat(modpath,mod_name);
-	strcat(modpath, flavor->mod_ext);
-    }
-
-    bool instantiable;
-    const char *hal_cap = get_cap(modpath, "HAL");
-    instantiable =  (hal_cap && (atoi(hal_cap) & HC_INSTANTIABLE));
-    if (hal_cap)
-	free((char *)hal_cap);
-
-#if 1
-    fprintf(stderr, "modpath='%s' instantiable = %d\n", modpath, instantiable);
+    if (kernel_threads(flavor)) 
+        {
+	    if (module_path(modpath, mod_name) < 0) 
+	        {
+	        halcmd_error("cant determine module_path for %s ?\n", mod_name);
+	        return -1;
+    	    }
+        } 
+    else 
+        {
+	    if (get_rtapi_config(modpath,"RTLIB_DIR",PATH_MAX) != 0)
+	        {
+    	    halcmd_error("cant get  RTLIB_DIR ?\n");
+	        return -1;
+	        }
+	    strcat(modpath,"/");
+	    strcat(modpath, flavor->name);
+	    strcat(modpath,"/");
+	    strcat(modpath,mod_name);
+	    strcat(modpath, flavor->mod_ext);
+        }
 
     const char **caps = get_caps(modpath);
-
+    
     char **p = (char **)caps;
     while (p && *p && strlen(*p))
-	fprintf(stderr,"cap: '%s'\n", *p++);
+	    {
+	    cp1 = *p++;
+	    if(strncmp(cp1,"HAL=", 4) == 0)
+	        {
+            n = strtol(&cp1[4], NULL, 10);
+            result |=  n ;
+            }
+        }
     free(caps);
-#endif
-    retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
-    if ( retval != 0 ) {
-	halcmd_error("insmod failed, returned %d:\n%s\n"
-		     "See %s for more information.\n",
-		     retval, rtapi_rpcerror(), logpath);
-	return -1;
-    }
-    /* make the args that were passed to the module into a single string */
-    n = 0;
-    arg_string[0] = '\0';
-    while ( args[n] && args[n][0] != '\0' ) {
-	strncat(arg_string, args[n++], MAX_CMD_LEN);
-	strncat(arg_string, " ", MAX_CMD_LEN);
-    }
-    /* allocate HAL shmem for the string */
-    cp1 = hal_malloc(strlen(arg_string)+1);
-    if ( cp1 == NULL ) {
-	halcmd_error("failed to allocate memory for module args\n");
-	return -1;
-    }
-    /* copy string to shmem */
-    strcpy (cp1, arg_string);
-    /* get mutex before accessing shared data */
-    rtapi_mutex_get(&(hal_data->mutex));
-    /* search component list for the newly loaded component */
-    comp = halpr_find_comp_by_name(mod_name);
-    if (comp == 0) {
-	rtapi_mutex_give(&(hal_data->mutex));
-	halcmd_error("module '%s' not loaded\n", mod_name);
-	return -EINVAL;
-    }
-    /* link args to comp struct */
-    comp->insmod_args = SHMOFF(cp1);
-    rtapi_mutex_give(&(hal_data->mutex));
-    /* print success message */
-    halcmd_info("Realtime module '%s' loaded\n", mod_name);
+    
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+int do_loadrt_cmd(char *mod_name, char *args[])
+{
+char arg_string[MAX_CMD_LEN+1];
+char arg_section[MAX_CMD_LEN+1];
+char buff[MAX_CMD_LEN+1];
+int  n = 0, x = 0, w = 0, p = 0, retval;
+
+hal_comp_t *comp;
+bool instantiable = false, singleton = false;
+
+char *cp1, *cp2;
+const char *dummy[] = { NULL};
+// MAX_ARGS defined in halcmd_commands.h - currently 20
+char *list[MAX_ARGS] = {"\0",};
+int list_index = 0;
+
+    if (hal_get_lock()&HAL_LOCK_LOAD) 
+        {
+        halcmd_error("HAL is locked, loading of modules is not permitted\n");
+        return -EPERM;
+        }
+    
+    retval = get_tags(mod_name);
+    if(retval == -1)
+        {
+        halcmd_error("Error in module tags search");
+        return retval;
+        }
+    else
+        {
+        if((retval & HC_INSTANTIABLE) == HC_INSTANTIABLE )
+            instantiable = true;
+        // extra test for other tags below
+        if((retval & HC_SINGLETON) == HC_SINGLETON)
+            singleton = true;
+        }
+///////////////////////////////  instantiable components  ///////////////////////////////////////////////////////////
+    if(instantiable) 
+        {
+        if(args[x = 0] != NULL)  
+            {
+            while(args[x] != NULL)
+                {
+                strcpy(arg_string, args[x]);
+                // count=N
+                if((strncmp(arg_string, "count=", 6) == 0) && !singleton)
+                    {
+                    strcpy(arg_section, &arg_string[6]);
+                    n = strtol(arg_section, &cp1, 10);
+                    if(n > 0)
+                        { 
+                        // check if already loaded, if not load it
+                        if(!module_loaded(mod_name))
+                            {
+                            retval = rtapi_loadrt(rtapi_instance, mod_name, dummy);
+                            if ( retval != 0 ) 
+                                {
+                                halcmd_error("insmod failed, returned %d:\n%s\n"
+                                    "See %s for more information.\n", retval, rtapi_rpcerror(), logpath);
+                                return -1;
+                                }
+                            }
+                        for(int y = 0, v = 0; y < n; y++ , v++)
+                            {
+                            sprintf(buff, "%s.%d", mod_name, v);
+                            while(inst_name_exists(buff)) 
+                                sprintf(buff, "%s.%d", mod_name, ++v);
+                            retval = rtapi_newinst(rtapi_instance, mod_name, buff, dummy);
+                            if ( retval != 0 ) 
+                                {
+                                halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+                                return retval;
+                                }
+                            }
+                        }
+                    else
+                        {
+                        halcmd_error("Invalid value to count= parameter\n");
+                        return -1;
+                        }
+                    }
+                // names="..."
+                else if( (strncmp(arg_string, "names=", 6) == 0) && !singleton)
+                    {
+                    strcpy(arg_section, &arg_string[6]);
+                    cp1 = strtok(arg_section, ",");
+                    while( cp1 != NULL ) 
+                        {
+                        cp2 = (char *) malloc(strlen(cp1) + 1);
+                        strcpy(cp2, cp1);
+                        list[list_index++] = cp2;
+                        cp1 = strtok(NULL, ",");
+                        }
+                    if(list_index)
+                        {
+                        if(!module_loaded(mod_name))
+                            {
+                            retval = rtapi_loadrt(rtapi_instance, mod_name, dummy);
+                            if ( retval != 0 ) 
+                                {
+                                halcmd_error("insmod failed, returned %d:\n%s\n"
+                                    "See %s for more information.\n", retval, rtapi_rpcerror(), logpath);
+                                for(p = 0; p < list_index; p++)
+                                    free(list[p]);
+                                return -1;
+                                }
+                            }
+                        for(w = 0; w < list_index; w++)                        
+                            {
+                            if(inst_name_exists(list[w]))
+                                {
+                                halcmd_error("\nA named instance '%s' already exists\n", list[w]);
+                                for( p = 0; p < list_index; p++)
+                                    free(list[p]);
+                                return -1;
+                                }
+                            retval = rtapi_newinst(rtapi_instance, mod_name, list[w], dummy);
+                            if ( retval != 0 ) 
+                                {
+                                halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+                                for( p = 0; p < list_index; p++)
+                                    free(list[p]);
+                                return retval;
+                                }
+                            }
+                        for(p = 0; p < list_index; p++)
+                            free(list[p]);
+                        }
+                    }
+                // invalid parameter
+                else
+                    {
+                    halcmd_error("\nInvalid argument '%s' to instantiated component\n"
+                                 "NB. Use of personality or cfg is deprecated\n"
+                                 "Singleton components cannot have multiple instances\n\n", args[x]);
+                    return -1;
+                    }
+                x++;
+                }
+            }
+        else  // if no args just create a single instance with default number 0, unless singleton.
+            {
+            if(!module_loaded(mod_name))
+                {
+                retval = rtapi_loadrt(rtapi_instance, mod_name, dummy);
+                if ( retval != 0 ) 
+                    {
+                    halcmd_error("insmod failed, returned %d:\n%s\n"
+                    "See %s for more information.\n", retval, rtapi_rpcerror(), logpath);
+                    return -1;
+                    }
+                 }
+            w = 0;
+            if(singleton)
+                {
+                sprintf(buff, "%s", mod_name);
+                if(inst_name_exists(buff))
+                    {
+                    halcmd_error("\nError singleton component '%s' already exists\n", buff);
+                    return -1;
+                    }
+                }
+            else
+                {
+                sprintf(buff, "%s.%d", mod_name, w);
+                while(inst_name_exists(buff)) 
+                    sprintf(buff, "%s.%d", mod_name, ++w);
+                }
+            retval = rtapi_newinst(rtapi_instance, mod_name, buff, dummy);
+            if ( retval != 0 ) 
+                {
+                halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+                return retval;
+                }
+            }
+        }
+///////////////////////// normal rt module being loaded - do as before  ////////////////////////////////////////
+    else
+        {
+        retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
+        if ( retval != 0 ) 
+            {
+            halcmd_error("insmod failed, returned %d:\n%s\n"
+                "See %s for more information.\n", retval, rtapi_rpcerror(), logpath);
+            return -1;
+            }
+        /* make the args that were passed to the module into a single string */
+        n = 0;
+        arg_string[0] = '\0';
+        while ( args[n] && args[n][0] != '\0' ) 
+            {
+        	strncat(arg_string, args[n++], MAX_CMD_LEN);
+        	strncat(arg_string, " ", MAX_CMD_LEN);
+            }
+        /* allocate HAL shmem for the string */
+        cp1 = hal_malloc(strlen(arg_string)+1);
+        if ( cp1 == NULL ) 
+            {
+        	halcmd_error("failed to allocate memory for module args\n");
+        	return -1;
+            }
+        /* copy string to shmem */
+        strcpy (cp1, arg_string);
+        /* get mutex before accessing shared data */
+        rtapi_mutex_get(&(hal_data->mutex));
+        /* search component list for the newly loaded component */
+        comp = halpr_find_comp_by_name(mod_name);
+        if (comp == 0) 
+            {
+            rtapi_mutex_give(&(hal_data->mutex));
+            halcmd_error("module '%s' not loaded\n", mod_name);
+            return -EINVAL;
+            }
+        /* link args to comp struct */
+        comp->insmod_args = SHMOFF(cp1);
+        rtapi_mutex_give(&(hal_data->mutex));
+        /* print success message */
+        halcmd_info("Realtime module '%s' loaded\n", mod_name);
+        }
     return 0;
 }
+
 
 int do_delsig_cmd(char *mod_name)
 {
@@ -3514,43 +3735,84 @@ cstatus_t classify_comp(const char *comp)
     return CS_RTLOADED_AND_INSTANTIABLE;
 }
 
+
 int do_newinst_cmd(char *comp, char *inst, char *args[])
 {
-    cstatus_t status = classify_comp(comp);
+int retval;
+cstatus_t status = classify_comp(comp);
+const char *argv[] = { NULL};
+bool singleton = false;
 
-    switch (status) {
-    case CS_NOT_LOADED:
-	if (autoload) {
-	    char *argv[] = { NULL};
-	    int retval = do_loadrt_cmd(comp, argv);
-	    if (retval)
-		return retval;
-	    // recurse
-	    return do_newinst_cmd(comp, inst,  args);
-	    break;
-	}
-	halcmd_error("component '%s' not loaded\n", comp);
-	break;
-    case CS_NOT_RT:
-	halcmd_error("'%s' not an RT component\n", comp);
-	return -EINVAL;
-	break;
-    case  CS_RTLOADED_NOT_INSTANTIABLE:
-	halcmd_error("legacy component '%s' loaded, but not instantiable\n", comp);
-	return -EINVAL;
-	break;
-    case CS_RTLOADED_AND_INSTANTIABLE:
-	// we're good
-	break;
-    }
-
-    int retval = rtapi_newinst(rtapi_instance, comp, inst, (const char **)args);
-    if ( retval != 0 ) {
-	halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
-	return retval;
-    }
+    switch (status) 
+        {
+        case CS_NOT_LOADED:
+            if (autoload) 
+                {
+                retval = rtapi_loadrt(rtapi_instance, comp, argv);
+                if ( retval != 0 ) 
+                   {
+                   halcmd_error("insmod failed, returned %d:\n%s\n"
+                                "See %s for more information.\n", retval, rtapi_rpcerror(), logpath);
+                   return -1;
+                    }                
+                // recurse
+                return do_newinst_cmd(comp, inst,  args);
+                break;
+                }
+            halcmd_error("component '%s' not loaded\n", comp);
+            break;
+        case CS_NOT_RT:
+            halcmd_error("'%s' not an RT component\n", comp);
+            return -EINVAL;
+            break;
+        case  CS_RTLOADED_NOT_INSTANTIABLE:
+            halcmd_error("legacy component '%s' loaded, but not instantiable\n", comp);
+            return -EINVAL;
+            break;
+        case CS_RTLOADED_AND_INSTANTIABLE:
+            // we're good
+            break;
+        }
+    
+    if (hal_get_lock()&HAL_LOCK_LOAD) 
+        {
+        halcmd_error("HAL is locked, loading of modules is not permitted\n");
+        return -EPERM;
+        }
+    
+    retval = get_tags(comp);
+    if(retval == -1)
+        {
+        halcmd_error("Error in module tags search");
+        return retval;
+        }
+    else
+        {
+        if((retval & HC_SINGLETON) == HC_SINGLETON)
+            singleton = true;
+        }
+    //  If a singleton is created via a direct loadrt, it will have the same name
+    //  as the component.  If created by newinst, it could have any name.
+    //  Try to prevent more than one singleton being created using newinst afterwards.
+    if(singleton)
+        {
+        hal_comp_t *existing_comp = halpr_find_comp_by_name(comp);
+        if(inst_name_exists(comp) || inst_count(existing_comp))
+            {
+            halcmd_error("Singleton components cannot have multiple instances\n\n");
+            return -1;
+            }
+        }
+        
+    retval = rtapi_newinst(rtapi_instance, comp, inst, (const char **)args);
+    if ( retval != 0 ) 
+        {
+        halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+        return retval;
+        }
     return 0;
 }
+
 
 int do_delinst_cmd(char *inst)
 {
