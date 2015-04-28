@@ -1,0 +1,18 @@
+CANOPENDIR= hal/canopen
+
+CANOPEN_SUBMAKEFILE= $(CANOPENDIR)/Submakefile
+
+ifeq ($(BUILD_SYS),user-dso)
+USERSRCS += hal/canopen/canopen.c
+
+obj-m += canopen.o
+canopen-objs := hal/canopen/canopen.o
+
+$(RTLIBDIR)/canopen$(MODULE_EXT): EXTRA_LDFLAGS +=  -lcanfestival -lcanfestival_unix
+$(RTLIBDIR)/canopen$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(canopen-objs))
+
+hal/canopen/canopen.c: hal/canopen/canopen.comp ../bin/comp
+	$(ECHO) "Preprocessing $(notdir $<)"
+	@mkdir -p $(dir $@)
+	$(Q)../bin/comp --require-license -o $@ $<
+endif

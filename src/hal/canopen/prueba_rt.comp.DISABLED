@@ -1,0 +1,148 @@
+component prueba_rt;
+
+pin in unsigned entrada "Ingresar valor al cual comienza a enviar";
+
+pin out unsigned salida "Valor con 10 sumados";
+
+
+option extra_setup;
+option extra_cleanup;
+
+function rtenvia;
+
+license "GPLv2 or later";
+author "el";
+;;
+
+#include </usr/include/netinet/in.h>
+#include </usr/include/stdint.h>
+#include </usr/include/linux/net.h>
+#include </usr/rtnet/include/rtnet.h>
+#include </home/carmona/RTNet_CANOpen/linuxcnc-rtnet/include/rtapi_math.h>
+
+
+
+#define UDP_RPORT 8888
+#define UDP_LPORT 9999
+#define CLIENT_IP "192.168.3.255"
+
+u32 txbuf[16];
+u32 txsize = 0;
+int tx_ret = 0;
+
+u32 rxbuf[16];
+int rx_ret = 0;
+
+
+static volatile int sockfd = -1;
+//int delay = RXTXDELAY;
+//RTAPI_MP_INT(delay, "RX+TX delay in 10us");
+long timeout = 500000000; /* 500 ms */
+RTAPI_MP_LONG(timeout, "Receive timeout in ns, must be half of thread period");
+int lport = UDP_LPORT;
+RTAPI_MP_INT(lport, "Local UDP listen port");
+int rport = UDP_RPORT;
+RTAPI_MP_INT(rport, "Remote client UDP listen port");
+char *client_ip = CLIENT_IP;
+RTAPI_MP_STRING(client_ip, "Remote client IP address");
+int j;
+
+EXTRA_SETUP()
+{
+	struct sockaddr_in local_addr;
+	struct sockaddr_in server_addr;
+	int ret = 0;
+	long rxtimeout;
+
+	rxtimeout = timeout;
+
+	/* Set address structures to zero. */
+	memset(&local_addr, 0, sizeof(struct sockaddr_in));
+	memset(&server_addr, 0, sizeof(struct sockaddr_in));
+
+	// Set address information structures
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_addr.s_addr = INADDR_ANY;
+
+	server_addr.sin_family = AF_INET;
+	inet_aton(client_ip, &server_addr.sin_addr.s_addr);
+	//server_addr.sin_addr.s_addr = rt_inet_aton(client_ip);
+	server_addr.sin_port = htons(rport);
+
+	// Create new socket.
+	sockfd = rt_dev_socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		rtapi_print_msg(RTAPI_MSG_ERR,
+		"PRUEBA RT: Error opening socket: %d\n", sockfd);
+		return -1;
+	}
+
+	// Set timeout for socket in blocking mode
+	ret = rt_dev_ioctl(sockfd, RTNET_RTIOC_TIMEOUT, &rxtimeout);
+	if (ret < 0) {
+		rt_dev_close(sockfd);
+		rtapi_print_msg(RTAPI_MSG_ERR,
+		"PRUEBA RT: Setting socket option failed with error %d\n",
+		ret);
+		return ret;
+	}
+
+	local_addr.sin_port = htons(lport);
+	// Bind socket to local address.
+	ret = rt_dev_bind(sockfd, (struct sockaddr *) &local_addr,
+	sizeof(struct sockaddr_in));
+	if (ret < 0) {
+		rt_dev_close(sockfd);
+		rtapi_print_msg(RTAPI_MSG_ERR,
+		"PRUEBA RT: Binding socket failed with error %d\n", ret);
+		return ret;
+	}
+
+	// Specify destination address for socket.
+	rt_dev_connect(sockfd, (struct sockaddr *) &server_addr,
+	sizeof(struct sockaddr_in));
+
+	if (ret < 0) {
+		rt_dev_close(sockfd);
+		rtapi_print_msg(RTAPI_MSG_ERR,
+		"PRUEBA RT: Connecting to remote failed with error %d\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
+
+EXTRA_CLEANUP()
+{
+	if (!(sockfd < 0))
+		rt_dev_close(sockfd);
+}
+
+FUNCTION(rtenvia)
+{
+	int i;
+	int temp;
+	temp= entrada;
+	for (i=0; i<17; i++) {
+		salida=temp;
+		txbuf[i]=temp;
+		temp++;
+		txsize=i;
+	}
+	if (txsize) {
+	tx_ret = rt_dev_send(sockfd, txbuf, txsize, 0);
+	if(tx_ret < 0)
+	rtapi_print_msg(RTAPI_MSG_ERR, "PRUEBA RT: Transmit error: %d\n", tx_ret);
+	}
+ }
+
+FUNCTION(read)
+{
+
+	memset(&rxbuf, 0, sizeof(rxbuf));
+	/* Block until packet is received. */
+	rx_ret = rt_dev_recv(sockfd, (void*)&rxbuf, sizeof(rxbuf), 0);
+	if(rx_ret < 0) {
+			rtapi_print_msg(RTAPI_MSG_ERR,"RT-8p8c: Receive error: %d\n", rx_ret);
+	}
+}

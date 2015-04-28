@@ -763,6 +763,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     char *origin = zmsg_popstr (r);
     zframe_t *request_frame  = zmsg_pop (r);
     static bool force_exit = false;
+    int retval;
 
     pb::Container pbreq, pbreply;
 
@@ -838,10 +839,12 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	assert(pbreq.has_rtapicmd());
 	assert(pbreq.rtapicmd().has_modname());
 	assert(pbreq.rtapicmd().has_instance());
-	pbreply.set_retcode(do_load_cmd(pbreq.rtapicmd().instance(),
-					pbreq.rtapicmd().modname(),
-					pbreq.rtapicmd().argv(),
-					pbreply));
+	retval = do_load_cmd(pbreq.rtapicmd().instance(),
+			     pbreq.rtapicmd().modname(),
+			     pbreq.rtapicmd().argv(),
+			     pbreply);
+	pbreply.set_retcode(retval);
+
 	break;
 
     case pb::MT_RTAPI_APP_UNLOADRT:

@@ -204,6 +204,7 @@ SUBDIRS := \
 	hal/lib \
 	hal/components \
 	hal/i_components \
+	hal/canopen \
 	hal/vtable-example \
 	hal/userfunct-example \
 	hal/drivers \
@@ -1087,6 +1088,7 @@ ifneq ($(KERNELRELEASE),)
 # When the Submakefile is included in the kbuild Makefile, the
 # module's obj-m and foo-objs definitions may remain in the Submakefile
 include $(BASEPWD)/hal/lib/Submakefile
+include $(BASEPWD)/hal/canopen/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/i_components/Submakefile
@@ -1121,6 +1123,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(BASEPWD)/emc/motion \
 	-I$(BASEPWD)/emc/tp \
 	-I$(BASEPWD)/machinetalk/nanopb \
+	-I$(BASEPWD)/hal/canopen \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
@@ -1133,6 +1136,8 @@ ifeq ($(BUILD_SYS),kbuild)
 EXTRA_CFLAGS += $(call cc-option,-Wframe-larger-than=2560) $(call cc-option,-Wno-declaration-after-statement)
 endif
 
+# FIXME make conditional on canfestival
+EXTRA_CFLAGS += 	-I/usr/local/include/canfestival/
 
 
 # For each module, there's an addition to obj-m or obj-$(CONFIG_foo)

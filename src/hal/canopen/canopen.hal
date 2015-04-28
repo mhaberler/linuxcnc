@@ -1,0 +1,6 @@
+loadrt canopen inputs=24831 outputs=24675,25600 slavenodeid=2 masternodeid=1
+#loadrt canopen inputs=24831 outputs=24675 slavenodeid=2 masternodeid=1
+loadrt threads name1=servo-thread period1=10000000
+addf canopen.0.update servo-thread
+start
+show

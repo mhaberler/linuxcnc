@@ -1,0 +1,997 @@
+component canopen;
+
+pin in s32 in1  """Value read from 1st Slave's COBID configured in inputs""";
+pin in s32 in2  """Value read from 2nd Slave's COBID configured in inputs""";
+pin in s32 in3  """Value read from 3rd Slave's COBID configured in inputs""";
+pin in s32 in4  """Value read from 4th Slave's COBID configured in inputs""";
+pin out u32 out1  """Value sent to 1st Slave's COBID configured in outputs""";
+pin out u32 out2  """Value sent to 2nd Slave's COBID configured in outputs""";
+pin out u32 out3  """Value sent to 3rd Slave's COBID configured in outputs""";
+pin out u32 out4  """Value sent to 4th Slave's COBID configured in outputs""";
+
+//param rw unsigned mapOBID_TPDO1 =0x2010 """This is the Object ID in wich to write in order to be send over TPDO1""";
+//param rw unsigned mapOBID_RPDO1 =0x2011 """This is the Object ID in wich to write in order to be send over RPDO1""";
+
+//param rw unsigned obid-out1 "Slave's ObjectID to read from and put on out1";
+//param rw unsigned obid-in1 "Slave's ObjectID into which to write the value of in1";
+
+//param rw unsigned mapSOBID_TPDO1 =0x6063 "Slave's ObjectID to read from and put on out1";
+//param rw unsigned mapSOBID_RPDO1 =0x60ff "Slave's ObjectID into which write the value of in1";
+
+//param rw unsigned slavenodeid=0x02;
+//param rw unsigned masternodeid=0x01;
+
+option extra_setup;
+option extra_cleanup;
+option constructable no;
+
+function update;
+
+license "GPLv3";
+author "D.García, F.Mederos";
+;;
+
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <signal.h>
+
+#include <canfestival/config.h>
+#include <canfestival/canfestival.h>
+#include <LCNCmaster.h>
+
+#define MAX_IN 4
+#define MAX_OUT 4
+
+// ******************************************
+// Parámetros de configuración del componente
+// ******************************************
+// Lista de COBIDs del esclavo donde mapear los RPDOs del esclavo
+int inputs[MAX_IN] = {0x60FF , 0 , 0 , 0};
+RTAPI_MP_ARRAY_INT(inputs, MAX_IN, "Slave's COBIDs into which to write values of the component's inputs");
+// Lista de COBIDs del esclaveo donde mapear los TPDOs del esclavo
+int outputs[MAX_OUT] = {0x6063 , 0 , 0 , 0};
+RTAPI_MP_ARRAY_INT(outputs, MAX_OUT, "Slave's COBIDs to read and put their values on the component's outputs");
+// NodeIDs
+int masternodeid[1] = {1};
+int slavenodeid[1] = {2};
+RTAPI_MP_ARRAY_INT(masternodeid, 1, "Master's Node-ID");
+RTAPI_MP_ARRAY_INT(slavenodeid, 1, "Slave's Node-ID");
+// Number of Syncs to let pass between frame transmisions on slave side and on master side
+int slavesyncs[1] = {10,};
+int mastersyncs[1] = {10,};
+RTAPI_MP_ARRAY_INT(mastersyncs, 1, "Syncs between Master's transmissions");
+RTAPI_MP_ARRAY_INT(slavesyncs, 1, "Syncs between Slave's transmissions");
+
+//Global variables
+CO_Data LCNCmaster_Data;
+static int init_step, init_step_PDOn;
+static int sync_enabled;
+
+//Para cargar la libreria canfestival
+void *lib_handle;
+char *error;
+
+
+
+//Variables for the setup or in terms of CANOpen Initialisation of the master.
+
+char* LibraryPath="/usr/local/lib/libcanfestival_can_socket.so";
+s_BOARD MasterBoard = {"vcan0", "125K"};
+
+//Variables for the CANOpen function.
+unsigned int mapOBID_TPDO1aux;
+unsigned int mapOBID_TPDO2aux;
+unsigned int mapOBID_TPDO3aux;
+unsigned int mapOBID_TPDO4aux;
+unsigned int mapOBID_RPDO1aux;
+unsigned int mapOBID_RPDO2aux;
+unsigned int mapOBID_RPDO3aux;
+unsigned int mapOBID_RPDO4aux;
+unsigned int mapSOBID_TPDO1aux;
+unsigned int mapSOBID_TPDO2aux;
+unsigned int mapSOBID_TPDO3aux;
+unsigned int mapSOBID_TPDO4aux;
+unsigned int mapSOBID_RPDO1aux;
+unsigned int mapSOBID_RPDO2aux;
+unsigned int mapSOBID_RPDO3aux;
+unsigned int mapSOBID_RPDO4aux;
+unsigned int slavenodeidaux;
+unsigned int masternodeidaux;
+
+//Para prueba con timers
+#if !defined(WIN32) || defined(__CYGWIN__)
+void catch_signal(int sig)
+{
+    signal(SIGTERM, catch_signal);
+    signal(SIGINT, catch_signal);
+
+    rtapi_print("Got Signal %d\n",sig);
+}
+#endif
+
+
+/*****************************************************************************/
+/* FUNCTIONS */
+/*****************************************************************************/
+
+void LCNCmaster_initialisation(CO_Data* d)
+{
+    unsigned int i;
+
+    //PDO are configured depending on the value of the personality
+    // We are using COBID 0x018X for TPDOs and 0x020X for RPDOs
+
+    // PDOs del Maestro:
+    // La trama TPDO1 del Maestro debe llevar el COBid del RPDO1 del Esclavo
+    // La idea es que el TPDO1 del Maestro escribe en un objeto del dicc. del Esclavo
+    UNS32 TPDO1_COBID = 0x0200 + slavenodeidaux;
+    // Las tramas TPDO1 transmitidas por el Esclavo llevan NodeId del Esclavo
+    UNS32 RPDO1_COBID = 0x0180 + slavenodeidaux;
+
+    UNS32 UNO = 0x0001;
+    UNS32 size = sizeof(UNS32);
+    // Transmit TPDOs each n Syncs...
+    UNS8 Transmission_Type = mastersyncs[0];
+
+    for(i=0; i < MAX_IN; i++){
+	// si no se especificó un mapeo para este TPDO se deshabilita y seguimos al próximo
+	if(!inputs[i]){
+	    /*disable Masters's TPDO */
+	    rtapi_print("Master : disable Master TPDO%d\n", i+1);
+	    unsigned int TPDOi_COBID_dis = (0x80000000 | TPDO1_COBID) + i*0x100;
+	    writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			    0x1800 + i, /*UNS16 index*/
+			    0x01, /*UNS8 subind*/
+			    &TPDOi_COBID_dis, /*void * pSourceData,*/
+			    &size, /* UNS8 * pExpectedSize*/
+			    RW);  /* UNS8 checkAccess */
+
+	    continue;
+	}
+
+	// ******************************************************************
+	// Se configura el COBid con que sale la trama TPDOx desde el Maestro
+	// ******************************************************************
+	rtapi_print("Master : mapping Master TPDO%d\n", i+1);
+	unsigned int TPDOi_COBID = TPDO1_COBID + i*0x100;
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1800 + i, /*UNS16 index*/
+			0x01, /*UNS8 subind*/
+			&TPDOi_COBID, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+
+	// *************************************************************
+	// Definición del tipo de transmisión del TPDO1 desde el Maestro
+	// *************************************************************
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1800 + i, /*UNS16 index*/
+			0x02, /*UNS8 subind*/
+			&Transmission_Type, /*void * pSourceData,*/
+			&UNO, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+
+
+	// *********************************************************************
+	// Se define la cantidad de Objetos del Diccionario Local (Maestro) que
+	// serán transmitidos con el TPDO1
+	// *********************************************************************
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1A00 + i, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&UNO, /*void * pSourceData,*/ //In this mapping we map just 1 COBID per PDO
+			&UNO, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+
+	// *********************************************************************
+	// Se Mapea el Objeto del Diccionario Local (Maestro) que es transmitido
+	// con el TPDO1
+	//
+	// Precalculamos valor para subindice 1 del mapeo del TPDO1
+	// Son 32bits, los 16MSb llevan dirección del objeto local, los 16LSb llevan 0020 por
+	// el tamaño del objeto
+	// *********************************************************************
+	unsigned int mapOBID_TPDO1_ind_subi_s=(mapOBID_TPDO1aux + i)*0x10000+0x0020;
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1A00 + i, /*UNS16 index*/
+			0x01, /*UNS8 subind*/
+			&mapOBID_TPDO1_ind_subi_s, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+    }
+
+    for(i=0; i < MAX_OUT; i++){
+	// si no se especificó un mapeo para este RPDO seguimos al próximo
+	if(!outputs[i])
+	    continue;
+
+	// *******************************************************************************
+	// Se define el COBid de las tramas que serán interpretadas como RPDO1 del Maestro
+	// *******************************************************************************
+	unsigned int RPDOi_COBID = RPDO1_COBID + i*0x100;
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1400 + i, /*UNS16 index*/
+			0x01, /*UNS8 subind*/
+			&RPDOi_COBID, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+
+
+	// ************************************************************
+	// Se define la cantidad de Objetos que traerá cada trama RPDO1
+	// ************************************************************
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1600 + i, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&UNO, /*void * pSourceData,*/ //In this mapping we map just 1 COBID per PDO
+			&UNO, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+
+
+	// **********************************************************************************
+	// Se Mapea el objeto del diccionario local (Maestro) donde se guardará el
+	// dato que traiga cada trama que sea interpretada como RPDO1
+	//
+	// Precalculamos valor para subindice 1 del mapeo del TPDO1
+	// Son 32bits, los 16MSb llevan dirección del objeto local, los 16LSb llevan 0020 por
+	// el tamaño del objeto
+	// **********************************************************************************
+	unsigned int mapOBID_RPDO1_ind_subi_s = (mapOBID_RPDO1aux + i)*0x10000+0x0020;
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1600 + i, /*UNS16 index*/
+			0x01, /*UNS8 subind*/
+			&mapOBID_RPDO1_ind_subi_s, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+    }
+}
+
+/*Froward declaration*/
+static void ConfigureSlaveNode(CO_Data* d, UNS8 nodeId);
+
+/**/
+
+static void CheckSDOAndContinue(CO_Data* d, UNS8 nodeId)
+{
+    unsigned int abortCode;
+    if(getWriteResultNetworkDict (d, nodeId, &abortCode) != SDO_FINISHED)
+	rtapi_print("Master : Failed in initializing slave %2.2x, step %d, AbortCode :%4.4x \n", nodeId, init_step, abortCode);
+    /* Finalise last SDO transfer with this node */
+    closeSDOtransfer(&LCNCmaster_Data, nodeId, SDO_CLIENT);
+    ConfigureSlaveNode(d, nodeId);
+}
+
+
+/********************************************************
+ * ConfigureSlaveNode is responsible to
+ *  - setup slave TPDOs
+ *  - setup slave RPDOs
+ *  - setup slave Heartbeat Producer time
+ *  - switch to operational mode
+ *  - send NMT to slave
+ ********************************************************
+ * This is called first by LCNCmaster_preOperational
+ * then it called again each time a SDO exchange is
+ * finished.
+ ********************************************************/
+static void ConfigureSlaveNode(CO_Data* d, UNS8 nodeId)
+{
+    UNS8 res;
+
+    switch(++init_step){
+    case 1:
+	{
+	    /*disable Slave's TPDO 1 */
+	    unsigned int TPDO_COBId = 0x80000180 + 	init_step_PDOn*0x100 + nodeId;
+	    rtapi_print("Master : disable slave %d TPDO%d \n", nodeId, init_step_PDOn+1);
+	    res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+					    /**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+					    nodeId, /*UNS8 nodeId*/
+					    0x1800 + init_step_PDOn, /*UNS16 index*/
+					    0x01, /*UNS8 subindex*/
+					    4, /*UNS8 count*/
+					    0, /*UNS8 dataType*/
+					    &TPDO_COBId,/*void *data*/
+					    CheckSDOAndContinue, /*SDOCallback_t Callback*/
+					    0); /* use block mode */
+
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_OUT){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 2:
+	{	/*setup Slave's TPDO 1 to be transmitted on SYNC*/
+	    //UNS8 Transmission_Type = 0x07; /* n=1 to 0xF0 : The PDO is transmitted every n receptions of SYNCs*/
+	    /* n=1 to 0xF0 : The PDO is transmitted every n receptions of SYNCs*/
+	    UNS8 Transmission_Type = slavesyncs[0];
+	    rtapi_print("Master : set slave %d TPDO%d transmit type\n", nodeId, init_step_PDOn+1);
+	    res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+					    /**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+					    nodeId, /*UNS8 nodeId*/
+					    0x1800 + init_step_PDOn, /*UNS16 index*/
+					    0x02, /*UNS8 subindex*/
+					    1, /*UNS8 count*/
+					    0, /*UNS8 dataType*/
+					    &Transmission_Type,/*void *data*/
+					    CheckSDOAndContinue, /*SDOCallback_t Callback*/
+					    0); /* use block mode */
+
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_OUT){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+    case 3:
+	{
+	    /* Map mapSOBID_TPDO1 to TPDO1 */
+	    //write the number of data embeded in the PDO (1 byte)
+	    UNS8 n_cobid_map = 0x01;
+	    rtapi_print("Master : Mappig slaves %d TPDO%d\n", nodeId, init_step_PDOn+1);
+	    res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+					    nodeId, /*UNS8 nodeId*/
+					    0x1A00 + init_step_PDOn, /*UNS16 index*/
+					    0x00, /*UNS8 subindex*/
+					    1, /*UNS8 count*/
+					    0, /*UNS8 dataType*/
+					    &n_cobid_map,/*void *data*/
+					    CheckSDOAndContinue, /*SDOCallback_t Callback*/
+					    0); /* use block mode */
+
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_OUT){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+    case 4:
+	{
+	    if(outputs[init_step_PDOn] != 0){
+		/* Map mapSOBID_TPDO1 to TPDO1 */
+		rtapi_print("Master : Mappig slave's %d TPDO%d to %4.4x \n", nodeId, init_step_PDOn+1, outputs[init_step_PDOn]);
+		//for the mapping of the COBID, we use 2B for COBID 1B for Subidx and 1B for size
+		unsigned int mapSOBID_TPDO1_ind_subi_sz = outputs[init_step_PDOn]*0x10000+0x0020;
+
+		// define where to find the first data embeded and the size. (8 bytes)
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						nodeId, /*UNS8 nodeId*/
+						0x1A00 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&mapSOBID_TPDO1_ind_subi_sz,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    else{
+		unsigned int TPDO_COBId = 0x80000180 + 	init_step_PDOn*0x100 + nodeId;
+		rtapi_print("Master : disable slave %d TPDO%d \n", nodeId, init_step_PDOn+1);
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+						nodeId, /*UNS8 nodeId*/
+						0x1800 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&TPDO_COBId,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_OUT){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 5:
+	{
+	    if(outputs[init_step_PDOn] != 0){
+		/*re-enable Slave's TPDO 1 */
+		unsigned int TPDO_COBId = 0x40000180 + init_step_PDOn*0x100 + nodeId;
+		rtapi_print("Master : re-enable slave %d TPDO%d\n", nodeId, init_step_PDOn+1);
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+						nodeId, /*UNS8 nodeId*/
+						0x1800 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&TPDO_COBId,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    else{
+		unsigned int TPDO_COBId = 0x80000180 + 	init_step_PDOn*0x100 + nodeId;
+		rtapi_print("Master : disable slave %d TPDO%d \n", nodeId, init_step_PDOn+1);
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+						nodeId, /*UNS8 nodeId*/
+						0x1800 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&TPDO_COBId,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_OUT){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 6:
+	{	/*disable Slave's TPDO 2 */
+	    unsigned int TPDO_COBId = 0x80000200 + init_step_PDOn*0x100 + nodeId;
+	    rtapi_print("Master : disable slave %d RPDO%d\n", nodeId, init_step_PDOn+1);
+	    res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+					    /**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+					    nodeId, /*UNS8 nodeId*/
+					    0x1400 + init_step_PDOn, /*UNS16 index*/
+					    0x01, /*UNS8 subindex*/
+					    4, /*UNS8 count*/
+					    0, /*UNS8 dataType*/
+					    &TPDO_COBId,/*void *data*/
+					    CheckSDOAndContinue, /*SDOCallback_t Callback*/
+					    0); /* use block mode */
+
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_IN){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 7:
+	{
+	    UNS8 Transmission_Type = 0x01;
+	    rtapi_print("Master : set slave %d RPDO%d receive type\n", nodeId, init_step_PDOn+1);
+	    res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+					    /**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+					    nodeId, /*UNS8 nodeId*/
+					    0x1400 + init_step_PDOn, /*UNS16 index*/
+					    0x02, /*UNS8 subindex*/
+					    1, /*UNS8 count*/
+					    0, /*UNS8 dataType*/
+					    &Transmission_Type,/*void *data*/
+					    CheckSDOAndContinue, /*SDOCallback_t Callback*/
+					    0); /* use block mode */
+
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_IN){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 8:
+	{
+	    //write the number of data embeded in the PDO (1 byte)
+	    UNS8 n_cobid_map = 0x01;
+	    rtapi_print("Master : Mappig slaves %d RPDO%d \n", nodeId, init_step_PDOn+1);
+	    res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+					    nodeId, /*UNS8 nodeId*/
+					    0x1600 + init_step_PDOn, /*UNS16 index*/
+					    0x00, /*UNS8 subindex*/
+					    1, /*UNS8 count*/
+					    0, /*UNS8 dataType*/
+					    &n_cobid_map,/*void *data*/
+					    CheckSDOAndContinue, /*SDOCallback_t Callback*/
+					    0); /* use block mode */
+
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_IN){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 9:
+	{
+	    if(inputs[init_step_PDOn] != 0){
+		//for the mapping of the COBID, we use 2B for COBID 1B for Subidx and 1B for size
+		unsigned int mapSOBID_RPDO1_ind_subi_sz = inputs[init_step_PDOn]*0x10000+0x0020;
+		rtapi_print("Master : Mappig slaves %d RPDO%d to %4.4x \n", nodeId, init_step_PDOn+1, inputs[init_step_PDOn]);
+		// define where to find the first data embeded and the size. (8 bytes)
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						nodeId, /*UNS8 nodeId*/
+						0x1600 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&mapSOBID_RPDO1_ind_subi_sz,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    else{
+		unsigned int TPDO_COBId = 0x80000200 + init_step_PDOn*0x100 + nodeId;
+		rtapi_print("Master : disable slave %d RPDO%d\n", nodeId, init_step_PDOn+1);
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+						nodeId, /*UNS8 nodeId*/
+						0x1400 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&TPDO_COBId,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_IN){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 10:
+	{	/*re-enable Slave's RPDO 1 */
+	    // ***************************************************************
+	    // El Maestro tendrá que enviar trama con COBid 0x020x para que el
+	    // Esclavo la interprete como RPDO1
+	    // ***************************************************************
+	    if(inputs[init_step_PDOn] != 0){
+		unsigned int TPDO_COBId = 0x00000200 + init_step_PDOn*0x100 + nodeId;
+		rtapi_print("Master : re-enable Slave's %d RPDO%d\n", nodeId, init_step_PDOn+1);
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+						nodeId, /*UNS8 nodeId*/
+						0x1400 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&TPDO_COBId,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    else{
+		unsigned int TPDO_COBId = 0x80000200 + init_step_PDOn*0x100 + nodeId;
+		rtapi_print("Master : disable slave %d RPDO%d\n", nodeId, init_step_PDOn+1);
+		res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+						/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+						nodeId, /*UNS8 nodeId*/
+						0x1400 + init_step_PDOn, /*UNS16 index*/
+						0x01, /*UNS8 subindex*/
+						4, /*UNS8 count*/
+						0, /*UNS8 dataType*/
+						&TPDO_COBId,/*void *data*/
+						CheckSDOAndContinue, /*SDOCallback_t Callback*/
+						0); /* use block mode */
+	    }
+	    // Check if all PDOs have been addressed
+	    if(++init_step_PDOn < MAX_IN){
+		// no, well be back into this case sentence again...
+		init_step--;
+	    }
+	    else{
+		// yes, go back to COBn 0 and let go init_step untouched for next case...
+		init_step_PDOn = 0;
+	    }
+	}
+	break;
+
+    case 11:
+
+	//	UNS16 Heartbeat_Producer_Time = 0x03E8;
+	//	rtapi_print("Master : set slave %2.2x heartbeat producer time \n", nodeId);
+	//	res = writeNetworkDictCallBack (d, /*CO_Data* d*/
+	/**LCNCmaster_Data.bDeviceNodeId, UNS8 nodeId*/
+	//			nodeId, /*UNS8 nodeId*/
+	//			0x1017, /*UNS16 index*/
+	//			0x00, /*UNS8 subindex*/
+	//			2, /*UNS8 count*/
+	//			0, /*UNS8 dataType*/
+	//			&Heartbeat_Producer_Time,/*void *data*/
+	//			CheckSDOAndContinue, /*SDOCallback_t Callback*/
+	//    			0); /* use block mode */
+	//}
+	//break;
+
+
+	//case 15:
+	{
+	    //First we have to reset the slave
+	    masterSendNMTstateChange(d, nodeId, NMT_Reset_Node);
+
+	    /* Put the master in operational mode */
+	    setState(d, Operational);
+
+	    /* Ask slave node to go in operational mode */
+	    masterSendNMTstateChange (d, nodeId, NMT_Start_Node);
+	}
+    }
+
+}
+
+
+void LCNCmaster_heartbeatError(CO_Data* d, UNS8 heartbeatID)
+{
+    //	rtapi_print("LCNCmaster_heartbeatError %d\n", heartbeatID);
+}
+
+
+void LCNCmaster_preOperational(CO_Data* d)
+{
+    rtapi_print("LCNCmaster is in preOperational mode \n");
+    ConfigureSlaveNode(&LCNCmaster_Data, slavenodeidaux);
+}
+
+
+void LCNCmaster_operational(CO_Data* d)
+{
+    rtapi_print("LCNCmaster_operational\n");
+
+    //This constants are used to start the SYNC signal from the Master LCNC.
+    UNS32 SYNC_TIME = 0x07D0;	// 0x03E8 This value is for a 1000 uSeg SYNC cycle. TODO Garcia: this could be a parameter for this component
+    UNS32 START_SYNC = 0x40000080;	// Reference for this value "CANOpen Memento of Francis Dupin, August 2009", SYNC configuration.
+
+    UNS32 size = sizeof(UNS32);
+    if (sync_enabled) {
+	//TODO Garcia: SYNC configurartion could be optional using an sync_enable param. But the transmision mode of the PDOs have to be set according to this.
+	//This constant is used to start the SYNC signal from the Master LCNC.
+	/*****************************************
+	 *       Set Master to trasmit SYNCs     *
+	 *****************************************/
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1006, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&SYNC_TIME, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1005, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&START_SYNC, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+    }
+
+}
+
+void LCNCmaster_stopped(CO_Data* d)
+{
+    rtapi_print("LCNCmaster_stopped\n");
+}
+
+void LCNCmaster_post_sync(CO_Data* d)
+{
+    //	rtapi_print(" 0x2000:%2.2d 0x2014:%2.2d 0x2015:%2.2d          \r",MasterMapInt32_1, MasterMapInt32_5, MasterMapInt32_6);
+}
+
+void LCNCmaster_post_TPDO(CO_Data* d)
+{
+    //rtapi_print("LCNCmaster_post_TPDO\n");
+}
+
+void LCNCmaster_post_SlaveBootup(CO_Data* d, UNS8 nodeid)
+{
+    rtapi_print("TestMaster_post_SlaveBootup %x\n", nodeid);
+
+    ConfigureSlaveNode(d, nodeid);
+}
+
+/***************************  INIT  *****************************************/
+void InitNodes(CO_Data* d, UNS32 id)
+{
+
+    /****************************** INITIALISATION MASTER *******************************/
+    if(MasterBoard.baudrate){
+	/* Defining the node Id */
+	id=(UNS8)masternodeidaux;
+	setNodeId(&LCNCmaster_Data, 1);
+	/* init */
+	setState(&LCNCmaster_Data, Initialisation);
+
+    }
+}
+
+/***************************  EXIT  *****************************************/
+void Exit(CO_Data* d, UNS32 id)
+{
+    masterSendNMTstateChange(&LCNCmaster_Data, (UNS8)slavenodeidaux, NMT_Reset_Node);
+
+    //Stop master
+    setState(&LCNCmaster_Data, Stopped);
+}
+
+
+EXTRA_SETUP()
+{
+    // Objetos locales cuyos valores se transmiten por TPDO
+    mapOBID_TPDO1aux=0x2010;
+    mapOBID_TPDO2aux=0x2011;
+    mapOBID_TPDO3aux=0x2012;
+    mapOBID_TPDO4aux=0x2013;
+
+    // Objetos locales que reciben valores RPDO
+    mapOBID_RPDO1aux=0x2014;
+    mapOBID_RPDO2aux=0x2015;
+    mapOBID_RPDO3aux=0x2016;
+    mapOBID_RPDO4aux=0x2017;
+
+    // Objetos del esclavo cuyos valores son transmitidos hacia el maestro por TPDO
+    mapSOBID_TPDO1aux=outputs[0];
+    mapSOBID_TPDO2aux=outputs[1];
+    mapSOBID_TPDO3aux=outputs[2];
+    mapSOBID_TPDO4aux=outputs[3];
+
+    // Objetos del esclavo que reciben valores transmitidos desde el maestro por TPDO
+    mapSOBID_RPDO1aux=inputs[0];
+    mapSOBID_RPDO2aux=inputs[1];
+    mapSOBID_RPDO3aux=inputs[2];
+    mapSOBID_RPDO4aux=inputs[3];
+
+    //slavenodeidaux=slavenodeid;
+    slavenodeidaux = slavenodeid[0];
+    //masternodeidaux=masternodeid;
+    masternodeidaux = masternodeid[0];
+
+    rtapi_print("---------------VALORES DE PARAMETROS----------------------\n");
+    rtapi_print("mapOBID_TPDO1=%8.8x\n", mapOBID_TPDO1aux);
+    rtapi_print("mapOBID_RPDO1=%8.8x\n", mapOBID_RPDO1aux);
+    rtapi_print("mapSOBID_TPDO1=%8.8x\n", mapSOBID_TPDO1aux);
+    rtapi_print("mapSOBID_RPDO1=%8.8x\n", mapSOBID_RPDO1aux);
+    rtapi_print("slavenodeid=%8.8x\n", slavenodeidaux);
+    rtapi_print("masternodeid=%8.8x\n", masternodeidaux);
+    rtapi_print("------------ FIN DE VALORES DE PARAMETROS------------------\n");
+
+    //rtapi_print("| mapOBID_TPDO1=%8.8x\n", mapOBID_TPDO1);
+    //rtapi_print("| mapOBID_RPDO1=%8.8x\n", mapOBID_RPDO1);
+    //rtapi_print("| mapSOBID_TPDO1=%8.8x\n", mapSOBID_TPDO1);
+    //rtapi_print("| mapSOBID_RPDO1=%8.8x\n", mapSOBID_RPDO1);
+    //rtapi_print("| slavenodeid=%8.8x\n", slavenodeid);
+    //rtapi_print("| masternodeid=%8.8x\n", masternodeid);
+    //rtapi_print("------------ FIN DE VALORES DE PARAMETROS------------------\n");
+
+    //----Fin de Auxiliares-----
+
+
+#if !defined(WIN32) || defined(__CYGWIN__)
+    /* install signal handler for manual break */
+    signal(SIGTERM, catch_signal);
+    signal(SIGINT, catch_signal);
+    TimerInit();
+#endif
+#ifndef NOT_USE_DYNAMIC_LOADING
+    LoadCanDriver(LibraryPath);
+#endif
+
+    if(!canOpen(&MasterBoard,&LCNCmaster_Data)){
+	rtapi_print("Cannot open Master Board\n");
+    }
+    else{
+	rtapi_print("Opened Master Board\n");
+    }
+
+    // Funciones de manejo de eventos del Nodo Maestro
+    // CANFestival llama estas funciones luego de ingresar a cada estado o
+    // de registrar cada evento
+    LCNCmaster_Data.heartbeatError = LCNCmaster_heartbeatError;
+    LCNCmaster_Data.initialisation = LCNCmaster_initialisation;
+    LCNCmaster_Data.preOperational = LCNCmaster_preOperational;
+    LCNCmaster_Data.operational = LCNCmaster_operational;
+    LCNCmaster_Data.stopped = LCNCmaster_stopped;
+    LCNCmaster_Data.post_sync = LCNCmaster_post_sync;
+    LCNCmaster_Data.post_TPDO = LCNCmaster_post_TPDO;
+    LCNCmaster_Data.post_SlaveBootup = LCNCmaster_post_SlaveBootup;
+    //Se inicializa un contador para los pasos de configuracion del esclavo
+    init_step = 0;
+    init_step_PDOn = 0;
+    //Para habilitar el sync o no.
+    sync_enabled = 1;
+    UNS32 STOP_SYNC=0x00000080;
+    UNS32 size = sizeof(UNS32);
+    /*****************************************
+     *     Check Master to trasmit SYNCs     *
+     *****************************************/
+    if (!sync_enabled) {
+	writeLocalDict( &LCNCmaster_Data, /*CO_Data* d*/
+			0x1005, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&STOP_SYNC, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+    }
+
+    // Start timer thread
+    StartTimerLoop(&InitNodes);
+
+    //EnterMutex();
+    rtapi_print("Finishing initialization.\n");
+    //LeaveMutex();
+    return 0;
+}
+
+
+EXTRA_CLEANUP()
+{
+    // Reset the slave node for next use (will stop emitting heartbeat)
+    if(MasterBoard.baudrate) canClose(&LCNCmaster_Data);
+    StopTimerLoop(&Exit);
+    TimerCleanup();
+}
+
+
+FUNCTION(update)
+{
+    int returnValue = 0;
+    UNS32 size = sizeof(UNS32);
+    UNS8 type = uint32;
+    long in1_aux = in1;
+    long in2_aux = in2;
+    long in3_aux = in3;
+    long in4_aux = in4;
+
+    // Se entra a la exclusión
+    EnterMutex();
+
+    if(inputs[0] != 0){
+	//Escribimos objeto mapeado al TPDO1
+	writeLocalDict(	&LCNCmaster_Data, /*CO_Data* d*/
+			mapOBID_TPDO1aux, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&in1_aux, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+	if( returnValue  )
+	    {
+		rtapi_print("TPDO1 sending error!\n");// error handling
+	    }
+    }
+    if(inputs[1] != 0){
+	//Escribimos objeto mapeado al TPDO1
+	writeLocalDict(	&LCNCmaster_Data, /*CO_Data* d*/
+			mapOBID_TPDO2aux, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&in2_aux, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+	if( returnValue  )
+	    {
+		rtapi_print("TPDO1 sending error!\n");// error handling
+	    }
+    }
+    if(inputs[2] != 0){
+	//Escribimos objeto mapeado al TPDO1
+	writeLocalDict(	&LCNCmaster_Data, /*CO_Data* d*/
+			mapOBID_TPDO3aux, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&in3_aux, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+	if( returnValue  )
+	    {
+		rtapi_print("TPDO1 sending error!\n");// error handling
+	    }
+    }
+    if(inputs[3] != 0){
+	//Escribimos objeto mapeado al TPDO1
+	writeLocalDict(	&LCNCmaster_Data, /*CO_Data* d*/
+			mapOBID_TPDO4aux, /*UNS16 index*/
+			0x00, /*UNS8 subind*/
+			&in4_aux, /*void * pSourceData,*/
+			&size, /* UNS8 * pExpectedSize*/
+			RW);  /* UNS8 checkAccess */
+	if( returnValue  )
+	    {
+		rtapi_print("TPDO1 sending error!\n");// error handling
+	    }
+    }
+
+    if(outputs[0] != 0){
+	// Leemos Objeto mapeado al RPDO1
+	readLocalDict	( &LCNCmaster_Data, /* @param OD Pointer to a CAN object data structure*/
+			  (UNS16)mapOBID_RPDO1aux,/* @param wIndex The index in the object dictionary where you want to read an entry */
+			  (UNS8)0,/* @param bSubindex The subindex of the Index. e.g. mostly subindex 0 is used */
+			  (void * *)&out1,/* @param *pDestData Pointer to the pointer which points to the variable where the value of this object dictionary entry should be copied*/
+			  &size,/* @param pExpectedSize This function writes the size of the copied value (in Byte) into this variable */
+			  &type,/* @param *pDataType Pointer to the type of the data. See objdictdef.h*/
+			  0);/* @param checkAccess if other than 0, do not read if the data is Write Only [Not used today. Put always 0].*/
+
+	if( returnValue  )
+	    {
+		rtapi_print("RPDO1 sending error!\n");// error handling// error handling
+	    }
+    }
+    if(outputs[1] != 0){
+	// Leemos Objeto mapeado al RPDO1
+	readLocalDict	( &LCNCmaster_Data, /* @param OD Pointer to a CAN object data structure*/
+			  (UNS16)mapOBID_RPDO2aux,/* @param wIndex The index in the object dictionary where you want to read an entry */
+			  (UNS8)0,/* @param bSubindex The subindex of the Index. e.g. mostly subindex 0 is used */
+			  (void * *)&out2,/* @param *pDestData Pointer to the pointer which points to the variable where the value of this object dictionary entry should be copied*/
+			  &size,/* @param pExpectedSize This function writes the size of the copied value (in Byte) into this variable */
+			  &type,/* @param *pDataType Pointer to the type of the data. See objdictdef.h*/
+			  0);/* @param checkAccess if other than 0, do not read if the data is Write Only [Not used today. Put always 0].*/
+
+	if( returnValue  )
+	    {
+		rtapi_print("RPDO1 sending error!\n");// error handling// error handling
+	    }
+    }
+    if(outputs[2] != 0){
+	// Leemos Objeto mapeado al RPDO1
+	readLocalDict	( &LCNCmaster_Data, /* @param OD Pointer to a CAN object data structure*/
+			  (UNS16)mapOBID_RPDO3aux,/* @param wIndex The index in the object dictionary where you want to read an entry */
+			  (UNS8)0,/* @param bSubindex The subindex of the Index. e.g. mostly subindex 0 is used */
+			  (void * *)&out3,/* @param *pDestData Pointer to the pointer which points to the variable where the value of this object dictionary entry should be copied*/
+			  &size,/* @param pExpectedSize This function writes the size of the copied value (in Byte) into this variable */
+			  &type,/* @param *pDataType Pointer to the type of the data. See objdictdef.h*/
+			  0);/* @param checkAccess if other than 0, do not read if the data is Write Only [Not used today. Put always 0].*/
+
+	if( returnValue  )
+	    {
+		rtapi_print("RPDO1 sending error!\n");// error handling// error handling
+	    }
+    }
+    if(outputs[3] != 0){
+	// Leemos Objeto mapeado al RPDO1
+	readLocalDict	( &LCNCmaster_Data, /* @param OD Pointer to a CAN object data structure*/
+			  (UNS16)mapOBID_RPDO4aux,/* @param wIndex The index in the object dictionary where you want to read an entry */
+			  (UNS8)0,/* @param bSubindex The subindex of the Index. e.g. mostly subindex 0 is used */
+			  (void * *)&out4,/* @param *pDestData Pointer to the pointer which points to the variable where the value of this object dictionary entry should be copied*/
+			  &size,/* @param pExpectedSize This function writes the size of the copied value (in Byte) into this variable */
+			  &type,/* @param *pDataType Pointer to the type of the data. See objdictdef.h*/
+			  0);/* @param checkAccess if other than 0, do not read if the data is Write Only [Not used today. Put always 0].*/
+
+	if( returnValue  )
+	    {
+		rtapi_print("RPDO1 sending error!\n");// error handling// error handling
+	    }
+    }
+
+    // Se sale de la exclusión
+    LeaveMutex();
+}

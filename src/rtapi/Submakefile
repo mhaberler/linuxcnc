@@ -171,7 +171,8 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) -Wl,-rpath,$(EMC2_RTLIB_DIR) $(RTAPI_APP_RPATH) \
 	    -o $@ $^ $(RT_LDFLAGS) \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) $(LTTNG_UST_LIBS) -lstdc++ -ldl -luuid
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) $(LTTNG_UST_LIBS) \
+	-lstdc++ -ldl -luuid
 
 #	$(LIBBACKTRACE) # already linked into libmtalk
 
