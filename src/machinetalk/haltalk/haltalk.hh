@@ -89,10 +89,6 @@ typedef struct {
     hal_ring_t   *hr_paired;  // HAL descriptor
     ringbuffer_t primary;     // local attachment
     ringbuffer_t paired;      // local attachment
-    void *z_ring;             // servicing zmq socket
-    int  z_ring_port;          // TCP port number
-    int  z_sockettype;
-    register_context_t *ring_publisher; // handle on zeroconf announcement if any
 } htring_t;
 
 typedef struct htbridge {
@@ -128,6 +124,8 @@ typedef struct htconf {
     const char *halgroup;
     const char *halrcomp;
     const char *command;
+    const char *router;
+    const char *xpub;
     const char *interfaces;
 #ifdef HALBRIDGE
     const char *bridgecomp;
@@ -170,20 +168,25 @@ typedef struct htself {
 
     void       *z_halgroup;
     int        z_group_port;
-    const char *z_halgroup_dsn;
     groupmap_t groups;
 
     void       *z_halrcomp;
-    const char *z_halrcomp_dsn;
     int        z_rcomp_port;
     compmap_t  rcomps;
 
     void       *z_halrcmd;
-    const char *z_halrcmd_dsn;
     int        z_halrcmd_port;
     itemmap_t  items;
 
+    void       *z_ring_xpub;
+    int        z_ring_xpub_port;
+    register_context_t *ring_xpub_publisher;
+
+    void       *z_ring_router;
+    int        z_ring_router_port;
+    register_context_t *ring_router_publisher;
     ringmap_t  rings;
+
 #ifdef HALBRIDGE
     htbridge_t *bridge;
 #endif
@@ -207,9 +210,6 @@ int ping_comps(htself_t *self);
 // haltalk_zeroconf.cc:
 int ht_zeroconf_announce_services(htself_t *self);
 int ht_zeroconf_withdraw_services(htself_t *self);
-int ht_zeroconf_announce_ring(htself_t *self, const char *name);
-int ht_zeroconf_withdraw_ring(htring_t *ring);
-
 
 // haltalk_command.cc:
 int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
@@ -222,6 +222,9 @@ int describe_parameters(htself_t *self);
 
 //haltalk_ring.cc:
 int scan_rings(htself_t *self);
+int handle_xpub_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int handle_router_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int handle_ring_timer(zloop_t *loop, int timer_id, void *arg);
 
 // haltalk_bridge.cc:
 int bridge_init(htself_t *self);

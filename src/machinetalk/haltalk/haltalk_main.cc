@@ -45,9 +45,11 @@ static htconf_t conf = {
     "haltalk",
     "localhost",  // interface
     "127.0.0.1",  // ipaddr
-    "tcp://%s:*", // as per preferred interface, use ephemeral port
-    "tcp://%s:*",
-    "tcp://%s:*",
+    "tcp://%s:*", // halgroup -  as per preferred interface, use ephemeral port
+    "tcp://%s:*", // halrcomp
+    "tcp://%s:*", // command
+    "tcp://%s:*", // router
+    "tcp://%s:*", // xpub
     NULL,
 #ifdef HALBRIDGE
     NULL,
@@ -103,18 +105,24 @@ mainloop( htself_t *self)
 {
     int retval;
 
-    zmq_pollitem_t signal_poller = { 0, self->signal_fd, ZMQ_POLLIN };
-    zmq_pollitem_t group_poller =  { self->z_halgroup, 0, ZMQ_POLLIN };
-    zmq_pollitem_t rcomp_poller =  { self->z_halrcomp, 0, ZMQ_POLLIN };
-    zmq_pollitem_t cmd_poller   =  { self->z_halrcmd,      0, ZMQ_POLLIN };
+    zmq_pollitem_t signal_poller =  { 0, self->signal_fd,     ZMQ_POLLIN };
+    zmq_pollitem_t group_poller  =  { self->z_halgroup,    0, ZMQ_POLLIN };
+    zmq_pollitem_t rcomp_poller  =  { self->z_halrcomp,    0, ZMQ_POLLIN };
+    zmq_pollitem_t cmd_poller    =  { self->z_halrcmd,     0, ZMQ_POLLIN };
+    zmq_pollitem_t xpub_poller   =  { self->z_ring_xpub,   0, ZMQ_POLLIN };
+    zmq_pollitem_t router_poller =  { self->z_ring_router, 0, ZMQ_POLLIN };
 
     zloop_set_verbose (self->z_loop, self->cfg->debug > 8);
 
     if (self->cfg->trap_signals)
 	zloop_poller(self->z_loop, &signal_poller, handle_signal, self);
+
     zloop_poller(self->z_loop, &group_poller,  handle_group_input, self);
     zloop_poller(self->z_loop, &rcomp_poller,  handle_rcomp_input, self);
     zloop_poller(self->z_loop, &cmd_poller,    handle_command_input, self);
+    zloop_poller(self->z_loop, &xpub_poller,   handle_xpub_input, self);
+    zloop_poller(self->z_loop, &router_poller, handle_router_input, self);
+
     if (self->cfg->keepalive_timer)
 	zloop_timer(self->z_loop, self->cfg->keepalive_timer, 0,
 		    handle_keepalive_timer, (void *) self);
@@ -179,10 +187,11 @@ zmq_init(htself_t *self)
     zsocket_set_xpub_verbose (self->z_halgroup, 1);
     self->z_group_port = zsocket_bind(self->z_halgroup, self->cfg->halgroup);
     assert (self->z_group_port > -1);
-    self->z_halgroup_dsn = zsocket_last_endpoint (self->z_halgroup);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALGroup on '%s'",
-		    conf.progname, conf.remote ? self->z_halgroup_dsn : self->cfg->halgroup);
+		    conf.progname, self->cfg->halgroup);
+
+
 
     self->z_halrcomp = zsocket_new (self->z_context, ZMQ_XPUB);
     assert(self->z_halrcomp);
@@ -190,10 +199,10 @@ zmq_init(htself_t *self)
     zsocket_set_xpub_verbose (self->z_halrcomp, 1);
     self->z_rcomp_port = zsocket_bind(self->z_halrcomp, self->cfg->halrcomp);
     assert (self->z_rcomp_port > -1);
-    self->z_halrcomp_dsn = zsocket_last_endpoint (self->z_halrcomp);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALRcomp on '%s'",
-		    conf.progname, conf.remote ? self->z_halrcomp_dsn:self->cfg->halrcomp);
+		    conf.progname, self->cfg->halrcomp);
+
 
 
     self->z_halrcmd = zsocket_new (self->z_context, ZMQ_ROUTER);
@@ -203,10 +212,36 @@ zmq_init(htself_t *self)
 
     self->z_halrcmd_port = zsocket_bind(self->z_halrcmd, self->cfg->command);
     assert (self->z_halrcmd_port > -1);
-    self->z_halrcmd_dsn = zsocket_last_endpoint (self->z_halrcmd);
 
     rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALComannd on '%s'",
-		    conf.progname, conf.remote ? self->z_halrcmd_dsn : self->cfg->command);
+		    conf.progname, self->cfg->command);
+
+
+
+
+    self->z_ring_xpub = zsocket_new (self->z_context, ZMQ_XPUB);
+    assert(self->z_ring_xpub);
+    zsocket_set_linger (self->z_ring_xpub, 0);
+
+    zsocket_set_xpub_verbose (self->z_ring_xpub, 1);
+    self->z_ring_xpub_port = zsocket_bind(self->z_ring_xpub, self->cfg->xpub);
+    assert (self->z_ring_xpub_port > -1);
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking Xpub on '%s'",
+		    conf.progname, self->cfg->xpub);
+
+
+    self->z_ring_router = zsocket_new (self->z_context, ZMQ_ROUTER);
+    assert(self->z_ring_router);
+    zsocket_set_linger (self->z_ring_router, 0);
+    zsocket_set_identity (self->z_ring_router, self->cfg->modname);
+
+    self->z_ring_router_port = zsocket_bind(self->z_ring_router, self->cfg->router);
+    assert (self->z_ring_router_port > -1);
+
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking Router on '%s'",
+		    conf.progname, self->cfg->router);
+
 
     // register Avahi poll adapter
     if (!(self->av_loop = avahi_czmq_poll_new(self->z_loop))) {
@@ -349,6 +384,14 @@ read_config(htconf_t *conf)
 		 RUNDIR, rtapi_instance,"halrcmd", conf->service_uuid);
 	conf->command = strdup(uri);
 
+	snprintf(uri, sizeof(uri), ZMQIPC_FORMAT,
+		 RUNDIR, rtapi_instance,"xpub", conf->service_uuid);
+	conf->xpub = strdup(uri);
+
+	snprintf(uri, sizeof(uri), ZMQIPC_FORMAT,
+		 RUNDIR, rtapi_instance,"router", conf->service_uuid);
+	conf->router = strdup(uri);
+
     } else {
 	// finalize the URI's; config values have precedence, else use
 	// ephemeral URI's on preferred interface
@@ -359,7 +402,6 @@ read_config(htconf_t *conf)
 	    snprintf(uri, sizeof(uri), conf->halgroup, conf->ipaddr);
 	    conf->halgroup = strdup(uri);
 	}
-
 	if (inifp && (s = iniFind(inifp, "HALRCOMP_STATUS_URI", conf->section)))
 	    conf->halrcomp = strdup(s);
 	else {
@@ -371,6 +413,20 @@ read_config(htconf_t *conf)
 	else {
 	    snprintf(uri, sizeof(uri), conf->command, conf->ipaddr);
 	    conf->command = strdup(uri);
+	}
+
+	if (inifp && (s = iniFind(inifp, "ROUTER_URI", conf->section)))
+	    conf->router = strdup(s);
+	else {
+	    snprintf(uri, sizeof(uri), conf->router, conf->ipaddr);
+	    conf->router = strdup(uri);
+	}
+
+	if (inifp && (s = iniFind(inifp, "XPUB_URI", conf->section)))
+	    conf->xpub = strdup(s);
+	else {
+	    snprintf(uri, sizeof(uri), conf->xpub, conf->ipaddr);
+	    conf->xpub = strdup(uri);
 	}
     }
     // ease debugging
@@ -438,6 +494,9 @@ static struct option long_options[] = {
     {"stpuri", required_argument, 0, 'u'},
     {"rcompuri", required_argument, 0, 'r'},
     {"cmduri", required_argument, 0, 'c'},
+    {"xpuburi", required_argument, 0, 'x'},
+    {"routeruri", required_argument, 0, 'e'},
+
 #ifdef HALBRIDGE
     {"bridge", required_argument, 0, 'b'},
     {"bridgecmduri", required_argument, 0, 'C'},
@@ -479,6 +538,12 @@ int main (int argc, char *argv[])
 	    break;
 	case 'c':
 	    conf.command = optarg;
+	    break;
+	case 'x':
+	    conf.xpub = optarg;
+	    break;
+	case 'e':
+	    conf.router = optarg;
 	    break;
 	case 't':
 	    conf.default_group_timer = atoi(optarg);

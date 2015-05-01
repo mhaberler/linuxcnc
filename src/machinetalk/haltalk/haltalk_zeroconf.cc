@@ -37,7 +37,7 @@ ht_zeroconf_announce_services(htself_t *self)
 							 HALGROUP_DNSSD_SUBTYPE,
 							 self->z_group_port,
 							 self->cfg->remote ? uri :
-							 (char *)self->z_halgroup_dsn,
+							 (char *)self->cfg->halgroup,
 							 self->cfg->service_uuid,
 							 self->puuid,
 							 "halgroup", NULL,
@@ -58,7 +58,7 @@ ht_zeroconf_announce_services(htself_t *self)
 							 HALRCOMP_DNSSD_SUBTYPE,
 							 self->z_rcomp_port,
 							 self->cfg->remote ? uri :
-							 (char *)self->z_halrcomp_dsn,
+							 (char *)self->cfg->halrcomp,
 							 self->cfg->service_uuid,
 							 self->puuid,
 							 "halrcomp", NULL,
@@ -70,16 +70,14 @@ ht_zeroconf_announce_services(htself_t *self)
     }
 
     snprintf(name,sizeof(name),  "HAL Rcommand service on %s.local pid %d", self->hostname, getpid());
-
     if (self->cfg->remote)
 	snprintf(uri,sizeof(uri), "tcp://%s.local.:%d",self->hostname, self->z_rcomp_port);
-
     self->halrcmd_publisher = zeroconf_service_announce(name,
 							MACHINEKIT_DNSSD_SERVICE_TYPE,
 							HALRCMD_DNSSD_SUBTYPE,
 							self->z_halrcmd_port,
 							self->cfg->remote ? uri :
-							(char *)self->z_halrcmd_dsn,
+							(char *)self->cfg->command,
 							self->cfg->service_uuid,
 							self->puuid,
 							"halrcmd", NULL,
@@ -90,23 +88,57 @@ ht_zeroconf_announce_services(htself_t *self)
 	return -1;
     }
 
+
+    snprintf(name,sizeof(name),  "HAL Xpub service on %s.local pid %d", self->hostname, getpid());
+    if (self->cfg->remote)
+	snprintf(uri,sizeof(uri), "tcp://%s.local.:%d",self->hostname, self->z_ring_xpub_port);
+    self->ring_xpub_publisher = zeroconf_service_announce(name,
+							MACHINEKIT_DNSSD_SERVICE_TYPE,
+							RINGXPUB_DNSSD_SUBTYPE,
+							self->z_halrcmd_port,
+							self->cfg->remote ? uri :
+							(char *)self->cfg->xpub,
+							self->cfg->service_uuid,
+							self->puuid,
+							"ring_xpub", NULL,
+							self->av_loop);
+    if (self->ring_xpub_publisher == NULL) {
+	syslog_async(LOG_ERR, "%s: failed to start zeroconf HAL Xpub publisher\n",
+		     self->cfg->progname);
+	return -1;
+    }
+
+
+    snprintf(name,sizeof(name),  "HAL Router service on %s.local pid %d", self->hostname, getpid());
+    if (self->cfg->remote)
+	snprintf(uri,sizeof(uri), "tcp://%s.local.:%d",self->hostname, self->z_ring_router_port);
+    self->ring_router_publisher = zeroconf_service_announce(name,
+							MACHINEKIT_DNSSD_SERVICE_TYPE,
+							RINGROUTER_DNSSD_SUBTYPE,
+							self->z_halrcmd_port,
+							self->cfg->remote ? uri :
+							(char *)self->cfg->router,
+							self->cfg->service_uuid,
+							self->puuid,
+							"ring_router", NULL,
+							self->av_loop);
+    if (self->ring_router_publisher == NULL) {
+	syslog_async(LOG_ERR, "%s: failed to start zeroconf HAL Router publisher\n",
+		     self->cfg->progname);
+	return -1;
+    }
+
     return 0;
 }
 
 int
 ht_zeroconf_withdraw_services(htself_t *self)
 {
-    if (self->halgroup_publisher)
-	zeroconf_service_withdraw(self->halgroup_publisher);
-    if (self->halrcomp_publisher)
-	zeroconf_service_withdraw(self->halrcomp_publisher);
-    if (self->halrcmd_publisher)
-	zeroconf_service_withdraw(self->halrcmd_publisher);
-
-    // deregister all rings
-    for (ringmap_iterator r = self->rings.begin(); r != self->rings.end(); r++) {
-	ht_zeroconf_withdraw_ring(r->second);
-    }
+    zeroconf_service_withdraw(self->halgroup_publisher);
+    zeroconf_service_withdraw(self->halrcomp_publisher);
+    zeroconf_service_withdraw(self->halrcmd_publisher);
+    zeroconf_service_withdraw(self->ring_xpub_publisher);
+    zeroconf_service_withdraw(self->ring_router_publisher);
 
     // deregister poll adapter
     if (self->av_loop)
@@ -114,46 +146,3 @@ ht_zeroconf_withdraw_services(htself_t *self)
     return 0;
 }
 
-int ht_zeroconf_announce_ring(htself_t *self, const char *ringname)
-{
-    char name[LINELEN];
-    char uri[PATH_MAX];
-
-    assert(self->rings.count(ringname) == 1);
-
-    htring_t *ring = self->rings[ringname];
-
-    if (self->cfg->remote)
-	snprintf(uri,sizeof(uri), "tcp://%s.local.:%d", self->hostname, ring->z_ring_port);
-
-    snprintf(name, sizeof(name), "HAL %s ringbuffer %s  on %s.local pid %d",
-	     zsocket_type_str(ring->z_ring), ringname, self->hostname, getpid());
-
-    ring->ring_publisher = zeroconf_service_announce(name,
-						     MACHINEKIT_DNSSD_SERVICE_TYPE,
-						     RING_DNSSD_SUBTYPE,
-						     ring->z_ring_port,
-						     self->cfg->remote ? uri :
-						     (char *) "FIXME",
-						     // (char *)self->z_halgroup_dsn,
-						     self->cfg->service_uuid,
-						     self->puuid,
-						     ringname, NULL,
-						     self->av_loop);
-    if (ring->ring_publisher == NULL) {
-	syslog_async(LOG_ERR, "%s: failed to start zeroconf HAL ring for '%s'\n",
-		     self->cfg->progname, uri, self->cfg->remote ? uri : "FIXME");
-	return -1;
-    }
-    return 0;
-}
-
-int ht_zeroconf_withdraw_ring(htring_t *ring)
-{
-    assert(ring != NULL);
-    if (ring->ring_publisher) {
-	zeroconf_service_withdraw(ring->ring_publisher);
-	ring->ring_publisher = NULL;
-    }
-    return 0;
-}

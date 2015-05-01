@@ -23,7 +23,27 @@
 #include <machinetalk/generated/types.npb.h>
 
 static int adopt_ring_cb(hal_ring_t *r, void *cb_data);
-static int create_socket(htself_t *self, htring_t *rd, int count);
+//static int create_socket(htself_t *self, htring_t *rd, int count);
+
+
+int handle_xpub_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+{
+
+    return 0;
+}
+
+int handle_router_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+{
+
+    return 0;
+}
+
+int handle_ring_timer(zloop_t *loop, int timer_id, void *arg)
+{
+
+    return 0;
+}
+
 
 // walk HAL rings, looking for rings with haltalk_adopt flag set
 // attach them, including any paired ring
@@ -104,11 +124,6 @@ static int adopt_ring_cb(hal_ring_t *r, void *cb_data)
 	HALDBG("adopted paired ring '%s'", rd->hr_paired->name);
     }
 
-    // primary, and optionally paird ring attached.
-    // create the zeroMQ socket.
-    if (create_socket(self, rd, rcount) < 0)
-	goto UNWIND;
-
     // haltalk ring descriptor complete. Now figure what to do with these rings:
     if (rd->hr_primary->haltalk_writes) {
 	// haltalk should write. Any writer yet?
@@ -163,9 +178,6 @@ static int adopt_ring_cb(hal_ring_t *r, void *cb_data)
     }
 
     self->rings[r->name] = rd;
-    // announce if so directed:
-    if (rd->hr_primary->haltalk_announce)
-	ht_zeroconf_announce_ring(self, r->name);
 
     return 0;
 
@@ -184,6 +196,7 @@ static int adopt_ring_cb(hal_ring_t *r, void *cb_data)
     return -1;
 }
 
+#if 0
 static int create_socket(htself_t *self, htring_t *rd, int count)
 {
     // inspect socket type
@@ -194,9 +207,9 @@ static int create_socket(htself_t *self, htring_t *rd, int count)
     case pb_socketType_ST_ZMQ_PUB:
 	// rcount == 1
 
-	rd->z_ring = zsocket_new (self->z_context, ZMQ_PUB);
-	assert(rd->z_ring);
-	zsocket_set_linger (rd->z_ring, 0);
+	// rd->z_ring = zsocket_new (self->z_context, ZMQ_PUB);
+	// assert(rd->z_ring);
+	// zsocket_set_linger (rd->z_ring, 0);
 	break;
 
     case pb_socketType_ST_ZMQ_ROUTER:
@@ -220,3 +233,4 @@ static int create_socket(htself_t *self, htring_t *rd, int count)
     }
     return 0;
 }
+#endif
