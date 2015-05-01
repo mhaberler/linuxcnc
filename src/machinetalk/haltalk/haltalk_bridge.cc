@@ -1,4 +1,4 @@
-#ifdef NOTYET
+#ifdef HALBRIDGE
 
 /*
  * Copyright (C) 2013-2014 Michael Haberler <license@mah.priv.at>

@@ -49,10 +49,12 @@ static htconf_t conf = {
     "tcp://%s:*",
     "tcp://%s:*",
     NULL,
+#ifdef HALBRIDGE
     NULL,
     NULL,
     NULL,
     -1,
+#endif
     0,
     0,
     100,
@@ -376,8 +378,10 @@ read_config(htconf_t *conf)
     if (conf->trap_signals && (getenv("NOSIGHDLR") != NULL))
 	conf->trap_signals = false;
 
-    // bridge: TBD
+
     if (inifp) {
+#ifdef HALBRIDGE
+	// bridge: TBD
 	if ((s = iniFind(inifp, "BRIDGE_COMP", conf->section)))
 	    conf->bridgecomp = strdup(s);
 	if ((s = iniFind(inifp, "BRIDGE_COMMAND_URI", conf->section)))
@@ -385,6 +389,7 @@ read_config(htconf_t *conf)
 	if ((s = iniFind(inifp, "BRIDGE_STATUS_URI", conf->section)))
 	    conf->bridgecomp_updateuri = strdup(s);
 	iniFindInt(inifp, "BRIDGE_TARGET_INSTANCE", conf->section, &conf->bridge_target_instance);
+#endif
 	iniFindInt(inifp, "GROUPTIMER", conf->section, &conf->default_group_timer);
 	iniFindInt(inifp, "RCOMPTIMER", conf->section, &conf->default_rcomp_timer);
 	iniFindInt(inifp, "KEEPALIVETIMER", conf->section, &conf->keepalive_timer);
@@ -434,10 +439,12 @@ static struct option long_options[] = {
     {"stpuri", required_argument, 0, 'u'},
     {"rcompuri", required_argument, 0, 'r'},
     {"cmduri", required_argument, 0, 'c'},
+#ifdef HALBRIDGE
     {"bridge", required_argument, 0, 'b'},
     {"bridgecmduri", required_argument, 0, 'C'},
     {"bridgeupdateuri", required_argument, 0, 'U'},
     {"bridgeinstance", required_argument, 0, 'i'},
+#endif
     {"interfaces", required_argument, 0, 'N'},
     {"svcuuid", required_argument, 0, 'R'},
     {"stderr",  no_argument,        0, 's'},
@@ -486,6 +493,7 @@ int main (int argc, char *argv[])
 	case 'p':
 	    conf.paranoid = 1;
 	    break;
+#ifdef HALBRIDGE
 	case 'b':
 	    conf.bridgecomp = optarg;
 	    break;
@@ -498,6 +506,7 @@ int main (int argc, char *argv[])
 	case 'U':
 	    conf.bridgecomp_updateuri = optarg;
 	    break;
+#endif
 	case 'N':
 	    conf.interfaces = optarg;
 	    break;
@@ -541,7 +550,7 @@ int main (int argc, char *argv[])
     retval = zmq_init(&self);
     if (retval) exit(retval);
 
-#ifdef NOTYET
+#ifdef HALBRIDGE
     retval = bridge_init(&self);
     if (retval) exit(retval);
 #endif

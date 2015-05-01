@@ -126,11 +126,12 @@ typedef struct htconf {
     const char *halrcomp;
     const char *command;
     const char *interfaces;
+#ifdef HALBRIDGE
     const char *bridgecomp;
     const char *bridgecomp_cmduri;
     const char *bridgecomp_updateuri;
     int bridge_target_instance;
-
+#endif
     int paranoid; // extensive runtime checks - may be costly
     int debug;
     int default_group_timer; // msec
@@ -178,8 +179,9 @@ typedef struct htself {
     itemmap_t  items;
 
     ringmap_t  rings;
-
+#ifdef HALBRIDGE
     htbridge_t *bridge;
+#endif
 } htself_t;
 
 
