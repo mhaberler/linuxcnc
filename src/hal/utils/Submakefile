@@ -12,7 +12,7 @@ $(call TOOBJSDEPS, hal/utils/halsh.c) : EXTRAFLAGS += $(TCL_CFLAGS)
 ../tcl/hal.so: $(call TOOBJS, $(HALSHSRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/libmtalk.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) $(LDFLAGS) -shared $^  $(TCL_LIBS) -lm -o $@
