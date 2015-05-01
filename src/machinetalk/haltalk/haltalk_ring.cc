@@ -35,11 +35,11 @@ static int create_socket(htself_t *self, htring_t *rd, int count);
 int scan_rings(htself_t *self)
 {
     {
-        int retval __attribute__((cleanup(halpr_autorelease_mutex)));
-
 	// all ring inspection, attaching and modifying internals
 	// happens with the HAL mutex held
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+
+        int retval;
 
 	if ((retval = halpr_foreach_ring(NULL, adopt_ring_cb, self)) < 0)
 	    return retval;
@@ -56,14 +56,18 @@ static int adopt_ring_cb(hal_ring_t *r, void *cb_data)
     int rcount = 0;
 
     if (!r->haltalk_adopt)
+	// adopt flag not set, so ignore.
 	return 0;
 
-    if (self->rings.count(r->name) > 0) // already adopted
+    if (self->rings.count(r->name) > 0)
+	// already adopted
 	return 0;
 
+    // that ring is for us.
     htring_t *rd = new htring_t();
 
     // lookup ring descriptor
+    // HAL mutex is held in caller (scan_rings).
     rd->hr_primary = halpr_find_ring_by_name(r->name);
 
     assert(rd->hr_primary != NULL);
@@ -158,9 +162,11 @@ static int adopt_ring_cb(hal_ring_t *r, void *cb_data)
 	    rd->paired.header->writer = self->comp_id;
     }
 
-    // announcement: TBD
-
     self->rings[r->name] = rd;
+    // announce if so directed:
+    if (rd->hr_primary->haltalk_announce)
+	ht_zeroconf_announce_ring(self, r->name);
+
     return 0;
 
  UNWIND:
@@ -187,6 +193,10 @@ static int create_socket(htself_t *self, htring_t *rd, int count)
 
     case pb_socketType_ST_ZMQ_PUB:
 	// rcount == 1
+
+	rd->z_ring = zsocket_new (self->z_context, ZMQ_PUB);
+	assert(rd->z_ring);
+	zsocket_set_linger (rd->z_ring, 0);
 	break;
 
     case pb_socketType_ST_ZMQ_ROUTER:

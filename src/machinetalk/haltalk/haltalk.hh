@@ -89,7 +89,10 @@ typedef struct {
     hal_ring_t   *hr_paired;  // HAL descriptor
     ringbuffer_t primary;     // local attachment
     ringbuffer_t paired;      // local attachment
-    void *z_ring;     // servicing zmq socket
+    void *z_ring;             // servicing zmq socket
+    int  z_ring_port;          // TCP port number
+    int  z_sockettype;
+    register_context_t *ring_publisher; // handle on zeroconf announcement if any
 } htring_t;
 
 typedef struct htbridge {
@@ -145,8 +148,9 @@ typedef struct htconf {
 
 typedef struct htself {
     htconf_t *cfg;
-    uuid_t    process_uuid;      // server instance (this process)
-    uuid_t    svc_uuid;  // service instance (set of running server processes)
+    uuid_t    process_uuid; // unique server instance (this process)
+    char      puuid[40];    // needed repeatedly
+    uuid_t    svc_uuid;     // service instance (set of running server processes)
     int       comp_id;
     int       signal_fd;
     bool      interrupted;
@@ -162,6 +166,7 @@ typedef struct htself {
 
     zctx_t   *z_context;
     zloop_t  *z_loop;
+    char hostname[HOST_NAME_MAX]; 
 
     void       *z_halgroup;
     int        z_group_port;
@@ -200,8 +205,11 @@ int handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg);
 int ping_comps(htself_t *self);
 
 // haltalk_zeroconf.cc:
-int ht_zeroconf_announce(htself_t *self);
-int ht_zeroconf_withdraw(htself_t *self);
+int ht_zeroconf_announce_services(htself_t *self);
+int ht_zeroconf_withdraw_services(htself_t *self);
+int ht_zeroconf_announce_ring(htself_t *self, const char *name);
+int ht_zeroconf_withdraw_ring(htring_t *ring);
+
 
 // haltalk_command.cc:
 int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);

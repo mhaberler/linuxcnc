@@ -43,8 +43,8 @@ static htconf_t conf = {
     NULL,
     "HALTALK",
     "haltalk",
-    "localhost",
-    "127.0.0.1",
+    "localhost",  // interface
+    "127.0.0.1",  // ipaddr
     "tcp://%s:*", // as per preferred interface, use ephemeral port
     "tcp://%s:*",
     "tcp://%s:*",
@@ -247,8 +247,7 @@ hal_setup(htself_t *self)
     if (retval < 0) return retval;
     retval = scan_comps(self);
     if (retval < 0) return retval;
-    retval = scan_rings(self);
-    if (retval < 0) return retval;
+
     return 0;
 }
 
@@ -538,6 +537,13 @@ int main (int argc, char *argv[])
     self.cfg = &conf;
     self.pid = getpid();
     uuid_generate_time(self.process_uuid);
+    uuid_unparse(self.process_uuid, self.puuid);
+
+    if (gethostname(self.hostname, sizeof(self.hostname)) < 0) {
+	syslog_async(LOG_ERR, "%s: gethostname() failed ?! %s\n",
+		     self.cfg->progname, strerror(errno));
+	exit(1);
+    }
 
     print_container = self.cfg->debug & 1; // log sent protobuf messages to stderr if debug & 1
 
@@ -555,12 +561,17 @@ int main (int argc, char *argv[])
     if (retval) exit(retval);
 #endif
 
-    retval = ht_zeroconf_announce(&self);
+    retval = ht_zeroconf_announce_services(&self);
     if (retval) exit(retval);
+
+    // do this only here as it may zeroconf-register
+    // so the event loop must exist
+    retval = scan_rings(&self);
+    if (retval)  exit(retval);
 
     mainloop(&self);
 
-    ht_zeroconf_withdraw(&self);
+    ht_zeroconf_withdraw_services(&self);
     // probably should run zloop here until deregister complete
 
     // shutdown zmq context
