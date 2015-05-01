@@ -4,6 +4,7 @@
 #include <rtapi.h>
 #include <ring.h>
 #include <multiframe.h>
+#include <multiframe_flag.h>
 
 
 RTAPI_BEGIN_DECLS
@@ -19,8 +20,14 @@ typedef struct {
     int ring_shmkey;             // RTAPI shm key - if in shmseg
     int total_size;              // size of shm segment allocated
     unsigned ring_offset;        // if created in HAL shared memory
-    unsigned flags;
+    unsigned flags;              // RTAPI-level flags
     int handle;                  // unique ID
+    int paired_handle;           // unique ID of a paired ring (>0)
+    __u8 encodings;              // bitmap of hal_ring_encodings_t
+    __u8 haltalk_zeromq_stype : 5;   // tell haltalk which socket type to use
+    __u8 haltalk_adopt : 1;      // haltalk shall adopt this ring
+    __u8 haltalk_announce : 1;   // haltalk shall announce this ring via mDNS
+    __u8 haltalk_writes : 1;     // haltalk reads if zero
 } hal_ring_t;
 
 // some components use a fifo and a scratchpad shared memory area,
@@ -32,8 +39,11 @@ typedef struct {
 // generic ring methods for all modes:
 
 // create a named ringbuffer, owned by hal_lib
-//
-// mode is an or of:
+// takes a name, and RTAPI-level flags:
+
+// ------------ RTAPI-level ring flags -----------
+// mode contains options which are relevant at the rtai/ring.h
+// level. It is an 'or' of:
 
 // exposed in ringheader_t.type:
 // #define RINGTYPE_RECORD    0
@@ -46,13 +56,67 @@ typedef struct {
 // #define USE_WMUTEX       RTAPI_BIT(3)
 // #define ALLOC_HALMEM     RTAPI_BIT(4)
 
+// also handled at the ring.h level:
 // spsize > 0 will allocate a shm scratchpad buffer
 // accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
 
+// ---------------- HAL-level ring flags --------------------
+//
+// there is a separate set of flags which apply strictly at the
+// HAL level and are not 'passed down' to the ring.h code as they
+// have no meaning there. The categories are:
 
-// named HAL rings are owned by the HAL_LIB_<pid> RTAPI module
-// components do not make sense as owners since their lifetime
-// might be shorter than the ring
+// encoding - indicates which type(s) of encoding must be present
+//            if writing a message into this ring
+//            set by reader, inspected by writer
+//            the encoding must be present in the actual write
+//            operation in the multiframe flag, see multiframe_flags.h
+//            inspected by readers and writers
+//            a bitmap of mf_encoding_t flags
+
+// to indicate support for understanding a particular encoding,
+// set the corresponding bit(s) in hal_ring_t.encodings:
+// NB: encoding is a bitmap, whereas mfields_t.format is one
+// of the underlying values (better be one only ;)
+typedef enum {
+	RE_TEXT         =  RTAPI_BIT(MF_STRING),      // payload is a printable string
+	RE_PROTOBUF     =  RTAPI_BIT(MF_PROTOBUF),    // payload is in protobuf wire format
+	RE_NPB_CSTRUCT  =  RTAPI_BIT(MF_NPB_CSTRUCT), // payload is in nanopb C struct format
+	RE_JSON         =  RTAPI_BIT(MF_JSON),        // payload is a JSON object (string)
+	RE_GPB_TEXTFORMAT  =  RTAPI_BIT(MF_GPB_TEXTFORMAT),// payload is google::protobuf::TextFormat (string)
+	RE_XML          =  RTAPI_BIT(MF_XML),         // payload is XML format (string)
+        RE_CUSTOM1      =  RTAPI_BIT(MF_CUSTOM1),     // unused in base code - user extensions
+        RE_CUSTOM2      =  RTAPI_BIT(MF_CUSTOM2),     // unused in base code - user extensions
+} hal_ring_encodings_t;
+#define RE_MAX 255
+
+// ring pairing: indicates there is a second ring which is to be used
+//               as a matching channel in the other direction
+//               indicated by non-zero handle,
+//               to look up, use halpr_find_ring_by_id()
+//               set in one of the two rings only,the paired ring
+//               may not have any haltalk_* flags set (!)
+
+// flags for driving haltalk behavior:
+//
+// haltalk adoption: this ring is to be served by haltalk.
+// haltalk announcements: if served by haltalk, announce via mDNS
+// haltalk direction: read or write by haltalk
+// zeroMQ socket type: PUSH/PULL/SUB/PUB/DEALER/ROUTER etc
+//               hints to haltalk how to serve this ring
+//               for dual-direction channels like DEALER or ROUTER
+//               a paired ring can be used for the other direction
+//               needs to be set in one of the rings, the paired ring's
+//               flags are ignored
+//               uses the pb::socketType enum
+//               to set, include types.npb.h and use one of
+//               pb_socketType_ST_ZMQ_<sockettype> #defines
+
+// named HAL rings shared memory segments are owned by the hal_lib component,
+// since only a component may own shm segments, but rings live outside
+// components - normal components do not make sense as owners since
+// their lifetime might be shorter than the ring, and making rings permanent
+// gets around referential integrity issues
 
 int hal_ring_new(const char *name, int size, int sp_size, int mode);
 
@@ -77,27 +141,48 @@ int hal_ring_deletef(const char *fmt, ...)
 //     store halring flags in *flags if non-zero.
 //
 // to test for existence:
-//     hal_ring_attach(name, NULL, NULL) returns 0 if the ring exists, < 0 otherwise
+//     hal_ring_attachf(NULL, NULL, name) returns 0 if the ring exists, < 0 otherwise
 //
 // to test for existence and retrieve the ring's flags:
-//     hal_ring_attach(name, NULL, &f) - if the ring exists, returns 0
+//     hal_ring_attachf(NULL, &f, name) - if the ring exists, returns 0
 //     and the ring's flags are returned in f
 //
-int hal_ring_attach(const char *name, ringbuffer_t *rb, unsigned *flags);
 
 // printf-style version of the above
 int hal_ring_attachf(ringbuffer_t *rb, unsigned *flags, const char *fmt, ...)
     __attribute__((format(printf,3,4)));
 
 // detach a ringbuffer. Decreases the reference count.
-int hal_ring_detach(const char *name, ringbuffer_t *rb);
+int hal_ring_detach(ringbuffer_t *rb);
 
-// printf-style version of the above
-int hal_ring_detachf(ringbuffer_t *rb, const char *fmt, ...)
-    __attribute__((format(printf,2,3)));
+typedef enum {
+    // second argument to hal_ring_setflag/getflag to indicate
+    // operation
+    HF_ENCODINGS = 1,
+    HF_HALTALK_ADOPT,
+    HF_HALTALK_ANNOUNCE,
+    HF_HALTALK_WRITES,
+    HF_ZEROMQ_SOCKETTYPE,
+} halring_flag_t;
+
+// setter/getter for these flags
+int hal_ring_setflag(const int ring_id, const unsigned flagtype, unsigned value);
+int hal_ring_getflag(const int ring_id, const unsigned flagtype, unsigned *value);
+
+// pair a ring to this ring by ID
+int hal_ring_pair(const int this_ring, const int other_ring);
+
 
 // not part of public API. Use with HAL lock engaged.
 hal_ring_t *halpr_find_ring_by_name(const char *name);
+hal_ring_t *halpr_find_ring_by_id(const int id);
+
+// no-lock version of key methods
+int halpr_ring_new(const char *name, int size, int sp_size, int mode);
+int halpr_ring_attach_by_desc(hal_ring_t *r, ringbuffer_t *rb, unsigned *flags);
+int halpr_ring_attach_by_id(const int id, ringbuffer_t *rbptr,unsigned *flags);
+int halpr_ring_attach_by_name(const char *name, ringbuffer_t *rbptr, unsigned *flags);
+int halpr_ring_detach(ringbuffer_t *rbptr);
 
 RTAPI_END_DECLS
 

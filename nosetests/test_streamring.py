@@ -12,14 +12,15 @@ from machinekit import hal
 size=4096
 
 def test_create_ring():
-    global r,sr
-    r = hal.Ring("ring1", size=size, type=hal.RINGTYPE_STREAM)
-    sr = hal.StreamRing(r)
+    global sr
+    sr = hal.Ring("ring1", size=size, type=hal.RINGTYPE_STREAM)
 
 def test_ring_write_read():
     nr = 0
     for n in range(size):
+        print "loop",n
         if sr.write("X") < 1:
+            print size, n
             assert n == size - 1
 
     m = sr.read()

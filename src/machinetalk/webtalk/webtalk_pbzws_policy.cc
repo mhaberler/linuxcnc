@@ -87,7 +87,7 @@ pbzws_policy(wtself_t *server,
 	self->pzf->Clear();
 	self->pzf->set_type(zws::MT_HELLO);
 	self->pzf->set_version(VERSION);
-	self->pzf->set_sec(zws::SM_ZMQ_NONE); // or PLAIN - make this configurable?
+	self->pzf->set_sec(pb::SM_ZMQ_NONE); // or PLAIN - make this configurable?
 	return frame_tows(self);
 	break;
 
@@ -117,7 +117,7 @@ pbzws_policy(wtself_t *server,
 	    wss->socket = zsocket_new (server->ctx, wss->socket_type);
 
 	    switch(self->pzf->sec()) {
-	    case zws::SM_ZMQ_PLAIN:
+	    case pb::SM_ZMQ_PLAIN:
 		zsocket_set_plain_username (wss->socket, self->pzf->user().c_str());
 		zsocket_set_plain_password (wss->socket, self->pzf->passwd().c_str());
 		break;

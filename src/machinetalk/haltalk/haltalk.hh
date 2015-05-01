@@ -84,6 +84,14 @@ typedef struct {
     int msec;
 } rcomp_t;
 
+typedef struct {
+    hal_ring_t   *hr_primary; // HAL descriptor
+    hal_ring_t   *hr_paired;  // HAL descriptor
+    ringbuffer_t primary;     // local attachment
+    ringbuffer_t paired;      // local attachment
+    void *z_ring;     // servicing zmq socket
+} htring_t;
+
 typedef struct htbridge {
     int state;
     void *z_bridge_status;
@@ -98,6 +106,10 @@ typedef groupmap_t::iterator groupmap_iterator;
 // remote components indexed by component name
 typedef std::unordered_map<std::string, rcomp_t *> compmap_t;
 typedef compmap_t::iterator compmap_iterator;
+
+// adopted rings by name
+typedef std::unordered_map<std::string, htring_t *> ringmap_t;
+typedef ringmap_t::iterator ringmap_iterator;
 
 // HAL items indexed by handle
 typedef std::unordered_map<int, halitem_t *> itemmap_t;
@@ -165,6 +177,8 @@ typedef struct htself {
     int        z_halrcmd_port;
     itemmap_t  items;
 
+    ringmap_t  rings;
+
     htbridge_t *bridge;
 } htself_t;
 
@@ -195,6 +209,9 @@ int process_describe(htself_t *self, const std::string &from,  void *socket);
 int describe_group(htself_t *self, const char *group, const std::string &from,  void *socket);
 int describe_comp(htself_t *self, const char *comp, const std::string &from,  void *socket);
 int describe_parameters(htself_t *self);
+
+//haltalk_ring.cc:
+int scan_rings(htself_t *self);
 
 // haltalk_bridge.cc:
 int bridge_init(htself_t *self);

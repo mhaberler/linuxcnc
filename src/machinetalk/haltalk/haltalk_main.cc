@@ -245,6 +245,8 @@ hal_setup(htself_t *self)
     if (retval < 0) return retval;
     retval = scan_comps(self);
     if (retval < 0) return retval;
+    retval = scan_rings(self);
+    if (retval < 0) return retval;
     return 0;
 }
 
@@ -531,7 +533,10 @@ int main (int argc, char *argv[])
     print_container = self.cfg->debug & 1; // log sent protobuf messages to stderr if debug & 1
 
     retval = hal_setup(&self);
-    if (retval) exit(retval);
+    if (retval) {
+	hal_cleanup(&self);
+	exit(retval);
+    }
 
     retval = zmq_init(&self);
     if (retval) exit(retval);

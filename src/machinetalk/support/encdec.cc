@@ -3,6 +3,7 @@
 // convert to text format
 // parse from encoded buffer
 
+#include <config.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -13,12 +14,32 @@
 #include <machinetalk/generated/value.pb.h>
 #include <machinetalk/generated/message.pb.h>
 #include <machinetalk/generated/object.pb.h>
+#include <machinetalk/generated/nanopb.pb.h>
 
 #include <json2pb.hh>
+
+#ifdef HAVE_TINYXML
+#include <xml_message.h>
+using namespace google::protobuf::xml;
+#endif
+
+
+// nanopb
+#include <machinetalk/include/pb-machinekit.h>
+#include <machinetalk/nanopb/pb_decode.h>
+#include <machinetalk/nanopb/pb_encode.h>
+#include <machinetalk/generated/message.npb.h>
 
 using namespace pb;
 using namespace std;
 using namespace google::protobuf;
+
+
+uint32 msgid(const ::google::protobuf::Message  &m)
+{
+  const ::google::protobuf::MessageOptions& options = m.GetDescriptor()->options();
+  return options.GetExtension(nanopb_msgopt).msgid();
+}
 
 int main(int argc, char* argv[])
 {
@@ -48,6 +69,9 @@ int main(int argc, char* argv[])
     value->set_type(DOUBLE);
     value->set_v_double(3.14159);
 
+    cerr << "container.msgid=" << msgid(container) << endl;
+    cerr << "pin.msgid=" << msgid(*pin) << endl;
+
     // ready to serialize to wire format.
     if (argc == 1) {
 
@@ -68,6 +92,22 @@ int main(int argc, char* argv[])
 	    printf("json2pb exception: %s\n", ex.what());
 	}
 	// printf("c.DebugString=%s\n",c.DebugString().c_str());
+
+#ifdef HAVE_TINYXML
+
+	XmlMessage xmlMsg(container);
+
+	string out = xmlMsg.SerializeToString();
+	cout << "Container converted to XML: " << out  << endl;
+
+	Container c2;
+	XmlMessage xmlMsg2(c2);
+
+	bool ok = xmlMsg2.ParseFromString(out);
+	if(!ok) {
+	    cerr << "Fail: " << xmlMsg2.GetErrorText() << endl;
+	}
+#endif
 
 	if (TextFormat::PrintToString(c, &buffer)) {
 	    cout << "FromJson: \n" <<  buffer << endl;

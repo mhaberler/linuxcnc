@@ -187,7 +187,7 @@ add_sig_to_items(int level, hal_group_t **groups,
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_SIGNAL;
 	hi->o.signal = sig;
-	hi->ptr = SHMPTR(sig->data_ptr);
+	hi->v.sigptr = (hal_data_u *) SHMPTR(sig->data_ptr);
 	self->items[sig->handle] = hi;
     }
     return 0;
