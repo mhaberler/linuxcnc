@@ -202,8 +202,8 @@ SUBDIRS := \
 	rtapi/userpci \
 	\
 	hal/lib \
-	hal/components \
 	hal/i_components \
+	hal/components \
 	hal/vtable-example \
 	hal/userfunct-example \
 	hal/drivers \
@@ -1088,8 +1088,8 @@ ifneq ($(KERNELRELEASE),)
 # module's obj-m and foo-objs definitions may remain in the Submakefile
 include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
-include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/i_components/Submakefile
+include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/vtable-example/Submakefile
 include $(BASEPWD)/hal/userfunct-example/Submakefile
 include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
@@ -1473,8 +1473,9 @@ motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 obj-m += icomp.o
 icomp-objs := hal/icomp-example/icomp.o
 
-obj-m += lutn.o
-lutn-objs := hal/icomp-example/lutn.o
+# clashes with component in i_components
+#obj-m += lutn.o
+#lutn-objs := hal/icomp-example/lutn.o
 
 obj-m += ufdemo.o
 ufdemo-objs := hal/userfunct-example/ufdemo.o
