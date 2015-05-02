@@ -129,4 +129,7 @@ pid_t hal_systemv_nowait(char *const argv[]);
 int hal_systemv(char *const argv[]);
 
 extern int scriptmode, comp_id;
+
+bool autoloading;
+
 #endif

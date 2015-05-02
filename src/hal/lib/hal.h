@@ -1071,7 +1071,8 @@ int hal_inst_delete(const char *name);
 // with RTAPI_TAG(HAL, cap1]cap2 ...);
 
 #define HC_INSTANTIABLE 1
-#define HC_SOMEFEATURE  2
+#define HC_SINGLETON 2
+#define HC_SOMEFEATURE  3
 
 
 RTAPI_END_DECLS

@@ -1,0 +1,57 @@
+# core HAL config file for simulation
+
+# first load all the RT modules that will be needed
+# kinematics
+loadrt trivkins
+loadrt tp
+# motion controller, get name and thread periods from ini file
+loadrt [EMCMOT]EMCMOT base_period_nsec=[EMCMOT]BASE_PERIOD servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES tp=tp kins=trivkins
+
+# load 6 differentiators (for velocity and accel signals
+loadrt i_ddt count=6
+
+# load additional blocks
+loadrt i_hypot count=2
+
+# add motion controller functions to servo thread
+addf motion-command-handler servo-thread
+addf motion-controller servo-thread
+
+# link the differentiator functions into the code
+addf i_ddt.0 servo-thread
+addf i_ddt.1 servo-thread
+addf i_ddt.2 servo-thread
+addf i_ddt.3 servo-thread
+addf i_ddt.4 servo-thread
+addf i_ddt.5 servo-thread
+
+addf i_hypot.0 servo-thread
+addf i_hypot.1 servo-thread
+
+# create HAL signals for position commands from motion module
+# loop position commands back to motion module feedback
+net Xpos axis.0.motor-pos-cmd => axis.0.motor-pos-fb i_ddt.0.in
+net Ypos axis.1.motor-pos-cmd => axis.1.motor-pos-fb i_ddt.2.in
+net Zpos axis.2.motor-pos-cmd => axis.2.motor-pos-fb i_ddt.4.in
+
+# send the position commands thru differentiators to
+# generate velocity and accel signals
+net Xvel i_ddt.0.out => i_ddt.1.in i_hypot.0.in0
+net Xacc <= i_ddt.1.out
+net Yvel i_ddt.2.out => i_ddt.3.in i_hypot.0.in1
+net Yacc <= i_ddt.3.out
+net Zvel i_ddt.4.out => i_ddt.5.in i_hypot.1.in0
+net Zacc <= i_ddt.5.out
+
+# Cartesian 2- and 3-axis velocities
+net XYvel i_hypot.0.out => i_hypot.1.in1
+net XYZvel <= i_hypot.1.out
+
+# estop loopback
+net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
+
+# create signals for tool loading loopback
+net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
+net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
+
+
