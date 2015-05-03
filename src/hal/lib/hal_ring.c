@@ -388,7 +388,7 @@ static int hal_ring_getsetflag(const int ring_id, const unsigned flag, unsigned 
 	    break;
 	case HF_ZEROMQ_SOCKETTYPE:
 	    if (set)
-		rbdesc->haltalk_zeromq_stype = (*value != 0);
+		rbdesc->haltalk_zeromq_stype = *value;
 	    else
 		*value = rbdesc->haltalk_zeromq_stype;
 	    break;

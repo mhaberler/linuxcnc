@@ -85,10 +85,15 @@ typedef struct {
 } rcomp_t;
 
 typedef struct {
-    hal_ring_t   *hr_primary; // HAL descriptor
+    hal_ring_t   *hr_primary; // HAL descriptors
     hal_ring_t   *hr_paired;  // HAL descriptor
     ringbuffer_t primary;     // local attachment
-    ringbuffer_t paired;      // local attachment
+    ringbuffer_t paired;      //
+    msgbuffer_t  mr_primary;  // multiframe state
+    msgbuffer_t  mr_paired;
+    int timer_id;
+    int msec;
+    htself_t *self;
 } htring_t;
 
 typedef struct htbridge {
@@ -133,11 +138,11 @@ typedef struct htconf {
     const char *bridgecomp_updateuri;
     int bridge_target_instance;
 #endif
-    int paranoid; // extensive runtime checks - may be costly
     int debug;
     int default_group_timer; // msec
     int default_rcomp_timer; // msec
-    int keepalive_timer; // msec; disabled if zero
+    int default_ring_timer;  // msec
+    int keepalive_timer;     // msec; disabled if zero
     unsigned ifIndex;
     char *service_uuid;
     int remote;

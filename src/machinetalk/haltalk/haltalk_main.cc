@@ -50,22 +50,22 @@ static htconf_t conf = {
     "tcp://%s:*", // command
     "tcp://%s:*", // router
     "tcp://%s:*", // xpub
-    NULL,
+    NULL,         // interfaces
 #ifdef HALBRIDGE
     NULL,
     NULL,
     NULL,
     -1,
 #endif
-    0,
-    0,
-    100,
-    100,
-    2000, // keepalive
-    0,
-    NULL,
-    0,
-    true, // trap_signals
+    0,     // debug
+    100,   // default_group_timer
+    100,   // default_rcomp_timer
+    100,   // default_ring_timer
+    2000,  // keepalive_timer
+    0,     // ifIndex
+    NULL,  // service_uuid
+    0,     // remote
+    true,  // trap_signals
 };
 
 
@@ -450,7 +450,6 @@ read_config(htconf_t *conf)
 	iniFindInt(inifp, "KEEPALIVETIMER", conf->section, &conf->keepalive_timer);
 	if (!conf->debug)
 	    iniFindInt(inifp, "DEBUG", conf->section, &conf->debug);
-	iniFindInt(inifp, "PARANOID", conf->section, &conf->paranoid);
 	fclose(inifp);
     }
     return 0;
@@ -475,16 +474,13 @@ usage(void)
 	   "    set the RTAPI message level.\n"
 	   "-t or --timer <msec>\n"
 	   "    set the default group scan timer (100mS).\n"
-	   "-p or --paranoid <msec>\n"
-	   "    turn on extensive runtime checks (may be costly).\n"
 	   "-d or --debug\n"
 	   "    Turn on event debugging messages.\n");
 }
 
-static const char *option_string = "hI:S:d:t:u:r:T:c:pb:C:U:i:N:R:sK:G";
+static const char *option_string = "hI:S:d:t:u:r:T:c:b:C:U:i:N:R:sK:G";
 static struct option long_options[] = {
     {"help", no_argument, 0, 'h'},
-    {"paranoid", no_argument, 0, 'p'},
     {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
     {"section", required_argument, 0, 'S'},
     {"debug", required_argument, 0, 'd'},
@@ -553,9 +549,6 @@ int main (int argc, char *argv[])
 	    break;
 	case 'K':
 	    conf.keepalive_timer = atoi(optarg);
-	    break;
-	case 'p':
-	    conf.paranoid = 1;
 	    break;
 #ifdef HALBRIDGE
 	case 'b':

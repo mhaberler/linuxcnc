@@ -3045,8 +3045,8 @@ static void print_ring_info(char **patterns)
 	halcmd_output("ID    Name           Size       Type   Rdr Wrt Ref Flags \n");
     }
     {
-	hal_ring_t *rptr __attribute__((cleanup(halpr_autorelease_mutex)));
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+	hal_ring_t *rptr;
 
 	next_ring = hal_data->ring_list_ptr;
 	while (next_ring != 0) {

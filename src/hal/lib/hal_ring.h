@@ -10,7 +10,7 @@
 RTAPI_BEGIN_DECLS
 
 // a ring buffer exists always relative to a local instance
-// it is 'owned' by hal_lib since because rtapi_shm_new() requires a module id
+// it is owned by the hal_lib component since because rtapi_shm_new() requires a module id
 // any module may attach to it.
 
 typedef struct {
@@ -73,7 +73,9 @@ typedef struct {
 //            operation in the multiframe flag, see multiframe_flags.h
 //            inspected by readers and writers
 //            a bitmap of mf_encoding_t flags
-
+//
+// see also : rtapi/multiframe_flag.h
+//
 // to indicate support for understanding a particular encoding,
 // set the corresponding bit(s) in hal_ring_t.encodings:
 // NB: encoding is a bitmap, whereas mfields_t.format is one
@@ -85,8 +87,10 @@ typedef enum {
 	RE_JSON         =  RTAPI_BIT(MF_JSON),        // payload is a JSON object (string)
 	RE_GPB_TEXTFORMAT  =  RTAPI_BIT(MF_GPB_TEXTFORMAT),// payload is google::protobuf::TextFormat (string)
 	RE_XML          =  RTAPI_BIT(MF_XML),         // payload is XML format (string)
-        RE_CUSTOM1      =  RTAPI_BIT(MF_CUSTOM1),     // unused in base code - user extensions
-        RE_CUSTOM2      =  RTAPI_BIT(MF_CUSTOM2),     // unused in base code - user extensions
+        RE_LEGACY_MOTCMD   =  RTAPI_BIT(MF_LEGACY_MOTCMD),     // motion command C structs
+        RE_LEGACY_MOTSTAT   =  RTAPI_BIT(MF_LEGACY_MOTSTAT),   // motion status C structs
+
+	//   RE_UNUSED1      =  RTAPI_BIT(MF_UNUSED1),     // unused in base code - user extensions
 } hal_ring_encodings_t;
 #define RE_MAX 255
 

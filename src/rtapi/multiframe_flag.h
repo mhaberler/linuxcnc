@@ -8,8 +8,17 @@ typedef enum {
     MF_JSON           =  3,    // payload is a JSON object (string)
     MF_GPB_TEXTFORMAT =  4,    // payload is google::protobuf::TextFormat (string)
     MF_XML            =  5,    // payload is XML format (string)
-    MF_CUSTOM1        =  6,    // unused in base code - user extensions
-    MF_CUSTOM2        =  7,    // unused in base code - user extensions
+    MF_LEGACY_MOTCMD  =  6,    // motion command C structs, with cmd_code_t type tag
+    MF_LEGACY_MOTSTAT =  7,    // motion status C structs, with cmd_status_t type tag
+
+    // add here as needed and change the #define to point to the last encoding
+    // used in the base code
+#define MF_LAST  MF_LEGACY_MOTSTAT
+
+    MF_UNUSED1        =  8,    // unused in code base  - user extensions
+    MF_UNUSED2        =  9,    //
+    // ...
+
 } mf_encoding_t;
 
 

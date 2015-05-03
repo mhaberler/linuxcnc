@@ -1,0 +1,19 @@
+newring recordring   10000 record adopt haltalk_reads encodings=0x7 zmq=9
+newring streamring   10000 stream adopt haltalk_reads encodings=0x7 zmq=9
+newring mfring       10000 multi  adopt haltalk_reads encodings=0x7 zmq=9
+
+ringwrite recordring helloworld
+#ringwrite streamring somestring
+ringwrite mfring 1:adaasasda 23:eqweqwewqewqeq
+ringdump  recordring
+ringdump  streamring
+ringdump  mfring
+
+loadusr haltalk --debug 5
+
+ringwrite recordring moretext
+ringwrite mfring 1:foo 23:bar
+#ringwrite streamring anotherstring
+
+
+
