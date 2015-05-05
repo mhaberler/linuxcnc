@@ -6,11 +6,10 @@ pin out bit ok_out;
 pin out bit fault_out;
 pin out bit watchdog;
 function _ nofp;
-option data estop_data;
+variable int old_reset;
+
 license "GPL";
 ;;
-
-typedef struct { int old_reset; } estop_data;
 
 FUNCTION(_) 
 {
@@ -18,7 +17,7 @@ FUNCTION(_)
     if ( ok_in && !fault_in) 
         {
     	/* no fault conditions, check for reset edge */
-	    if ( reset && !data.old_reset ) 
+	    if ( reset && !old_reset ) 
 	        {
     	    /* got a rising edge, indicate "OK" on outputs */
 	        ok_out = 1;
@@ -37,7 +36,7 @@ FUNCTION(_)
 	    fault_out = 1;
         }
     /* store state of reset input for next pass (for edge detect) */
-    data.old_reset = reset;
+    old_reset = reset;
     
 	return 0;
 }

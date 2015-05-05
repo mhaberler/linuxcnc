@@ -395,6 +395,10 @@ You can the parse and act upon extra arguments passed before the component is se
 <li>
 <p><strong><em>userspace</em></strong>  No support for userspace at this time, use the comp / halcompile compiler</p>
 </li>
+<li>
+<p><strong><em>data</em></strong>       Any data to be preserved between polls to the component can be stored in variables in the declaration section of the icomp (below the pin declarations).
+Use of typedefed structs accessed via a void *_data pointer are no longer supported</p>
+</li>
 </ul>
 </div>
 
@@ -678,7 +682,7 @@ int x;
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2015-05-02 15:10:05 BST
+Last updated 2015-05-05 10:33:34 BST
 </div>
 </div>
 </body>

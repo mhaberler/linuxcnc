@@ -359,9 +359,6 @@ static int comp_id;
         print >>f, "RTAPI_TAG(HAL,HC_SINGLETON);"
     print >>f
 
-
-    has_data = options.get("data")
-
     has_array = False
     for name, type, array, dir, value in pins:
         if array: has_array = True
@@ -537,8 +534,6 @@ static int comp_id;
             print >>f, "    %s %s[%d];" % (type, name, maxpins )
         else:
             print >>f, "    %s %s;" % (type, name)
-    if has_data:
-        print >>f, "    void *_data;"
 
     print >>f, "    };"
 
@@ -559,17 +554,16 @@ static int comp_id;
             Error("Duplicate item name: %s" % name)
         print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % to_c(name)
         names[name] = 1
-    data = options.get('data')
-
+    
     print >>f, "static int instantiate(const char *name, const int argc, const char**argv);\n"
 
     print >>f, "static int delete(const char *name, void *inst, const int inst_size);\n"
-
+    
     if options.get("extra_inst_setup"):
         print >>f, "static int extra_inst_setup(struct inst_data* ip, const char *name, int argc, const char**argv);\n"
     if options.get("extra_inst_cleanup"):
         print >>f, "static void extra_inst_cleanup(void);\n"
-
+        
     if not options.get("no_convenience_defines"):
         print >>f, "#undef TRUE"
         print >>f, "#define TRUE (1)"
@@ -605,9 +599,6 @@ static int comp_id;
     print >>f, "    int r = 0;"
     print >>f, "    int j __attribute__((unused)) = 0;"
     print >>f, "    int z __attribute__((unused)) = 0;"
-
-    if has_data:
-        print >>f, "    ip->_data = (char*)ip + sizeof(struct inst_data);"
 
     for name, type, array, dir, value in pins:
         if array:
@@ -668,7 +659,12 @@ static int comp_id;
         print >>f, "        .owner_id = owner_id"
         print >>f, "        };\n"
 
-        print >>f, "    rtapi_snprintf(buf, sizeof(buf),\"%s\", name);"
+        strng = " rtapi_snprintf(buf, sizeof(buf),\"%s"
+        if (len(functions) == 1):
+            strng += "\", name);"
+        else :
+            strng += ".%s\", name);" % (to_hal(name))
+        print >>f, strng
 
         print >>f, "    r = hal_export_xfunctf(&%s_xf, buf, name);" % to_c(name)
         print >>f, "    if(r != 0)\n        return r;"
@@ -687,10 +683,9 @@ static int comp_id;
     if options.get("extra_inst_setup"):
             print >>f, "int k;"
     print >>f, "\n// allocate a named instance, and some HAL memory for the instance data"
-    print >>f, "int inst_id = hal_inst_create(name, comp_id, sizeof(struct inst_data), (void **)&ip);\n"
-
+    print >>f, "int inst_id = hal_inst_create(name, comp_id, sizeof(struct inst_data), (void **)&ip);\n"    
     print >>f, "    if (inst_id < 0)\n        return -1;\n"
-
+    
     print >>f, "// here ip is guaranteed to point to a blob of HAL memory of size sizeof(struct inst_data)."
     print >>f, "    hal_print_msg(RTAPI_MSG_DBG,\"%s inst=%s argc=%d\",__FUNCTION__, name, argc);\n"
     print >>f, "// Debug print of params and values"
@@ -839,17 +834,12 @@ static int comp_id;
             print >>f, "#undef %s" % name
             print >>f, "#define %s (ip->%s)" % (name, name)
 
-        if has_data:
-            print >>f, "#undef data"
-            print >>f, "#define data (*(%s*)(ip->_data))" % options['data']
-
     print >>f
     print >>f
 
 #########################  Epilogue - FUNCTION(_) printed in direct from file ################
 
 def epilogue(f):
-    data = options.get('data')
     print >>f
 
 INSTALL, COMPILE, PREPROCESS, DOCUMENT, INSTALLDOC, VIEWDOC, MODINC = range(7)

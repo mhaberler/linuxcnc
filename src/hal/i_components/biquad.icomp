@@ -60,7 +60,8 @@ param rw float n2 = 0.0 "2nd-delayed numerator coef";
 param rw float s1 = 0.0;
 param rw float s2 = 0.0;
 
-option data Internal;
+variable hal_bit_t lastEnable;
+
 option extra_inst_setup;
 
 function _;
@@ -86,14 +87,9 @@ typedef enum {
 } Type;
 
 
-typedef struct {
-    hal_bit_t                   lastEnable;
-} Internal;
-
-
 EXTRA_INST_SETUP()
 {
-    data.lastEnable = 0;
+    lastEnable = 0;
 
     return(0);
 }
@@ -101,8 +97,8 @@ EXTRA_INST_SETUP()
 
 FUNCTION(_)
 {
-    if(data.lastEnable != enable){
-        data.lastEnable = enable;
+    if(lastEnable != enable){
+        lastEnable = enable;
 
         if(enable)
             Biquad_CalcCoeffs(arg, period);

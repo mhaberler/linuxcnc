@@ -34,22 +34,19 @@ param rw bit retriggerable=TRUE "Allow additional edges to extend pulse";
 param rw bit rising=TRUE "Trigger on rising edge";
 param rw bit falling=FALSE "Trigger on falling edge";
 
-option data internal;
+variable double timer;
+variable char old_in;
+
 option extra_inst_setup yes;
 
 function _ "Produce output pulses from input edges";
 license "GPL";
 ;;
 
-typedef struct {
-    double timer;
-    char old_in;
-} internal;
-
 EXTRA_INST_SETUP()
 {
-    data.timer = 0.0;
-    data.old_in = 0;
+    timer = 0.0;
+    old_in = 0;
     return 0;
 }
 
@@ -58,29 +55,29 @@ FUNCTION(_)
     int new, old, trigger;
 
     new = in;
-    old = data.old_in;
+    old = old_in;
     trigger = 0;
     /* detect edges */
     if ( new && (!old) && rising ) trigger = 1;
     if ( old && (!new) && falling ) trigger = 1;
-    data.old_in = new;
+    old_in = new;
     /* is a pulse already running? */
-    if ( data.timer > 0.0 ) {
+    if ( timer > 0.0 ) {
 	if ( ! retriggerable ) {
 	    /* ignore edges during pulse */
 	    trigger = 0;
 	}
 	/* decrement timer */
-	data.timer -= period * 0.000000001;
-	if ( data.timer < 0.0 ) data.timer = 0.0;
+	timer -= period * 0.000000001;
+	if ( timer < 0.0 ) timer = 0.0;
     }
     if ( trigger ) {
 	/* (re)start pulse */
-	data.timer = width;
+	timer = width;
     }
     /* drive outputs */
-    time_left = data.timer;
-    if ( data.timer > 0.0 ) {
+    time_left = timer;
+    if ( timer > 0.0 ) {
 	out = 1;
 	out_not = 0;
     } else {

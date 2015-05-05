@@ -227,6 +227,8 @@ Some syntax and options are deprecated.
 
 *   *'userspace'*  No support for userspace at this time, use the comp / halcompile compiler
 
+*   *'data'*       Any data to be preserved between polls to the component can be stored in variables in the declaration section of the icomp (below the pin declarations).  
+Use of typedefed structs accessed via a void *_data pointer are no longer supported
 
 == Options
 

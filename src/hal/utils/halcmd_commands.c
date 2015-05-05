@@ -11,6 +11,8 @@
  *                     <fenn AT users DOT sourceforge DOT net>
  *                     Stephen Wille Padnos
  *                     <swpadnos AT users DOT sourceforge DOT net>
+ *                     Mick Grant - instantiated component loading
+ *                     <arceye AT mgware DOT co DOT uk>
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of version 2 of the GNU General
@@ -1314,7 +1316,6 @@ int list_index = 0;
                     halcmd_error("Invalid value to count= parameter\n");
                     return -1;
                     }
-                return 0;
                 }
             //// names="..."  ////////////////
             else if( (strncmp(arg_string, "names=", 6) == 0) && !singleton)
@@ -1360,7 +1361,6 @@ int list_index = 0;
                     for(p = 0; p < list_index; p++)
                         free(list[p]);
                     }
-                return 0;
                 }
             // invalid parameter
             else

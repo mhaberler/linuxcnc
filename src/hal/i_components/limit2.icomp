@@ -5,12 +5,10 @@ pin in bit load "When TRUE, immediately set \\fBout\\fB to \\fBin\\fR, ignoring 
 param rw float min_=-1e20;
 param rw float max_=1e20;
 param rw float maxv=1e20;
-option data limit2_data;
+variable double old_out;
 function _;
 license "GPL";
 ;;
-
-typedef struct { double old_out; } limit2_data;
 
 #ifndef clamp
 static inline double clamp(double v, double sub, double sup) {
@@ -25,9 +23,9 @@ FUNCTION(_)
     double tmp = in;
     double maxdelta = maxv * fperiod;
     tmp = clamp(tmp, min_, max_);
-    if(load) { out = data.old_out = tmp; return 0; }
-    tmp = clamp(tmp, data.old_out - maxdelta, data.old_out + maxdelta);
-    data.old_out = tmp;
+    if(load) { out = old_out = tmp; return 0; }
+    tmp = clamp(tmp, old_out - maxdelta, old_out + maxdelta);
+    old_out = tmp;
     out = tmp;
 	
 return 0;
