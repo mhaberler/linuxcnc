@@ -1182,8 +1182,6 @@ endif
 # Subdirectory: hal/components
 obj-$(CONFIG_BOSS_PLC) += boss_plc.o
 boss_plc-objs := hal/components/boss_plc.o $(MATHSTUB)
-obj-$(CONFIG_DEBOUNCE) += debounce.o
-debounce-objs := hal/components/debounce.o $(MATHSTUB)
 obj-$(CONFIG_ENCODER) += encoder.o
 encoder-objs := hal/components/encoder.o $(MATHSTUB)
 obj-$(CONFIG_COUNTER) += counter.o
@@ -1567,7 +1565,6 @@ ifneq "$(filter normal user-dso,$(BUILD_SYS))" ""
 #$(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))
 $(RTLIBDIR)/classicladder_rt$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(classicladder_rt-objs))
 $(RTLIBDIR)/boss_plc$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(boss_plc-objs))
-$(RTLIBDIR)/debounce$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(debounce-objs))
 $(RTLIBDIR)/encoder$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(encoder-objs))
 $(RTLIBDIR)/counter$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(counter-objs))
 $(RTLIBDIR)/encoder_ratio$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(encoder_ratio-objs))
