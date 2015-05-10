@@ -303,6 +303,9 @@ as xor2, xor4, xor6 etc by setting the iprefix to the name reflecting its use an
 <p>is the reserved instance parameter name, which sets the maximum pins allowed to be created</p>
 </div>
 <div class="paragraph">
+<p><strong>If any arrays of pins are used, maxpincount MUST BE SET to ensure array bounds are set by instcomp</strong></p>
+</div>
+<div class="paragraph">
 <p>It can only be set in the icomp header itself and cannot be altered</p>
 </div>
 <div class="paragraph">
@@ -310,26 +313,37 @@ as xor2, xor4, xor6 etc by setting the iprefix to the name reflecting its use an
 or pincount, whichever is greater</p>
 </div>
 <div class="paragraph">
-<p>eg.</p>
+<p>Example 1.</p>
 </div>
 <div class="paragraph">
-<p><strong><em>instanceparam int maxpincount = 32;</em></strong></p>
+<p><strong>pin bit inval-##[pincount];</strong></p>
+</div>
+<div class="paragraph">
+<p><strong><em>instanceparam int maxpincount = 16;</em></strong></p>
 </div>
 <div class="paragraph">
 <p><strong><em>instanceparam int pincount = 8;</em></strong></p>
 </div>
 <div class="paragraph">
-<p>will create a default number of 8 in pins, up to a max of 32
-If maxpincount is not set in the comp file, the maxpincount will be set to 8.</p>
+<p>Thereafter a default creation of an instance will have 8 pins &lt;component&gt;.inval-00 to inval-07</p>
 </div>
 <div class="paragraph">
-<p>If pincount is supplied as an argument to the newinst call,</p>
+<p>Example 1a.</p>
+</div>
+<div class="paragraph">
+<p>In the same component, if pincount is supplied as an argument to the newinst call,</p>
 </div>
 <div class="paragraph">
 <p>it overrules the preset number of pins in arrays using <em>pinprefix</em> as an index,</p>
 </div>
 <div class="paragraph">
 <p>up to a maximum (maxpincount) which was set in the .comp file and fixed when the component base was compiled</p>
+</div>
+<div class="paragraph">
+<p><strong>newinst &lt;component&gt; newname pincount=16</strong></p>
+</div>
+<div class="paragraph">
+<p>will result in a new instance of the component called newname, with 16 pins .inval-00 to .inval-15</p>
 </div>
 
 </div>
@@ -682,7 +696,7 @@ int x;
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2015-05-05 10:33:34 BST
+Last updated 2015-05-10 12:50:57 BST
 </div>
 </div>
 </body>

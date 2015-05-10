@@ -171,25 +171,35 @@ for( x = 0; x < pincount; x++)
 
 is the reserved instance parameter name, which sets the maximum pins allowed to be created
 
+*If any arrays of pins are used, maxpincount MUST BE SET to ensure array bounds are set by instcomp*
+
 It can only be set in the icomp header itself and cannot be altered
 
 If it is not set in the icomp file, it will be computed based upon the highest array size specifier given
 or pincount, whichever is greater
 
-eg.
+Example 1.
 
-*'instanceparam int maxpincount = 32;'*
+*pin bit inval-##[pincount];*
+
+*'instanceparam int maxpincount = 16;'*
 
 *'instanceparam int pincount = 8;'*
 
-will create a default number of 8 in pins, up to a max of 32
-If maxpincount is not set in the comp file, the maxpincount will be set to 8.
+Thereafter a default creation of an instance will have 8 pins <component>.inval-00 to inval-07
 
-If pincount is supplied as an argument to the newinst call,
+Example 1a.
+
+In the same component, if pincount is supplied as an argument to the newinst call,
 
 it overrules the preset number of pins in arrays using 'pinprefix' as an index,
 
 up to a maximum (maxpincount) which was set in the .comp file and fixed when the component base was compiled
+
+*newinst <component> newname pincount=16*
+
+will result in a new instance of the component called newname, with 16 pins .inval-00 to .inval-15
+
 
 === 'iprefix'
 
