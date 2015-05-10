@@ -1,9 +1,9 @@
 component debounce "Debounce filter for Machinekit HAL";
 
     // Input Pins
-pin in bit in-##[pincount];
-pin out bit out-##[pincount];
-param rw s32 state-##[pincount];
+pin in bit in-#[pincount];
+pin out bit out-#[pincount];
+param rw s32 state-#[pincount];
 
 param rw s32 delay = 5;
 
@@ -13,7 +13,7 @@ instanceparam int pincount = 2;
 
 license "GPL";
 
-author "John Kasunich and ArcEye";
+author "John Kasunich, adapted by ArcEye";
 
 function _;
 ;;
