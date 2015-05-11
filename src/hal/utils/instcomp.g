@@ -440,19 +440,19 @@ static int comp_id;
         q = 0
         global maxpins
         if array == None : return
-        if (len(iplist)) :
-            while (m < len(iplist)) :
-                # if initialiser is name string
-                if iplist[m] == array :
-                    if ipvlist[m] > maxpins :
-                        maxpins = ipvlist[m]
-                # or if it is just an int
-                else :
-                    if StrIsInt(array) :
-                        q = int(array)
-                        if q > maxpins :
-                            maxpins = q
-                m += 1
+         # if it is just an int
+        if StrIsInt(array) :
+            q = int(array)
+            if q > maxpins :
+                maxpins = q
+        else:
+            if (len(iplist)) :
+                while (m < len(iplist)) :
+                    # if initialiser is name string
+                    if iplist[m] == array :
+                        if ipvlist[m] > maxpins :
+                            maxpins = ipvlist[m]
+                    m += 1
 
 ##############################################################################
 #  Set maxpins to highest value used as array size specifier
@@ -460,12 +460,7 @@ static int comp_id;
 #  preventing any array overruns
 ##############################################################################
 
-#  if numpins and or maxpins specified
-    if have_numpins and (not have_maxpins) :
-        maxpins = numpins
-        have_maxpins = True
-    if numpins > maxpins :
-        numpins = maxpins
+
 
 #  if value of any array sizing param is higher than maxpins - reset maxpins
     for name, type, array, dir, value in pins:
@@ -479,6 +474,13 @@ static int comp_id;
 
     if maxpins :
         have_maxpins = True
+
+#  if numpins and or maxpins specified
+    if have_numpins and (not have_maxpins) :
+        maxpins = numpins
+        have_maxpins = True
+    if numpins > maxpins :
+        numpins = maxpins
 
 ############################  RTAPI_IP / MP declarations ########################
 
