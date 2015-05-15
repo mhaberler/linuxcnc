@@ -192,7 +192,7 @@ Example 1a.
 
 In the same component, if pincount is supplied as an argument to the newinst call,
 
-it overrules the preset number of pins in arrays using 'pinprefix' as an index,
+it overrules the preset number of pins in arrays using 'pincount' as an index,
 
 up to a maximum (maxpincount) which was set in the .comp file and fixed when the component base was compiled
 
