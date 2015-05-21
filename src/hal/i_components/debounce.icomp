@@ -7,7 +7,7 @@ param rw s32 #.state[pincount];
 
 param rw s32 delay = 5;
 
-instanceparam int maxpincount = 8;
+instanceparam int maxpincount = 16;
 
 instanceparam int pincount = 2;
 
