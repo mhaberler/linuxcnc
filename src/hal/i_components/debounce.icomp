@@ -9,7 +9,7 @@ param rw s32 delay = 5;
 
 instanceparam int maxpincount = 16;
 
-instanceparam int pincount = 2;
+instanceparam int pincount = 8;
 
 license "GPL";
 
