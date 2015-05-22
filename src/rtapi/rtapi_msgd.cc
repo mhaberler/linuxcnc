@@ -112,6 +112,7 @@ static int shutdowntimer_id;
 // zeroMQ related
 static mk_netopts_t netopts;
 static mk_socket_t  logpub;
+static zsock_t *logsub;
 static int port = -1; // defaults to ephemeral port
 
 int shmdrv_loaded;
@@ -539,13 +540,25 @@ cleanup_actions(void)
 }
 
 // react to subscribe/unsubscribe events
-static int logpub_readable_cb(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+static int logpub_readable_cb(zloop_t *loop, zsock_t *reader, void *arg)
 {
-    zframe_t *f = zframe_recv(poller->socket);
+    zframe_t *f = zframe_recv(reader);
     const char *s = (const char *) zframe_data(f);
     syslog_async(LOG_ERR, "%s subscribe on '%s'",
 		 *s ? "start" : "stop", s+1);
     zframe_destroy(&f);
+    return 0;
+}
+
+
+// react to czmq library logging messages
+static int logsub_readable_cb(zloop_t *loop, zsock_t *reader, void *arg)
+{
+
+    char *received = zstr_recv (reader);
+    if (received)
+	syslog_async(LOG_INFO, "%s", received);
+    zstr_free (&received);
     return 0;
 }
 
@@ -902,9 +915,6 @@ int main(int argc, char **argv)
     netopts.rundir = RUNDIR;
     netopts.rtapi_instance = rtapi_instance;
 
-    netopts.z_context = zctx_new ();
-    assert(netopts.z_context);
-
     netopts.z_loop = zloop_new ();
     assert(netopts.z_loop);
 
@@ -969,33 +979,44 @@ int main(int argc, char **argv)
 	assert(signal_fd > -1);
     }
 
-
     // pull msgd-specific port value from MACHINEKIT_INI
     iniFindInt(netopts.mkinifp, "LOGPUB_PORT", "MACHINEKIT", &port);
 
     logpub.port = port;
     logpub.dnssd_subtype = LOG_DNSSD_SUBTYPE;
     logpub.tag = "log";
-    logpub.socket = zsocket_new (netopts.z_context, ZMQ_XPUB);
+    logpub.socket = zsock_new_xpub(NULL);
 
-    zsocket_set_xpub_verbose (logpub.socket, 1);  // enable reception
-    zsocket_set_linger(logpub.socket, 0);
+    zsock_set_xpub_verbose(logpub.socket, 1);  // enable reception
+    zsock_set_linger(logpub.socket, 0);
 
-    if (mk_bindsocket(&netopts, &logpub))
+    if (mk_bindsocket(&netopts, &logpub, netopts.remote))
 	return -1;
-    //    assert(logpub.port > -1);
 
     if (mk_announce(&netopts, &logpub, "Log service", NULL))
 	return -1;
+
+    // SUB IPC socket for czmq library logging, see zsys_set_logsender()
+    logsub = zsock_new_sub (NULL, NULL);
+    assert(logsub != NULL);
+    char *logdest = zsys_sprintf("@" ZMQIPC_FORMAT,
+				 netopts.rundir,
+				 netopts.rtapi_instance,
+				 "logsub",
+				 netopts.service_uuid);
+    retval = zsock_attach(logsub, logdest, true);
+    assert(retval > -1);
+    zstr_free(&logdest);
+    zsock_set_subscribe (logsub, "");
 
     zmq_pollitem_t signal_poller =  { 0, signal_fd,   ZMQ_POLLIN };
     if (trap_signals)
 	zloop_poller (netopts.z_loop, &signal_poller, s_handle_signal, NULL);
 
     if (logpub.socket) {
-	zmq_pollitem_t logpub_poller = { logpub.socket, 0, ZMQ_POLLIN };
-	zloop_poller (netopts.z_loop, &logpub_poller, logpub_readable_cb, NULL);
+	zloop_reader (netopts.z_loop, logpub.socket, logpub_readable_cb, NULL);
     }
+    zloop_reader (netopts.z_loop, logsub, logsub_readable_cb, NULL);
 
     polltimer_id = zloop_timer (netopts.z_loop, msg_poll, 0, message_poll_cb, NULL);
     global_data->rtapi_msgd_pid = getpid();
@@ -1012,10 +1033,9 @@ int main(int argc, char **argv)
     if (netopts.av_loop)
         avahi_czmq_poll_free(netopts.av_loop);
 
-    // shutdown zmq context
-    zctx_destroy(&netopts.z_context);
-
     cleanup_actions();
+    zsock_destroy(&logpub.socket);
+    zsock_destroy(&logsub);
     closelog();
     exit(exit_code);
 }
