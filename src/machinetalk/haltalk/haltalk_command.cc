@@ -23,20 +23,20 @@
 
 #include <google/protobuf/text_format.h>
 
-static int dispatch_request(htself_t *self, const std::string &from, void *socket);
-static int process_get(htself_t *self, const std::string &from, void *socket);
-static int process_set(htself_t *self, bool halrcomp, const std::string &from, void *socket);
+static int dispatch_request(htself_t *self, const std::string &from, zsock_t *socket);
+static int process_get(htself_t *self, const std::string &from, zsock_t *socket);
+static int process_set(htself_t *self, bool halrcomp, const std::string &from, zsock_t *socket);
 static int describe_pin_by_name(htself_t *self, const char *name);
 static int describe_signal_by_name(htself_t *self, const char *name);
 static int apply_initial_values(htself_t *self, const pb::Component *pbcomp);
 
 int
-handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+handle_command_input(zloop_t *loop, zsock_t *reader, void *arg)
 {
     int retval = 0;
 
     htself_t *self = (htself_t *) arg;
-    zmsg_t *msg = zmsg_recv(poller->socket);
+    zmsg_t *msg = zmsg_recv(reader);
 
     if (self->cfg->debug  > 4)
 	zmsg_dump(msg);
@@ -60,7 +60,7 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		fprintf(stderr,"%s: req=%s\n",__func__,s.c_str());
 	    }
 	    // a valid protobuf. Interpret and reply as needed.
-	    dispatch_request(self, origin, poller->socket);
+	    dispatch_request(self, origin, reader);
 	}
 	zframe_destroy(&f);
     }
@@ -73,7 +73,7 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 // ----- end of public functions ---
 
 static int
-process_ping(htself_t *self, const std::string &from,  void *socket)
+process_ping(htself_t *self, const std::string &from,  zsock_t *socket)
 {
     self->tx.set_type( pb::MT_PING_ACKNOWLEDGE);
     self->tx.set_uuid(&self->netopts.proc_uuid, sizeof(uuid_t));
@@ -304,7 +304,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 
 static int
 process_rcomp_bind(htself_t *self, const std::string &from,
-		   const pb::Component *pbcomp, void *socket)
+		   const pb::Component *pbcomp, zsock_t *socket)
 {
     int retval = 0;
     const char *cname = NULL;
@@ -432,7 +432,7 @@ process_rcomp_bind(htself_t *self, const std::string &from,
 }
 
 static int
-dispatch_request(htself_t *self, const std::string &from,  void *socket)
+dispatch_request(htself_t *self, const std::string &from,  zsock_t *socket)
 {
     int retval = 0;
     pb::ContainerType type = self->rx.type();
@@ -491,7 +491,7 @@ dispatch_request(htself_t *self, const std::string &from,  void *socket)
 }
 
 static int
-process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socket)
+process_set(htself_t *self, bool halrcomp, const std::string &from,  zsock_t *socket)
 {
     itemmap_iterator it;
 
@@ -660,7 +660,7 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 }
 
 static int
-process_get(htself_t *self, const std::string &from,  void *socket)
+process_get(htself_t *self, const std::string &from,  zsock_t *socket)
 {
     itemmap_iterator it;
 

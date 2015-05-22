@@ -93,19 +93,17 @@ mainloop( htself_t *self)
 {
     int retval;
     zloop_t *loop = self->netopts.z_loop;
-
-    zmq_pollitem_t signal_poller = { 0, self->signal_fd, ZMQ_POLLIN };
-    zmq_pollitem_t group_poller =  { self->mksock[SVC_HALGROUP].socket, 0, ZMQ_POLLIN };
-    zmq_pollitem_t rcomp_poller =  { self->mksock[SVC_HALRCOMP].socket, 0, ZMQ_POLLIN };
-    zmq_pollitem_t cmd_poller =  { self->mksock[SVC_HALRCMD].socket, 0, ZMQ_POLLIN };
-
     zloop_set_verbose (loop, self->cfg->debug > 8);
 
-    if (self->cfg->trap_signals)
+    if (self->cfg->trap_signals) {
+	zmq_pollitem_t signal_poller = { 0, self->signal_fd, ZMQ_POLLIN };
 	zloop_poller(loop, &signal_poller, handle_signal, self);
-    zloop_poller(loop, &group_poller,  handle_group_input, self);
-    zloop_poller(loop, &rcomp_poller,  handle_rcomp_input, self);
-    zloop_poller(loop, &cmd_poller,    handle_command_input, self);
+    }
+
+    zloop_reader (loop, self->mksock[SVC_HALGROUP].socket, handle_group_input, self);
+    zloop_reader (loop, self->mksock[SVC_HALRCOMP].socket, handle_rcomp_input, self);
+    zloop_reader (loop, self->mksock[SVC_HALRCMD].socket, handle_command_input, self);
+
     if (self->cfg->keepalive_timer)
 	zloop_timer(loop, self->cfg->keepalive_timer, 0,
 		    handle_keepalive_timer, (void *) self);
@@ -148,20 +146,19 @@ zmq_init(htself_t *self)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+    zsys_set_logsystem (false);
+    zsys_set_logident ("haltalk");
+
+    mk_netopts_t *np = &self->netopts;
+
+    char *dest = zsys_sprintf(">" ZMQIPC_FORMAT, RUNDIR, rtapi_instance, "logsub", np->service_uuid);
+    zsys_set_logsender(dest);
+    zstr_free(&dest);
+
     if (conf.trap_signals) {
 	self->signal_fd = setup_signals(sigaction_handler, SIGINT, SIGQUIT, SIGKILL, SIGTERM, -1);
 	assert(self->signal_fd > -1);
     }
-
-    // suppress default handling of signals in zctx_new()
-    // since we're using signalfd()
-    // must happen before zctx_new()
-    zsys_handler_set(NULL);
-
-    mk_netopts_t *np = &self->netopts;
-
-    np->z_context = zctx_new ();
-    assert(np->z_context);
 
     np->z_loop = zloop_new();
     assert (np->z_loop);
@@ -175,51 +172,59 @@ zmq_init(htself_t *self)
     mk_socket_t *ms = &self->mksock[SVC_HALGROUP];
     ms->dnssd_subtype = HALGROUP_DNSSD_SUBTYPE;
     ms->tag = "halgroup";
-    ms->socket = zsocket_new (self->netopts.z_context, ZMQ_XPUB);
+    ms->socket = zsock_new_xpub(NULL);
     assert(ms->socket);
-    zsocket_set_linger(ms->socket, 0);
-    zsocket_set_xpub_verbose(ms->socket, 1);
-    if (mk_bindsocket(np, ms))
+
+    zsock_set_xpub_verbose(ms->socket, 1);  // enable reception
+    zsock_set_linger(ms->socket, 0);
+
+    if (mk_bindsocket(np, ms, np->remote))
 	return -1;
     assert(ms->port > -1);
     if (mk_announce(np, ms, "HAL Group service", NULL))
 	return -1;
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALGroup on '%s'",
-		    conf.progname, ms->announced_uri);
-
 
     ms = &self->mksock[SVC_HALRCOMP];
     ms->dnssd_subtype = HALRCOMP_DNSSD_SUBTYPE;
     ms->tag = "halrcomp";
-    ms->socket = zsocket_new (self->netopts.z_context, ZMQ_XPUB);
+    ms->socket =  zsock_new_xpub(NULL);
     assert(ms->socket);
-    zsocket_set_linger(ms->socket, 0);
-    zsocket_set_xpub_verbose(ms->socket, 1);
-    if (mk_bindsocket(np, ms))
+
+    zsock_set_xpub_verbose(ms->socket, 1);
+    zsock_set_linger(ms->socket, 0);
+
+    if (mk_bindsocket(np, ms, np->remote))
 	return -1;
     assert(ms->port > -1);
     if (mk_announce(np, ms, "HAL Rcomp service", NULL))
 	return -1;
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALRcomp on '%s'",
-		    conf.progname, ms->announced_uri);
-
 
     ms = &self->mksock[SVC_HALRCMD];
     ms->dnssd_subtype = HALRCMD_DNSSD_SUBTYPE;
     ms->tag = "halrcmd";
-    ms->socket = zsocket_new (self->netopts.z_context, ZMQ_ROUTER);
+    ms->socket = zsock_new_router(NULL);
     assert(ms->socket);
-    zsocket_set_linger(ms->socket, 0);
-    zsocket_set_identity (ms->socket, self->cfg->modname);
-    if (mk_bindsocket(np, ms))
+    zsock_set_linger(ms->socket, 0);
+    zsock_set_identity(ms->socket, self->cfg->modname);
+    if (mk_bindsocket(np, ms, np->remote))
 	return -1;
     assert(ms->port > -1);
     if (mk_announce(np, ms, "HAL Rcommand service", NULL))
 	return -1;
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: talking HALComand on '%s'",
-		    conf.progname, ms->announced_uri);
 
     usleep(200 *1000); // avoid slow joiner syndrome
+ zsys_error ("This is an %s message", "error");
+    return 0;
+}
+
+static int
+zmq_cleanup(htself_t *self)
+{
+    zsock_destroy(&self->mksock[SVC_HALGROUP].socket);
+    zsock_destroy(&self->mksock[SVC_HALRCOMP].socket);
+    zsock_destroy(&self->mksock[SVC_HALRCMD].socket);
+
+    zsys_set_logsender(NULL);
     return 0;
 }
 
@@ -374,6 +379,11 @@ int main (int argc, char *argv[])
     conf.inifile = getenv("INI_FILE_NAME");
     int logopt = LOG_NDELAY;
 
+    // suppress default handling of signals in zctx_new()
+    // since we're using signalfd()
+    // must happen before zctx_new()
+    zsys_handler_set(NULL);
+
     htself_t self = {0};
     self.cfg = &conf;
     for (size_t i = 0; i < NSVCS; i++)
@@ -447,7 +457,7 @@ int main (int argc, char *argv[])
     if (read_config(&self))
 	exit(1);
 
-    // webtalk-specific port number from $MACHINEKIT_INI
+    // haltalk-specific port number from $MACHINEKIT_INI
     if (read_machinekit_ini(&self))
 	exit(1);
 
@@ -469,9 +479,7 @@ int main (int argc, char *argv[])
     ht_zeroconf_withdraw(&self);
     // probably should run zloop here until deregister complete
 
-    // shutdown zmq context
-    zctx_destroy(&self.netopts.z_context);
-
+    zmq_cleanup(&self);
     hal_cleanup(&self);
 
     exit(0);

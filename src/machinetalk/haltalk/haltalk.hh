@@ -86,8 +86,8 @@ typedef struct {
 
 typedef struct htbridge {
     int state;
-    void *z_bridge_status;
-    void *z_bridge_cmd;
+    zsock_t *z_bridge_status;
+    zsock_t *z_bridge_cmd;
     int timer_id;
 } htbridge_t;
 
@@ -157,23 +157,23 @@ typedef struct htself {
 int scan_groups(htself_t *self);
 int release_groups(htself_t *self);
 int handle_group_timer(zloop_t *loop, int timer_id, void *arg);
-int handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int handle_group_input(zloop_t *loop, zsock_t *reader, void *arg);
 int ping_groups(htself_t *self);
 
 // haltalk_rcomp.cc:
 int scan_comps(htself_t *self);
 int release_comps(htself_t *self);
-int handle_rcomp_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int handle_rcomp_input(zloop_t *loop, zsock_t *reader, void *arg);
 int handle_rcomp_timer(zloop_t *loop, int timer_id, void *arg);
 int ping_comps(htself_t *self);
 
 // haltalk_command.cc:
-int handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg);
+int handle_command_input(zloop_t *loop, zsock_t *reader, void *arg);
 
 // haltalk_introspect.cc:
-int process_describe(htself_t *self, const std::string &from,  void *socket);
-int describe_group(htself_t *self, const char *group, const std::string &from,  void *socket);
-int describe_comp(htself_t *self, const char *comp, const std::string &from,  void *socket);
+int process_describe(htself_t *self, const std::string &from,  zsock_t *reader);
+int describe_group(htself_t *self, const char *group, const std::string &from,  zsock_t *reader);
+int describe_comp(htself_t *self, const char *comp, const std::string &from,  zsock_t *reader);
 int describe_parameters(htself_t *self);
 
 // haltalk_bridge.cc:

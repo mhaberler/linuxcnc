@@ -24,7 +24,6 @@ static int group_report_cb(int phase, hal_compiled_group_t *cgroup,
 			   hal_sig_t *sig, void *cb_data);
 static int scan_group_cb(hal_group_t *g, void *cb_data);
 
-
 // monitor group subscribe events:
 //
 // a new subscriber will cause the next update to be 'full', i.e. with current
@@ -34,10 +33,10 @@ static int scan_group_cb(hal_group_t *g, void *cb_data);
 // well as retrieve all current values without constantly broadcasting all
 // signal names
 int
-handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+handle_group_input(zloop_t *loop, zsock_t *reader, void *arg)
 {
     htself_t *self = (htself_t *) arg;
-    zframe_t *f_subscribe = zframe_recv(poller->socket);
+    zframe_t *f_subscribe = zframe_recv(reader);
     const char *s = (const char *) zframe_data(f_subscribe);
 
     if ((s == NULL) || ((*s != '\000') && (*s != '\001'))) {
@@ -64,7 +63,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		self->tx.set_uuid(self->netopts.proc_uuid, sizeof(self->netopts.proc_uuid));
 		self->tx.set_serial(g->serial++);
 		describe_parameters(self);
-		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
+		describe_group(self, gi->first.c_str(), gi->first.c_str(), reader);
 
 		// if first subscriber: activate scanning
 		if (g->timer_id < 0) { // not scanning
@@ -90,7 +89,7 @@ handle_group_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		self->tx.set_uuid(self->netopts.proc_uuid, sizeof(self->netopts.proc_uuid));
 		self->tx.set_serial(g->serial++);
 		describe_parameters(self);
-		describe_group(self, gi->first.c_str(), gi->first.c_str(), poller->socket);
+		describe_group(self, gi->first.c_str(), gi->first.c_str(), reader);
 		rtapi_print_msg(RTAPI_MSG_DBG,
 				"%s: subscribe group='%s' serial=%d",
 				self->cfg->progname,
