@@ -35,8 +35,7 @@ using namespace google::protobuf;
 #include "czmq.h"
 #include "pbutil.hh" // hal/haltalk
 
-static zctx_t *z_context;
-static void *z_preview, *z_status;  // sockets
+static zsock_t *z_preview, *z_status;  // sockets
 static const char *istat_topic = "status";
 static int batch_limit = 100;
 static const char *p_client = "preview"; //NULL; // single client for now
@@ -90,9 +89,6 @@ static void send_preview(const char *client, bool flush = false)
 
 static int z_init(void)
 {
-    if (!z_context)
-	z_context = zctx_new ();
-
     // const char *uri = getenv("PREVIEW_URI");
     // if (uri) z_preview_uri = uri;
     // uri = getenv("STATUS_URI");
@@ -105,17 +101,19 @@ static int z_init(void)
     // compatible with the version of the headers we compiled against.
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+    zsys_set_logsystem (true);
+    zsys_set_logident (__FILE__);
 
-    z_preview = zsocket_new (z_context, ZMQ_XPUB);
+    z_preview = zsock_new_xpub(NULL);
 #if 0
-    rc = zsocket_bind(z_preview, z_preview_uri);
+    rc = zsock_bind(z_preview, z_preview_uri);
     assert (rc != 0);
 #endif
 
-    z_status = zsocket_new (z_context, ZMQ_XPUB);
+    z_status = zsock_new_xpub(NULL);
     assert(z_status);
 #if 0 
-    rc = zsocket_bind(z_status, z_status_uri);
+    rc = zsock_bind(z_status, z_status_uri);
     assert (rc != 0);
 
 #endif
@@ -129,13 +127,15 @@ static int z_init(void)
 // called on module unload
 static void z_shutdown(void)
 {
+    zsock_destroy(&z_preview);
+    zsock_destroy(&z_status);
+
     fprintf(stderr, "preview: socket shutdown\n");
     if (n_containers > 0)
     {
         fprintf(stderr, "preview: %zu containers %zu preview msgs %zu bytes  avg=%zu bytes/container\n",
             n_containers, n_messages, n_bytes, n_bytes/n_containers);
     }
-    zctx_destroy(&z_context);
 }
 
 char _parameter_file_name[LINELEN];
