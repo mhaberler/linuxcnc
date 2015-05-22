@@ -17,13 +17,12 @@ using namespace google::protobuf;
 
 static pb::Container command, reply;
 
-static zctx_t *z_context;
-static void *z_command;
+static zsock_t *z_command;
 static int timeout = 5000;
 static std::string errormsg;
 int proto_debug;
 
-int rtapi_rpc(void *socket, pb::Container &tx, pb::Container &rx)
+int rtapi_rpc(zsock_t *socket, pb::Container &tx, pb::Container &rx)
 {
     zframe_t *request = zframe_new (NULL, tx.ByteSize());
     assert(request);
@@ -231,6 +230,9 @@ int rtapi_connect(int instance, char *uri, const char *svc_uuid)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 
+    zsys_set_logsystem (true);
+    zsys_set_logident (__FILE__);
+
     char ipcuri[100];
 
     if (uri == NULL) {
@@ -279,22 +281,26 @@ int rtapi_connect(int instance, char *uri, const char *svc_uuid)
     }
 #endif
 
-    z_context = zctx_new ();
-    assert(z_context);
-    z_command = zsocket_new (z_context, ZMQ_DEALER);
+    z_command = zsock_new_dealer(NULL);
     assert(z_command);
 
     char z_ident[30];
     snprintf(z_ident, sizeof(z_ident), "halcmd%d",getpid());
 
-    zsocket_set_identity(z_command, z_ident);
-    zsocket_set_linger(z_command, 0);
+    zsock_set_identity(z_command, z_ident);
+    zsock_set_linger(z_command, 0);
 
-    if (zsocket_connect(z_command, uri)) {
+    if (zsock_connect(z_command, uri)) {
 	perror("connect");
 	return -EINVAL;
     }
-    zsocket_set_rcvtimeo (z_command, timeout * ZMQ_POLL_MSEC);
+    zsock_set_rcvtimeo (z_command, timeout * ZMQ_POLL_MSEC);
 
     return rtapi_ping(instance);
+}
+
+int rtapi_disconnect(void)
+{
+    zsock_destroy (&z_command);
+    return 0;
 }
