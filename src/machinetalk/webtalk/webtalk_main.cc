@@ -53,6 +53,7 @@ static int
 mainloop( wtself_t *self)
 {
     int retval;
+
     zloop_set_verbose (self->netopts.z_loop, self->cfg->debug & LLL_LOOP);
 
     zmq_pollitem_t signal_poller = { 0, self->signal_fd, ZMQ_POLLIN };
@@ -76,7 +77,7 @@ mainloop( wtself_t *self)
 	return -1;
     syslog_async(LOG_DEBUG, "%s: talking Machinekit %s on '%s'",
 		 self->cfg->progname, self->mksock.tag,
-		 self->mksock.announced_uri);
+		 self->netopts.hostname);
 
 
     do {
@@ -127,9 +128,6 @@ zmq_init(wtself_t *self)
     zsys_handler_set(NULL);
 
     mk_netopts_t *np = &self->netopts;
-
-    np->z_context = zctx_new ();
-    assert(np->z_context);
 
     np->z_loop = zloop_new();
     assert (np->z_loop);
@@ -405,8 +403,15 @@ int main (int argc, char *argv[])
 	//     exit(EXIT_FAILURE);
         // }
     }
+    zsys_set_logsystem (false);
+    zsys_set_logident ("webtalk");
+    char *dest = zsys_sprintf(">" ZMQIPC_FORMAT, RUNDIR,
+			      self.netopts.rtapi_instance,
+			      "logsub",
+			      self.netopts.service_uuid);
+    zsys_set_logsender(dest);
+    zstr_free(&dest);
     wt_hello(&conf);
-
 
     gettimeofday(&tv_start, NULL);
 
@@ -433,9 +438,6 @@ int main (int argc, char *argv[])
 
     mk_withdraw(&self.mksock);
     // probably should run zloop here until deregister complete
-
-    // shutdown zmq context
-    zctx_destroy(&self.netopts.z_context);
 
     exit(0);
 }

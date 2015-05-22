@@ -17,8 +17,7 @@ WEBTALK_SRCS :=  $(addprefix $(WEBTALK_DIR)/, \
 	webtalk_echo.cc 	\
 	webtalk_initproto.cc 	\
 	webtalk_main.cc 	\
-	cencode.c 		\
-	cdecode.c )
+	)
 
 WEBTALK_CXXFLAGS := 		\
 	$(PROTOBUF_CFLAGS) 	\

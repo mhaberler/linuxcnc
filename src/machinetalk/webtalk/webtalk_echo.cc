@@ -24,9 +24,9 @@ echo_thread(void *args, zctx_t *ctx, void *pipe)
 {
     wtconf_t *conf = (wtconf_t *) args;
 
-    void *rs = zsocket_new (ctx, ZMQ_ROUTER);
+    zsock_t *rs = zsock_new_router(NULL);
     assert(rs);
-    zsocket_bind(rs, "inproc://echo");
+    zsock_bind(rs, "inproc://echo");
 
     while (1) {
 	zmsg_t *rx = zmsg_recv(rs);
