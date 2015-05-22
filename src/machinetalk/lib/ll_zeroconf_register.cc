@@ -40,7 +40,6 @@ static void register_stuff(register_context_t *rctx)
 {
 
     const char *name = avahi_client_get_host_name_fqdn(rctx->client);
-    syslog_async(LOG_DEBUG, "%s: actual hostname as announced by avahi='%s'", __FUNCTION__, name);
 
     if (!rctx->group) {
         if (!(rctx->group = avahi_entry_group_new(rctx->client,

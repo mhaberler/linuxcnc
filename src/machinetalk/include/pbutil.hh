@@ -19,16 +19,21 @@
 #ifndef _PBUTIL_HH_INCLUDED
 #define _PBUTIL_HH_INCLUDED
 
+#include <czmq.h>
 #include <machinetalk/generated/message.pb.h>
 #include <string>
 
 // for repeated string field creation (Container.note, Container.argv)
 typedef ::google::protobuf::RepeatedPtrField< ::std::string> pbstringarray_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // send a protobuf - encoded Container message
 // optionally prepend destination field
 // log any failure to RTAPI
-int send_pbcontainer(const std::string &dest, pb::Container &c, void *socket);
+int send_pbcontainer(const std::string &dest, pb::Container &c, zsock_t *socket);
 
 // add an printf-formatted string to the 'note' repeated string in a
 // Container
@@ -41,5 +46,9 @@ note_printf(pb::Container &c, const char *fmt, ...);
 
 // fold a RepeatedPtrField into a std::string, separated by delim
 std::string pbconcat(const pbstringarray_t &args, const std::string &delim = " ", const std::string &quote = "");
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _PBUTIL_HH_INCLUDED

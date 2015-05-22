@@ -16,7 +16,6 @@ typedef struct {
     // these must be set by caller:
     const char    *rundir;          // for IPC sockets
     int            rtapi_instance;  // defaults to 0
-    zctx_t        *z_context;
     zloop_t       *z_loop;
     AvahiCzmqPoll *av_loop;         // Avahi CZMQ event loop adapter
 
@@ -47,7 +46,7 @@ typedef struct {
 typedef struct {
     int   port;                // otpionally may be set by caller
 
-    void *socket;              // must be set by caller
+    zsock_t *socket;              // must be set by caller
     const char *dnssd_subtype; // must be set by caller
     const char *tag;           // must be set by caller
 
@@ -60,7 +59,7 @@ typedef struct {
 // fill in mk_netopts from $MACHINEKIT_INI
 int mk_getnetopts(mk_netopts_t *n);
 
-int mk_bindsocket(mk_netopts_t *n, mk_socket_t *s);
+int mk_bindsocket(mk_netopts_t *n, mk_socket_t *s, int remote);
 
 int mk_announce(mk_netopts_t *n, mk_socket_t *s, const char *headline, const char *path);
 

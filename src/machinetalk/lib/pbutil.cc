@@ -25,7 +25,7 @@
 int __attribute__((weak)) print_container;
 
 int
-send_pbcontainer(const std::string &dest, pb::Container &c, void *socket)
+send_pbcontainer(const std::string &dest, pb::Container &c, zsock_t *socket)
 {
     int retval = 0;
     zframe_t *f;
