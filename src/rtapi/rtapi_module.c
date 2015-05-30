@@ -28,6 +28,7 @@
 #include "config.h"		// build configuration
 #include "rtapi.h"		// these functions
 #include "rtapi_common.h"	// RTAPI macros and decls
+#include "rtapi_heap.h"
 #include "rtapi/shmdrv/shmdrv.h"
 
 
@@ -58,6 +59,9 @@ EXPORT_SYMBOL(global_data);
 
 rtapi_switch_t *rtapi_switch  = NULL;
 EXPORT_SYMBOL(rtapi_switch);
+
+struct rtapi_heap *global_heap = NULL;
+EXPORT_SYMBOL(global_heap);
 
 ringbuffer_t rtapi_message_buffer;   // error ring access strcuture
 
@@ -134,6 +138,9 @@ int init_module(void) {
 	RTAPIERR("cant attach rtapi segment: %d", retval);
 	return -EINVAL;
     }
+    // this heap is inited in rtapi_msgd.cc
+    // make it accessible in RTAPI
+    global_heap = &global_data->heap;
 
     // make error ringbuffer accessible within RTAPI
     ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
