@@ -51,6 +51,7 @@ static rtapi_switch_t dummy_ulapi_switch_struct;
 
 rtapi_switch_t *rtapi_switch = &dummy_ulapi_switch_struct;
 global_data_t *global_data;
+struct rtapi_heap *global_heap;
 int rtapi_instance;
 flavor_ptr flavor;
 // end exported symbols:
@@ -142,6 +143,15 @@ static rtapi_switch_t dummy_ulapi_switch_struct = {
 
     .rtapi_set_exception = &_ulapi_dummy,
     .rtapi_task_update_stats = &_ulapi_dummy,
+
+    .rtapi_malloc = &_ulapi_dummy,
+    .rtapi_calloc = &_ulapi_dummy,
+    .rtapi_realloc = &_ulapi_dummy,
+    .rtapi_free = &_ulapi_dummy,
+    .rtapi_allocsize = &_ulapi_dummy,
+    .rtapi_heap_init = &_ulapi_dummy,
+    .rtapi_heap_addmem = &_ulapi_dummy,
+    .rtapi_heap_status = &_ulapi_dummy,
 };
 
 
@@ -221,6 +231,10 @@ static int ulapi_load(rtapi_switch_t **ulapi_switch)
     }
 
     // global data set up ok
+
+    // this heap is inited in rtapi_msgd.cc
+    // make it accessible in HAL
+    global_heap = &global_data->heap;
 
     // obtain handle on flavor descriptor as detected by rtapi_msgd
     flavor = flavor_byid(global_data->rtapi_thread_flavor);

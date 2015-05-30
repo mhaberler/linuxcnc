@@ -38,6 +38,7 @@
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
 #include "rtapi_common.h"       /* global_data_t */
 #include "rtapi_compat.h"       /* global_data_t */
+#include "rtapi_heap.h"
 #include "rtapi/shmdrv/shmdrv.h"  /* common shm driver API */
 
 MODULE_AUTHOR("Michael Haberler");
@@ -54,6 +55,9 @@ EXPORT_SYMBOL(global_data);
 
 rtapi_switch_t *rtapi_switch  = NULL;
 EXPORT_SYMBOL(rtapi_switch);
+
+struct rtapi_heap *global_heap = NULL;
+EXPORT_SYMBOL(global_heap);
 
 #ifdef HAVE_RTAPI_MODULE_INIT_HOOK
 void _rtapi_module_init_hook(void);
@@ -121,6 +125,10 @@ int rtapi_app_main(void)
     }
 
     // good to use global_data from here on
+
+    // this heap is inited in rtapi_msgd.cc
+    // make it accessible in RTAPI
+    global_heap = &global_data->heap;
 
     // make the message ringbuffer accessible
     ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
