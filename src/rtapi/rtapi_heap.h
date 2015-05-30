@@ -22,16 +22,16 @@ struct rtapi_heap_stat {
     size_t largest;
 };
 
-void *rtapi_malloc(struct rtapi_heap *h, size_t nbytes);
-void *rtapi_calloc(struct rtapi_heap *h, size_t n, size_t size);
-void *rtapi_realloc(struct rtapi_heap *h, void *p, size_t size);
-void  rtapi_free(struct rtapi_heap *h, void *p);
-size_t rtapi_allocsize(void *p);
+void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes);
+void *_rtapi_calloc(struct rtapi_heap *h, size_t n, size_t size);
+void *_rtapi_realloc(struct rtapi_heap *h, void *p, size_t size);
+void  _rtapi_free(struct rtapi_heap *h, void *p);
+size_t _rtapi_allocsize(void *p);
 
-int rtapi_heap_init(struct rtapi_heap *h);
+int _rtapi_heap_init(struct rtapi_heap *h);
 // any memory added to the heap must lie above the rtapi_heap structure:
-int rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size);
-size_t rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs);
+int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size);
+size_t _rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs);
 
 RTAPI_END_DECLS
 
