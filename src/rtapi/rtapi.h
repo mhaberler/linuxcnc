@@ -105,6 +105,7 @@
 
 #include <rtapi_errno.h>
 #include <rtapi_global.h>
+#include <rtapi_heap.h>
 #include <rtapi_exception.h>
 
 #define RTAPI_NAME_LEN   31	/* length for module, etc, names */
@@ -166,6 +167,43 @@ typedef int (*rtapi_next_handle_t)(void);
 #define rtapi_next_handle()			\
     rtapi_switch->rtapi_next_handle()
 extern int _rtapi_next_handle(void);
+
+
+/***********************************************************************
+*                      shared memory allocator                         *
+************************************************************************/
+typedef void * (*rtapi_malloc_t)(struct rtapi_heap *h, size_t nbytes);
+#define rtapi_malloc(h, nbytes) \
+    rtapi_switch->rtapi_malloc(h, nbytes)
+
+typedef void * (*rtapi_calloc_t)(struct rtapi_heap *h, size_t n, size_t size);
+#define rtapi_calloc(h, n, size)			\
+    rtapi_switch->rtapi_calloc(h, n, size)
+
+typedef void * (*rtapi_realloc_t)(struct rtapi_heap *h, void *p, size_t size);
+#define rtapi_realloc(h, p, size)		\
+    rtapi_switch->rtapi_realloc(h, p size)
+
+typedef void   (*rtapi_free_t)(struct rtapi_heap *h, void *p);
+#define rtapi_free(h, p) \
+    rtapi_switch->rtapi_free(h, p)
+
+typedef size_t (*rtapi_allocsize_t)(void *p);
+#define rtapi_allocsize(p) \
+    rtapi_switch->rtapi_allocsize(p)
+
+typedef int  (*rtapi_heap_init_t)(struct rtapi_heap *h);
+#define rtapi_heap_init(h) \
+    rtapi_switch->rtapi_heap_init(h)
+
+// any memory added to the heap must lie above the rtapi_heap structure:
+typedef int  (*rtapi_heap_addmem_t)(struct rtapi_heap *h, void *space, size_t size);
+#define rtapi_heap_addmem(h, s, size)		\
+    rtapi_switch->rtapi_heap_addmem(h, s, size)
+
+typedef size_t  (*rtapi_heap_status_t)(struct rtapi_heap *h, struct rtapi_heap_stat *hs);
+#define rtapi_heap_status(h, hs) \
+    rtapi_switch->rtapi_heap_status(h, hs)
 
 
 /***********************************************************************
@@ -942,7 +980,14 @@ typedef struct {
 #else
     rtapi_dummy_t rtapi_task_update_stats;
 #endif
-
+    rtapi_malloc_t       rtapi_malloc;
+    rtapi_calloc_t       rtapi_calloc;
+    rtapi_realloc_t      rtapi_realloc;
+    rtapi_free_t         rtapi_free;
+    rtapi_allocsize_t    rtapi_allocsize;
+    rtapi_heap_init_t    rtapi_heap_init;
+    rtapi_heap_addmem_t  rtapi_heap_addmem;
+    rtapi_heap_status_t  rtapi_heap_status;
 } rtapi_switch_t;
 
 // using code is responsible to define this:

@@ -32,9 +32,9 @@ static void malloc_autorelease_mutex(rtapi_atomic_type **mutex) {
     rtapi_mutex_give(*mutex);
 }
 
-void rtapi_free(struct rtapi_heap *h, void *);
+void _rtapi_free(struct rtapi_heap *h, void *);
 
-void *rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
+void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
 {
     unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
     rtapi_mutex_get(m);
@@ -70,7 +70,7 @@ void *rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
     }
 }
 
-void rtapi_free(struct rtapi_heap *h,void *ap)
+void _rtapi_free(struct rtapi_heap *h,void *ap)
 {
     unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
     rtapi_mutex_get(m);
@@ -102,33 +102,33 @@ void rtapi_free(struct rtapi_heap *h,void *ap)
     h->free_p = heap_off(h,p);
 }
 
-size_t rtapi_allocsize(void *ap)
+size_t _rtapi_allocsize(void *ap)
 {
     rtapi_malloc_hdr_t *p = (rtapi_malloc_hdr_t *) ap - 1;
     return p->s.size * sizeof (rtapi_malloc_hdr_t);
 }
 
-void *rtapi_calloc(struct rtapi_heap *h, size_t nelem, size_t elsize)
+void *_rtapi_calloc(struct rtapi_heap *h, size_t nelem, size_t elsize)
 {
-    void *p = rtapi_malloc (h,nelem * elsize);
+    void *p = _rtapi_malloc (h,nelem * elsize);
     if (!p)
         return NULL;
     memset(p, 0, nelem * elsize);
     return p;
 }
 
-void *rtapi_realloc(struct rtapi_heap *h, void *ptr, size_t size)
+void *_rtapi_realloc(struct rtapi_heap *h, void *ptr, size_t size)
 {
-    void *p = rtapi_malloc (h, size);
+    void *p = _rtapi_malloc (h, size);
     if (!p)
         return (p);
-    size_t sz = rtapi_allocsize (ptr);
+    size_t sz = _rtapi_allocsize (ptr);
     memcpy(p, ptr, (sz > size) ? size : sz);
-    rtapi_free(h, ptr);
+    _rtapi_free(h, ptr);
     return p;
 }
 
-size_t rtapi_print_freelist(struct rtapi_heap *h)
+size_t _rtapi_print_freelist(struct rtapi_heap *h)
 {
     size_t free = 0;
     rtapi_malloc_hdr_t *p, *prevp, *freep = heap_ptr(h,h->free_p);
@@ -145,17 +145,17 @@ size_t rtapi_print_freelist(struct rtapi_heap *h)
     }
 }
 
-int rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size)
+int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size)
 {
     if (space < (void*) h) return -EINVAL;
     if (size < RTAPI_HEAP_MIN_ALLOC) return -EINVAL;
     rtapi_malloc_hdr_t *arena = space;
     arena->s.size = size / sizeof(rtapi_malloc_hdr_t);
-    rtapi_free(h, (void *) (arena + 1));
+    _rtapi_free(h, (void *) (arena + 1));
     return 0;
 }
 
-int rtapi_heap_init(struct rtapi_heap *heap)
+int _rtapi_heap_init(struct rtapi_heap *heap)
 {
     heap->base.s.next = 0; // because the first element in the heap ist the header
     heap->free_p = 0;      // and free list sentinel
@@ -165,7 +165,7 @@ int rtapi_heap_init(struct rtapi_heap *heap)
     return 0;
 }
 
-size_t rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs)
+size_t _rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs)
 {
     hs->total_avail = 0;
     hs->fragments = 0;
@@ -207,13 +207,13 @@ size_t rtapi_print_freelist(struct rtapi_heap *h)
 }
 #endif
 
-#ifdef RTAPI
-EXPORT_SYMBOL(rtapi_malloc);
-EXPORT_SYMBOL(rtapi_calloc);
-EXPORT_SYMBOL(rtapi_realloc);
-EXPORT_SYMBOL(rtapi_free);
-EXPORT_SYMBOL(rtapi_allocsize);
-EXPORT_SYMBOL(rtapi_heap_init);
-EXPORT_SYMBOL(rtapi_heap_addmem);
-EXPORT_SYMBOL(rtapi_heap_status);
-#endif
+/* #ifdef RTAPI */
+/* EXPORT_SYMBOL(rtapi_malloc); */
+/* EXPORT_SYMBOL(rtapi_calloc); */
+/* EXPORT_SYMBOL(rtapi_realloc); */
+/* EXPORT_SYMBOL(rtapi_free); */
+/* EXPORT_SYMBOL(rtapi_allocsize); */
+/* EXPORT_SYMBOL(rtapi_heap_init); */
+/* EXPORT_SYMBOL(rtapi_heap_addmem); */
+/* EXPORT_SYMBOL(rtapi_heap_status); */
+/* #endif */
