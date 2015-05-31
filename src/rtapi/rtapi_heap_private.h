@@ -14,7 +14,7 @@
 typedef double rtapi_malloc_align;
 
 union rtapi_malloc_header {
-    struct {
+    struct hdr {
 	size_t   next;	// next block if on free list
 	unsigned size;	// size of this block
     } s;
