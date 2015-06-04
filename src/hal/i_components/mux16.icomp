@@ -48,8 +48,9 @@ param r float elapsed "Current value of the internal debounce timer\n for debugg
 param r s32 selected "Current value of the internal selection variable after conversion\n for debugging";
 pin in float in##[pincount] "array of selectable outputs";
 
-instanceparam int maxpincount = 16;
 
+option MAXCOUNT 16;
+option DEFAULTCOUNT 16;
 instanceparam int pincount = 16;
 
 variable double delaytime;
