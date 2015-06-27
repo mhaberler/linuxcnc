@@ -52,6 +52,7 @@
 #define PROC_IPIPE "/proc/ipipe"
 
 // really in nucleus/heap.h but we rather get away with minimum include files
+// hard evidence for Xenomai2, gone on Xenomai3
 #ifndef XNHEAP_DEV_NAME
 #define XNHEAP_DEV_NAME  "/dev/rtheap"
 #endif
@@ -61,11 +62,9 @@
 
 // dlopen() these shared libraries
 #define LIBXENOMAI "libxenomai.so"
-#ifdef XENOMAI_V2
 #define LIBNATIVE "libnative.so"
-#else
-#define LIBNATIVE "libalchemy.so"
-#endif
+#define LIBALCHEMY "libalchemy.so"
+
 // and dig for LIBNATIVE_SYM
 #define LIBNATIVE_SYM "rt_task_create"
 
@@ -75,12 +74,21 @@
 // dev/rtai_shm visible only after 'realtime start'
 #define DEV_RTAI_SHM "/dev/rtai_shm"
 
-// These exist on Xenomai but not on RTAI - regular files:
-#define PROC_IPIPE_XENOMAI "/proc/ipipe/Xenomai" 
+// This exist on Xenomai but not on RTAI - regular files:
+#define PROC_IPIPE_XENOMAI "/proc/ipipe/Xenomai"
+// this exists on Xenomai 2 ONLY
 #define XENO_GID_SYSFS "/sys/module/xeno_nucleus/parameters/xenomai_gid"
+// this exists on Xenomai 3 ONLY
+#define XENO_ALLOWED_GROUP_SYSFS "/sys/module/xenomai/parameters/allowed_group"
 
 // hard evidence for Xenomai
 #define HAS_PROC_IPIPE_XENOMAI    RTAPI_BIT(14) // /proc/ipipe/Xenomai exists
+// hard evidence for Xenomai2
 #define HAS_XENO_GID_SYSFS        RTAPI_BIT(15)
+// hard evidence for Xenomai3
+#define HAS_XENO_ALLOWED_GROUP_SYSFS        RTAPI_BIT(16)
+
+#define XENO_LIBALCHEMY      RTAPI_BIT(17) // can dlopen("libalchemy.so")
+
 
 int rtapi_kdetect(unsigned long *feat);

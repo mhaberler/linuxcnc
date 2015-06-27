@@ -82,9 +82,13 @@ int rtapi_kdetect(unsigned long *feat)
     if ((stat(PROC_IPIPE_XENOMAI, &sb) == 0)  && S_ISREG(sb.st_mode))
 	*feat |= HAS_PROC_IPIPE_XENOMAI;
 
-    // Xenomai only:
+    // Xenomai2 only:
     if ((stat(XENO_GID_SYSFS, &sb) == 0)  && S_ISREG(sb.st_mode))
 	*feat |= HAS_XENO_GID_SYSFS;
+
+    // Xenomai3 only:
+    if ((stat(XENO_ALLOWED_GROUP_SYSFS, &sb) == 0)  && S_ISREG(sb.st_mode))
+	*feat |= HAS_XENO_ALLOWED_GROUP_SYSFS;
 
     // a strong RT PREEMPT hint
     if (strcasestr (u.version, "PREEMPT RT"))
@@ -167,7 +171,7 @@ int main(int argc, char **argv)
 		    "cant detect hires timers. What clunker of a kernel is this? if postwar, please report a bug.\n");
 	    exit(1);
 	}
-	if (f & XENO_RTHEAP_FOUND) {
+	if (f & (XENO_RTHEAP_FOUND|HAS_XENO_ALLOWED_GROUP_SYSFS) {
 	    fprintf(stderr, "a Xenomai kernel\n");
 
 	    if ((f & (SYS_KERNEL_REALTIME_FOUND|UTSNAME_VER_RT_PREEMPT)) ==
@@ -178,8 +182,11 @@ int main(int argc, char **argv)
 	    if (!(f & HAS_PROC_IPIPE_XENOMAI)) 
 		fprintf(stderr, "ERROR: Xenomai lacks %s !!\n", PROC_IPIPE_XENOMAI);
 
-	    if (!(f & HAS_XENO_GID_SYSFS)) 
-		fprintf(stderr, "ERROR: Xenomai lacks %s !!\n", XENO_GID_SYSFS);
+	    if (!(f & HAS_XENO_GID_SYSFS) && (f & HAS_XENO_ALLOWED_GROUP_SYSFS)) 
+		fprintf(stderr, "a Xenomai version 3 kernel\n");
+
+	    if ((f & HAS_XENO_GID_SYSFS) && !(f & HAS_XENO_ALLOWED_GROUP_SYSFS)) 
+		fprintf(stderr, "a Xenomai version 2 kernel\n");
 
 	    if (!(f & UTSNAME_REL_XENOMAI))
 		fprintf(stderr, "utsname.release looked less than helpful: '%s'\n",
