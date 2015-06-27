@@ -54,6 +54,7 @@
 // These exist on Xenomai but not on RTAI
 #define PROC_IPIPE_XENOMAI "/proc/ipipe/Xenomai"
 #define XENO_GID_SYSFS "/sys/module/xeno_nucleus/parameters/xenomai_gid"
+#define XENO_ALLOWED_GROUP_SYSFS "/sys/module/xenomai/parameters/allowed_group"
 
 // static storage of kernel module directory
 static char kmodule_dir[PATH_MAX];
@@ -62,13 +63,27 @@ static FILE *rtapi_inifile = NULL;
 
 static int check_rtapi_lib(char *name);
 
-int kernel_is_xenomai()
+int kernel_is_xenomai2()
 {
     struct stat sb;
 
     return ((stat(XNHEAP_DEV_NAME, &sb) == 0) &&
 	    (stat(PROC_IPIPE_XENOMAI, &sb) == 0) &&
 	    (stat(XENO_GID_SYSFS, &sb) == 0));
+}
+
+int kernel_is_xenomai3()
+{
+    struct stat sb;
+
+    return ((stat(XNHEAP_DEV_NAME, &sb) != 0) &&
+	    (stat(PROC_IPIPE_XENOMAI, &sb) == 0) &&
+	    (stat(XENO_ALLOWED_GROUP_SYSFS, &sb) == 0));
+}
+
+int kernel_is_xenomai()
+{
+    return kernel_is_xenomai2() || kernel_is_xenomai3();
 }
 
 int kernel_is_rtai()

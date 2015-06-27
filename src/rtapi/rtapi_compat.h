@@ -102,6 +102,8 @@ extern int procfs_cmd(const char *path, const char *format, ...);
 
 // kernel tests in rtapi_compat.c
 extern int kernel_is_xenomai();
+extern int kernel_is_xenomai2();
+extern int kernel_is_xenomai3();
 extern int kernel_is_rtai();
 extern int kernel_is_rtpreempt();
 

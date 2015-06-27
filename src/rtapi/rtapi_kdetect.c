@@ -171,7 +171,7 @@ int main(int argc, char **argv)
 		    "cant detect hires timers. What clunker of a kernel is this? if postwar, please report a bug.\n");
 	    exit(1);
 	}
-	if (f & (XENO_RTHEAP_FOUND|HAS_XENO_ALLOWED_GROUP_SYSFS) {
+	if (f & (XENO_RTHEAP_FOUND|HAS_XENO_ALLOWED_GROUP_SYSFS)) {
 	    fprintf(stderr, "a Xenomai kernel\n");
 
 	    if ((f & (SYS_KERNEL_REALTIME_FOUND|UTSNAME_VER_RT_PREEMPT)) ==
