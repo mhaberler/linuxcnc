@@ -102,10 +102,11 @@ void _rtapi_free(struct rtapi_heap *h,void *ap)
     h->free_p = heap_off(h,p);
 }
 
+// returns number of bytes available for use
 size_t _rtapi_allocsize(void *ap)
 {
     rtapi_malloc_hdr_t *p = (rtapi_malloc_hdr_t *) ap - 1;
-    return p->s.size * sizeof (rtapi_malloc_hdr_t);
+    return (p->s.size -1) * sizeof (rtapi_malloc_hdr_t);
 }
 
 void *_rtapi_calloc(struct rtapi_heap *h, size_t nelem, size_t elsize)
