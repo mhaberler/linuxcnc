@@ -260,7 +260,7 @@ extern int hal_release(const char *comp_name);
 // The following structs are used to return values,
 // see usage example in hal/remote/reown.c
 
-typedef struct {
+typedef struct hal_compstate {
     int type;			/* one of: TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE */
     int state;                  /* one of: COMP_INITIALIZING, COMP_UNBOUND, */
                                 /* COMP_BOUND, COMP_READY */
@@ -274,7 +274,7 @@ typedef struct {
     int insmod_args;		/* args passed to insmod when loaded */
 } hal_compstate_t;
 
-typedef struct {
+typedef struct hal_pinstate {
     void **value;
     int type;		/* data type */
     int dir;		/* pin direction */

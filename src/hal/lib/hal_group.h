@@ -6,7 +6,7 @@
 
 RTAPI_BEGIN_DECLS
 
-typedef struct {
+typedef struct hal_member {
     int next_ptr;		/* next member in linked list */
     int sig_member_ptr;          /* offset of hal_signal_t  */
     int group_member_ptr;        /* offset of hal_group_t (nested) */
@@ -15,7 +15,7 @@ typedef struct {
     __u8 eps_index;             // index into haldata->epsilon[]; default 0
 } hal_member_t;
 
-typedef struct {
+typedef struct hal_group {
     int next_ptr;		/* next group in free list */
     int refcount;               /* advisory by using code */
     int userarg1;	        /* interpreted by using layer */
@@ -27,7 +27,7 @@ typedef struct {
 
 
 #define CGROUP_MAGIC  0xbeef7411
-typedef struct {
+typedef struct hal_compiled_group {
     int magic;
     hal_group_t *group;
     int n_members;
