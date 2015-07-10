@@ -1845,7 +1845,7 @@ static void getThreadInfo(char *pattern, connectionRecType *context)
 	  (unsigned int)tptr->maxtime);
 	sockWrite(context);
         list_root = &(tptr->funct_list);
-        list_entry = list_next(list_root);
+        list_entry = dlist_next(list_root);
         n = 1;
         while (list_entry != list_root) {
           /* print the function info */
@@ -1856,7 +1856,7 @@ static void getThreadInfo(char *pattern, connectionRecType *context)
           sprintf(context->outBuf, "SUBTHREAD %s %2d", funct->name, n);
 	  sockWrite(context);
           n++;
-          list_entry = list_next(list_entry);
+          list_entry = dlist_next(list_entry);
 	  }
 	}
       next_thread = tptr->next_ptr;
@@ -2233,13 +2233,13 @@ static void save_threads(FILE *dst)
     while (next_thread != 0) {
 	tptr = SHMPTR(next_thread);
 	list_root = &(tptr->funct_list);
-	list_entry = list_next(list_root);
+	list_entry = dlist_next(list_root);
 	while (list_entry != list_root) {
 	    /* print the function info */
 	    fentry = (hal_funct_entry_t *) list_entry;
 	    funct = SHMPTR(fentry->funct_ptr);
 	    fprintf(dst, "addf %s %s\n", funct->name, tptr->name);
-	    list_entry = list_next(list_entry);
+	    list_entry = dlist_next(list_entry);
 	}
 	next_thread = tptr->next_ptr;
     }
