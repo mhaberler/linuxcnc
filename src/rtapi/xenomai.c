@@ -22,9 +22,9 @@
 ********************************************************************/
 
 #include "config.h"
+#include "xenomai-common.h"
 #include "rtapi.h"
 #include "rtapi_common.h"
-#include "xenomai-common.h"
 
 #include <sys/mman.h>			/* munlockall() */
 #include XENOMAI_INCLUDE(task.h)	/* RT_TASK, rt_task_*() */
