@@ -495,14 +495,11 @@ static inline const void * fa_arg(const hal_funct_args_t *fa) { return fa->funct
 
 // represents a HAL vtable object
 typedef struct hal_vtable {
-    int next_ptr;		   // next vtable in linked list
+    halhdr_t hdr;		   // common HAL object header
     int context;                   // 0 for RT, pid for userland
-    int comp_id;                   // optional owning comp reference, 0 if unused
-    int handle;                    // unique ID
     int refcount;                  // prevents unloading while referenced
     int version;                   // tags switchs struct version
     void *vtable;     // pointer to vtable (valid in loading context only)
-    char name[HAL_NAME_LEN + 1];   // vtable name
 } hal_vtable_t;
 
 

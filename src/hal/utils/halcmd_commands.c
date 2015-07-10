@@ -120,7 +120,7 @@ static int tmatch(int req_type, int type) {
     return req_type == -1 || type == req_type;
 }
 
-static int match(char **patterns, char *value) {
+static int match(char **patterns, const char *value) {
     int i;
     if(!patterns || !patterns[0] || !patterns[0][0]) return 1;
     for(i=0; patterns[i] && *patterns[i]; i++) {
@@ -1454,6 +1454,15 @@ int do_unloadusr_cmd(char *mod_name)
     return 0;
 }
 
+// user_arg2 returns the number of vtables exported by the
+// comp with id passed in in user_arg1
+int _count_exported_vtables(hal_object_ptr o, foreach_args_t *args)
+{
+    if (hh_get_owner_id(o.hdr) == args->user_arg1) {
+	args->user_arg2++;
+    }
+    return 0;
+}
 
 int do_unloadrt_cmd(char *mod_name)
 {
@@ -1476,18 +1485,19 @@ int do_unloadrt_cmd(char *mod_name)
 	if ( comp->type == TYPE_RT ) {
 	    if ( all || ( strcmp(mod_name, comp->name) == 0 )) {
 		// see if a HAL vtable is exported by this comp, and
-		// add to 'unload last' list
-		hal_vtable_t *c;
-		int next = hal_data->vtable_list_ptr;
-		while (next != 0) {
-		    c = (hal_vtable_t *) SHMPTR(next);
-		    if (comp->comp_id == c->comp_id) {
-			zlist_append(vtables, comp->name);
-			goto NEXTCOMP;
-		    }
-		    next = c->next_ptr;
-		}
-		zlist_append(components, comp->name);
+		// add to 'unload last' list if any found
+		foreach_args_t args =  {
+		    .type = HAL_VTABLE,
+		    .user_arg1 = comp->comp_id,
+		    .user_arg2 = 0, // returned count of exported vtables
+		};
+		halg_foreach(false, &args, _count_exported_vtables);
+		if (args.user_arg2) {
+		    // this comp exports (a) vtable(s)
+		    zlist_append(vtables, comp->name);
+		    goto NEXTCOMP;
+		} else
+		    zlist_append(components, comp->name);
 	    }
 	}
 	NEXTCOMP:
@@ -1977,34 +1987,42 @@ static void print_inst_info(char **patterns)
     halcmd_output("\n");
 }
 
+static int print_vtable_entry(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_vtable_t *vt = o.vtable;
+    if ( match(args->user_ptr1, hh_get_name(o.hdr)) ) {
+	halcmd_output(" %5d  %-20.20s  %-5d   %-5d",
+		      hh_get_id(o.hdr),
+		      hh_get_name(o.hdr),
+		      vt->version,
+		      vt->refcount);
+	if (vt->context == 0)
+	    halcmd_output("   RT   ");
+	else
+	    halcmd_output("   %-5d", vt->context);
+	hal_comp_t *comp = halpr_find_comp_by_id(hh_get_owner_id(o.hdr));
+	if (comp) {
+	    halcmd_output("   %-5d %-30.30s", comp->comp_id,  comp->name);
+	} else {
+	    halcmd_output("   * not owned by a component *");
+	}
+	halcmd_output("\n");
+    }
+    return 0;
+}
+
 static void print_vtable_info(char **patterns)
 {
     if (scriptmode == 0) {
 	halcmd_output("Exported vtables:\n");
 	halcmd_output("ID      Name                  Version Refcnt  Context Owner\n");
     }
-    rtapi_mutex_get(&(hal_data->mutex));
-    int next = hal_data->vtable_list_ptr;
-    while (next != 0) {
-	hal_vtable_t *vt = SHMPTR(next);
-	if ( match(patterns, vt->name) ) {
-	    halcmd_output(" %5d  %-20.20s  %-5d   %-5d",
-			  vt->handle, vt->name, vt->version, vt->refcount);
-	    if (vt->context == 0)
-		halcmd_output("   RT   ");
-	    else
-		halcmd_output("   %-5d", vt->context);
-	    hal_comp_t *comp = halpr_find_comp_by_id(vt->comp_id);
-	    if (comp) {
-                halcmd_output("   %-5d %-30.30s", comp->comp_id,  comp->name);
-	    } else {
-                halcmd_output("   * not owned by a component *");
-	    }
-	    halcmd_output("\n");
-	}
-	next = vt->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+
+    foreach_args_t args =  {
+	.type = HAL_VTABLE,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_vtable_entry);
     halcmd_output("\n");
 }
 
