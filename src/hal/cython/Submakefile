@@ -21,7 +21,11 @@ $(call TOOBJSDEPS, $(HALSO_SRCS)) : EXTRAFLAGS=-fPIC -Ihal/utils -I.
 $(call TOOBJSDEPS, $(HALSO_CXXSRCS)) : EXTRAFLAGS=-fPIC -Ihal/utils -I.
 
 # shotgun approach to dependencies: will alwas hit the target (and more).
-$(HALNGMKDIR)/hal.c: $(wildcard $(HALNGMKDIR)/*.pyx $(HALNGMKDIR)/*.pxd)
+$(HALNGMKDIR)/hal.c: $(wildcard 	\
+	$(HALNGMKDIR)/*.pyx 		\
+	$(HALNGMKDIR)/*.pxd) 		\
+	$(wildcard hal/lib/*.h)		\
+	$(wildcard rtapi/*.h)
 
 TARGETS += ../lib/python/machinekit/hal.so
 ../lib/python/machinekit/hal.so:	../lib/liblinuxcnchal.so.0 \
