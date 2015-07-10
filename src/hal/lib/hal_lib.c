@@ -166,8 +166,24 @@ void halpr_autorelease_mutex(void *variable)
 	rtapi_mutex_give(&(hal_data->mutex));
     else
 	// programming error
-	HALERR("BUG: halpr_autorelease_mutex called before hal_data inited");
+	HALBUG("halpr_autorelease_mutex called before hal_data inited");
 }
+
+// conditional version - makes locking a scope a runtime decision together with
+// WITH_HAL_MUTEX_IF(<integer>)
+void halpr_autorelease_mutex_if(void *variable)
+{
+    if (hal_data == NULL) // programming error
+	HALBUG("halpr_autorelease_mutex_if called before hal_data inited");
+
+    if (variable == NULL) {
+	HALBUG("halpr_autorelease_mutex_if called with NULL variable?");
+	return;
+    }
+    if (*((int *) variable))
+	rtapi_mutex_give(&(hal_data->mutex));
+}
+
 
 /***********************************************************************
 *                     LOCAL FUNCTION CODE                              *
