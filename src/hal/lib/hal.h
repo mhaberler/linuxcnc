@@ -506,6 +506,7 @@ typedef union {
 // type tags of HAL objects. See also protobuf/proto/types.proto/enum ObjectType
 // which must match:
 typedef enum {
+    HAL_OBJECT_INVALID = 0,
     HAL_PIN           = 1,
     HAL_SIGNAL        = 2,
     HAL_PARAM         = 3,
