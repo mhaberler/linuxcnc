@@ -641,15 +641,37 @@ void halpr_autorelease_mutex(void *variable);
 //    .. in criticial region
 //    any scope exit will release the HAL mutex
 // }
+//
+// conditional scope protection based on parameter:
+// <lock> must yield an int value (passed in from outer scope)
+// use like so:
+//
+// int use_lock = 1;
+// int no_lock = 0;
+//
+// { // enters a criticial region since use_lock is nonzero:
+//    WITH_HAL_MUTEX_IF(use_lock);
+//    .. in criticial region
+//    any scope exit will release the HAL mutex
+// }
+//
+// { // does NOT enter a criticial region since no_lock is zero:
+//    WITH_HAL_MUTEX_IF(no_lock);
+//    .. not protected by hal_mutex
+//    any scope exit will leave the HAL mutex untouched
+// }
+
 #ifndef __PASTE
 #define __PASTE(a,b)	a##b
 #endif
-#define _WITH_HAL_MUTEX(unique)						\
-    int __PASTE(__scope_protector_,unique)				\
-	 __attribute__((cleanup(halpr_autorelease_mutex)));		\
-	 rtapi_mutex_get(&(hal_data->mutex));
 
-#define WITH_HAL_MUTEX() _WITH_HAL_MUTEX(__LINE__)
+#define _WITH_HAL_MUTEX_IF(unique, cond)				\
+    int __PASTE(__scope_protector_,unique)				\
+	 __attribute__((cleanup(halpr_autorelease_mutex))) = cond;	\
+    if (cond) rtapi_mutex_get(&(hal_data->mutex));
+
+#define WITH_HAL_MUTEX_IF(intval) _WITH_HAL_MUTEX_IF(__LINE__, intval)
+#define WITH_HAL_MUTEX() _WITH_HAL_MUTEX_IF(__LINE__, 1)
 
 
 
