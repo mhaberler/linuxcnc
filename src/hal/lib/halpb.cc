@@ -111,13 +111,13 @@ int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread)
     pbthread->set_task_id(thread->task_id);
 
     hal_list_t *list_root = &(thread->funct_list);
-    hal_list_t *list_entry = list_next(list_root);
+    hal_list_t *list_entry = (hal_list_t *) dlist_next(list_root);
 
     while (list_entry != list_root) {
 	hal_funct_entry_t *fentry = (hal_funct_entry_t *) list_entry;
 	hal_funct_t *funct = (hal_funct_t *) SHMPTR(fentry->funct_ptr);
 	pbthread->add_function(funct->name);
-	list_entry = list_next(list_entry);
+	list_entry = (hal_list_t *)dlist_next(list_entry);
     }
     return 0;
 }
