@@ -309,7 +309,7 @@ int halpr_foreach_param(const char *name,
     return nvisited;
 }
 
-
+#if 0
 int halpr_foreach_vtable(const char *name,
 		      hal_vtable_callback_t callback, void *cb_data)
 {
@@ -321,11 +321,22 @@ int halpr_foreach_vtable(const char *name,
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
 
+    foreach_args_t args =  {
+	.type = HAL_VTABLE,
+	.name = name,
+	.user_arg = version,
+	.user_ptr = NULL
+    };
+    if (halg_foreach(false, &args, _yield_versioned_vtable) == 1)
+	return args.user_ptr;
+    return NULL;
+
+
     /* search for the vtable */
     next = hal_data->vtable_list_ptr;
     while (next != 0) {
 	vtable = SHMPTR(next);
-	if (!name || (strcmp(vtable->name, name)) == 0) {
+	if (!name || (strcmp(hh_get_name(&vtable->hdr), name)) == 0) {
 	    nvisited++;
 	    /* this is the right vtable */
 	    if (callback) {
@@ -353,6 +364,7 @@ int halpr_foreach_vtable(const char *name,
     /* if we get here, we ran through all the vtables, so return count */
     return nvisited;
 }
+#endif
 
 int halpr_foreach_inst(const char *name,
 		      hal_inst_callback_t callback, void *cb_data)
