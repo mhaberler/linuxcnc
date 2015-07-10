@@ -24,6 +24,7 @@ HALLIBSRCS := $(HALLIBDIR)/hal_lib.c \
 	$(HALLIBDIR)/hal_memory.c \
 	$(HALLIBDIR)/hal_misc.c \
 	$(HALLIBDIR)/hal_instance.c \
+	$(HALLIBDIR)/hal_object.c \
 	rtapi/rtapi_heap.c
 
 # protobuf support functions which depend on HAL - on RT host only

@@ -111,6 +111,7 @@
 #include <time.h>               /* remote comp timestamps */
 #endif
 #endif
+#include <hal_object.h>
 
 RTAPI_BEGIN_DECLS
 
