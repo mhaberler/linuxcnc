@@ -73,7 +73,22 @@
 #error "Can't define both RTAPI and ULAPI!"
 #endif
 
-#include <stddef.h> // provides NULL
+#include <stddef.h> // provides NULL, offset_of
+
+#ifndef MODULE
+#ifndef container_of
+#define container_of(ptr, type, member)					\
+	({								\
+		const __typeof__(((type *)0)->member) *__mptr = (ptr);	\
+		(type *)((char *)__mptr - offsetof(type, member));	\
+	})
+#endif
+#endif
+
+#ifndef likely
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+#endif
 
 #include "rtapi_int.h"
 
