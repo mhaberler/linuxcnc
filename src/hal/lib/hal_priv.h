@@ -94,7 +94,7 @@
 
 #include <rtapi.h>
 #include <rtapi_global.h>
-#include <hal_logging.h>
+#include "hal_logging.h"
 
 #ifdef ULAPI
 #include <rtapi_compat.h>
@@ -111,7 +111,6 @@
 #include <time.h>               /* remote comp timestamps */
 #endif
 #endif
-#include <hal_object.h>
 
 RTAPI_BEGIN_DECLS
 
@@ -120,6 +119,17 @@ RTAPI_BEGIN_DECLS
 
 // extending this beyond 255 might require adapting rtapi_shmkeys.h
 #define HAL_MAX_RINGS	        255
+
+
+/* These pointers are set by hal_init() to point to the shmem block
+   and to the master data structure. All access should use these
+   pointers, they takes into account the mapping of shared memory
+   into either kernel or user space.  (The HAL kernel module and
+   each HAL user process have their own copy of these vars,
+   initialized to match that process's memory mapping.)
+*/
+
+extern char *hal_shmem_base;
 
 /* SHMPTR(offset) converts 'offset' to a void pointer. */
 #define SHMPTR(offset)  ( (void *)( hal_shmem_base + (offset) ) )
@@ -145,26 +155,13 @@ RTAPI_BEGIN_DECLS
 // avoid pulling in math.h
 #define HAL_FABS(a) ((a) > 0.0 ? (a) : -(a))	/* floating absolute value */
 
+#include "hal_list.h"    // needs SHMPTR/SHMOFF
+#include "hal_object.h"  // needs hal_list_t
+
 /***********************************************************************
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
 
-
-/** HAL "list element" data structure.
-    This structure is used to implement generic double linked circular
-    lists.  Such lists have the following characteristics:
-    1) One "dummy" element that serves as the root of the list.
-    2) 'next' and 'previous' pointers are never NULL.
-    3) Insertion and removal of elements is clean and fast.
-    4) No special case code to deal with empty lists, etc.
-    5) Easy traversal of the list in either direction.
-    This structure has no data, only links.  To use it, include it
-    inside a larger structure.
-*/
-typedef struct {
-    int next;			/* next element in list */
-    int prev;			/* previous element in list */
-} hal_list_t;
 
 /** HAL "oldname" data structure.
     When a pin or parameter gets an alias, this structure is used to
@@ -234,6 +231,12 @@ typedef struct {
     double epsilon[MAX_EPSILON];
 } hal_data_t;
 
+/* This pointer is set by hal_init() to point to the  master data structure.
+   All access should use these
+   pointers, they takes into account the mapping of shared memory
+   into either kernel or user space.  */
+
+extern hal_data_t *hal_data;
 
 /** HAL 'component' data structure.
     This structure contains information that is unique to a HAL component.
@@ -524,16 +527,6 @@ typedef struct hal_vtable {
 #include "rtapi_shmkeys.h"
 #define HAL_VER   0x0000000C	/* version code */
 
-/* These pointers are set by hal_init() to point to the shmem block
-   and to the master data structure. All access should use these
-   pointers, they takes into account the mapping of shared memory
-   into either kernel or user space.  (The HAL kernel module and
-   each HAL user process have their own copy of these vars,
-   initialized to match that process's memory mapping.)
-*/
-
-extern char *hal_shmem_base;
-extern hal_data_t *hal_data;
 
 /***********************************************************************
 *            PRIVATE HAL FUNCTIONS - NOT PART OF THE API               *
@@ -696,7 +689,6 @@ void halpr_autorelease_mutex(void *variable);
     cache performance.
 */
 
-#include "hal_list.h"
 
 RTAPI_END_DECLS
 #endif /* HAL_PRIV_H */
