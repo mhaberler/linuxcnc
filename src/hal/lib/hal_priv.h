@@ -240,7 +240,7 @@ typedef struct {
     An instance of this structure is added to a linked list when the
     component calls hal_init().
 */
-typedef struct {
+typedef struct hal_comp {
     int next_ptr;		/* next component in the list */
     int comp_id;		/* component ID (RTAPI module id) */
     int type;			/* one of: TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE */
@@ -269,7 +269,7 @@ typedef struct {
 // An instance has a name, and a unique ID
 // it is owned by exactly one component pointed to by comp_ptr
 // it holds a void * to the instance data as required by the instance
-typedef struct {
+typedef struct hal_inst {
     int next_ptr;		// next instance in list
     int comp_id;                // owning component
     int inst_id;                // allocated by rtapi_next_handle()
@@ -281,7 +281,7 @@ typedef struct {
 /** HAL 'pin' data structure.
     This structure contains information about a 'pin' object.
 */
-typedef struct {
+typedef struct hal_pin {
     int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
     int owner_id;		/* component that owns this pin */
@@ -303,7 +303,7 @@ typedef enum {
 /** HAL 'signal' data structure.
     This structure contains information about a 'signal' object.
 */
-typedef struct {
+typedef struct hal_sig {
     int next_ptr;		/* next signal in linked list */
     int data_ptr;		/* offset of signal value */
     hal_type_t type;		/* data type */
@@ -317,7 +317,7 @@ typedef struct {
 /** HAL 'parameter' data structure.
     This structure contains information about a 'parameter' object.
 */
-typedef struct {
+typedef struct hal_param {
     int next_ptr;		/* next parameter in linked list */
     int data_ptr;		/* offset of parameter value */
     int owner_id;		/* component that owns this signal */
@@ -378,7 +378,7 @@ typedef struct hal_funct  hal_funct_t;
 
 // keeps values pertaining to thread invocation in a struct,
 // so a reference can be cheaply passed to the invoked funct
-typedef struct {
+typedef struct hal_funct_args {
     // actual invocation time of this thread cycle
     // (i.e. before calling the first funct in chain)
     long long int thread_start_time;
@@ -410,7 +410,7 @@ typedef union {
 } hal_funct_u;
 
 // hal_export_xfunc argument struct
-typedef struct {
+typedef struct hal_export_xfunct_args {
     hal_funct_signature_t type;
     hal_funct_u funct;
     void *arg;
@@ -437,7 +437,7 @@ typedef struct hal_funct {
     char name[HAL_NAME_LEN + 1];	/* function name */
 } hal_funct_t;
 
-typedef struct {
+typedef struct hal_funct_entry {
     hal_list_t links;		/* linked list data */
     hal_funct_signature_t type;
     void *arg;			/* argument for function */
@@ -488,7 +488,7 @@ static inline const void * fa_arg(const hal_funct_args_t *fa) { return fa->funct
 
 
 // represents a HAL vtable object
-typedef struct {
+typedef struct hal_vtable {
     int next_ptr;		   // next vtable in linked list
     int context;                   // 0 for RT, pid for userland
     int comp_id;                   // optional owning comp reference, 0 if unused
