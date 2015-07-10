@@ -347,7 +347,7 @@ static hal_thread_t *alloc_thread_struct(void)
 	p->period = 0;
 	p->priority = 0;
 	p->task_id = 0;
-	list_init_entry(&(p->funct_list));
+	dlist_init_entry(&(p->funct_list));
 	p->name[0] = '\0';
     }
     return p;
@@ -370,12 +370,12 @@ void free_thread_struct(hal_thread_t * thread)
     thread->task_id = 0;
     /* clear the function entry list */
     list_root = &(thread->funct_list);
-    list_entry = list_next(list_root);
+    list_entry = dlist_next(list_root);
     while (list_entry != list_root) {
 	/* entry found, save pointer to it */
 	funct_entry = (hal_funct_entry_t *) list_entry;
 	/* unlink it, point to the next one */
-	list_entry = list_remove_entry(list_entry);
+	list_entry = dlist_remove_entry(list_entry);
 	/* free the removed entry */
 	free_funct_entry_struct(funct_entry);
     }

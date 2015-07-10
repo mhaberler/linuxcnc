@@ -312,7 +312,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 	    /* insertion is relative to start of list */
 	    while (++n < position) {
 		/* move further into list */
-		list_entry = list_next(list_entry);
+		list_entry = dlist_next(list_entry);
 		if (list_entry == list_root) {
 		    /* reached end of list */
 		    HALERR("position '%d' is too high", position);
@@ -323,7 +323,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 	    /* insertion is relative to end of list */
 	    while (--n > position) {
 		/* move further into list */
-		list_entry = list_prev(list_entry);
+		list_entry = dlist_prev(list_entry);
 		if (list_entry == list_root) {
 		    /* reached end of list */
 		    HALERR("position '%d' is too low", position);
@@ -331,7 +331,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 		}
 	    }
 	    /* want to insert before list_entry, so back up one more step */
-	    list_entry = list_prev(list_entry);
+	    list_entry = dlist_prev(list_entry);
 	}
 	/* allocate a funct entry structure */
 	funct_entry = alloc_funct_entry_struct();
@@ -344,7 +344,7 @@ int hal_add_funct_to_thread(const char *funct_name,
 	funct_entry->funct.l = funct->funct.l;
 	funct_entry->type = funct->type;
 	/* add the entry to the list */
-	list_add_after((hal_list_t *) funct_entry, list_entry);
+	dlist_add_after((hal_list_t *) funct_entry, list_entry);
 	/* update the function usage count */
 	funct->users++;
     }
@@ -395,7 +395,7 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	}
 	/* ok, we have thread and function, does thread use funct? */
 	list_root = &(thread->funct_list);
-	list_entry = list_next(list_root);
+	list_entry = dlist_next(list_root);
 	while (1) {
 	    if (list_entry == list_root) {
 		/* reached end of list, funct not found */
@@ -406,14 +406,14 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	    funct_entry = (hal_funct_entry_t *) list_entry;
 	    if (SHMPTR(funct_entry->funct_ptr) == funct) {
 		/* this funct entry points to our funct, unlink */
-		list_remove_entry(list_entry);
+		dlist_remove_entry(list_entry);
 		/* and delete it */
 		free_funct_entry_struct(funct_entry);
 		/* done */
 		return 0;
 	    }
 	    /* try next one */
-	    list_entry = list_next(list_entry);
+	    list_entry = dlist_next(list_entry);
 	}
     }
 }
@@ -425,16 +425,16 @@ static hal_funct_entry_t *alloc_funct_entry_struct(void)
 
     /* check the free list */
     freelist = &(hal_data->funct_entry_free);
-    l = list_next(freelist);
+    l = dlist_next(freelist);
     if (l != freelist) {
 	/* found a free structure, unlink from the free list */
-	list_remove_entry(l);
+	dlist_remove_entry(l);
 	p = (hal_funct_entry_t *) l;
     } else {
 	/* nothing on free list, allocate a brand new one */
 	p = shmalloc_dn(sizeof(hal_funct_entry_t));
 	l = (hal_list_t *) p;
-	list_init_entry(l);
+	dlist_init_entry(l);
     }
     if (p) {
 	/* make sure it's empty */
@@ -459,7 +459,7 @@ void free_funct_entry_struct(hal_funct_entry_t * funct_entry)
     funct_entry->arg = 0;
     funct_entry->funct.l = 0;
     /* add it to free list */
-    list_add_after((hal_list_t *) funct_entry, &(hal_data->funct_entry_free));
+    dlist_add_after((hal_list_t *) funct_entry, &(hal_data->funct_entry_free));
 }
 
 
@@ -562,7 +562,7 @@ void free_funct_struct(hal_funct_t * funct)
 	    thread = SHMPTR(next_thread);
 	    /* start at root of funct_entry list */
 	    list_root = &(thread->funct_list);
-	    list_entry = list_next(list_root);
+	    list_entry = dlist_next(list_root);
 	    /* run thru funct_entry list */
 	    while (list_entry != list_root) {
 		/* point to funct entry */
@@ -570,12 +570,12 @@ void free_funct_struct(hal_funct_t * funct)
 		/* test it */
 		if (SHMPTR(funct_entry->funct_ptr) == funct) {
 		    /* this funct entry points to our funct, unlink */
-		    list_entry = list_remove_entry(list_entry);
+		    list_entry = dlist_remove_entry(list_entry);
 		    /* and delete it */
 		    free_funct_entry_struct(funct_entry);
 		} else {
 		    /* no match, try the next one */
-		    list_entry = list_next(list_entry);
+		    list_entry = dlist_next(list_entry);
 		}
 	    }
 	    /* move on to the next thread */
