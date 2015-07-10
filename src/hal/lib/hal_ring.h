@@ -12,7 +12,7 @@ RTAPI_BEGIN_DECLS
 // it is 'owned' by hal_lib since because rtapi_shm_new() requires a module id
 // any module may attach to it.
 
-typedef struct {
+typedef struct hal_ring {
     char name[HAL_NAME_LEN + 1]; // ring HAL name
     int next_ptr;		 // next ring in used/free lists
     int ring_id;                 // as per alloc bitmap
