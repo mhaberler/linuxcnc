@@ -5,6 +5,22 @@
 // private API - obtained by including hal_priv.h
 
 
+/** HAL "list element" data structure.
+    This structure is used to implement generic double linked circular
+    lists.  Such lists have the following characteristics:
+    1) One "dummy" element that serves as the root of the list.
+    2) 'next' and 'previous' pointers are never NULL.
+    3) Insertion and removal of elements is clean and fast.
+    4) No special case code to deal with empty lists, etc.
+    5) Easy traversal of the list in either direction.
+    This structure has no data, only links.  To use it, include it
+    inside a larger structure.
+*/
+typedef struct {
+    int next;			/* next element in list */
+    int prev;			/* previous element in list */
+} hal_list_t;
+
 /** These functions are used to manipulate double-linked circular lists.
     Every list entry has pointers to the next and previous entries.
     The pointers are never NULL.  If an entry is not in a list its
@@ -29,27 +45,66 @@
     It returns a pointer to the next entry in the list.  If 'entry'
     was the only entry in the list, it returns 'entry'.
 */
-static inline void list_init_entry(hal_list_t * entry);
-static inline hal_list_t *list_prev(hal_list_t * entry);
-static inline hal_list_t *list_next(hal_list_t * entry);
-static inline void list_add_after(hal_list_t * entry, hal_list_t * prev);
-static inline void list_add_before(hal_list_t * entry, hal_list_t * next);
-static inline hal_list_t *list_remove_entry(hal_list_t * entry);
+static inline void dlist_init_entry(hal_list_t * entry);
+/* static inline hal_list_t *list_prev(const hal_list_t * entry); */
+/* static inline hal_list_t *list_next(const hal_list_t * entry); */
+static inline void dlist_add_after(hal_list_t * entry, hal_list_t * prev);
+static inline void dlist_add_before(hal_list_t * entry, hal_list_t * next);
+static inline hal_list_t *dlist_remove_entry(hal_list_t * entry);
+
+/**
+ * dlist_for_each	-	iterate over a list
+ * @pos:	the &hal_list_t to use as a loop counter.
+ * @head:	the head for your list.
+ */
+#define dlist_for_each(pos, head) \
+    for (pos = SHMPTR((head)->next); pos != (head);	\
+	 pos = SHMPTR(pos->next))
 
 
-static inline hal_list_t *list_prev(hal_list_t * entry)
+/**
+ * list_for_each_safe	-	iterate over a list safe against removal of list entry
+ * @pos:	the &hal_list_t to use as a loop counter.
+ * @n:		another &hal_list_t to use as temporary storage
+ * @head:	the head for your list.
+ */
+#define dlist_for_each_safe(pos, n, head) \
+    for (pos = SHMPTR((head)->next), n = SHMPTR(pos->next); pos != (head); \
+	     pos = n, n = SHMPTR(pos->next))
+
+/**
+ * dlist_entry - get the struct for this entry
+ * @ptr:	the &struct list_head pointer.
+ * @type:	the type of the struct this is embedded in.
+ * @member:	the name of the list_struct within the struct.
+ */
+#define dlist_entry(ptr, type, member) \
+	container_of(ptr, type, member)
+
+/**
+ * dlist_for_each_entry  -       iterate over list of given type
+ * @pos:        the type * to use as a loop counter.
+ * @head:       the head for your list.
+ * @member:     the name of the list_struct within the struct.
+ */
+#define dlist_for_each_entry(pos, head, member)                          \
+    for (pos = dlist_entry(SHMPTR((head)->next), typeof(*pos), member);	\
+	 &pos->member != (head);					\
+	 pos = dlist_entry(SHMPTR(pos->member.next), typeof(*pos), member))
+
+static inline hal_list_t *dlist_prev(hal_list_t * entry)
 {
     /* this function is only needed because of memory mapping */
     return (hal_list_t *) SHMPTR(entry->prev);
 }
 
-static inline hal_list_t *list_next(hal_list_t * entry)
+static inline hal_list_t *dlist_next(hal_list_t * entry)
 {
     /* this function is only needed because of memory mapping */
     return (hal_list_t *) SHMPTR(entry->next);
 }
 
-static inline void list_init_entry(hal_list_t * entry)
+static inline void dlist_init_entry(hal_list_t * entry)
 {
     int entry_n;
 
@@ -58,7 +113,7 @@ static inline void list_init_entry(hal_list_t * entry)
     entry->prev = entry_n;
 }
 
-static inline void list_add_after(hal_list_t * entry, hal_list_t * prev)
+static inline void dlist_add_after(hal_list_t * entry, hal_list_t * prev)
 {
     int entry_n, prev_n, next_n;
     hal_list_t *next;
@@ -75,7 +130,7 @@ static inline void list_add_after(hal_list_t * entry, hal_list_t * prev)
     next->prev = entry_n;
 }
 
-static inline void list_add_before(hal_list_t * entry, hal_list_t * next)
+static inline void dlist_add_before(hal_list_t * entry, hal_list_t * next)
 {
     int entry_n, prev_n, next_n;
     hal_list_t *prev;
@@ -92,7 +147,7 @@ static inline void list_add_before(hal_list_t * entry, hal_list_t * next)
     next->prev = entry_n;
 }
 
-static inline hal_list_t *list_remove_entry(hal_list_t * entry)
+static inline hal_list_t *dlist_remove_entry(hal_list_t * entry)
 {
     int entry_n;
     hal_list_t *prev, *next;
