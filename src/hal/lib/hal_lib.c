@@ -169,7 +169,6 @@ void halpr_autorelease_mutex(void *variable)
 	HALERR("BUG: halpr_autorelease_mutex called before hal_data inited");
 }
 
-
 /***********************************************************************
 *                     LOCAL FUNCTION CODE                              *
 ************************************************************************/
@@ -373,5 +372,6 @@ EXPORT_SYMBOL(halpr_find_inst_by_id);
 EXPORT_SYMBOL(halpr_find_comp_by_id);
 
 EXPORT_SYMBOL(halpr_find_pin_by_sig);
+
 
 #endif /* rtapi */
