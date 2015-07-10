@@ -660,6 +660,8 @@ int init_hal_data(void)
     hal_data->version = HAL_VER;
 
     /* initialize everything */
+    dlist_init_entry(&(hal_data->halobjects));
+
     hal_data->comp_list_ptr = 0;
     hal_data->pin_list_ptr = 0;
     hal_data->sig_list_ptr = 0;
@@ -677,7 +679,8 @@ int init_hal_data(void)
     hal_data->funct_free_ptr = 0;
     hal_data->vtable_free_ptr = 0;
 
-    list_init_entry(&(hal_data->funct_entry_free));
+    dlist_init_entry(&(hal_data->funct_entry_free));
+
     hal_data->thread_free_ptr = 0;
     hal_data->exact_base_period = 0;
 

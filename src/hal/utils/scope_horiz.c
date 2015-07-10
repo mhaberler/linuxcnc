@@ -230,7 +230,7 @@ static void init_acquire_function(void)
     while (next_thread != 0) {
 	thread = SHMPTR(next_thread);
 	list_root = &(thread->funct_list);
-	list_entry = list_next(list_root);
+	list_entry = dlist_next(list_root);
 	while (list_entry != list_root) {
 	    fentry = (hal_funct_entry_t *) list_entry;
 	    if (funct == SHMPTR(fentry->funct_ptr)) {
@@ -243,7 +243,7 @@ static void init_acquire_function(void)
 		ctrl_shm->watchdog = 1;
 		return;
 	    }
-	    list_entry = list_next(list_entry);
+	    list_entry = dlist_next(list_entry);
 	}
 	next_thread = thread->next_ptr;
     }
