@@ -52,11 +52,56 @@ int hh_clear_hdr(halhdr_t *o)
     return ret;
 }
 
+
+int halg_foreach(bool use_hal_mutex,
+		 int type,         // one of hal_object_type or 0
+		 const char *name, // name prefix or NULL
+		 hal_object_callback_t callback,
+		 void *arg)
+{
+    halhdr_t *o;
+    int nvisited = 0, result;
+
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
+    dlist_for_each_entry(o, OBJECTLIST, links) {
+
+	// select by type if given
+	if ((type && (hh_get_type(o) == type)) || (type == 0)) {
+	    // then by name if given - prefix match OK
+	    if (!name || (strcmp(hh_get_name(o), name)) == 0) {
+		nvisited++;
+		if (callback) {
+		    result = callback((hal_object_ptr)o, arg);
+		    if (result < 0) {
+			// callback signalled an error, pass that back up.
+			return result;
+		    } else if (result > 0) {
+			// callback signalled 'stop iterating'.
+			// pass back the number of visited vtables.
+			return nvisited;
+		    } else {
+			// callback signalled 'OK to continue'
+			// fall through
+		    }
+		} else {
+		    // null callback passed in,
+		    // just count vtables
+		    // nvisited already bumped above.
+		}
+	    }
+	}
+	// no match, try the next one
+    }
+    // if we get here, we ran through all the objects, so return count of objects visited
+    return nvisited;
+}
+
+
 #ifdef RTAPI
 
 EXPORT_SYMBOL(hh_set_namefv);
 EXPORT_SYMBOL(hh_set_namef);
 EXPORT_SYMBOL(hh_init_hdrf);
 EXPORT_SYMBOL(hh_clear_hdr);
-
+EXPORT_SYMBOL(halg_foreach);
 #endif
