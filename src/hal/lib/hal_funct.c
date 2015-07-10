@@ -243,6 +243,8 @@ int hal_add_funct_to_thread(const char *funct_name,
     hal_list_t *list_root, *list_entry;
     int n;
     hal_funct_entry_t *funct_entry;
+    char buff[HAL_NAME_LEN + 1];  
+    rtapi_snprintf(buff, HAL_NAME_LEN, "%s.funct", funct_name);
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
@@ -266,8 +268,13 @@ int hal_add_funct_to_thread(const char *funct_name,
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
 	if (funct == 0) {
-	    HALERR("function '%s' not found", funct_name);
-	    return -EINVAL;
+	    funct = halpr_find_funct_by_name((const char*)buff);
+	    if (funct == 0) {
+			HALERR("function '%s' not found", funct_name);
+			return -EINVAL;
+		}
+		else 
+			HALWARN("'%s' should be added to thread as '%s' ", funct_name, buff);
 	}
 	// type-check the functions which go onto threads
 	switch (funct->type) {
@@ -349,7 +356,10 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
     hal_funct_t *funct;
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *funct_entry;
-
+    
+    char buff[HAL_NAME_LEN + 1];  
+    rtapi_snprintf(buff, HAL_NAME_LEN, "%s.funct", funct_name);
+    
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STR(funct_name);
@@ -365,8 +375,11 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
 	if (funct == 0) {
-	    HALERR("function '%s' not found", funct_name);
-	    return -EINVAL;
+	    funct = halpr_find_funct_by_name((const char*)buff);
+	    if (funct == 0) {
+			HALERR("function '%s' not found", funct_name);
+			return -EINVAL;
+		}
 	}
 	/* found the function, is it in use? */
 	if (funct->users == 0) {
