@@ -189,6 +189,9 @@ typedef struct {
 
     int shmem_bot;		/* bottom of free shmem (first free byte) */
     int shmem_top;		/* top of free shmem (1 past last free) */
+
+    hal_list_t halobjects;      // list of all named HAL objects
+
     int comp_list_ptr;		/* root of linked list of components */
     int pin_list_ptr;		/* root of linked list of pins */
     int sig_list_ptr;		/* root of linked list of signals */
