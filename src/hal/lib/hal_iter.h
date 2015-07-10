@@ -26,7 +26,6 @@ typedef int (*hal_param_callback_t) (hal_param_t *param,  void *arg);
 typedef int (*hal_vtable_callback_t)(hal_vtable_t *vtable,  void *arg);
 typedef int (*hal_inst_callback_t)  (hal_inst_t *vtable,  void *arg);
 
-
 int halpr_foreach_comp(const char *name,  hal_comp_callback_t callback, void *arg);
 int halpr_foreach_sig(const char *name,   hal_sig_callback_t callback, void *arg);
 int halpr_foreach_ring(const char *name,  hal_ring_callback_t callback, void *arg);
@@ -35,7 +34,7 @@ int halpr_foreach_thread(const char *name,hal_thread_callback_t callback, void *
 int halpr_foreach_pin(const char *name,   hal_pin_callback_t callback, void *arg);
 
 int halpr_foreach_param(const char *name,   hal_param_callback_t callback, void *arg);
-int halpr_foreach_vtable(const char *name,   hal_vtable_callback_t callback, void *arg);
+// int halpr_foreach_vtable(const char *name,   hal_vtable_callback_t callback, void *arg);
 int halpr_foreach_inst(const char *name,   hal_inst_callback_t callback, void *arg);
 
 
