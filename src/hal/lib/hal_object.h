@@ -56,10 +56,12 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 1; }
 // use 0 as owner_id for top-level objects:
 
 int  hh_init_hdrf(halhdr_t *o,
+		  const hal_object_type type,
 		  const int owner_id,
 		  const char *fmt, ...);
 
 int  hh_init_hdrfv(halhdr_t *o,
+		   const hal_object_type type,
 		   const int owner_id,
 		   const char *fmt, va_list ap);
 
@@ -67,21 +69,38 @@ int  hh_init_hdrfv(halhdr_t *o,
 int hh_clear_hdr(halhdr_t *o);
 
 
-// generic typed and optionally named HAL object iterator
-// selects by type, then by name
+// halg_foreach: generic HAL object iterator
+// selects by type (if set), then by name (if set)
 // set to replace the gazillion of type-specific iterators
-
+//
 // callback return values drive behavior like so:
 // 0  - signal 'continue iterating'
 // >0 - stop iterating and return number of visited objects
 // <0 - stop iterating and return that value (typically error code)
+struct foreach_args;
+typedef struct foreach_args foreach_args_t;
+typedef int (*hal_object_callback_t)  (hal_object_ptr object,
+				       foreach_args_t *args);
+typedef struct foreach_args {
+    // standard selection parameters - in only:
+    const int type;         // one of hal_object_type or 0
+    const int id;           // search by object ID
+    const char *name;       // search name prefix or NULL
 
-typedef int (*hal_object_callback_t)  (hal_object_ptr object, void *arg);
+    // generic in/out parameters to/from the callback function:
+    // used to pass selection criteria, and return specific values
+    // (either int or void *)
+    int user_arg1;          // opaque int arguments
+    int user_arg2;
+    void *user_ptr1;        // opaque user pointer arguments
+    void *user_ptr2;
+} foreach_args_t;
+
+
 int halg_foreach(bool use_hal_mutex,
-		 int type,         // one of hal_object_type or 0
-		 const char *name, // name prefix or NULL
-		 hal_object_callback_t callback,
-		 void *arg);
+		 foreach_args_t *args,
+		 const hal_object_callback_t callback); // optional callback
 
+#include "hal_object_selectors.h"
 
 #endif // HAL_OBJECT_H
