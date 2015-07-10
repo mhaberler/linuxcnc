@@ -3,11 +3,12 @@
 #include "config.h"
 #include "rtapi.h"
 #include "hal.h"
-#include "hal_object.h"
 #include "hal_priv.h"
+#include "hal_object.h"
+#include "hal_list.h"
 //#include "hal_internal.h"
 
-int hh_set_namefv(halobj_t *o, const char *fmt, va_list ap)
+int hh_set_namefv(halhdr_t *o, const char *fmt, va_list ap)
 {
     int sz = rtapi_vsnprintf(o->_name, sizeof(o->_name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
@@ -18,17 +19,18 @@ int hh_set_namefv(halobj_t *o, const char *fmt, va_list ap)
     return 0;
 }
 
-int  hh_init_hdrfv(halobj_t *o,
+int  hh_init_hdrfv(halhdr_t *o,
 		   const int owner_id,
 		   const char *fmt, va_list ap)
 {
+    dlist_init_entry(&o->links);
     hh_set_id(o, rtapi_next_handle());
     hh_set_owner_id(o, owner_id);
     hh_set_valid(o);
     return hh_set_namefv(o, fmt, ap);
 }
 
-int  hh_init_hdrf(halobj_t *o,
+int  hh_init_hdrf(halhdr_t *o,
 		  const int owner_id,
 		  const char *fmt, ...)
 {
@@ -40,7 +42,7 @@ int  hh_init_hdrf(halobj_t *o,
     return ret;
 }
 
-int hh_clear_hdr(halobj_t *o)
+int hh_clear_hdr(halhdr_t *o)
 {
     int ret = hh_is_valid(o);
     hh_set_id(o, 0);
