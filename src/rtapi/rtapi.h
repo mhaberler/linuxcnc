@@ -205,6 +205,19 @@ typedef size_t  (*rtapi_heap_status_t)(struct rtapi_heap *h, struct rtapi_heap_s
 #define rtapi_heap_status(h, hs) \
     rtapi_switch->rtapi_heap_status(h, hs)
 
+typedef void * (*rtapi_heap_setloghdlr_t)(struct rtapi_heap *h, void *hdlr);
+#define rtapi_heap_setloghdlr(h, hdlr) \
+        rtapi_switch->rtapi_heap_setloghdlr(h, hdlr)
+
+typedef int (*rtapi_heap_setflags_t)(struct rtapi_heap *h, int flags);
+#define rtapi_heap_setflags(h, flags) \
+        rtapi_switch->rtapi_heap_setflags(h, flags)
+
+typedef size_t (*rtapi_heap_print_freelist_t)(struct rtapi_heap *h);
+#define rtapi_heap_print_freelist(h) \
+    rtapi_switch->rtapi_heap_print_freelist(h)
+
+
 
 /***********************************************************************
 *                      MESSAGING FUNCTIONS                             *
@@ -988,6 +1001,9 @@ typedef struct {
     rtapi_heap_init_t    rtapi_heap_init;
     rtapi_heap_addmem_t  rtapi_heap_addmem;
     rtapi_heap_status_t  rtapi_heap_status;
+    rtapi_heap_setloghdlr_t rtapi_heap_setloghdlr;
+    rtapi_heap_setflags_t rtapi_heap_setflags;
+    rtapi_heap_print_freelist_t rtapi_heap_print_freelist;
 } rtapi_switch_t;
 
 // using code is responsible to define this:
