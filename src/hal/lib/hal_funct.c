@@ -267,9 +267,9 @@ int hal_add_funct_to_thread(const char *funct_name,
 
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
-	if (funct == 0) {
+	if (funct == NULL) {
 	    funct = halpr_find_funct_by_name((const char*)buff);
-	    if (funct == 0) {
+	    if (funct == NULL) {
 			HALERR("function '%s' not found", funct_name);
 			return -EINVAL;
 		}
@@ -374,9 +374,9 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
-	if (funct == 0) {
+	if (funct == NULL) {
 	    funct = halpr_find_funct_by_name((const char*)buff);
-	    if (funct == 0) {
+	    if (funct == NULL) {
 			HALERR("function '%s' not found", funct_name);
 			return -EINVAL;
 		}
