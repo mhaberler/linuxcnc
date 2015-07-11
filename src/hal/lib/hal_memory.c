@@ -18,7 +18,7 @@ void *hal_malloc(long int size)
     /* get the mutex */
     rtapi_mutex_get(&(hal_data->mutex));
     /* allocate memory */
-    retval = shmalloc_up(size);
+    retval = shmalloc_rt(size);
     /* release the mutex */
     rtapi_mutex_give(&(hal_data->mutex));
     /* check return value */
@@ -30,7 +30,7 @@ void *hal_malloc(long int size)
 
 // HAL library internal use only
 
-void *shmalloc_up(long int size)
+void *shmalloc_desc(long int size)
 {
     long int tmp_bot;
     void *retval;
@@ -59,7 +59,7 @@ void *shmalloc_up(long int size)
     return retval;
 }
 
-void *shmalloc_dn(long int size)
+void *shmalloc_rt(long int size)
 {
     long int tmp_top;
     void *retval;

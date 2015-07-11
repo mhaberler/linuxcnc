@@ -21,7 +21,7 @@ hal_oldname_t *halpr_alloc_oldname_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_oldname_t));
+	p = shmalloc_desc(sizeof(hal_oldname_t));
     }
     if (p) {
 	/* make sure it's empty */

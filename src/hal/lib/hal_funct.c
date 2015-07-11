@@ -432,7 +432,7 @@ static hal_funct_entry_t *alloc_funct_entry_struct(void)
 	p = (hal_funct_entry_t *) l;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_funct_entry_t));
+	p = shmalloc_rt(sizeof(hal_funct_entry_t));
 	l = (hal_list_t *) p;
 	dlist_init_entry(l);
     }
@@ -526,7 +526,7 @@ hal_funct_t *alloc_funct_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_funct_t));
+	p = shmalloc_desc(sizeof(hal_funct_t));
     }
     if (p) {
 	/* make sure it's empty */

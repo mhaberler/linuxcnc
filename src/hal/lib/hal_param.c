@@ -474,7 +474,7 @@ hal_param_t *alloc_param_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_param_t));
+	p = shmalloc_desc(sizeof(hal_param_t));
     }
     if (p) {
 	/* make sure it's empty */

@@ -463,7 +463,7 @@ hal_comp_t *halpr_alloc_comp_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_comp_t));
+	p = shmalloc_desc(sizeof(hal_comp_t));
     }
     if (p) {
 	/* make sure it's empty */

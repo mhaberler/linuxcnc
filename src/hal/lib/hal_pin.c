@@ -467,7 +467,7 @@ static hal_pin_t *alloc_pin_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_pin_t));
+	p = shmalloc_desc(sizeof(hal_pin_t));
     }
     if (p) {
 	/* make sure it's empty */
