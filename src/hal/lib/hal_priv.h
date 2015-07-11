@@ -232,6 +232,11 @@ typedef struct {
     int inst_free_ptr;          // list of freed instance descriptors
 
     double epsilon[MAX_EPSILON];
+
+    // HAL heap for shmalloc_desc()
+    struct rtapi_heap heap;
+    unsigned char arena[0] __attribute__((aligned(16)));
+    // heap grows from here
 } hal_data_t;
 
 /* This pointer is set by hal_init() to point to the  master data structure.
