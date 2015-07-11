@@ -69,7 +69,7 @@ int hal_ring_new(const char *name, int size, int sp_size, int mode)
 	rbdesc->total_size = ring_memsize( rbdesc->flags, size, sp_size);
 
 	if (rbdesc->flags & ALLOC_HALMEM) {
-	    void *ringmem = shmalloc_up(rbdesc->total_size);
+	    void *ringmem = shmalloc_rt(rbdesc->total_size);
 	    if (ringmem == NULL)
 		NOMEM("ring '%s' size %d - insufficient HAL memory for ring",
 		      name,rbdesc->total_size);
@@ -392,7 +392,7 @@ static hal_ring_t *alloc_ring_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_ring_t));
+	p = shmalloc_desc(sizeof(hal_ring_t));
     }
     return p;
 }

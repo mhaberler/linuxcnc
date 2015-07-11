@@ -16,7 +16,6 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
     CHECK_STR(name);
 
     {
-
 	WITH_HAL_MUTEX();
 
 	hal_inst_t *inst;
@@ -36,7 +35,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	}
 
 	if (size > 0) {
-	    m = shmalloc_up(size);
+	    m = shmalloc_desc(size);
 	    if (m == NULL)
 		NOMEM(" instance %s: cant allocate %d bytes", name, size);
 	}
@@ -281,7 +280,7 @@ static hal_inst_t *alloc_inst_struct(void)
 	hi->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	hi = shmalloc_dn(sizeof(hal_inst_t));
+	hi = shmalloc_desc(sizeof(hal_inst_t));
     }
     if (hi) {
 	/* make sure it's empty */

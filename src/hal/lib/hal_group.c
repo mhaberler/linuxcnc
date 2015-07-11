@@ -777,7 +777,7 @@ static hal_group_t *alloc_group_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_group_t));
+	p = shmalloc_desc(sizeof(hal_group_t));
     }
     if (p) {
 	/* make sure it's empty */
@@ -805,7 +805,7 @@ static hal_member_t *alloc_member_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_member_t));
+	p = shmalloc_desc(sizeof(hal_member_t));
     }
     if (p) {
 	/* make sure it's empty */

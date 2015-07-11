@@ -40,16 +40,16 @@ int hal_signal_new(const char *name, hal_type_t type)
 	/* allocate memory for the signal value */
 	switch (type) {
 	case HAL_BIT:
-	    data_addr = shmalloc_up(sizeof(hal_bit_t));
+	    data_addr = shmalloc_rt(sizeof(hal_bit_t));
 	    break;
 	case HAL_S32:
-	    data_addr = shmalloc_up(sizeof(hal_u32_t));
+	    data_addr = shmalloc_rt(sizeof(hal_u32_t));
 	    break;
 	case HAL_U32:
-	    data_addr = shmalloc_up(sizeof(hal_s32_t));
+	    data_addr = shmalloc_rt(sizeof(hal_s32_t));
 	    break;
 	case HAL_FLOAT:
-	    data_addr = shmalloc_up(sizeof(hal_float_t));
+	    data_addr = shmalloc_rt(sizeof(hal_float_t));
 	    break;
 	default:
 	    HALERR("signal '%s': illegal signal type %d'", name, type);
@@ -343,7 +343,7 @@ static hal_sig_t *alloc_sig_struct(void)
 	p->next_ptr = 0;
     } else {
 	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_dn(sizeof(hal_sig_t));
+	p = shmalloc_desc(sizeof(hal_sig_t));
     }
     if (p) {
 	/* make sure it's empty */
