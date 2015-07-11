@@ -582,8 +582,10 @@ extern hal_comp_t *halpr_find_comp_by_id(int id);
 extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
 
 // vtable private API:
-hal_vtable_t *halpr_find_vtable_by_name(const char *name, int version);
-hal_vtable_t *halpr_find_vtable_by_id(int vtable_id);
+hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
+				       const char *name,
+				       int version);
+hal_vtable_t *halg_find_vtable_by_id(const int use_hal_mutex, const int vtable_id);
 
 // private instance API:
 
