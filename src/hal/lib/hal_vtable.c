@@ -208,14 +208,13 @@ hal_vtable_t *halg_find_vtable_by_id(const int use_hal_mutex,
 
 static hal_vtable_t *alloc_vtable_struct(void)
 {
-    HALDBG("FIXME");
     hal_vtable_t *p = shmalloc_desc(sizeof(hal_vtable_t));
     return p;
 }
 
 static void free_vtable_struct(hal_vtable_t * p)
 {
-    HALDBG("FIXME");
+    shmfree_desc(p);
 }
 
 
