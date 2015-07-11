@@ -49,7 +49,7 @@ static inline void hh_clear_name(halhdr_t *o)    { o->_name[0] = '\0'; }
 
 static inline hal_bool hh_is_valid(halhdr_t *o)           { return (o->_valid != 0); }
 static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
-static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 1; }
+static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 
 // initialize a HAL object header with unique ID and name,
 // optionally an owner id for dependent objects (e.g. hal_pin_t, hal_inst_t)
