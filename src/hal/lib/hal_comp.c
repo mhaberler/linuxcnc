@@ -709,6 +709,15 @@ int init_hal_data(void)
 	hal_data->epsilon[i] = 0.0;
     hal_data->epsilon[0] = DEFAULT_EPSILON;
 
+    // FIXME for now, grab half of hal_data
+    rtapi_heap_init(&hal_data->heap);
+    rtapi_heap_addmem(&hal_data->heap, hal_data->arena,
+		      global_data->hal_size/2);
+    rtapi_heap_setflags(&hal_data->heap, -1);
+    rtapi_heap_setloghdlr(&hal_data->heap, rtapi_get_msg_handler());
+    hal_data->shmem_bot = SHMOFF(&hal_data->arena[global_data->hal_size/2]);
+
+
     /* done, release mutex */
     rtapi_mutex_give(&(hal_data->mutex));
     return 0;

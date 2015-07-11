@@ -30,10 +30,19 @@ void *hal_malloc(long int size)
 
 // HAL library internal use only
 
+void shmfree_desc(void *p)
+{
+    rtapi_free(&hal_data->heap, p);
+}
+
 void *shmalloc_desc(long int size)
 {
-    long int tmp_bot;
     void *retval;
+    retval = rtapi_calloc(&hal_data->heap, 1, size);
+    return retval;
+
+#if 0
+    long int tmp_bot;
 
     /* deal with alignment requirements */
     tmp_bot = hal_data->shmem_bot;
@@ -56,7 +65,7 @@ void *shmalloc_desc(long int size)
     retval = SHMPTR(tmp_bot);
     hal_data->shmem_bot = tmp_bot + size;
     hal_data->shmem_avail = hal_data->shmem_top - hal_data->shmem_bot;
-    return retval;
+#endif
 }
 
 void *shmalloc_rt(long int size)
