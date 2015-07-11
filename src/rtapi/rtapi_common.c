@@ -150,6 +150,9 @@ static rtapi_switch_t rtapi_switch_struct = {
     .rtapi_heap_init = &_rtapi_heap_init,
     .rtapi_heap_addmem = &_rtapi_heap_addmem,
     .rtapi_heap_status = &_rtapi_heap_status,
+    .rtapi_heap_setloghdlr = &_rtapi_heap_setloghdlr,
+    .rtapi_heap_setflags = &_rtapi_heap_setflags,
+    .rtapi_heap_print_freelist = &_rtapi_heap_print_freelist,
 };
 
 // any API, any style:
