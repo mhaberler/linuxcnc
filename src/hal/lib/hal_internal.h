@@ -41,7 +41,10 @@ RTAPI_BEGIN_DECLS
 
 // must resolve intra-hallib, so move here from hal_lib.c:
 void *shmalloc_rt(long int size); // was up
+
 void *shmalloc_desc(long int size); // was dn
+void  shmfree_desc(void *p);
+
 void free_funct_entry_struct(hal_funct_entry_t * funct_entry);
 void free_funct_struct(hal_funct_t * funct);
 void free_inst_struct(hal_inst_t *inst);
