@@ -144,14 +144,17 @@ static rtapi_switch_t dummy_ulapi_switch_struct = {
     .rtapi_set_exception = &_ulapi_dummy,
     .rtapi_task_update_stats = &_ulapi_dummy,
 
-    .rtapi_malloc = &_ulapi_dummy,
-    .rtapi_calloc = &_ulapi_dummy,
-    .rtapi_realloc = &_ulapi_dummy,
-    .rtapi_free = &_ulapi_dummy,
-    .rtapi_allocsize = &_ulapi_dummy,
-    .rtapi_heap_init = &_ulapi_dummy,
-    .rtapi_heap_addmem = &_ulapi_dummy,
-    .rtapi_heap_status = &_ulapi_dummy,
+    .rtapi_malloc = (rtapi_malloc_t)&_ulapi_dummy,
+    .rtapi_calloc = (rtapi_calloc_t)&_ulapi_dummy,
+    .rtapi_realloc = (rtapi_realloc_t)&_ulapi_dummy,
+    .rtapi_free = (rtapi_free_t)&_ulapi_dummy,
+    .rtapi_allocsize = (rtapi_allocsize_t)&_ulapi_dummy,
+    .rtapi_heap_init = (rtapi_heap_init_t)&_ulapi_dummy,
+    .rtapi_heap_addmem = (rtapi_heap_addmem_t)&_ulapi_dummy,
+    .rtapi_heap_status = (rtapi_heap_status_t)&_ulapi_dummy,
+    .rtapi_heap_setloghdlr = (rtapi_heap_setloghdlr_t)&_ulapi_dummy,
+    .rtapi_heap_setflags = (rtapi_heap_setflags_t)&_ulapi_dummy,
+    .rtapi_heap_print_freelist = (rtapi_heap_print_freelist_t)&_ulapi_dummy,
 };
 
 
