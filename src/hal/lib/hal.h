@@ -1075,17 +1075,50 @@ extern int hal_start_threads(void);
 */
 extern int hal_stop_threads(void);
 
+
+// generic vtable methods (locked/unlocked)
+int halg_export_vtable(const int use_hal_mutex,
+		       const char *name,
+		       int version,
+		       void *vtref,
+		       int comp_id);
+int halg_remove_vtable(const int use_hal_mutex, const int vtable_id);
+int halg_reference_vtable(const int use_hal_mutex,
+			 const char *name,
+			 int version,
+			  void **vtableref);
+int halg_unreference_vtable(const int use_hal_mutex, int vtable_id);
+int halg_remove_vtable(const int use_hal_mutex, const int vtable_id);
+
 // returns vtable ID (handle, >0) or error code (< 0)
 // mark as owned by comp comp_id (optional, zero if not owned)
-int hal_export_vtable(const char *name, int version, void *vtable, int comp_id);
-int hal_remove_vtable(int vtable_id);
+static inline int hal_export_vtable(const char *name,
+				    int version,
+				    void *vtable,
+				    int comp_id)
+{
+    return  halg_export_vtable(1, name, version, vtable, comp_id);
+}
+
+static inline int hal_remove_vtable(const int vtable_id)
+{
+    return  halg_remove_vtable(1, vtable_id);
+}
 
 // returns vtable_id (handle) or error code
 // increases refcount
-int hal_reference_vtable(const char *name, int version, void **vtable);
+static inline int hal_reference_vtable(const char *name, int version, void **vtable)
+{
+    return  halg_reference_vtable(1, name, version, vtable);
+}
 
 // drops refcount
-int hal_unreference_vtable(int vtable_id);
+static inline int hal_unreference_vtable(int vtable_id)
+{
+    return  halg_unreference_vtable(1, vtable_id);
+}
+
+
 
 // call a usrfunct.
 // if the return value < 0, this signifies a HAL library error code.

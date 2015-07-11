@@ -17,7 +17,11 @@ static void free_vtable_struct(hal_vtable_t *c);
 /***********************************************************************
 *                     Public HAL vtable functions                       *
 ************************************************************************/
-int hal_export_vtable(const char *name, int version, void *vtref, int comp_id)
+int halg_export_vtable(const int use_hal_mutex,
+		       const char *name,
+		       int version,
+		       void *vtref,
+		       int comp_id)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(name, HAL_NAME_LEN);
@@ -28,11 +32,11 @@ int hal_export_vtable(const char *name, int version, void *vtref, int comp_id)
 	   name, version, comp_id, vtref);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halpr_find_vtable_by_name(name, version)) != 0) {
+	if ((vt = halg_find_vtable_by_name(0, name, version)) != 0) {
 	    HALERR("vtable '%s' already exists", name);
 	    return -EEXIST;
 	}
@@ -61,17 +65,17 @@ int hal_export_vtable(const char *name, int version, void *vtref, int comp_id)
 }
 
 
-int hal_remove_vtable(int vtable_id)
+int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 {
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_LOAD);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halpr_find_vtable_by_id(vtable_id)) == NULL) {
+	if ((vt = halg_find_vtable_by_id(0, vtable_id)) == NULL) {
 	    HALERR("vtable %d not found", vtable_id);
 	    return -ENOENT;
 	}
@@ -92,7 +96,10 @@ int hal_remove_vtable(int vtable_id)
 
 // returns vtable_id (handle) or error code
 // increases refcount
-int hal_reference_vtable(const char *name, int version, void **vtableref)
+int halg_reference_vtable(const int use_hal_mutex,
+			 const char *name,
+			 int version,
+			 void **vtableref)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(name, HAL_NAME_LEN);
@@ -100,11 +107,11 @@ int hal_reference_vtable(const char *name, int version, void **vtableref)
     CHECK_LOCK(HAL_LOCK_LOAD);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halpr_find_vtable_by_name(name, version)) == NULL) {
+	if ((vt = halg_find_vtable_by_name(0, name, version)) == NULL) {
 	    HALERR("vtable '%s' version %d not found", name, version);
 	    return -ENOENT;
 	}
@@ -133,15 +140,15 @@ int hal_reference_vtable(const char *name, int version, void **vtableref)
 }
 
 // drops refcount
-int hal_unreference_vtable(int vtable_id)
+int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
 {
     CHECK_HALDATA();
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halpr_find_vtable_by_id(vtable_id)) == NULL) {
+	if ((vt = halg_find_vtable_by_id(0, vtable_id)) == NULL) {
 	    HALERR("vtable %d not found", vtable_id);
 	    return -ENOENT;
 	}
@@ -171,7 +178,9 @@ int hal_unreference_vtable(int vtable_id)
 
 // private HAL API
 
-hal_vtable_t *halpr_find_vtable_by_name(const char *name, int version)
+hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
+				       const char *name,
+				       int version)
 {
     foreach_args_t args =  {
 	.type = HAL_VTABLE,
@@ -179,19 +188,20 @@ hal_vtable_t *halpr_find_vtable_by_name(const char *name, int version)
 	.user_arg1 = version,
 	.user_ptr1 = NULL
     };
-    if (halg_foreach(false, &args, yield_versioned_vtable_object) == 1)
+    if (halg_foreach(use_hal_mutex, &args, yield_versioned_vtable_object) == 1)
 	return args.user_ptr1;
     return NULL;
 }
 
-hal_vtable_t *halpr_find_vtable_by_id(int vtable_id)
+hal_vtable_t *halg_find_vtable_by_id(const int use_hal_mutex,
+				     int vtable_id)
 {
     foreach_args_t args =  {
 	.type = HAL_VTABLE,
 	.id = vtable_id,
 	.user_ptr1 = NULL
     };
-    if (halg_foreach(false, &args, yield_match) == 1)
+    if (halg_foreach(use_hal_mutex, &args, yield_match) == 1)
 	return args.user_ptr1;
     return NULL;
 }
@@ -211,10 +221,10 @@ static void free_vtable_struct(hal_vtable_t * p)
 
 #ifdef RTAPI
 
-EXPORT_SYMBOL(hal_export_vtable);
-EXPORT_SYMBOL(hal_remove_vtable);
-EXPORT_SYMBOL(hal_reference_vtable);
-EXPORT_SYMBOL(hal_unreference_vtable);
-EXPORT_SYMBOL(halpr_find_vtable_by_name);
-EXPORT_SYMBOL(halpr_find_vtable_by_id);
+EXPORT_SYMBOL(halg_export_vtable);
+EXPORT_SYMBOL(halg_remove_vtable);
+EXPORT_SYMBOL(halg_reference_vtable);
+EXPORT_SYMBOL(halg_unreference_vtable);
+EXPORT_SYMBOL(halg_find_vtable_by_name);
+EXPORT_SYMBOL(halg_find_vtable_by_id);
 #endif
