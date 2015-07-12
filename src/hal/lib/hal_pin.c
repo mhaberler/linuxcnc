@@ -144,7 +144,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 
 	// this will be 0 for legacy comps which use comp_id
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
-	int inst_id = (inst ? inst->inst_id : 0);
+	int inst_id = (inst ? hh_get_id(&inst->hdr) : 0);
 
 	// instances may create pins post hal_ready
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {

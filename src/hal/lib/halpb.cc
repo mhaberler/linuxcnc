@@ -84,14 +84,14 @@ halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct)
 {
     int id;
-    hal_comp_t *owner = halpr_find_owning_comp(funct->owner_id);
+    hal_comp_t *owner = halpr_find_owning_comp(hh_get_owner_id(&funct->hdr));
     if (owner == NULL)
 	id = -1;
     else
 	id = owner->comp_id;
     pbfunct->set_owner_id(id);
-    pbfunct->set_name(funct->name);
-    pbfunct->set_handle(funct->handle);
+    pbfunct->set_name(hh_get_name(&funct->hdr));
+    pbfunct->set_handle(hh_get_id(&funct->hdr));
     pbfunct->set_users(funct->users);
     pbfunct->set_runtime(*(funct->runtime));
     pbfunct->set_maxtime(funct->maxtime);
@@ -116,7 +116,7 @@ int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread)
     while (list_entry != list_root) {
 	hal_funct_entry_t *fentry = (hal_funct_entry_t *) list_entry;
 	hal_funct_t *funct = (hal_funct_t *) SHMPTR(fentry->funct_ptr);
-	pbthread->add_function(funct->name);
+	pbthread->add_function(hh_get_name(&funct->hdr));
 	list_entry = (hal_list_t *)dlist_next(list_entry);
     }
     return 0;

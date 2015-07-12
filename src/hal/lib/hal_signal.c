@@ -8,7 +8,7 @@
 #include "hal_internal.h"
 
 static hal_sig_t *alloc_sig_struct(void);
-static void free_sig_struct(hal_sig_t * sig);
+void free_sig_struct(hal_sig_t * sig);
 
 /***********************************************************************
 *                      "SIGNAL" FUNCTIONS                              *
@@ -358,7 +358,7 @@ static hal_sig_t *alloc_sig_struct(void)
     return p;
 }
 
-static void free_sig_struct(hal_sig_t * sig)
+void free_sig_struct(hal_sig_t * sig)
 {
     hal_pin_t *pin;
 

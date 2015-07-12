@@ -12,7 +12,7 @@
 #endif
 
 hal_comp_t *halpr_alloc_comp_struct(void);
-static void free_comp_struct(hal_comp_t * comp);
+void free_comp_struct(hal_comp_t * comp);
 
 #ifdef RTAPI
 static int init_hal_data(void);
@@ -440,11 +440,13 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
     }
 
     // found the instance. Retrieve its owning comp:
-    comp =  halpr_find_comp_by_id(inst->comp_id);
+    comp =  halpr_find_comp_by_id(hh_get_owner_id(&inst->hdr));
     if (comp == NULL) {
 	// really bad. an instance which has no owning comp?
 	HALERR("BUG: instance %s/%d's comp_id %d refers to a non-existant comp",
-	       inst->name, inst->inst_id, inst->comp_id);
+	       hh_get_name(&inst->hdr),
+	       hh_get_id(&inst->hdr),
+	       hh_get_owner_id(&inst->hdr));
     }
     return comp;
 }
@@ -477,12 +479,9 @@ hal_comp_t *halpr_alloc_comp_struct(void)
     return p;
 }
 
-static void free_comp_struct(hal_comp_t * comp)
+void free_comp_struct(hal_comp_t * comp)
 {
     int *prev, next;
-#ifdef RTAPI
-    hal_funct_t *funct;
-#endif /* RTAPI */
     hal_pin_t *pin;
     hal_param_t *param;
 
@@ -492,6 +491,13 @@ static void free_comp_struct(hal_comp_t * comp)
     // first unlink and destroy all functs, so an RT thread
     // cant trample on the comp while it's being destroyed
 
+    foreach_args_t args =  {
+	// search for functs owned by this comp
+	.type = HAL_FUNCT,
+	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
+    };
+    halg_foreach(0, &args, free_object);
+#if 0
     /* search the function list for this component's functs */
     prev = &(hal_data->funct_list_ptr);
     next = *prev;
@@ -509,20 +515,30 @@ static void free_comp_struct(hal_comp_t * comp)
 	}
 	next = *prev;
     }
+#endif
+
     // here, technically all the comp's functs are
     // delf'd and not visible anymore
 
     // now that the funct is gone,
     // exit all the comp's instances
+    foreach_args_t iargs =  {
+	// search for insts owned by this comp
+	.type = HAL_INST,
+	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
+    };
+    halg_foreach(0, &iargs, free_object);
+#if 0
     next = hal_data->inst_list_ptr;
     while (next != 0) {
 	hal_inst_t *inst = SHMPTR(next);
 	next = inst->next_ptr;
-	if (inst->comp_id == comp->comp_id) {
+	if (hh_get_owner_id(&inst->hdr) == comp->comp_id) {
 	    // this instance is owned by this comp
 	    free_inst_struct(inst);
 	}
     }
+#endif
     // here all insts, their pins, params and functs are gone.
 
 #endif /* RTAPI */
@@ -666,9 +682,7 @@ int init_hal_data(void)
     hal_data->pin_list_ptr = 0;
     hal_data->sig_list_ptr = 0;
     hal_data->param_list_ptr = 0;
-    hal_data->funct_list_ptr = 0;
     hal_data->thread_list_ptr = 0;
-    hal_data->vtable_list_ptr = 0;
     hal_data->base_period = 0;
     hal_data->threads_running = 0;
     hal_data->oldname_free_ptr = 0;
@@ -676,8 +690,6 @@ int init_hal_data(void)
     hal_data->pin_free_ptr = 0;
     hal_data->sig_free_ptr = 0;
     hal_data->param_free_ptr = 0;
-    hal_data->funct_free_ptr = 0;
-    hal_data->vtable_free_ptr = 0;
 
     dlist_init_entry(&(hal_data->funct_entry_free));
 
@@ -687,12 +699,10 @@ int init_hal_data(void)
     hal_data->group_list_ptr = 0;
     hal_data->member_list_ptr = 0;
     hal_data->ring_list_ptr = 0;
-    hal_data->inst_list_ptr = 0;
 
     hal_data->group_free_ptr = 0;
     hal_data->member_free_ptr = 0;
     hal_data->ring_free_ptr = 0;
-    hal_data->inst_free_ptr = 0;
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
     // silly 1-based shm segment id allocation FIXED
