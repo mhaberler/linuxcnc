@@ -14,6 +14,59 @@ int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin)
     return 0;
 }
 
+int halpr_describe_param(hal_param_t *param, pb::Param *pbparam)
+{
+    pbparam->set_name(hh_get_name(&param->hdr));
+    pbparam->set_handle(hh_get_id(&param->hdr));
+    pbparam->set_type((pb::ValueType) param->type);
+    pbparam->set_dir((pb::HalParamDirection) param->dir);
+    assert(hal_param2pb(param, pbparam) == 0);
+    return 0;
+}
+
+int pbadd_owned(hal_object_ptr o, foreach_args_t *args)
+{
+    int type = hh_get_type(o.hdr);
+    switch (type) {
+    case HAL_PARAM:
+	break;
+    case HAL_PIN:
+	break;
+
+    case HAL_FUNCT:
+	// eventually add functs!
+    default:
+	return 0;
+    }
+
+    int owner_id = hh_get_owner_id(o.hdr);
+    hal_comp_t *owner = halpr_find_owning_comp(owner_id);
+
+    if (owner == NULL) // a bug, really
+	return 0;
+
+    if (args->user_arg1 != owner->comp_id)
+	return 0;
+
+    pb::Component *pbcomp = (pb::Component *)args->user_ptr1;
+    switch (type) {
+    case HAL_PARAM:
+	{
+	    pb::Param *pbparam = pbcomp->add_param();
+	    halpr_describe_param(o.param, pbparam);
+	}
+	break;
+    case HAL_PIN:
+	{
+	    pb::Pin *pbpin = pbcomp->add_pin();
+	    halpr_describe_pin(o.pin, pbpin);
+	}
+	break;
+    default: ;
+    }
+    return 0;
+}
+
 // transfrom a HAL component into a Component protobuf.
 // does not aquire the HAL mutex.
 int
@@ -42,20 +95,24 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
 	}
 	next = pin->next_ptr;
     }
+
+    foreach_args_t args;
+    args.user_arg1 = comp->comp_id;
+    args.user_ptr1 = (void *)pbcomp;
+    halg_foreach(0, &args, pbadd_owned);
+
+#if 0
     next = hal_data->param_list_ptr;
     while (next != 0) {
 	hal_param_t *param = (hal_param_t *)SHMPTR(next);
 	hal_comp_t *owner = halpr_find_owning_comp(param->owner_id);
 	if ((owner != NULL) && (owner->comp_id == comp->comp_id)) {
 	    pb::Param *pbparam = pbcomp->add_param();
-	    pbparam->set_name(param->name);
-	    pbparam->set_type((pb::ValueType) param->type);
-	    pbparam->set_dir((pb::HalParamDirection) param->dir);
-	    pbparam->set_handle(param->handle);
-	    assert(hal_param2pb(param, pbparam) == 0);
+	    halpr_describe_param(param, pbparam);
 	}
 	next = param->next_ptr;
     }
+#endif
     return 0;
 }
 

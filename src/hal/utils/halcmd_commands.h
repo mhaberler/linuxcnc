@@ -46,7 +46,7 @@
 #define MAX_ARGS 20 // max number of args to automatic instantiation by names
 
 extern int do_addf_cmd(char *funct, char *thread, char *tokens[]);
-extern int do_alias_cmd(char *pinparam, char *name, char *alias);
+//extern int do_alias_cmd(char *pinparam, char *name, char *alias);
 extern int do_unalias_cmd(char *pinparam, char *name);
 extern int do_delf_cmd(char *funct, char *thread);
 extern int do_echo_cmd();

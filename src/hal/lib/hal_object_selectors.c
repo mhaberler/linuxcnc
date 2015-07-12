@@ -64,7 +64,8 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	break;
 
     case HAL_PARAM:
-	free_param_struct(o.param);
+	//free_param_struct(o.param);
+	free_halobject((hal_object_ptr)o);
 	break;
 
     case HAL_INST:
@@ -121,4 +122,13 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	return -1;
     }
     return 0; // continue visiting
+}
+
+int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args)
+{
+    int owner_id = hh_get_owner_id(o.hdr);
+    hal_comp_t *owner = halpr_find_owning_comp(args->user_arg1);
+    if ((owner != NULL) && (owner->comp_id == owner_id))
+	args->user_arg2++;
+    return 0;
 }

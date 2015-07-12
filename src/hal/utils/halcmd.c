@@ -186,7 +186,7 @@ void halcmd_shutdown(void) {
 
 struct halcmd_command halcmd_commands[] = {
     {"addf",    FUNCT(do_addf_cmd),    A_TWO | A_PLUS },
-    {"alias",   FUNCT(do_alias_cmd),   A_THREE },
+    //    {"alias",   FUNCT(do_alias_cmd),   A_THREE },
     {"delf",    FUNCT(do_delf_cmd),    A_TWO | A_OPTIONAL },
     {"delsig",  FUNCT(do_delsig_cmd),  A_ONE },
     {"echo",    FUNCT(do_echo_cmd),    A_ZERO },
@@ -219,7 +219,7 @@ struct halcmd_command halcmd_commands[] = {
     {"start",   FUNCT(do_start_cmd),   A_ZERO},
     {"status",  FUNCT(do_status_cmd),  A_ONE | A_OPTIONAL },
     {"stop",    FUNCT(do_stop_cmd),    A_ZERO},
-    {"unalias", FUNCT(do_unalias_cmd), A_TWO },
+    //    {"unalias", FUNCT(do_unalias_cmd), A_TWO },
     {"unecho",  FUNCT(do_unecho_cmd),  A_ZERO },
     {"unlinkp", FUNCT(do_unlinkp_cmd), A_ONE },
     {"unload",  FUNCT(do_unload_cmd),  A_ONE },
