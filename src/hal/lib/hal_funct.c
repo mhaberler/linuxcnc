@@ -441,76 +441,7 @@ hal_funct_t *halg_find_funct_by_name(const int use_hal_mutex,
     return NULL;
 }
 
-#warning remove this
-#if 0
-// find a funct by owner id, which may refer to a instance or a comp
-hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id)
-{
-    foreach_args_t args =  {
-	.type = HAL_VTABLE,
-	.owner_id = owner_id,
-    };
-    if (halg_foreach(use_hal_mutex, &args, yield_match))
-	return args.user_ptr1;
-    return NULL;
-#if 0
-    int next;
-    hal_funct_t *funct;
-
-    /* is this the first call? */
-    if (start == 0) {
-	/* yes, start at beginning of function list */
-	next = hal_data->funct_list_ptr;
-    } else {
-	/* no, start at next function */
-	next = start->next_ptr;
-    }
-    while (next != 0) {
-	funct = SHMPTR(next);
-	if (funct->owner_id == owner_id) {
-	    /* found a match */
-	    return funct;
-	}
-	/* didn't find it yet, look at next one */
-	next = funct->next_ptr;
-    }
-    /* if loop terminates, we reached end of list without finding a match */
-    return 0;
-#endif
-}
-#endif
-
 #ifdef RTAPI
-#if 0
-hal_funct_t *alloc_funct_struct(void)
-{
-    hal_funct_t *p;
-
-    /* check the free list */
-    if (hal_data->funct_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->funct_free_ptr);
-	/* unlink it from the free list */
-	hal_data->funct_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_desc(sizeof(hal_funct_t));
-    }
-    if (p) {
-	/* make sure it's empty */
-	p->next_ptr = 0;
-	p->uses_fp = 0;
-	p->owner_id = 0;
-	p->reentrant = 0;
-	p->users = 0;
-	p->arg = 0;
-	p->funct.l = 0;
-	p->name[0] = '\0';
-    }
-    return p;
-}
-#endif
 
 void free_funct_struct(hal_funct_t * funct)
 {
