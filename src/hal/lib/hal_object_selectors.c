@@ -94,9 +94,7 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 
 
 #ifdef LATER
-    case HAL_ALIAS:
-	free_oldname_struct(o.oldname);
-	break;
+
 
     case HAL_RING:
 	free_ring_struct(o.ring);
