@@ -12,9 +12,20 @@
 *                                                                      *
 ************************************************************************/
 
-// return number of pins in a component
+// return number of pins in a component, legacy or all-insts
 int halpr_pin_count(const char *name)
 {
+    hal_comp_t *comp = halpr_find_comp_by_name(name);
+    if (comp == 0)
+	return -ENOENT;
+
+    foreach_args_t args =  {
+	.type = HAL_PIN,
+	.owning_comp = comp->comp_id,
+    };
+    return halg_foreach(0, &args, NULL);
+
+#if 0
     hal_comp_t *comp;
     hal_comp_t *owner;
     hal_pin_t *pin;
@@ -27,15 +38,16 @@ int halpr_pin_count(const char *name)
     int next = hal_data->pin_list_ptr;
     while (next != 0) {
 	pin = (hal_pin_t *)SHMPTR(next);
-	owner = halpr_find_owning_comp(pin->owner_id);
+	owner = halpr_find_owning_comp(ho_owner_id(pin));
 	if (owner->comp_id == comp->comp_id)
 	    count++;
 	next = pin->next_ptr;
     }
     return count;
+#endif
 }
 
-// return number of params in a component
+// return number of params in a component, legacy or all-insts
 int
 halpr_param_count(const char *name)
 {
@@ -45,10 +57,9 @@ halpr_param_count(const char *name)
 
     foreach_args_t args =  {
 	.type = HAL_PARAM,
-	.user_arg1 = comp->comp_id,
+	.owning_comp = comp->comp_id,
     };
-    halg_foreach(0, &args, yield_count_owned_by_comp);
-    return args.user_arg2;
+    return halg_foreach(0, &args, NULL);
 
 #if 0
     hal_comp_t *owner;
