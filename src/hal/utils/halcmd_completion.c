@@ -199,6 +199,8 @@ static char *parameter_generator(const char *text, int state) {
     static int aliased;
     char *name;
 
+#warning FIXME
+#if 0
     if(!state) {
         next = hal_data->param_list_ptr;
         len = strlen(text);
@@ -234,6 +236,7 @@ static char *parameter_generator(const char *text, int state) {
         if ( strncmp(text, name, len) == 0 )
             return strdup(name);
     }
+#endif
     return NULL;
 }
 
@@ -295,7 +298,8 @@ static char *getp_generator(const char *text, int state) {
         next = hal_data->param_list_ptr;
         len = strlen(text);
     }
-
+#warning FIXME
+#if 0
     if(what == 0) {
         while(next) {
             hal_param_t *param = SHMPTR(next);
@@ -312,7 +316,7 @@ static char *getp_generator(const char *text, int state) {
         if ( strncmp(text, pin->name, len) == 0 )
             return strdup(pin->name);
     }
-
+#endif
     return NULL;
 }
 
@@ -320,6 +324,9 @@ static char *setp_generator(const char *text, int state) {
     static int len;
     static int next;
     static int what;
+#warning FIXME
+#if 0
+
     if(!state) {
         what = 0;
         next = hal_data->param_list_ptr;
@@ -343,7 +350,7 @@ static char *setp_generator(const char *text, int state) {
                  strncmp(text, pin->name, len) == 0 )
             return strdup(pin->name);
     }
-
+#endif
     return NULL;
 }
 
@@ -438,6 +445,8 @@ static char *parameter_alias_generator(const char *text, int state) {
     static int len;
     static int next;
 
+#warning FIXME
+#if 0
     if(!state) {
         next = hal_data->param_list_ptr;
         len = strlen(text);
@@ -450,6 +459,7 @@ static char *parameter_alias_generator(const char *text, int state) {
         if ( strncmp(text, param->name, len) == 0 )
             return strdup(param->name);
     }
+#endif
     return NULL;
 }
 

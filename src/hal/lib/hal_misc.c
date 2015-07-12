@@ -5,6 +5,7 @@
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
+#include "hal_object_selectors.h"
 
 /***********************************************************************
 *                     utility functions, mostly used by haltalk        *
@@ -38,13 +39,20 @@ int halpr_pin_count(const char *name)
 int
 halpr_param_count(const char *name)
 {
-    hal_comp_t *comp;
-    hal_comp_t *owner;
-    int count = 0;
-
-    comp = halpr_find_comp_by_name(name);
+    hal_comp_t *comp = halpr_find_comp_by_name(name);
     if (comp == 0)
 	return -ENOENT;
+
+    foreach_args_t args =  {
+	.type = HAL_PARAM,
+	.user_arg1 = comp->comp_id,
+    };
+    halg_foreach(0, &args, yield_count_owned_by_comp);
+    return args.user_arg2;
+
+#if 0
+    hal_comp_t *owner;
+    int count = 0;
 
     int next = hal_data->param_list_ptr;
     while (next != 0) {
@@ -55,6 +63,7 @@ halpr_param_count(const char *name)
 	next = param->next_ptr;
     }
     return count;
+#endif
 }
 
 // hal mutex scope-locked version of halpr_find_pin_by_name()
