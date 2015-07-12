@@ -293,13 +293,15 @@ static char *getp_generator(const char *text, int state) {
     static int len;
     static int next;
     static int what;
+
+#warning FIXME
+#if 0
     if(!state) {
         what = 0;
         next = hal_data->param_list_ptr;
         len = strlen(text);
     }
-#warning FIXME
-#if 0
+
     if(what == 0) {
         while(next) {
             hal_param_t *param = SHMPTR(next);
@@ -475,7 +477,7 @@ static char *pin_alias_generator(const char *text, int state) {
     while(next) {
         hal_pin_t *pin = SHMPTR(next);
         next = pin->next_ptr;
-        if (pin->oldname==0) continue;  // no alias here, move along
+	//        if (pin->oldname==0) continue;  // no alias here, move along
         if ( strncmp(text, pin->name, len) == 0 )
             return strdup(pin->name);
     }
@@ -498,16 +500,18 @@ static char *pin_generator(const char *text, int state) {
         hal_pin_t *pin = SHMPTR(next);
         switch (aliased) {
             case 0: // alias (if any) has not been output
+#if 0
                 if (pin->oldname != 0) {
                     // there's an alias, so use that and do not update the pin pointer
                     hal_oldname_t *oldname = SHMPTR(pin->oldname);
                     name = oldname->name;
                     aliased = 1;
                 } else {
+#endif
                     // no alias, so use the name and update the pin pointer
                     name = pin->name;
                     next = pin->next_ptr;
-                }
+   //          }
             break;
             case 1:  // there is an alias, and it has been processed already
                 name = pin->name;
