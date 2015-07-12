@@ -77,7 +77,7 @@ int halg_foreach(bool use_hal_mutex,
     dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
 
 	// cop out if the object list emptied by now
-	// (may happen through callbacks)
+	// (may happen through callbacks when deleting)
 	if (dlist_empty_careful(&hh->list))
 	    break;
 
@@ -93,7 +93,18 @@ int halg_foreach(bool use_hal_mutex,
 	if (args->owner_id && (args->owner_id != hh_get_owner_id(hh)))
 	    continue;
 
-	// 4. by name if non-NULL - prefix match OK for name strings
+	// 4. by owning comp (directly-legacy case, or indirectly -
+	// for pins, params and functs owned by an instance).
+	// see comments near the foreach_args definition in hal_object.h.
+	if (args->owning_comp) {
+	    hal_comp_t *oc = halpr_find_owning_comp(hh_get_owner_id(hh));
+	    if (oc == NULL)
+		continue;  // a bug, halpr_find_owning_comp will log already
+	    if (!(oc->comp_id == args->owning_comp))
+		continue;
+	}
+
+	// 5. by name if non-NULL - prefix match OK for name strings
 	if (args->name && strcmp(hh_get_name(hh), args->name))
 	    continue;
 

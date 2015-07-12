@@ -4,8 +4,8 @@ int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin)
 {
     pbpin->set_type((pb::ValueType) pin->type);
     pbpin->set_dir((pb::HalPinDirection) pin->dir);
-    pbpin->set_handle(pin->handle);
-    pbpin->set_name(pin->name);
+    pbpin->set_handle(ho_id(pin));
+    pbpin->set_name(ho_name(pin));
     pbpin->set_linked(pin->signal != 0);
     assert(hal_pin2pb(pin, pbpin) == 0);
     pbpin->set_flags(pin->flags);
@@ -16,8 +16,8 @@ int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin)
 
 int halpr_describe_param(hal_param_t *param, pb::Param *pbparam)
 {
-    pbparam->set_name(hh_get_name(&param->hdr));
-    pbparam->set_handle(hh_get_id(&param->hdr));
+    pbparam->set_name(ho_name(param));
+    pbparam->set_handle(ho_id(param));
     pbparam->set_type((pb::ValueType) param->type);
     pbparam->set_dir((pb::HalParamDirection) param->dir);
     assert(hal_param2pb(param, pbparam) == 0);

@@ -215,7 +215,7 @@ int hal_retrieve_compstate(const char *comp_name,
 	return nvisited;
     }
 }
-
+#if 0
 int hal_retrieve_pinstate(const char *comp_name,
 			  hal_retrieve_pins_callback_t callback,
 			  void *cb_data)
@@ -292,9 +292,25 @@ int hal_retrieve_pinstate(const char *comp_name,
 	return nvisited;
     }
 }
+#endif
+
+static int count_pins_and_tracked_pins(hal_object_ptr o, foreach_args_t *args)
+{
+    args->user_arg1++;     // pin count
+    if (!(o.pin->flags & PIN_DO_NOT_TRACK))
+	args->user_arg2++; // pins tracked
+    return 0;
+}
+
+static int fill_pin_array(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_compiled_comp_t *tc = args->user_ptr1;
+    if (!(o.pin->flags & PIN_DO_NOT_TRACK))
+	tc->pin[args->user_arg1++] = o.pin;
+    return 0;
+}
 
 // component reporting support
-
 int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 {
    hal_compiled_comp_t *tc;
@@ -303,12 +319,10 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
    CHECK_HALDATA();
    CHECK_STRLEN(name, HAL_NAME_LEN);
    {
-       hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
-       int next, n;
-       hal_comp_t *owner;
-       hal_pin_t *pin;
+       hal_comp_t *comp;
+       int n;
 
-       rtapi_mutex_get(&(hal_data->mutex));
+       WITH_HAL_MUTEX();
 
        if ((comp = halpr_find_comp_by_name(name)) == NULL) {
 	    HALERR("no such component '%s'", name);
@@ -316,11 +330,23 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        }
 
        // array sizing: count pins owned by this component
+       // and how many of them are to be tracked
+       foreach_args_t args =  {
+	   .type = HAL_PIN,
+	   // technically rcomps are legacy (not instantiable)
+	   // so match on owner_id instead of owning_comp
+	   // since all pins directly owned by comp, not an inst
+	   .owner_id = comp->comp_id,
+       };
+       halg_foreach(0, &args, count_pins_and_tracked_pins);
+       pincount = args.user_arg1;
+       n = args.user_arg2;
+#if 0
        next = hal_data->pin_list_ptr;
        n = 0;
        while (next != 0) {
 	    pin = SHMPTR(next);
-	    owner = halpr_find_owning_comp(pin->owner_id);
+	    owner = halpr_find_owning_comp(ho_owner(pin));
 	    if (owner->comp_id == comp->comp_id) {
 		if (!(pin->flags & PIN_DO_NOT_TRACK))
 		    n++;
@@ -328,6 +354,7 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 	    }
 	    next = pin->next_ptr;
        }
+#endif
        if (n == 0) {
 	   HALERR("component %s has no pins to watch for changes",
 		  name);
@@ -358,7 +385,13 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        RTAPI_ZERO_BITMAP(tc->changed,tc->n_pins);
 
        // fill in pin array
-       n = 0;
+
+       // reuse args from above and pass tc
+       args.user_ptr1 = tc;
+       args.user_arg1 = 0; // pin index in cc
+       halg_foreach(0, &args, fill_pin_array);
+
+#if 0
        next = hal_data->pin_list_ptr;
        while (next != 0) {
 	   pin = SHMPTR(next);
@@ -368,7 +401,8 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 	       tc->pin[n++] = pin;
 	   next = pin->next_ptr;
        }
-       assert(n == tc->n_pins);
+#endif
+       assert(args.user_arg1 == tc->n_pins);
        tc->magic = CCOMP_MAGIC;
        *ccomp = tc;
    }
@@ -435,7 +469,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 	default:
 	    HALERR("BUG: hal_ccomp_match(%s): invalid type for pin %s: %d",
-		   cc->comp->name, pin->name, pin->type);
+		   cc->comp->name, ho_name(pin), pin->type);
 	    return -EINVAL;
 	}
     }
