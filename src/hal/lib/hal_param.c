@@ -152,7 +152,7 @@ int hal_param_new(const char *name,
 
 	// this will be 0 for legacy comps which use comp_id
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
-	int inst_id = (inst ? inst->inst_id : 0);
+	int inst_id = (inst ? hh_get_id(&inst->hdr) : 0);
 
 	// instances may create params post hal_ready
 	// never understood the restriction in the first place

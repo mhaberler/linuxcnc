@@ -3,6 +3,14 @@
 from .hal cimport *
 from hal_const cimport hal_type_t, hal_pin_dir_t, hal_param_dir_t
 
+cdef extern from "hal_object.h":
+
+    ctypedef struct halhdr_t:
+       pass
+    int hh_get_id(halhdr_t *h)
+    int hh_get_owner_id(halhdr_t *h)
+    char *hh_get_name(halhdr_t *h)
+
 cdef extern from "hal_priv.h":
     int MAX_EPSILON
     int HAL_MAX_RINGS
@@ -66,12 +74,9 @@ cdef extern from "hal_priv.h":
         int userarg2
 
     ctypedef struct hal_inst_t:
-        int next_ptr
-        int comp_id
-        int inst_id
+        halhdr_t hdr
         int inst_data_dtr
         int inst_size
-        char *name
 
     ctypedef struct hal_funct_args_t:
         long long int thread_start_time

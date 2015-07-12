@@ -1807,10 +1807,10 @@ static void getFunctInfo(char *pattern, connectionRecType *context)
     next = hal_data->funct_list_ptr;
     while (next != 0) {
       fptr = SHMPTR(next);
-      if (strncmp(pattern, fptr->name, len) == 0) {
-        comp =  halpr_find_owning_comp(fptr->owner_id);
+      if (strncmp(pattern, hh_get_name(&fptr->hdr), len) == 0) {
+        comp =  halpr_find_owning_comp(hh_get_owner_id(&fptr->hdr));
 	sprintf(context->outBuf, "FUNCT %s %02d %08lX %08lX %s %3d", 
-	  fptr->name, 
+	  hh_get_name(&fptr->hdr),
 	  comp->comp_id, 
 	  (unsigned long)fptr->funct.l,
 	  (unsigned long)fptr->arg,

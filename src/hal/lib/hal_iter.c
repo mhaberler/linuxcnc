@@ -133,6 +133,7 @@ int halpr_foreach_thread(const char *name,
     return nvisited;
 }
 
+#if 0
 int halpr_foreach_funct(const char *name,
 		       hal_funct_callback_t callback, void *cb_data)
 {
@@ -176,7 +177,7 @@ int halpr_foreach_funct(const char *name,
     /* if we get here, we ran through all the functs, so return count */
     return nvisited;
 }
-
+#endif
 int halpr_foreach_ring(const char *name,
 		       hal_ring_callback_t callback, void *cb_data)
 {
@@ -366,8 +367,27 @@ int halpr_foreach_vtable(const char *name,
 }
 #endif
 
+int halg_foreach_type(const int use_hal_mutex,
+		      const int type,
+		      const char *name,
+		      hal_pertype_callback_t cb,
+		      void *arg)
+{
+    foreach_args_t args =  {
+	.type = type,
+	.name = (char *) name,
+	.user_ptr1 = cb,
+	.user_ptr1 = arg
+    };
+    return halg_foreach(use_hal_mutex,
+			&args,
+			yield_foreach);
+}
+
+#if 0
 int halpr_foreach_inst(const char *name,
-		      hal_inst_callback_t callback, void *cb_data)
+		       hal_inst_callback_t callback,
+		       void *cb_data)
 {
     hal_inst_t *inst;
     int next;
@@ -409,3 +429,4 @@ int halpr_foreach_inst(const char *name,
     /* if we get here, we ran through all the insts, so return count */
     return nvisited;
 }
+#endif

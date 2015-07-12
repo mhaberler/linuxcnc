@@ -240,6 +240,9 @@ static char *parameter_generator(const char *text, int state) {
 static char *funct_generator_common(const char *text, int state, int inuse) { 
     static int len;
     static int next;
+
+#warning fix this
+#if 0
     if(!state) {
         next = hal_data->funct_list_ptr;
         len = strlen(text);
@@ -252,6 +255,7 @@ static char *funct_generator_common(const char *text, int state, int inuse) {
             && (inuse == funct->users))
             return strdup(funct->name);
     }
+#endif
     return NULL;
 }
 
@@ -637,7 +641,8 @@ static char *ring_generator(const char *text, int state) {
 static char *inst_generator(const char *text, int state) {
     static int len;
     static int next;
-
+#warning FIXME
+#if 0
     if(!state) {
         next = hal_data->inst_list_ptr;
         len = strlen(text);
@@ -649,6 +654,7 @@ static char *inst_generator(const char *text, int state) {
         if ( strncmp(text, inst->name, len) == 0 )
             return strdup(inst->name);
     }
+#endif
     return NULL;
 }
 

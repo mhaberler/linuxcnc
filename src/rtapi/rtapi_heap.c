@@ -39,7 +39,7 @@ void heap_print(struct rtapi_heap *h, int level, const char *fmt, ...)
 	return;
     h->msg_handler(level, fmt, args);
 #else
-    vfprintf(stderr,  fmt, args);
+    //  vfprintf(stderr,  fmt, args);
 #endif
     va_end(args);
 }

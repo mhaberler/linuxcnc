@@ -54,8 +54,8 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
 
 static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *fmt, va_list ap)
 {
-    int *prev, next, cmp, sz;
-    hal_funct_t *nf, *fptr;
+    int sz;
+    hal_funct_t *nf;
     char name[HAL_NAME_LEN + 1];
 
     CHECK_HALDATA();
@@ -68,15 +68,17 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
     }
 
     HALDBG("exporting function '%s' type %d", name, xf->type);
+
     {
-	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX();
 
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
+	if (halpr_find_funct_by_name(name)) {
+	    HALERR("funct '%s' already exists", name);
+	    return -EINVAL;
+	}
 
-	comp = halpr_find_owning_comp(xf->owner_id);
-	if (comp == 0) {
-	    /* bad comp_id */
+	hal_comp_t *comp = halpr_find_owning_comp(xf->owner_id);
+	if (comp == NULL) {
 	    HALERR("funct '%s': owning component %d not found",
 		   name, xf->owner_id);
 	    return -EINVAL;
@@ -96,62 +98,28 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 	    HALERR("funct '%s': called after hal_ready", name);
 	    return -EINVAL;
 	}
-	/* allocate a new function structure */
-	nf = alloc_funct_struct();
-	if (nf == 0)
-	    NOMEM("function '%s'", name);
+
+	// allocate a new function structure
+	if ((nf = shmalloc_desc(sizeof(hal_funct_t))) == NULL)
+	    NOMEM("function '%s'",  name);
+	hh_init_hdrf(&nf->hdr, HAL_FUNCT, xf->owner_id, name);
 
 	/* initialize the structure */
 	nf->uses_fp = xf->uses_fp;
-	nf->owner_id = xf->owner_id;
 	nf->reentrant = xf->reentrant;
 	nf->users = 0;
-	nf->handle = rtapi_next_handle();
 	nf->arg = xf->arg;
 	nf->type = xf->type;
 	nf->funct.l = xf->funct.l; // a bit of a cheat really
-	rtapi_snprintf(nf->name, sizeof(nf->name), "%s", name);
-	/* search list for 'name' and insert new structure */
-	prev = &(hal_data->funct_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		nf->next_ptr = next;
-		*prev = SHMOFF(nf);
-		/* break out of loop and init the new function */
-		break;
-	    }
-	    fptr = SHMPTR(next);
-	    cmp = strcmp(fptr->name, nf->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		nf->next_ptr = next;
-		*prev = SHMOFF(nf);
-		/* break out of loop and init the new function */
-		break;
-	    }
-	    if (cmp == 0) {
-		/* name already in list, can't insert */
-		free_funct_struct(nf);
-		HALERR("duplicate function '%s'", name);
-		return -EINVAL;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(fptr->next_ptr);
-	    next = *prev;
-	}
-	// at this point we have a new function and can
-	// yield the mutex by scope exit
 
+	/* init time logging variables */
+	nf->runtime = 0;
+	nf->maxtime = 0;
+	nf->maxtime_increased = 0;
+
+	add_object(&nf->hdr);
     }
-    /* init time logging variables */
-    nf->runtime = 0;
-    nf->maxtime = 0;
-    nf->maxtime_increased = 0;
-
-    /* at this point we have a new function and can yield the mutex */
-    rtapi_mutex_give(&(hal_data->mutex));
+    // unlocked here
 
     switch (xf->type) {
     case FS_LEGACY_THREADFUNC:
@@ -186,6 +154,7 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *ureturn)
 {
     hal_funct_t *funct;
+    int i;
 
     CHECK_HALDATA();
     CHECK_STR(name);
@@ -196,8 +165,7 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *
     }
 
     {
-	int i __attribute__((cleanup(halpr_autorelease_mutex)));
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
 
 	funct = halpr_find_funct_by_name(name);
 	if (funct == NULL) {
@@ -253,10 +221,9 @@ int hal_add_funct_to_thread(const char *funct_name,
 
     HALDBG("adding function '%s' to thread '%s'", funct_name, thread_name);
     {
-	hal_thread_t *thread __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX();
 
-	/* get mutex before accessing data structures */
-	rtapi_mutex_get(&(hal_data->mutex));
+	hal_thread_t *thread;
 
 	/* make sure position is valid */
 	if (position == 0) {
@@ -367,10 +334,9 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 
     HALDBG("removing function '%s' from thread '%s'", funct_name, thread_name);
     {
-	hal_thread_t *thread __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX();
 
-	/* get mutex before accessing data structures */
-	rtapi_mutex_get(&(hal_data->mutex));
+	hal_thread_t *thread;
 
 	/* search function list for the function */
 	funct = halpr_find_funct_by_name(funct_name);
@@ -463,30 +429,31 @@ void free_funct_entry_struct(hal_funct_entry_t * funct_entry)
 }
 
 
-hal_funct_t *halpr_find_funct_by_name(const char *name)
+hal_funct_t *halg_find_funct_by_name(const int use_hal_mutex,
+				     const char *name)
 {
-    int next;
-    hal_funct_t *funct;
-
-    /* search function list for 'name' */
-    next = hal_data->funct_list_ptr;
-    while (next != 0) {
-	funct = SHMPTR(next);
-	if (strcmp(funct->name, name) == 0) {
-	    /* found a match */
-	    return funct;
-	}
-	/* didn't find it yet, look at next one */
-	next = funct->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
+    foreach_args_t args =  {
+	.type = HAL_FUNCT,
+	.name = (char *)name,
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return args.user_ptr1;
+    return NULL;
 }
 
+#warning remove this
+#if 0
 // find a funct by owner id, which may refer to a instance or a comp
-hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id,
-					  hal_funct_t * start)
+hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id)
 {
+    foreach_args_t args =  {
+	.type = HAL_VTABLE,
+	.owner_id = owner_id,
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return args.user_ptr1;
+    return NULL;
+#if 0
     int next;
     hal_funct_t *funct;
 
@@ -509,10 +476,12 @@ hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id,
     }
     /* if loop terminates, we reached end of list without finding a match */
     return 0;
+#endif
 }
+#endif
 
 #ifdef RTAPI
-
+#if 0
 hal_funct_t *alloc_funct_struct(void)
 {
     hal_funct_t *p;
@@ -541,7 +510,7 @@ hal_funct_t *alloc_funct_struct(void)
     }
     return p;
 }
-
+#endif
 
 void free_funct_struct(hal_funct_t * funct)
 {
@@ -582,18 +551,6 @@ void free_funct_struct(hal_funct_t * funct)
 	    next_thread = thread->next_ptr;
 	}
     }
-    /* clear contents of struct */
-    funct->uses_fp = 0;
-    funct->owner_id = 0;
-    funct->reentrant = 0;
-    funct->users = 0;
-    funct->arg = 0;
-    funct->funct.l = 0;
-    funct->runtime = 0;
-    funct->name[0] = '\0';
-
-    /* add it to free list */
-    funct->next_ptr = hal_data->funct_free_ptr;
-    hal_data->funct_free_ptr = SHMOFF(funct);
+    free_halobject((hal_object_ptr) funct);
 }
 #endif

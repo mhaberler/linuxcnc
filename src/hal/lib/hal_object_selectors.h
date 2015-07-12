@@ -9,9 +9,10 @@
 //     .type = <desired type>, // one of enum hal_object_type,
 //                             // or 0 for any object type
 //
-//   (b) selecting the actual object (optional):
-//     .id = <object ID>,      // by ID, OR
-//     .name = <object name>   // by name
+//   (b) selecting the actual object (an 'or' of all conditions):
+//     .id = <object ID>,        // by ID, OR
+//     .owner_id = <object ID>,  // by owner ID, OR
+//     .name = <object name>     // by name
 //
 // 2. once the object(s) are selected,
 //    apply the callback function on each member of the result set,
@@ -37,10 +38,7 @@ int yield_match(hal_object_ptr o, foreach_args_t *args);
 // use this selector to count the number of objects matching
 // the standard selection (type, object ID/object name):
 //
-// selector-specific arguments:
-//
-// returned HAL object descriptor or NULL if not found
-//     .user_ptr1 = NULL,  // holy water - init to zero
+// halg_foreach() returns the count.
 // };
 int yield_count(hal_object_ptr o, foreach_args_t *args);
 
@@ -60,20 +58,19 @@ int yield_count(hal_object_ptr o, foreach_args_t *args);
 int yield_versioned_vtable_object(hal_object_ptr o, foreach_args_t *args);
 
 
-// use this selector to count the number of objects
-// selected by standard selection AND subordinate to a different object
-//
-// examles:
-//   number of pins owned by a comp
-//   number of params owned by a comp
-//   number of vtables exported by a comp
-//   number of pins owned by an instance
+// use this selector to support the halpr_foreach_<type> iterators
 //
 // required argument:
-//     .user_arg1 = <owning object id>,
-// returned count
-//     .user_arg2 = 0,
-int count_subordinate_objects(hal_object_ptr o, foreach_args_t *args);
+//     .user_ptr1 = <callback>,
+//     .user_ptr2 = <cb_data>,
+int yield_foreach(hal_object_ptr o, foreach_args_t *args);
 
+// use this selector to free any number of matching HAL objects,
+// of type HAL_PIN HAL_PARAM HAL_INST HAL_THREAD HAL_FUNCT
+//
+// required argument:
+//     .user_ptr1 = <callback>,
+//     .user_ptr2 = <cb_data>,
+int free_object(hal_object_ptr o, foreach_args_t *args);
 
 #endif
