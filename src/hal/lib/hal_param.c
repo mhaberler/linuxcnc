@@ -261,16 +261,3 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
     }
     return 0;
 }
-
-hal_param_t *halg_find_param_by_name(const int use_hal_mutex,
-				     const char *name)
-{
-    foreach_args_t args =  {
-	.type = HAL_PARAM,
-	.name = (char *)name,
-    };
-    if (halg_foreach(use_hal_mutex, &args, yield_match))
-	return args.user_ptr1;
-    return NULL;
-}
-
