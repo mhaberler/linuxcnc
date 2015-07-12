@@ -168,6 +168,7 @@ typedef struct hal_inst hal_inst_t, *hal_inst_ptr;
 typedef struct hal_pin hal_pin_t, *hal_pin_ptr;
 typedef struct hal_param hal_param_t, *hal_param_ptr;
 typedef struct hal_sig hal_sig_t, *hal_sig_ptr;
+typedef struct hal_oldname hal_oldname_t, *hal_oldname_ptr;
 typedef struct hal_group hal_group_t, *hal_group_ptr;
 typedef struct hal_member hal_member_t, *hal_member_ptr;
 typedef struct hal_funct hal_funct_t, *hal_funct_ptr;
@@ -182,6 +183,7 @@ typedef union {
     hal_pin_t    *pin;
     hal_param_t  *param;
     hal_sig_t    *sig;
+    hal_oldname_t *oldname;
     hal_group_t  *group;
     hal_member_t *member;
     hal_funct_t  *funct;

@@ -6,6 +6,7 @@
 #include "hal_priv.h"
 #include "hal_object.h"
 #include "hal_list.h"
+#include "hal_internal.h"
 
 int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
 {
@@ -23,7 +24,7 @@ int  hh_init_hdrfv(halhdr_t *hh,
 		   const int owner_id,
 		   const char *fmt, va_list ap)
 {
-    dlist_init_entry(&hh->links);
+    dlist_init_entry(&hh->list);
     hh_set_type(hh, type);
     hh_set_id(hh, rtapi_next_handle());
     hh_set_owner_id(hh, owner_id);
@@ -54,54 +55,71 @@ int hh_clear_hdr(halhdr_t *hh)
     return ret;
 }
 
+void free_halobject(hal_object_ptr o)
+{
+    unlink_object(o.hdr);
+    hh_clear_hdr(o.hdr);
+    shmfree_desc(o.hdr);
+}
 
 int halg_foreach(bool use_hal_mutex,
 		 foreach_args_t *args,
 		 hal_object_callback_t callback)
 {
-    halhdr_t *hh;
+    halhdr_t *hh, *tmp;
     int nvisited = 0, result;
 
     CHECK_NULL(args);
 
+    // run with HAL mutex if use_hal_mutex nonzero:
     WITH_HAL_MUTEX_IF(use_hal_mutex);
-    dlist_for_each_entry(hh, OBJECTLIST, links) {
+
+    dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
+
+	// cop out if the object list emptied by now
+	// (may happen through callbacks)
+	if (dlist_empty_careful(&hh->list))
+	    break;
 
 	// 1. select by type if given
-	if ((args->type && (hh_get_type(hh) == args->type)) || (args->type == 0)) {
+	if (args->type && (hh_get_type(hh) != args->type))
+	    continue;
 
-	    // 2. by id if nonzero
-	    // 3. by name if non-NULL - prefix match OK for name strings
-	    // if both are given, either will create a match
+	// 2. by id if nonzero
+	if  (args->id && (args->id != hh_get_id(hh)))
+	    continue;
 
-	    if  ((args->id && (args->id == hh_get_id(hh))) ||
-		 (!args->name || (strcmp(hh_get_name(hh), args->name)) == 0)) {
+	// 3. by owner id if nonzero
+	if (args->owner_id && (args->owner_id != hh_get_owner_id(hh)))
+	    continue;
 
-		nvisited++;
-		if (callback) {
-		    result = callback((hal_object_ptr)hh, args);
-		    if (result < 0) {
-			// callback signalled an error, pass that back up.
-			return result;
-		    } else if (result > 0) {
-			// callback signalled 'stop iterating'.
-			// pass back the number of visited vtables.
-			return nvisited;
-		    } else {
-			// callback signalled 'OK to continue'
-			// fall through
-		    }
-		} else {
-		    // null callback passed in,
-		    // just count vtables
-		    // nvisited already bumped above.
-		}
+	// 4. by name if non-NULL - prefix match OK for name strings
+	if (args->name && strcmp(hh_get_name(hh), args->name))
+	    continue;
+
+	nvisited++;
+	if (callback) {
+	    result = callback((hal_object_ptr)hh, args);
+	    if (result < 0) {
+		// callback signalled an error, pass that back up.
+		return result;
+	    } else if (result > 0) {
+		// callback signalled 'stop iterating'.
+		// pass back the number of visited vtables.
+		return nvisited;
+	    } else {
+		// callback signalled 'OK to continue'
+		// fall through
 	    }
+	} else {
+	    // null callback passed in,
+	    // just count matces
 	}
-	// no match, try the next one
     }
-    // if we get here, we ran through all the objects,
-    // so return count of objects visited
+    // no match, try the next one
+
+    // if we get here, we ran through all the matched objects,
+    // so return match count
     return nvisited;
 }
 

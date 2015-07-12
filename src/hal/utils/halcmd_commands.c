@@ -1861,14 +1861,11 @@ static const char *state_name(int state)
 
 static int inst_count(hal_comp_t *comp)
 {
-    int n = 0;
-    hal_inst_t *start = NULL, *inst;
-
-    while ((inst = halpr_find_inst_by_owning_comp(comp->comp_id, start)) != NULL) {
-	start = inst;
-	n++;
-    }
-    return n;
+    foreach_args_t args =  {
+	.type = HAL_INST,
+	.owner_id = comp->comp_id,
+    };
+    return halg_foreach(0, &args, yield_count);
 }
 
 static void print_comp_info(char **patterns)
@@ -1952,38 +1949,36 @@ static void print_comp_info(char **patterns)
     halcmd_output("\n");
 }
 
+
+static int print_inst_line(hal_object_ptr o, foreach_args_t *args)
+{
+    if ( match(args->user_ptr1, hh_get_name(o.hdr))) {
+	hal_comp_t *comp = halpr_find_comp_by_id(hh_get_owner_id(o.hdr));
+
+	halcmd_output("%5d %5d %5d  %-*s %-*s",
+		      hh_get_id(o.hdr),
+		      comp->comp_id,
+		      o.inst->inst_size,
+		      25, // HAL_NAME_LEN,
+		      hh_get_name(o.hdr),
+		      20, // HAL_NAME_LEN,
+		      comp->name);
+	halcmd_output("\n");
+    }
+    return 0; // continue
+}
+
 static void print_inst_info(char **patterns)
 {
-    int next;
-    hal_comp_t *comp;
-    hal_inst_t *inst;
-
     if (scriptmode == 0) {
 	halcmd_output("Instances:\n");
 	halcmd_output(" Inst  Comp  Size  %-*s Owner\n", 25, "Name");
     }
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->inst_list_ptr;
-
-    while (next != 0) {
-	inst = SHMPTR(next);
-	comp = halpr_find_comp_by_id(inst->comp_id);
-
-	if ( match(patterns, inst->name) ) {
-
-	    halcmd_output("%5d %5d %5d  %-*s %-*s",
-			  inst->inst_id,
-			  comp->comp_id,
-			  inst->inst_size,
-			  25, // HAL_NAME_LEN,
-			  inst->name,
-			  20, // HAL_NAME_LEN,
-			  comp->name);
-	    halcmd_output("\n");
-	}
-	next = inst->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_INST,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_inst_line);
     halcmd_output("\n");
 }
 
@@ -2287,16 +2282,52 @@ static const char *ftype(int ft)
     }
 }
 
+static int print_funct_line(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_funct_t *fptr = o.funct;
+
+    if ( match(args->user_ptr1, hh_get_name(o.hdr))) {
+	hal_comp_t *comp =  halpr_find_owning_comp(hh_get_owner_id(o.hdr));
+	if (scriptmode == 0) {
+
+	    halcmd_output(" %5d  ", comp->comp_id);
+	    if (comp->comp_id == hh_get_owner_id(o.hdr))
+		halcmd_output("     ");
+	    else
+		halcmd_output("%5d", hh_get_owner_id(o.hdr));
+	    halcmd_output(" %08lx  %08lx  %-3s  %5d %-7s %s\n",
+
+			  (long)fptr->funct.l,
+			  (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
+			  fptr->users,
+			  ftype(fptr->type),
+			  hh_get_name(o.hdr));
+	} else {
+	    halcmd_output("%s %08lx %08lx %s %3d %s\n",
+			  comp->name,
+			  (long)fptr->funct.l,
+			  (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
+			  fptr->users, hh_get_name(o.hdr));
+	}
+	halcmd_output("\n");
+    }
+    return 0; // continue
+}
+
 static void print_funct_info(char **patterns)
 {
-    int next;
-    hal_funct_t *fptr;
-    hal_comp_t *comp;
-
     if (scriptmode == 0) {
 	halcmd_output("Exported Functions:\n");
 	halcmd_output("  Comp   Inst CodeAddr  Arg       FP   Users Type    Name\n");
     }
+    foreach_args_t args =  {
+	.type = HAL_FUNCT,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_funct_line);
+
+
+#if 0
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->funct_list_ptr;
     while (next != 0) {
@@ -2328,6 +2359,7 @@ static void print_funct_info(char **patterns)
 	next = fptr->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
+#endif
     halcmd_output("\n");
 }
 
@@ -2431,9 +2463,10 @@ static void print_thread_info(char **patterns)
 		/* scriptmode only uses one line per thread, which contains:
 		   thread period, FP flag, name, then all functs separated by spaces  */
 		if (scriptmode == 0) {
-		    halcmd_output("                 %2d %s\n", n, funct->name);
+		    halcmd_output("                 %2d %s\n", n,
+				  hh_get_name(&funct->hdr));
 		} else {
-		    halcmd_output(" %s", funct->name);
+		    halcmd_output(" %s", hh_get_name(&funct->hdr));
 		}
 		n++;
 		list_entry = dlist_next(list_entry);
@@ -2524,39 +2557,30 @@ static void print_param_names(char **patterns)
     halcmd_output("\n");
 }
 
+static int print_name(hal_object_ptr o, foreach_args_t *args)
+{
+    if ( match(args->user_ptr1, hh_get_name(o.hdr)))
+	halcmd_output("%s ", hh_get_name(o.hdr));
+    return 0; // continue
+}
+
 static void print_funct_names(char **patterns)
 {
-    int next;
-    hal_funct_t *fptr;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->funct_list_ptr;
-    while (next != 0) {
-	fptr = SHMPTR(next);
-	if ( match(patterns, fptr->name) ) {
-	    halcmd_output("%s ", fptr->name);
-	}
-	next = fptr->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_FUNCT,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
     halcmd_output("\n");
 }
 
 static void print_thread_names(char **patterns)
 {
-    int next_thread;
-    hal_thread_t *tptr;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next_thread = hal_data->thread_list_ptr;
-    while (next_thread != 0) {
-	tptr = SHMPTR(next_thread);
-	if ( match(patterns, tptr->name) ) {
-	    halcmd_output("%s ", tptr->name);
-	}
-	next_thread = tptr->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_THREAD,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
     halcmd_output("\n");
 }
 
@@ -2662,10 +2686,7 @@ static void print_mem_status()
     active = count_list(hal_data->sig_list_ptr);
     recycled = count_list(hal_data->sig_free_ptr);
     halcmd_output("  active/recycled signals:    %d/%d\n", active, recycled);
-    // count functions
-    active = count_list(hal_data->funct_list_ptr);
-    recycled = count_list(hal_data->funct_free_ptr);
-    halcmd_output("  active/recycled functions:  %d/%d\n", active, recycled);
+
     // count threads
     active = count_list(hal_data->thread_list_ptr);
     recycled = count_list(hal_data->thread_free_ptr);
@@ -3783,15 +3804,11 @@ int do_delinst_cmd(char *inst)
 
 static void print_inst_names(char **patterns)
 {
-    hal_inst_t *start  __attribute__((cleanup(halpr_autorelease_mutex))) = NULL, *inst;
-    rtapi_mutex_get(&(hal_data->mutex));
-
-    while ((inst = halpr_find_inst_by_owning_comp(-1, start)) != NULL) {
-	if ( match(patterns, inst->name) ) {
-	    halcmd_output("%s ", inst->name);
-	}
-	start = inst;
-    }
+    foreach_args_t args =  {
+	.type = HAL_INST,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
     halcmd_output("\n");
 }
 
@@ -4050,7 +4067,7 @@ static void save_threads(FILE *dst)
 	    /* print the function info */
 	    fentry = (hal_funct_entry_t *) list_entry;
 	    funct = SHMPTR(fentry->funct_ptr);
-	    fprintf(dst, "addf %s %s\n", funct->name, tptr->name);
+	    fprintf(dst, "addf %s %s\n", hh_get_name(&funct->hdr), tptr->name);
 	    list_entry = dlist_next(list_entry);
 	}
 	next_thread = tptr->next_ptr;

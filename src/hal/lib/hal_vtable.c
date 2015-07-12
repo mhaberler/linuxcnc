@@ -10,10 +10,6 @@
 #include <sys/types.h>		/* pid_t */
 #include <unistd.h>		/* getpid() */
 #endif
-
-static hal_vtable_t *alloc_vtable_struct(void);
-static void free_vtable_struct(hal_vtable_t *c);
-
 /***********************************************************************
 *                     Public HAL vtable functions                       *
 ************************************************************************/
@@ -30,7 +26,6 @@ int halg_export_vtable(const int use_hal_mutex,
 
     HALDBG("exporting vtable '%s' version=%d owner=%d at %p",
 	   name, version, comp_id, vtref);
-
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_vtable_t *vt;
@@ -42,7 +37,7 @@ int halg_export_vtable(const int use_hal_mutex,
 	}
 
 	// allocate a new vtable descriptor in the HAL shm segment
-	if ((vt = alloc_vtable_struct()) == NULL)
+	if ((vt = shmalloc_desc(sizeof(hal_vtable_t))) == NULL)
 	    NOMEM("vtable '%s'",  name);
 
 	hh_init_hdrf(&vt->hdr, HAL_VTABLE, comp_id, "%s", name);
@@ -54,7 +49,7 @@ int halg_export_vtable(const int use_hal_mutex,
 #else
 	vt->context = getpid(); // in per-process memory, no shareable code
 #endif
-	dlist_add_before(&vt->hdr.links, OBJECTLIST);
+	add_object(&vt->hdr);
 
 	HALDBG("created vtable '%s' vtable=%p version=%d",
 	       hh_get_name(&vt->hdr), vt->vtable, vt->version);
@@ -86,10 +81,9 @@ int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 	    return -ENOENT;
 
 	}
-	dlist_remove_entry(&vt->hdr.links);
-	free_vtable_struct(vt);
 	HALDBG("vtable %s/%d version %d removed",
 	       hh_get_name(&vt->hdr), vtable_id,  vt->version);
+	free_halobject((hal_object_ptr)vt);
 	return 0;
     }
 }
@@ -176,19 +170,17 @@ int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
     }
 }
 
-// private HAL API
-
 hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
 				       const char *name,
 				       int version)
 {
     foreach_args_t args =  {
 	.type = HAL_VTABLE,
-	.name = name,
+	.name = (char *)name,
 	.user_arg1 = version,
 	.user_ptr1 = NULL
     };
-    if (halg_foreach(use_hal_mutex, &args, yield_versioned_vtable_object) == 1)
+    if (halg_foreach(use_hal_mutex, &args, yield_versioned_vtable_object))
 	return args.user_ptr1;
     return NULL;
 }
@@ -201,25 +193,12 @@ hal_vtable_t *halg_find_vtable_by_id(const int use_hal_mutex,
 	.id = vtable_id,
 	.user_ptr1 = NULL
     };
-    if (halg_foreach(use_hal_mutex, &args, yield_match) == 1)
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
 	return args.user_ptr1;
     return NULL;
 }
 
-static hal_vtable_t *alloc_vtable_struct(void)
-{
-    hal_vtable_t *p = shmalloc_desc(sizeof(hal_vtable_t));
-    return p;
-}
-
-static void free_vtable_struct(hal_vtable_t * p)
-{
-    shmfree_desc(p);
-}
-
-
 #ifdef RTAPI
-
 EXPORT_SYMBOL(halg_export_vtable);
 EXPORT_SYMBOL(halg_remove_vtable);
 EXPORT_SYMBOL(halg_reference_vtable);
