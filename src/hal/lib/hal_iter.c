@@ -44,7 +44,7 @@ int halpr_foreach_comp(const char *name,
     return nvisited;
 }
 
-
+#if 0
 int halpr_foreach_sig(const char *name,
 		       hal_sig_callback_t callback, void *cb_data)
 {
@@ -88,6 +88,7 @@ int halpr_foreach_sig(const char *name,
     /* if we get here, we ran through all the sigs, so return count */
     return nvisited;
 }
+#endif
 
 int halpr_foreach_thread(const char *name,
 		       hal_thread_callback_t callback, void *cb_data)
@@ -222,7 +223,32 @@ int halpr_foreach_ring(const char *name,
     return nvisited;
 }
 
+static int pin_by_signal_callback(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_sig_t *sig = args->user_ptr1;
+    hal_pin_signal_callback_t cb = args->user_ptr2;
 
+    if (o.pin->signal == SHMOFF(sig)) {
+	if (cb) return cb(o.pin, sig, args->user_ptr3);
+    }
+    return 0;
+}
+
+int halg_foreach_pin_by_signal(const int use_hal_mutex,
+			       hal_sig_t *sig,
+			       hal_pin_signal_callback_t cb,
+			       void *user)
+{
+    foreach_args_t args =  {
+	.type = HAL_PIN,
+	.user_ptr1 = sig,
+	.user_ptr2 = cb,
+	.user_ptr3 = user
+    };
+    return halg_foreach(use_hal_mutex,
+			&args,
+			pin_by_signal_callback);
+}
 
 
 int halg_foreach_type(const int use_hal_mutex,

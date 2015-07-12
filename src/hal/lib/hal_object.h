@@ -130,6 +130,7 @@ typedef struct foreach_args {
     int user_arg2;
     void *user_ptr1;        // opaque user pointer arguments
     void *user_ptr2;
+    void *user_ptr3;
 } foreach_args_t;
 
 

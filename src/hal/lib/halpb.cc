@@ -27,27 +27,6 @@ int halpr_describe_param(hal_param_t *param, pb::Param *pbparam)
 int pbadd_owned(hal_object_ptr o, foreach_args_t *args)
 {
     int type = hh_get_type(o.hdr);
-    switch (type) {
-    case HAL_PARAM:
-	break;
-    case HAL_PIN:
-	break;
-
-    case HAL_FUNCT:
-	// eventually add functs!
-    default:
-	return 0;
-    }
-
-    int owner_id = hh_get_owner_id(o.hdr);
-    hal_comp_t *owner = halpr_find_owning_comp(owner_id);
-
-    if (owner == NULL) // a bug, really
-	return 0;
-
-    if (args->user_arg1 != owner->comp_id)
-	return 0;
-
     pb::Component *pbcomp = (pb::Component *)args->user_ptr1;
     switch (type) {
     case HAL_PARAM:
@@ -84,20 +63,20 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
 	pbcomp->set_args((const char *)SHMPTR(comp->insmod_args));
     pbcomp->set_userarg1(comp->userarg1);
     pbcomp->set_userarg2(comp->userarg2);
-
+#if 0
     int next = hal_data->pin_list_ptr;
     while (next != 0) {
 	hal_pin_t *pin = (hal_pin_t *)SHMPTR(next);
-	hal_comp_t *owner = halpr_find_owning_comp(pin->owner_id);
+	hal_comp_t *owner = halpr_find_owning_comp(ho_owner_id(pin));
 	if ((owner != NULL) && (owner->comp_id == comp->comp_id)) {
 	    pb::Pin *pbpin = pbcomp->add_pin();
 	    halpr_describe_pin(pin, pbpin);
 	}
 	next = pin->next_ptr;
     }
-
+#endif
     foreach_args_t args;
-    args.user_arg1 = comp->comp_id;
+    args.owning_comp = comp->comp_id;
     args.user_ptr1 = (void *)pbcomp;
     halg_foreach(0, &args, pbadd_owned);
 

@@ -263,7 +263,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 	}
 	// add to items sparse array - needed for quick
 	// lookup when updates by handle are received
-	self->items[hi->o.pin->handle] = hi;
+	self->items[ho_id(hi->o.pin)] = hi;
     }
     hal_ready(comp_id); // XXX check return value
 
@@ -533,28 +533,28 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 		    if (hp->dir == HAL_IN) {
 			note_printf(self->tx,
 				    "HALrcomp cant write a HAL_IN pin: handle=%d name=%s",
-				    handle, hp->name);
+				    handle, ho_name(hp));
 			continue;
 		    }
 		} else {
 		    if (hp->dir == HAL_OUT) {
 			note_printf(self->tx,
 				    "HALrcommand: cant set an HAL_OUT pin: handle=%d name=%s",
-				    handle, hp->name);
+				    handle, ho_name(hp));
 			continue;
 		    }
 		}
 		if (hp->type != (hal_type_t) p.type()) {
 		    note_printf(self->tx,
 				"pin type mismatch: pb=%d/hal=%d, handle=%d name=%s",
-				p.type(), hp->type, handle, hp->name);
+				p.type(), hp->type, handle, ho_name(hp));
 		    continue;
 		}
 		// set value
 		hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
 		assert(vp != NULL);
 		if (hal_pbpin2u(&p, vp)) {
-		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), hp->name);
+		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), ho_name(hp));
 		    continue;
 		}
 	    } else {
@@ -681,7 +681,7 @@ process_get(htself_t *self, const std::string &from,  void *socket)
 		assert(hp != NULL);
 		pb::Pin *pbpin = self->tx.add_pin();
 		// reply with just value and handle
-		pbpin->set_handle(hp->handle);
+		pbpin->set_handle(ho_id(hp));
 		hal_pin2pb(hp, pbpin);
 	    }
 	} else {
@@ -746,14 +746,14 @@ int describe_pin_by_name(htself_t *self, const char *name)
 	return -1;
     }
     // add to items if not yet present
-    it = self->items.find(hp->handle);
+    it = self->items.find(ho_id(hp));
     if (it == self->items.end()) {
 	// pin not found. add to items
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_PIN;
 	hi->o.pin = hp;
 	hi->ptr = SHMPTR(hp->data_ptr_addr);
-	self->items[hp->handle] = hi;
+	self->items[ho_id(hp)] = hi;
 	// printf("add pin %s to items\n", hp->name);
     }
     // add binding in reply - includes handle

@@ -61,6 +61,7 @@
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
+#include "hal_iter.h"
 #include "hal_internal.h"
 
 #include "rtapi_string.h"
@@ -379,15 +380,13 @@ EXPORT_SYMBOL(halpr_find_inst_by_name);
 
 EXPORT_SYMBOL(halpr_find_owning_comp);
 
-/* EXPORT_SYMBOL(halpr_find_pin_by_instance_id); */
-/* EXPORT_SYMBOL(halpr_find_param_by_instance_id); */
-/* EXPORT_SYMBOL(halpr_find_funct_by_instance_id); */
-/* EXPORT_SYMBOL(halpr_find_inst_by_owning_comp); */
-
 EXPORT_SYMBOL(halpr_find_inst_by_id);
 EXPORT_SYMBOL(halpr_find_comp_by_id);
 
-EXPORT_SYMBOL(halpr_find_pin_by_sig);
+EXPORT_SYMBOL(halg_foreach_pin_by_signal);
+EXPORT_SYMBOL(halg_find_object_by_name);
+//EXPORT_SYMBOL();
+//EXPORT_SYMBOL();
 
 
 #endif /* rtapi */
