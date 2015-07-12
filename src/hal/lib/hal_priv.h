@@ -163,14 +163,14 @@ extern char *hal_shmem_base;
 ************************************************************************/
 
 
-/** HAL "oldname" data structure.
-    When a pin or parameter gets an alias, this structure is used to
-    store the original name.
-*/
-typedef struct hal_oldname {
-    int next_ptr;		/* next struct (used for free list only) */
-    char name[HAL_NAME_LEN + 1];	/* the original name */
-} hal_oldname_t;
+/* /\** HAL "oldname" data structure. */
+/*     When a pin or parameter gets an alias, this structure is used to */
+/*     store the original name. */
+/* *\/ */
+/* typedef struct hal_oldname { */
+/*     int next_ptr;		/\* next struct (used for free list only) *\/ */
+/*     char name[HAL_NAME_LEN + 1];	/\* the original name *\/ */
+/* } hal_oldname_t; */
 
 
 /* Master HAL data structure
@@ -195,16 +195,16 @@ typedef struct {
     int comp_list_ptr;		/* root of linked list of components */
     int pin_list_ptr;		/* root of linked list of pins */
     int sig_list_ptr;		/* root of linked list of signals */
-    int param_list_ptr;		/* root of linked list of parameters */
     int thread_list_ptr;	/* root of linked list of threads */
 
     long base_period;		/* timer period for realtime tasks */
     int threads_running;	/* non-zero if threads are started */
-    int oldname_free_ptr;	/* list of free oldname structs */
+
+    //int oldname_free_ptr;	/* list of free oldname structs */
+
     int comp_free_ptr;		/* list of free component structs */
     int pin_free_ptr;		/* list of free pin structs */
     int sig_free_ptr;		/* list of free signal structs */
-    int param_free_ptr;		/* list of free parameter structs */
     hal_list_t funct_entry_free;	/* list of free funct entry structs */
     int thread_free_ptr;	/* list of free thread structs */
 
@@ -290,7 +290,7 @@ typedef struct hal_pin {
     int owner_id;		/* component that owns this pin */
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
-    int oldname;		/* old name if aliased, else zero */
+    // int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_pin_dir_t dir;		/* pin direction */
     int handle;                 // unique ID
@@ -325,7 +325,7 @@ typedef struct hal_param {
     //    int next_ptr;		/* next parameter in linked list */
     int data_ptr;		/* offset of parameter value */
     // int owner_id;		/* component that owns this signal */
-    int oldname;		/* old name if aliased, else zero */
+    //    int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
     // int handle;                // unique ID
