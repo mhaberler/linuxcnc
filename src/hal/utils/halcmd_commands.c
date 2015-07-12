@@ -75,7 +75,7 @@ static void print_inst_info(char **patterns);
 static void print_vtable_info(char **patterns);
 static void print_pin_info(int type, char **patterns);
 static void print_pin_aliases(char **patterns);
-static void print_param_aliases(char **patterns);
+//static void print_param_aliases(char **patterns);
 static void print_sig_info(int type, char **patterns);
 static void print_script_sig_info(int type, char **patterns);
 static void print_param_info(int type, char **patterns);
@@ -106,7 +106,7 @@ static const char *data_arrow2(int dir);
 static char *data_value(int type, void *valptr);
 static char *data_value2(int type, void *valptr);
 static void save_comps(FILE *dst);
-static void save_aliases(FILE *dst);
+//static void save_aliases(FILE *dst);
 static void save_signals(FILE *dst, int only_unlinked);
 static void save_links(FILE *dst, int arrows);
 static void save_nets(FILE *dst, int arrows);
@@ -346,7 +346,7 @@ int do_addf_cmd(char *func, char *thread, char **opt) {
     }
     return retval;
 }
-
+#if 0
 int do_alias_cmd(char *pinparam, char *name, char *alias) {
     int retval;
 
@@ -383,6 +383,7 @@ int do_unalias_cmd(char *pinparam, char *name) {
     }
     return retval;
 }
+#endif
 int do_delf_cmd(char *func, char *thread) {
     int retval;
 
@@ -939,7 +940,7 @@ int do_show_cmd(char *type, char **patterns)
 	print_pin_aliases(NULL);
 	print_sig_info(-1, NULL);
 	print_param_info(-1, NULL);
-	print_param_aliases(NULL);
+	//	print_param_aliases(NULL);
 	print_funct_info(NULL);
 	print_thread_info(NULL);
 	print_group_info(NULL);
@@ -954,7 +955,7 @@ int do_show_cmd(char *type, char **patterns)
 	print_pin_aliases(patterns);
 	print_sig_info(-1, patterns);
 	print_param_info(-1, patterns);
-	print_param_aliases(patterns);
+	//	print_param_aliases(patterns);
 	print_funct_info(patterns);
 	print_thread_info(patterns);
 	print_group_info(patterns);
@@ -994,9 +995,9 @@ int do_show_cmd(char *type, char **patterns)
 	print_ring_info(patterns);
     } else if (strcmp(type, "eps") == 0) {
 	print_eps_info(patterns);
-    } else if (strcmp(type, "alias") == 0) {
-	print_pin_aliases(patterns);
-	print_param_aliases(patterns);
+    /* } else if (strcmp(type, "alias") == 0) { */
+    /* 	print_pin_aliases(patterns); */
+    /* 	print_param_aliases(patterns); */
     } else {
 	halcmd_error("Unknown 'show' type '%s'\n", type);
 	return -1;
@@ -2209,52 +2210,55 @@ static void print_script_sig_info(int type, char **patterns)
     halcmd_output("\n");
 }
 
+static int print_param_line(hal_object_ptr o, foreach_args_t *args)
+{
+    if ( match(args->user_ptr1, hh_get_name(o.hdr))) {
+	int param_owner_id = hh_get_owner_id(o.hdr);
+	hal_comp_t *comp = halpr_find_owning_comp(param_owner_id);
+	hal_param_t *param = (hal_param_t *)o.any;
+
+	if (scriptmode == 0) {
+	    halcmd_output(" %5d  ", comp->comp_id);
+	    if (comp->comp_id == param_owner_id)
+		halcmd_output("     ");
+	    else
+		halcmd_output("%5d", param_owner_id);
+
+
+
+	    halcmd_output("  %5s %-3s  %9s  %s\n",
+			  data_type((int) param->type),
+			  param_data_dir((int) param->dir),
+			  data_value((int) param->type, SHMPTR(param->data_ptr)),
+			  hh_get_name(o.hdr));
+	} else {
+	    halcmd_output("%s %s %s %s %s\n",
+			  comp->name, data_type((int) param->type),
+			  param_data_dir((int) param->dir),
+			  data_value2((int) param->type, SHMPTR(param->data_ptr)),
+			  hh_get_name(o.hdr));
+	}
+    }
+    return 0; // continue
+
+}
+
 static void print_param_info(int type, char **patterns)
 {
-    int next;
-    hal_param_t *param;
-    hal_comp_t *comp;
-
     if (scriptmode == 0) {
 	halcmd_output("Parameters:\n");
 	halcmd_output(" Comp    Inst Type   Dir         Value  Name\n");
     }
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if ( tmatch(type, param->type), match(patterns, param->name) ) {
-	    comp =  halpr_find_owning_comp(param->owner_id);
-	    if (scriptmode == 0) {
 
-
-		halcmd_output(" %5d  ", comp->comp_id);
-		if (comp->comp_id == param->owner_id)
-		    halcmd_output("     ");
-		else
-		    halcmd_output("%5d", param->owner_id);
-
-
-
-		halcmd_output("  %5s %-3s  %9s  %s\n",
-			      data_type((int) param->type),
-			      param_data_dir((int) param->dir),
-			      data_value((int) param->type, SHMPTR(param->data_ptr)),
-			      param->name);
-	    } else {
-		halcmd_output("%s %s %s %s %s\n",
-			      comp->name, data_type((int) param->type),
-			      param_data_dir((int) param->dir),
-			      data_value2((int) param->type, SHMPTR(param->data_ptr)),
-			      param->name);
-	    }
-	}
-	next = param->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_PARAM,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_param_line);
     halcmd_output("\n");
 }
 
+#if 0
 static void print_param_aliases(char **patterns)
 {
     int next;
@@ -2285,7 +2289,7 @@ static void print_param_aliases(char **patterns)
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");
 }
-
+#endif
 static const char *ftype(int ft)
 {
     switch (ft) {
@@ -2323,7 +2327,6 @@ static int print_funct_line(hal_object_ptr o, foreach_args_t *args)
 			  (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
 			  fptr->users, hh_get_name(o.hdr));
 	}
-	halcmd_output("\n");
     }
     return 0; // continue
 }
@@ -2553,8 +2556,21 @@ static void print_sig_names(char **patterns)
     halcmd_output("\n");
 }
 
+static int print_name(hal_object_ptr o, foreach_args_t *args)
+{
+    if ( match(args->user_ptr1, hh_get_name(o.hdr)))
+	halcmd_output("%s ", hh_get_name(o.hdr));
+    return 0; // continue
+}
+
 static void print_param_names(char **patterns)
 {
+    foreach_args_t args =  {
+	.type = HAL_PARAM,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
+#if 0    
     int next;
     hal_param_t *param;
 
@@ -2568,15 +2584,10 @@ static void print_param_names(char **patterns)
 	next = param->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
+#endif
     halcmd_output("\n");
 }
 
-static int print_name(hal_object_ptr o, foreach_args_t *args)
-{
-    if ( match(args->user_ptr1, hh_get_name(o.hdr)))
-	halcmd_output("%s ", hh_get_name(o.hdr));
-    return 0; // continue
-}
 
 static void print_funct_names(char **patterns)
 {
@@ -2659,8 +2670,6 @@ static int count_members()
 static void print_mem_status()
 {
     int active, recycled, next;
-    hal_pin_t *pin;
-    hal_param_t *param;
 
     halcmd_output("HAL memory status\n");
     halcmd_output("  used/total shared memory:   %ld/%d\n",
@@ -2678,6 +2687,7 @@ static void print_mem_status()
     active = count_list(hal_data->param_list_ptr);
     recycled = count_list(hal_data->param_free_ptr);
     halcmd_output("  active/recycled parameters: %d/%d\n", active, recycled);
+#if 0
     // count aliases
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->pin_list_ptr;
@@ -2696,6 +2706,7 @@ static void print_mem_status()
     rtapi_mutex_give(&(hal_data->mutex));
     recycled = count_list(hal_data->oldname_free_ptr);
     halcmd_output("  active/recycled aliases:    %d/%d\n", active, recycled);
+#endif    
     // count signals
     active = count_list(hal_data->sig_list_ptr);
     recycled = count_list(hal_data->sig_free_ptr);
@@ -2945,15 +2956,15 @@ int do_save_cmd(char *type, char *filename)
     if (strcmp(type, "all" ) == 0) {
 	/* save everything */
 	save_comps(dst);
-	save_aliases(dst);
+	//	save_aliases(dst);
         save_signals(dst, 1);
         save_nets(dst, 3);
 	save_params(dst);
 	save_threads(dst);
     } else if (strcmp(type, "comp") == 0) {
 	save_comps(dst);
-    } else if (strcmp(type, "alias") == 0) {
-	save_aliases(dst);
+    /* } else if (strcmp(type, "alias") == 0) { */
+    /* 	save_aliases(dst); */
     } else if (strcmp(type, "sig") == 0) {
 	save_signals(dst, 0);
     } else if (strcmp(type, "signal") == 0) {
@@ -3886,7 +3897,7 @@ static void save_comps(FILE *dst)
 #endif
     rtapi_mutex_give(&(hal_data->mutex));
 }
-
+#if 0
 static void save_aliases(FILE *dst)
 {
     int next;
@@ -3919,6 +3930,7 @@ static void save_aliases(FILE *dst)
     }
     rtapi_mutex_give(&(hal_data->mutex));
 }
+#endif
 
 static void save_signals(FILE *dst, int only_unlinked)
 {
@@ -4047,6 +4059,8 @@ static void save_nets(FILE *dst, int arrow)
 
 static void save_params(FILE *dst)
 {
+#warning FIXME
+#if 0
     int next;
     hal_param_t *param;
 
@@ -4063,6 +4077,7 @@ static void save_params(FILE *dst)
 	next = param->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
+#endif 
 }
 
 static void save_threads(FILE *dst)
