@@ -285,18 +285,20 @@ typedef struct hal_inst {
     This structure contains information about a 'pin' object.
 */
 typedef struct hal_pin {
-    int next_ptr;		/* next pin in linked list */
+    halhdr_t hdr;		// common HAL object header
+
+    // int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
-    int owner_id;		/* component that owns this pin */
+    // int owner_id;		/* component that owns this pin */
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
     // int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_pin_dir_t dir;		/* pin direction */
-    int handle;                 // unique ID
+    // int handle;                 // unique ID
     int flags;
     __u8 eps_index;
-    char name[HAL_NAME_LEN + 1];	/* pin name */
+    // char name[HAL_NAME_LEN + 1];	/* pin name */
 } hal_pin_t;
 
 typedef enum {
@@ -535,38 +537,49 @@ typedef struct hal_vtable {
 *            PRIVATE HAL FUNCTIONS - NOT PART OF THE API               *
 ************************************************************************/
 
-/** None of these functions get or release any mutex.  They all assume
+/** the legacy halpr functions do not get or release any mutex.  They all assume
     that the mutex has already been obtained.  Calling them without
     having the mutex may give incorrect results if other processes are
     accessing the data structures at the same time.
+
+    The underlying halg_ generic functions have a use_hal_mutex parameter
+    to conditionally use the HAL lock.
 */
 
+// generic lookup by name
+hal_object_ptr halg_find_object_by_name(const int use_hal_mutex,
+				      const int type,
+				      const char *name);
+// generic lookup by ID
+hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
+				    const int type,
+				    const int id);
 
 /** The 'find_xxx_by_name()' functions search the appropriate list for
     an object that matches 'name'.  They return a pointer to the object,
     or NULL if no matching object is found.
 */
 extern hal_comp_t *halpr_find_comp_by_name(const char *name);
-extern hal_pin_t *halpr_find_pin_by_name(const char *name);
 extern hal_sig_t *halpr_find_sig_by_name(const char *name);
 extern hal_thread_t *halpr_find_thread_by_name(const char *name);
 
-hal_funct_t *halg_find_funct_by_name(const int use_hal_mutex,
-				     const char *name);
+
 static inline hal_funct_t *halpr_find_funct_by_name(const char *name) {
-    return halg_find_funct_by_name(0, name);
+    return halg_find_object_by_name(0, HAL_FUNCT, name).funct;
 }
 
-hal_inst_t *halg_find_inst_by_name(const int use_hal_mutex,
-				   const char *name);
 static inline hal_inst_t *halpr_find_inst_by_name(const char *name) {
-    return halg_find_inst_by_name(0, name);
+    return halg_find_object_by_name(0, HAL_INST, name).inst;
 }
-hal_param_t *halg_find_param_by_name(const int use_hal_mutex,
-				     const char *name);
+
 static inline  hal_param_t *halpr_find_param_by_name(const char *name) {
-    return halg_find_param_by_name(0, name);
+    return halg_find_object_by_name(0, HAL_PARAM, name).param;
 }
+
+static inline hal_pin_t *halpr_find_pin_by_name(const char *name) {
+    return halg_find_object_by_name(0, HAL_PIN, name).pin;
+}
+
 
 
 // observers needed in haltalk

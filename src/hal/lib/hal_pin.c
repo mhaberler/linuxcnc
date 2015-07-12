@@ -95,8 +95,7 @@ int hal_pin_newf(hal_type_t type,
 int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 		    void **data_ptr_addr, int owner_id)
 {
-    int *prev, next, cmp;
-    hal_pin_t *new, *ptr;
+    hal_pin_t *new;
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_LOAD);
@@ -121,10 +120,14 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
     HALDBG("creating pin '%s'", name);
 
     {
-	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX();
 
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
+	hal_comp_t *comp;
+
+	if (halpr_find_inst_by_name(name) != NULL) {
+	    HALERR("duplicate pin '%s'", name);
+	    return -EEXIST;
+	}
 
 	/* validate comp_id */
 	comp = halpr_find_owning_comp(owner_id);
@@ -144,7 +147,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 
 	// this will be 0 for legacy comps which use comp_id
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
-	int inst_id = (inst ? hh_get_id(&inst->hdr) : 0);
+	int inst_id = (inst ? ho_id(inst) : 0);
 
 	// instances may create pins post hal_ready
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
@@ -154,52 +157,23 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	    return -EINVAL;
 	}
 
-	/* allocate a new variable structure */
-	new = alloc_pin_struct();
-	if (new == 0) {
-	    /* alloc failed */
-	    HALERR("insufficient memory for pin '%s'", name);
-	    return -ENOMEM;
-	}
+	// allocate pin descriptor
+	if ((new = shmalloc_desc(sizeof(hal_pin_t))) == NULL)
+	    NOMEM("pin '%s'",  name);
+	hh_init_hdrf(&new->hdr, HAL_PIN, owner_id, "%s", name);
+
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
-	new->owner_id = owner_id;
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;
-	new->handle = rtapi_next_handle();
 	memset(&new->dummysig, 0, sizeof(hal_data_u));
-	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 	/* make 'data_ptr' point to dummy signal */
 	*data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
-	/* search list for 'name' and insert new structure */
-	prev = &(hal_data->pin_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-	    cmp = strcmp(ptr->name, new->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    if (cmp == 0) {
-		/* name already in list, can't insert */
-		free_pin_struct(new);
-		HALERR("duplicate pin '%s'", name);
-		return -EINVAL;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
+
+	// make it visible
+	add_object(&new->hdr);
+	return 0;
     }
 }
 
@@ -216,7 +190,7 @@ void unlink_pin(hal_pin_t * pin)
 	sig = SHMPTR(pin->signal);
 	/* make pin's 'data_ptr' point to its dummy signal */
 	data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-	comp = halpr_find_owning_comp(pin->owner_id);
+	comp = halpr_find_owning_comp(ho_owner_id(pin));
 	dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
 	*data_ptr_addr = dummy_addr;
 
@@ -240,7 +214,7 @@ void unlink_pin(hal_pin_t * pin)
 	default:
 	    hal_print_msg(RTAPI_MSG_ERR,
 			  "HAL: BUG: pin '%s' has invalid type %d !!\n",
-			  pin->name, pin->type);
+			  ho_name(pin), pin->type);
 	}
 
 	/* update the signal's reader/writer counts */
@@ -256,26 +230,6 @@ void unlink_pin(hal_pin_t * pin)
 	/* mark pin as unlinked */
 	pin->signal = 0;
     }
-}
-
-hal_pin_t *halpr_find_pin_by_name(const char *name)
-{
-    int next;
-    hal_pin_t *pin;
-
-    /* search pin list for 'name' */
-    next = hal_data->pin_list_ptr;
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if (strcmp(pin->name, name) == 0) {
-	    /* found a match */
-	    return pin;
-	}
-	/* didn't find it yet, look at next one */
-	next = pin->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
 }
 
 
@@ -334,55 +288,9 @@ hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
     return 0;
 }
 
-static hal_pin_t *alloc_pin_struct(void)
-{
-    hal_pin_t *p;
-
-    /* check the free list */
-    if (hal_data->pin_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->pin_free_ptr);
-	/* unlink it from the free list */
-	hal_data->pin_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_desc(sizeof(hal_pin_t));
-    }
-    if (p) {
-	/* make sure it's empty */
-	p->next_ptr = 0;
-	p->data_ptr_addr = 0;
-	p->owner_id = 0;
-	p->type = 0;
-	p->dir = 0;
-	p->signal = 0;
-	memset(&p->dummysig, 0, sizeof(hal_data_u));
-	p->name[0] = '\0';
-	p->eps_index = 0;
-	p->flags = 0;
-    }
-    return p;
-}
 
 void free_pin_struct(hal_pin_t * pin)
 {
-
     unlink_pin(pin);
-    /* clear contents of struct */
-    //  if ( pin->oldname != 0 ) free_oldname_struct(SHMPTR(pin->oldname));
-    pin->data_ptr_addr = 0;
-    pin->owner_id = 0;
-    //    pin->instance_ptr = 0;
-    pin->type = 0;
-    pin->dir = 0;
-    pin->signal = 0;
-    pin->handle = -1;
-    memset(&pin->dummysig, 0, sizeof(hal_data_u));
-    pin->name[0] = '\0';
-    pin->eps_index = 0;
-    pin->flags = 0;
-    /* add it to free list */
-    pin->next_ptr = hal_data->pin_free_ptr;
-    hal_data->pin_free_ptr = SHMOFF(pin);
+    free_halobject((hal_object_ptr) pin);
 }

@@ -183,7 +183,6 @@ typedef union {
     hal_pin_t    *pin;
     hal_param_t  *param;
     hal_sig_t    *sig;
-    //    hal_oldname_t *oldname;
     hal_group_t  *group;
     hal_member_t *member;
     hal_funct_t  *funct;
@@ -193,6 +192,7 @@ typedef union {
     void         *any;
 } hal_object_ptr;
 
+#define HO_NULL ((hal_object_ptr)NULL)
 
 /***********************************************************************
 *                   GENERAL PURPOSE FUNCTIONS                          *

@@ -3,13 +3,7 @@
 from .hal cimport *
 from hal_const cimport hal_type_t, hal_pin_dir_t, hal_param_dir_t
 
-cdef extern from "hal_object.h":
-
-    ctypedef struct halhdr_t:
-       pass
-    int hh_get_id(halhdr_t *h)
-    int hh_get_owner_id(halhdr_t *h)
-    char *hh_get_name(halhdr_t *h)
+from .hal_object cimport *
 
 cdef extern from "hal_priv.h":
     int MAX_EPSILON

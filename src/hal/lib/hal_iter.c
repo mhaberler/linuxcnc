@@ -222,95 +222,9 @@ int halpr_foreach_ring(const char *name,
     return nvisited;
 }
 
-int halpr_foreach_pin(const char *name,
-		      hal_pin_callback_t callback, void *cb_data)
-{
-    hal_pin_t *pin;
-    int next;
-    int nvisited = 0;
-    int result;
 
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
 
-    /* search for the pin */
-    next = hal_data->pin_list_ptr;
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if (!name || (strcmp(pin->name, name)) == 0) {
-	    nvisited++;
-	    /* this is the right pin */
-	    if (callback) {
-		result = callback(pin, cb_data);
-		if (result < 0) {
-		    // callback signalled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signalled 'stop iterating'.
-		    // pass back the number of visited pins.
-		    return nvisited;
-		} else {
-		    // callback signalled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count pins
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = pin->next_ptr;
-    }
-    /* if we get here, we ran through all the pins, so return count */
-    return nvisited;
-}
 
-#if 0
-int halpr_foreach_param(const char *name,
-		      hal_param_callback_t callback, void *cb_data)
-{
-    hal_param_t *param;
-    int next;
-    int nvisited = 0;
-    int result;
-
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
-
-    /* search for the param */
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if (!name || (strcmp(param->name, name)) == 0) {
-	    nvisited++;
-	    /* this is the right param */
-	    if (callback) {
-		result = callback(param, cb_data);
-		if (result < 0) {
-		    // callback signalled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signalled 'stop iterating'.
-		    // pass back the number of visited params.
-		    return nvisited;
-		} else {
-		    // callback signalled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count params
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = param->next_ptr;
-    }
-    /* if we get here, we ran through all the params, so return count */
-    return nvisited;
-}
-#endif
 int halg_foreach_type(const int use_hal_mutex,
 		      const int type,
 		      const char *name,
@@ -328,3 +242,28 @@ int halg_foreach_type(const int use_hal_mutex,
 			yield_foreach);
 }
 
+hal_object_ptr halg_find_object_by_name(const int use_hal_mutex,
+					const int type,
+					const char *name)
+{
+    foreach_args_t args =  {
+	.type = type,
+	.name = (char *)name,
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return (hal_object_ptr) args.user_ptr1;
+    return HO_NULL;
+}
+
+hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
+				      const int type,
+				      const int id)
+{
+    foreach_args_t args =  {
+	.type = type,
+	.id = id
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return (hal_object_ptr) args.user_ptr1;
+    return HO_NULL;
+}

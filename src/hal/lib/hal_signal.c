@@ -226,7 +226,7 @@ int hal_link(const char *pin_name, const char *sig_name)
 	}
         /* everything is OK, make the new link */
         data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-	comp = halpr_find_owning_comp(pin->owner_id);
+	comp = halpr_find_owning_comp(ho_owner_id(pin));
 	data_addr = comp->shmem_base + sig->data_ptr;
 	*data_ptr_addr = data_addr;
 
@@ -257,7 +257,7 @@ int hal_link(const char *pin_name, const char *sig_name)
 	    default:
 		hal_print_msg(RTAPI_MSG_ERR,
 			      "HAL: BUG: pin '%s' has invalid type %d !!\n",
-			      pin->name, pin->type);
+			      ho_name(pin), pin->type);
 		return -EINVAL;
 	    }
 	}
