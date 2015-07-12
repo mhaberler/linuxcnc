@@ -266,6 +266,7 @@ int halpr_foreach_pin(const char *name,
     return nvisited;
 }
 
+#if 0
 int halpr_foreach_param(const char *name,
 		      hal_param_callback_t callback, void *cb_data)
 {
@@ -309,64 +310,7 @@ int halpr_foreach_param(const char *name,
     /* if we get here, we ran through all the params, so return count */
     return nvisited;
 }
-
-#if 0
-int halpr_foreach_vtable(const char *name,
-		      hal_vtable_callback_t callback, void *cb_data)
-{
-    hal_vtable_t *vtable;
-    int next;
-    int nvisited = 0;
-    int result;
-
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
-
-    foreach_args_t args =  {
-	.type = HAL_VTABLE,
-	.name = name,
-	.user_arg = version,
-	.user_ptr = NULL
-    };
-    if (halg_foreach(false, &args, _yield_versioned_vtable) == 1)
-	return args.user_ptr;
-    return NULL;
-
-
-    /* search for the vtable */
-    next = hal_data->vtable_list_ptr;
-    while (next != 0) {
-	vtable = SHMPTR(next);
-	if (!name || (strcmp(hh_get_name(&vtable->hdr), name)) == 0) {
-	    nvisited++;
-	    /* this is the right vtable */
-	    if (callback) {
-		result = callback(vtable, cb_data);
-		if (result < 0) {
-		    // callback signalled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signalled 'stop iterating'.
-		    // pass back the number of visited vtables.
-		    return nvisited;
-		} else {
-		    // callback signalled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count vtables
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = vtable->next_ptr;
-    }
-    /* if we get here, we ran through all the vtables, so return count */
-    return nvisited;
-}
 #endif
-
 int halg_foreach_type(const int use_hal_mutex,
 		      const int type,
 		      const char *name,
@@ -384,49 +328,3 @@ int halg_foreach_type(const int use_hal_mutex,
 			yield_foreach);
 }
 
-#if 0
-int halpr_foreach_inst(const char *name,
-		       hal_inst_callback_t callback,
-		       void *cb_data)
-{
-    hal_inst_t *inst;
-    int next;
-    int nvisited = 0;
-    int result;
-
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
-
-    /* search for the inst */
-    next = hal_data->inst_list_ptr;
-    while (next != 0) {
-	inst = SHMPTR(next);
-	if (!name || (strcmp(inst->name, name)) == 0) {
-	    nvisited++;
-	    /* this is the right inst */
-	    if (callback) {
-		result = callback(inst, cb_data);
-		if (result < 0) {
-		    // callback signalled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signalled 'stop iterating'.
-		    // pass back the number of visited insts.
-		    return nvisited;
-		} else {
-		    // callback signalled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count insts
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = inst->next_ptr;
-    }
-    /* if we get here, we ran through all the insts, so return count */
-    return nvisited;
-}
-#endif

@@ -58,7 +58,7 @@ void free_thread_struct(hal_thread_t * thread);
 extern int lib_module_id;
 extern int lib_mem_id;
 
-void free_param_struct(hal_param_t * param);
+//void free_param_struct(hal_param_t * param);
 
 hal_oldname_t *halpr_alloc_oldname_struct(void);
 void free_oldname_struct(hal_oldname_t * oldname);

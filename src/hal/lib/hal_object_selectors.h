@@ -58,6 +58,7 @@ int yield_count(hal_object_ptr o, foreach_args_t *args);
 int yield_versioned_vtable_object(hal_object_ptr o, foreach_args_t *args);
 
 
+//--------------------------------------------------------------------
 // use this selector to support the halpr_foreach_<type> iterators
 //
 // required argument:
@@ -65,12 +66,25 @@ int yield_versioned_vtable_object(hal_object_ptr o, foreach_args_t *args);
 //     .user_ptr2 = <cb_data>,
 int yield_foreach(hal_object_ptr o, foreach_args_t *args);
 
+//--------------------------------------------------------------------
 // use this selector to free any number of matching HAL objects,
-// of type HAL_PIN HAL_PARAM HAL_INST HAL_THREAD HAL_FUNCT
+// of type HAL_PIN HAL_PARAM HAL_INST HAL_THREAD HAL_FUNCT etc
 //
 // required argument:
 //     .user_ptr1 = <callback>,
 //     .user_ptr2 = <cb_data>,
 int free_object(hal_object_ptr o, foreach_args_t *args);
+
+//--------------------------------------------------------------------
+// use this selector to count the number of objects owned
+// by a component
+//
+// this honors the dual-ownership semantics of pins/params/functs
+// as implemented in halpr_find_owning_comp()
+//
+// the comp id is passed in args->user_arg1
+// the count is returned in args->user_arg2
+int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args);
+
 
 #endif

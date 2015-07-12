@@ -276,7 +276,7 @@ typedef struct hal_comp {
 // it is owned by exactly one component pointed to by comp_ptr
 // it holds a void * to the instance data as required by the instance
 typedef struct hal_inst {
-    halhdr_t hdr;		   // common HAL object header
+    halhdr_t hdr;		// common HAL object header
     int inst_data_ptr;          // offset of instance data in HAL shm segment
     int inst_size;              // size of instdata blob
 } hal_inst_t;
@@ -321,13 +321,14 @@ typedef struct hal_sig {
     This structure contains information about a 'parameter' object.
 */
 typedef struct hal_param {
-    int next_ptr;		/* next parameter in linked list */
+    halhdr_t hdr;		// common HAL object header
+    //    int next_ptr;		/* next parameter in linked list */
     int data_ptr;		/* offset of parameter value */
-    int owner_id;		/* component that owns this signal */
+    // int owner_id;		/* component that owns this signal */
     int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
-    int handle;                // unique ID
+    // int handle;                // unique ID
     char name[HAL_NAME_LEN + 1];	/* parameter name */
 } hal_param_t;
 
@@ -548,7 +549,6 @@ typedef struct hal_vtable {
 extern hal_comp_t *halpr_find_comp_by_name(const char *name);
 extern hal_pin_t *halpr_find_pin_by_name(const char *name);
 extern hal_sig_t *halpr_find_sig_by_name(const char *name);
-extern hal_param_t *halpr_find_param_by_name(const char *name);
 extern hal_thread_t *halpr_find_thread_by_name(const char *name);
 
 hal_funct_t *halg_find_funct_by_name(const int use_hal_mutex,
@@ -562,6 +562,12 @@ hal_inst_t *halg_find_inst_by_name(const int use_hal_mutex,
 static inline hal_inst_t *halpr_find_inst_by_name(const char *name) {
     return halg_find_inst_by_name(0, name);
 }
+hal_param_t *halg_find_param_by_name(const int use_hal_mutex,
+				     const char *name);
+static inline  hal_param_t *halpr_find_param_by_name(const char *name) {
+    return halg_find_param_by_name(0, name);
+}
+
 
 // observers needed in haltalk
 // I guess we better come up with generic iterators for this kind of thing
@@ -631,7 +637,7 @@ hal_inst_t *halpr_find_inst_by_owning_comp(const int comp_id, hal_inst_t *start)
 
 // iterators - by owner id, which can refer to either a comp or an instance
 hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start);
-hal_param_t *halpr_find_param_by_owner_id(const int owner_id, hal_param_t * start);
+// hal_param_t *halpr_find_param_by_owner_id(const int owner_id, hal_param_t * start);
 hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id, hal_funct_t * start);
 
 // automatically release the local hal_data->mutex on scope exit.
