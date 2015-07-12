@@ -429,18 +429,6 @@ void free_funct_entry_struct(hal_funct_entry_t * funct_entry)
 }
 
 
-hal_funct_t *halg_find_funct_by_name(const int use_hal_mutex,
-				     const char *name)
-{
-    foreach_args_t args =  {
-	.type = HAL_FUNCT,
-	.name = (char *)name,
-    };
-    if (halg_foreach(use_hal_mutex, &args, yield_match))
-	return args.user_ptr1;
-    return NULL;
-}
-
 #ifdef RTAPI
 
 void free_funct_struct(hal_funct_t * funct)

@@ -32,6 +32,8 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	}
 
 	if (size > 0) {
+	    // the instance data is likely to contain pins so
+	    // allocate in 'rt' memory for cache friendliness
 	    m = shmalloc_rt(size);
 	    if (m == NULL)
 		NOMEM(" instance %s: cant allocate %d bytes", name, size);
@@ -75,7 +77,7 @@ int hal_inst_delete(const char *name)
 	hal_inst_t *inst;
 
 	// inst must exist
-	if ((inst = halg_find_inst_by_name(0, name)) == NULL) {
+	if ((inst = halg_find_object_by_name(0, HAL_INST, name)) == NULL) {
 	    HALERR("instance '%s' does not exist", name);
 	    return -ENOENT;
 	}
@@ -83,19 +85,6 @@ int hal_inst_delete(const char *name)
 	free_inst_struct(inst);
     }
     return 0;
-}
-
-hal_inst_t *halg_find_inst_by_name(const int use_hal_mutex,
-				   const char *name)
-{
-    foreach_args_t args =  {
-	.type = HAL_INST,
-	.name = (char *)name,
-	.user_ptr1 = NULL
-    };
-    if (halg_foreach(use_hal_mutex, &args, yield_match))
-	return args.user_ptr1;
-    return NULL;
 }
 
 // lookup instance by instance ID

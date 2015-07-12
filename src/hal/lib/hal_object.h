@@ -51,6 +51,14 @@ static inline hal_bool hh_is_valid(halhdr_t *o)       { return (o->_valid != 0);
 static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
 static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 
+// shorthands macros
+#define ho_id(h)  hh_get_id(&(h)->hdr)
+#define ho_owner_id(h)  hh_get_owner_id(&(h)->hdr)
+#define ho_name(h)  hh_get_name(&(h)->hdr)
+#define ho_type(h)  hh_get_type(&(h)->hdr)
+
+
+
 #define add_object(h) dlist_add_before(&(h)->list, OBJECTLIST)
 #define unlink_object(h) dlist_remove_entry(&(h)->list)
 
@@ -76,22 +84,43 @@ int hh_clear_hdr(halhdr_t *o);
 
 
 // halg_foreach: generic HAL object iterator
-// selects by type (if set), then by name (if set)
 // set to replace the gazillion of type-specific iterators
 //
 // callback return values drive behavior like so:
 // 0  - signal 'continue iterating'
 // >0 - stop iterating and return number of visited objects
 // <0 - stop iterating and return that value (typically error code)
+
 struct foreach_args;
 typedef struct foreach_args foreach_args_t;
+
 typedef int (*hal_object_callback_t)  (hal_object_ptr object,
 				       foreach_args_t *args);
 typedef struct foreach_args {
     // standard selection parameters - in only:
     int type;         // one of hal_object_type or 0
     int id;           // search by object ID
-    int owner_id;     // search by owner object ID
+
+    // use a match on owner_id for direct ownership only:
+    // for instance, to find the pins owned by an instance,
+    // set owner_id to the instance id.
+
+    // using a comp id to match an owner_id will only retrieve
+    // objects directly owned by a comp (legacy case).
+    // to cover the new semantics, use owning_comp below.
+    int owner_id;     // search by owner object ID as stored in hdr
+
+    // pins, params and functs may be owner either by a comp (legacy)
+    // or an instance (instantiable comps).
+    // An instance is in turn owned by a comp.
+    // searching by 'owning_comp' covers both cases - it will match
+    // the comp id in the legacy as well as the instantiable case.
+    // see halpr_find_owning_comp() for details.
+
+    // to find all objects eventually (directly or through an instance)
+    // owned by a comp (and only a comp), match with owning_comp.
+    int owning_comp;  // pins, param,search by owner object ID
+
     char *name;       // search name prefix or NULL
 
     // generic in/out parameters to/from the callback function:
