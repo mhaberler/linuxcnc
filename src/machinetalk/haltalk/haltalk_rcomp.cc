@@ -296,14 +296,16 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 
     case REPORT_PIN: // per-reported-pin action
 	p = self->tx.add_pin();
-	p->set_handle(pin->handle);
+	p->set_handle(ho_id(pin));
 	if (hal_pin2pb(pin, p))
 		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for pin '%s'\n",
-				pin->type, pin->name);
+				pin->type, ho_name(pin));
 	break;
 
     case REPORT_END: // finalize & send
-	retval = send_pbcontainer(cc->comp->name, self->tx, self->mksock[SVC_HALRCOMP].socket);
+	retval = send_pbcontainer(cc->comp->name,
+				  self->tx,
+				  self->mksock[SVC_HALRCOMP].socket);
 	assert(retval == 0);
 	break;
     }
@@ -319,14 +321,14 @@ add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
     if (phase != REPORT_PIN) return 0;
 
     htself_t *self = (htself_t *) cb_data;;
-    itemmap_iterator it = self->items.find(pin->handle);
+    itemmap_iterator it = self->items.find(ho_id(pin));
 
     if (it == self->items.end()) { // not in handle map
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_PIN;
 	hi->o.pin = pin;
 	hi->ptr = SHMPTR(pin->data_ptr_addr);
-	self->items[pin->handle] = hi;
+	self->items[ho_id(pin)] = hi;
     }
     return 0;
 }

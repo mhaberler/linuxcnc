@@ -96,5 +96,6 @@ hal_lib-objs += hal/lib/hal_misc.o
 hal_lib-objs += hal/lib/hal_instance.o
 hal_lib-objs += hal/lib/hal_object.o
 hal_lib-objs += hal/lib/hal_object_selectors.o
+hal_lib-objs += hal/lib/hal_iter.o
 
 $(RTLIBDIR)/hal_lib$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_lib-objs))

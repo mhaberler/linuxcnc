@@ -7,8 +7,6 @@
 #include "hal_group.h"
 #include "hal_internal.h"
 
-static hal_pin_t *alloc_pin_struct(void);
-
 /***********************************************************************
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
@@ -232,7 +230,8 @@ void unlink_pin(hal_pin_t * pin)
     }
 }
 
-
+#warning REVIVE ME
+#if 0
 // find a pin by owner id, which may refer to a instance or a comp
 hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start)
 {
@@ -287,7 +286,7 @@ hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
     /* if loop terminates, we reached end of list without finding a match */
     return 0;
 }
-
+#endif
 
 void free_pin_struct(hal_pin_t * pin)
 {

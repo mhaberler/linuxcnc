@@ -86,5 +86,4 @@ int free_object(hal_object_ptr o, foreach_args_t *args);
 // the count is returned in args->user_arg2
 int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args);
 
-
 #endif

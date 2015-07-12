@@ -77,7 +77,7 @@ int hal_inst_delete(const char *name)
 	hal_inst_t *inst;
 
 	// inst must exist
-	if ((inst = halg_find_object_by_name(0, HAL_INST, name)) == NULL) {
+	if ((inst = halg_find_object_by_name(0, HAL_INST, name).inst) == NULL) {
 	    HALERR("instance '%s' does not exist", name);
 	    return -ENOENT;
 	}
