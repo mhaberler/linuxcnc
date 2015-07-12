@@ -42,3 +42,4 @@ void free_oldname_struct(hal_oldname_t * oldname)
     oldname->next_ptr = hal_data->oldname_free_ptr;
     hal_data->oldname_free_ptr = SHMOFF(oldname);
 }
+

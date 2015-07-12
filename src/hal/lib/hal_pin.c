@@ -258,124 +258,10 @@ void unlink_pin(hal_pin_t * pin)
     }
 }
 
-int hal_pin_alias(const char *pin_name, const char *alias)
-{
-    int *prev, next, cmp;
-    hal_pin_t *pin, *ptr;
-
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
-    CHECK_STRLEN(pin_name, HAL_NAME_LEN);
-
-    if (alias != NULL ) {
-	if (strlen(alias) > HAL_NAME_LEN) {
-	    HALERR("alias name '%s' is too long", alias);
-	    return -EINVAL;
-	}
-    }
-    {
-	hal_oldname_t *oldname  __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-	if (alias != NULL ) {
-	    pin = halpr_find_pin_by_name(alias);
-	    if ( pin != NULL ) {
-		HALERR("duplicate pin/alias name '%s'", alias);
-		return -EINVAL;
-	    }
-	}
-	/* once we unlink the pin from the list, we don't want to have to
-	   abort the change and repair things.  So we allocate an oldname
-	   struct here, then free it (which puts it on the free list).  This
-	   allocation might fail, in which case we abort the command.  But
-	   if we actually need the struct later, the next alloc is guaranteed
-	   to succeed since at least one struct is on the free list. */
-	oldname = halpr_alloc_oldname_struct();
-	if ( oldname == NULL ) {
-	    HALERR("alias '%s': insufficient memory for pin_alias", pin_name);
-	    return -EINVAL;
-	}
-	free_oldname_struct(oldname);
-
-	/* find the pin and unlink it from pin list */
-	prev = &(hal_data->pin_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, not found */
-		HALERR("pin '%s' not found", pin_name);
-		return -EINVAL;
-	    }
-	    pin = SHMPTR(next);
-	    if ( strcmp(pin->name, pin_name) == 0 ) {
-		/* found it, unlink from list */
-		*prev = pin->next_ptr;
-		break;
-	    }
-	    if (pin->oldname != 0 ) {
-		oldname = SHMPTR(pin->oldname);
-		if (strcmp(oldname->name, pin_name) == 0) {
-		    /* found it, unlink from list */
-		    *prev = pin->next_ptr;
-		    break;
-		}
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(pin->next_ptr);
-	    next = *prev;
-	}
-	if ( alias != NULL ) {
-	/* adding a new alias */
-	    if ( pin->oldname == 0 ) {
-		/* save old name (only if not already saved) */
-		oldname = halpr_alloc_oldname_struct();
-		pin->oldname = SHMOFF(oldname);
-		rtapi_snprintf(oldname->name, sizeof(oldname->name),
-			       "%s", pin->name);
-	    }
-	    /* change pin's name to 'alias' */
-	    rtapi_snprintf(pin->name, sizeof(pin->name), "%s", alias);
-	} else {
-	    /* removing an alias */
-	    if ( pin->oldname != 0 ) {
-		/* restore old name (only if pin is aliased) */
-	    oldname = SHMPTR(pin->oldname);
-	    rtapi_snprintf(pin->name, sizeof(pin->name), "%s", oldname->name);
-	    pin->oldname = 0;
-	    free_oldname_struct(oldname);
-	    }
-	}
-	/* insert pin back into list in proper place */
-	prev = &(hal_data->pin_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		pin->next_ptr = next;
-		*prev = SHMOFF(pin);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-	    cmp = strcmp(ptr->name, pin->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		pin->next_ptr = next;
-		*prev = SHMOFF(pin);
-		return 0;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
-    }
-}
-
 hal_pin_t *halpr_find_pin_by_name(const char *name)
 {
     int next;
     hal_pin_t *pin;
-    hal_oldname_t *oldname;
 
     /* search pin list for 'name' */
     next = hal_data->pin_list_ptr;
@@ -385,19 +271,13 @@ hal_pin_t *halpr_find_pin_by_name(const char *name)
 	    /* found a match */
 	    return pin;
 	}
-	if (pin->oldname != 0 ) {
-	    oldname = SHMPTR(pin->oldname);
-	    if (strcmp(oldname->name, name) == 0) {
-		/* found a match */
-		return pin;
-	    }
-	}
 	/* didn't find it yet, look at next one */
 	next = pin->next_ptr;
     }
     /* if loop terminates, we reached end of list with no match */
     return 0;
 }
+
 
 // find a pin by owner id, which may refer to a instance or a comp
 hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start)
@@ -490,7 +370,7 @@ void free_pin_struct(hal_pin_t * pin)
 
     unlink_pin(pin);
     /* clear contents of struct */
-    if ( pin->oldname != 0 ) free_oldname_struct(SHMPTR(pin->oldname));
+    //  if ( pin->oldname != 0 ) free_oldname_struct(SHMPTR(pin->oldname));
     pin->data_ptr_addr = 0;
     pin->owner_id = 0;
     //    pin->instance_ptr = 0;
