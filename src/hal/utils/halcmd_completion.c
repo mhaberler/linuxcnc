@@ -149,7 +149,7 @@ static int writer_match(hal_pin_dir_t dir, int writers) {
 static void check_match_type_pin(const char *name) {
     int next = hal_data->pin_list_ptr;
     int sz = strcspn(name, " \t");
-
+#if 0
     while(next) {
         hal_pin_t *pin = SHMPTR(next);
         next = pin->next_ptr;
@@ -159,6 +159,7 @@ static void check_match_type_pin(const char *name) {
             return;
         }
     }
+#endif
 }
 
 static void check_match_type_signal(const char *name) {
@@ -473,7 +474,7 @@ static char *pin_alias_generator(const char *text, int state) {
         next = hal_data->pin_list_ptr;
         len = strlen(text);
     }
-
+#if 0
     while(next) {
         hal_pin_t *pin = SHMPTR(next);
         next = pin->next_ptr;
@@ -481,6 +482,7 @@ static char *pin_alias_generator(const char *text, int state) {
         if ( strncmp(text, pin->name, len) == 0 )
             return strdup(pin->name);
     }
+#endif
     return NULL;
 }
 
@@ -489,7 +491,7 @@ static char *pin_generator(const char *text, int state) {
     static int next;
     static int aliased;
     char *name;
-
+#if 0		
     if(!state) {
         next = hal_data->pin_list_ptr;
         len = strlen(text);
@@ -531,6 +533,8 @@ static char *pin_generator(const char *text, int state) {
             return strdup(name);
     }
     rl_attempted_completion_over = 1;
+#endif
+
     return NULL;
 }
 

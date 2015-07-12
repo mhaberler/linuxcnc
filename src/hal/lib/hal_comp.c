@@ -481,8 +481,6 @@ hal_comp_t *halpr_alloc_comp_struct(void)
 
 void free_comp_struct(hal_comp_t * comp)
 {
-    int *prev, next;
-    hal_pin_t *pin;
 
     /* can't delete the component until we delete its "stuff" */
     /* need to check for functs only if a realtime component */
@@ -544,7 +542,13 @@ void free_comp_struct(hal_comp_t * comp)
 
     // now work the legacy pins and params which are
     // directly owned by the comp.
-
+    foreach_args_t pinargs =  {
+	// wipe params owned by this comp
+	.type = HAL_PIN,
+	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
+    };
+    halg_foreach(0, &pinargs, free_object);
+#if 0
     /* search the pin list for this component's pins */
     prev = &(hal_data->pin_list_ptr);
     next = *prev;
@@ -561,13 +565,14 @@ void free_comp_struct(hal_comp_t * comp)
 	}
 	next = *prev;
     }
+#endif
 
-    foreach_args_t pargs =  {
+    foreach_args_t paramargs =  {
 	// wipe params owned by this comp
 	.type = HAL_PARAM,
 	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
     };
-    halg_foreach(0, &pargs, free_object);
+    halg_foreach(0, &paramargs, free_object);
 #if 0
     /* search the parameter list for this component's parameters */
     prev = &(hal_data->param_list_ptr);

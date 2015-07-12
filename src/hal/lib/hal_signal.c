@@ -4,6 +4,7 @@
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
+#include "hal_iter.h"
 #include "hal_group.h"
 #include "hal_internal.h"
 
@@ -358,27 +359,16 @@ static hal_sig_t *alloc_sig_struct(void)
     return p;
 }
 
+static int unlink_pin_callback(hal_pin_t *pin, hal_sig_t *sig, void *user)
+{
+    unlink_pin(pin);
+    return 0; // continue
+}
+
 void free_sig_struct(hal_sig_t * sig)
 {
-    hal_pin_t *pin;
-
-    /* look for pins linked to this signal */
-    pin = halpr_find_pin_by_sig(sig, 0);
-    while (pin != 0) {
-	/* found one, unlink it */
-	unlink_pin(pin);
-	/* check for another pin linked to the signal */
-	pin = halpr_find_pin_by_sig(sig, pin);
-    }
-    /* clear contents of struct */
-    sig->data_ptr = 0;
-    sig->type = 0;
-    sig->readers = 0;
-    sig->writers = 0;
-    sig->bidirs = 0;
-    sig->handle = -1;
-    sig->name[0] = '\0';
-    /* add it to free list */
-    sig->next_ptr = hal_data->sig_free_ptr;
-    hal_data->sig_free_ptr = SHMOFF(sig);
+    // unlink any pins linked to this signal
+    halg_foreach_pin_by_signal(0, sig, unlink_pin_callback, NULL);
+    // poof!
+    free_halobject((hal_object_ptr) sig);
 }
