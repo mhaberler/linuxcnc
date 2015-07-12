@@ -4,7 +4,7 @@
 cdef int _collect_inst_names(hal_inst_t *inst,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):
-        arg.append(inst.name)
+        arg.append(hh_get_name(&inst.hdr))
         return 0
     else:
         return -1

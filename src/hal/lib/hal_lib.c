@@ -379,10 +379,10 @@ EXPORT_SYMBOL(halpr_find_inst_by_name);
 
 EXPORT_SYMBOL(halpr_find_owning_comp);
 
-EXPORT_SYMBOL(halpr_find_pin_by_instance_id);
-EXPORT_SYMBOL(halpr_find_param_by_instance_id);
-EXPORT_SYMBOL(halpr_find_funct_by_instance_id);
-EXPORT_SYMBOL(halpr_find_inst_by_owning_comp);
+/* EXPORT_SYMBOL(halpr_find_pin_by_instance_id); */
+/* EXPORT_SYMBOL(halpr_find_param_by_instance_id); */
+/* EXPORT_SYMBOL(halpr_find_funct_by_instance_id); */
+/* EXPORT_SYMBOL(halpr_find_inst_by_owning_comp); */
 
 EXPORT_SYMBOL(halpr_find_inst_by_id);
 EXPORT_SYMBOL(halpr_find_comp_by_id);

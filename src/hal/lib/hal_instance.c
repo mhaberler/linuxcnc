@@ -6,9 +6,6 @@
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
 
-// interal: alloc/free
-static hal_inst_t *alloc_inst_struct(void);
-
 int hal_inst_create(const char *name, const int comp_id, const int size,
 		    void **inst_data)
 {
@@ -35,42 +32,36 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	}
 
 	if (size > 0) {
-	    m = shmalloc_desc(size);
+	    m = shmalloc_rt(size);
 	    if (m == NULL)
 		NOMEM(" instance %s: cant allocate %d bytes", name, size);
 	}
 	memset(m, 0, size);
 
 	// allocate instance descriptor
-	if ((inst = alloc_inst_struct()) == NULL)
-	    NOMEM("instance '%s'", name);
+	if ((inst = shmalloc_desc(sizeof(hal_inst_t))) == NULL)
+	    NOMEM("instance '%s'",  name);
 
-	inst->comp_id = comp->comp_id;
-	inst->inst_id = rtapi_next_handle();
+	hh_init_hdrf(&inst->hdr, HAL_INST, comp_id, "%s", name);
 	inst->inst_data_ptr = SHMOFF(m);
-
 	inst->inst_size = size;
-	rtapi_snprintf(inst->name, sizeof(inst->name), "%s", name);
 
-
-	HALDBG("%s: creating instance '%s' size %d at ^ %d/%p base=%p",
+	HALDBG("%s: creating instance '%s' size %d",
 #ifdef RTAPI
 	       "rtapi",
 #else
 	       "ulapi",
 #endif
-	       name, size, inst->inst_data_ptr, m,  hal_shmem_base);
+	       hh_get_name(&inst->hdr), size);
 
 	// if not NULL, pass pointer to blob
 	if (inst_data)
 	    *(inst_data) = m;
 
 	// make it visible
-	inst->next_ptr = hal_data->inst_list_ptr;
-	hal_data->inst_list_ptr = SHMOFF(inst);
-
-	return inst->inst_id;
-  }
+	add_object(&inst->hdr);
+	return hh_get_id(&inst->hdr);
+    }
 }
 
 int hal_inst_delete(const char *name)
@@ -84,7 +75,7 @@ int hal_inst_delete(const char *name)
 	hal_inst_t *inst;
 
 	// inst must exist
-	if ((inst = halpr_find_inst_by_name(name)) == NULL) {
+	if ((inst = halg_find_inst_by_name(0, name)) == NULL) {
 	    HALERR("instance '%s' does not exist", name);
 	    return -ENOENT;
 	}
@@ -94,47 +85,34 @@ int hal_inst_delete(const char *name)
     return 0;
 }
 
-hal_inst_t *halpr_find_inst_by_name(const char *name)
+hal_inst_t *halg_find_inst_by_name(const int use_hal_mutex,
+				   const char *name)
 {
-    int next;
-    hal_inst_t *inst;
-
-    /* search inst list for 'name' */
-    next = hal_data->inst_list_ptr;
-    while (next != 0) {
-	inst = SHMPTR(next);
-	if (strcmp(inst->name, name) == 0) {
-	    /* found a match */
-	    return inst;
-	}
-	if (strcmp(inst->name, name) == 0) {
-	    /* found a match */
-	    return inst;
-	}
-	/* didn't find it yet, look at next one */
-	next = inst->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
+    foreach_args_t args =  {
+	.type = HAL_INST,
+	.name = (char *)name,
+	.user_ptr1 = NULL
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return args.user_ptr1;
+    return NULL;
 }
 
 // lookup instance by instance ID
-hal_inst_t *halpr_find_inst_by_id(const int id)
+hal_inst_t *halg_find_inst_by_id(const int use_hal_mutex,
+				 const int id)
 {
-    int next;
-    hal_inst_t *inst;
-
-    next = hal_data->inst_list_ptr;
-    while (next != 0) {
-	inst = SHMPTR(next);
-	if (inst->inst_id == id) {
-	    return inst;
-	}
-	next = inst->next_ptr;
-    }
-    return 0;
+    foreach_args_t args =  {
+	.type = HAL_INST,
+	.id = id,
+	.user_ptr1 = NULL
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return args.user_ptr1;
+    return NULL;
 }
 
+#if 0
 /** The 'halpr_find_pin_by_instance_id()' function find pins owned by a specific
     instance.  If 'start' is NULL, they start at the beginning of the
     appropriate list, and return the first item owned by 'instance'.
@@ -236,71 +214,15 @@ hal_funct_t *halpr_find_funct_by_instance_id(const int inst_id,
     /* if loop terminates, we reached end of list without finding a match */
     return 0;
 }
-
-// iterate over insts owned by a particular comp.
-// if comp_id < 0, return ALL instances, regardless which comp owns them.
-hal_inst_t *halpr_find_inst_by_owning_comp(const int comp_id, hal_inst_t *start)
-{
-    int next;
-    hal_inst_t *inst;
-
-    /* is this the first call? */
-    if (start == 0) {
-	/* yes, start at beginning of inst list */
-	next = hal_data->inst_list_ptr;
-    } else {
-	/* no, start at next inst */
-	next = start->next_ptr;
-    }
-    while (next != 0) {
-	inst = SHMPTR(next);
-	if (comp_id < 0) // all insts
-	    return inst;
-	if (inst->comp_id == comp_id) {
-	    return inst;
-	}
-	/* didn't find it yet, look at next one */
-	next = inst->next_ptr;
-    }
-    /* if loop terminates, we reached end of list without finding a match */
-    return 0;
-}
-
-
-static hal_inst_t *alloc_inst_struct(void)
-{
-    hal_inst_t *hi;
-
-    /* check the free list */
-    if (hal_data->inst_free_ptr != 0) {
-	/* found a free structure, point to it */
-	hi = SHMPTR(hal_data->inst_free_ptr);
-	/* unlink it from the free list */
-	hal_data->inst_free_ptr = hi->next_ptr;
-	hi->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	hi = shmalloc_desc(sizeof(hal_inst_t));
-    }
-    if (hi) {
-	/* make sure it's empty */
-	hi->next_ptr = 0;
-	hi->comp_id = 0;
-	hi->inst_id = 0;
-	hi->inst_data_ptr = 0;
-	hi->inst_size = 0;
-	hi->name[0] = '\0';
-    }
-    return hi;
-}
-
+#endif
+#if 0
 // almost a copy of free_comp_struct(), but based on instance
 //
 // unlinks and frees functs exported by this instance
 // then calls any custom destructor
 // then unlinks & deletes all pins owned by this instance
 // then deletes params owned by this instance
-void free_inst_struct(hal_inst_t * inst)
+void legcay_free_inst_struct(hal_inst_t * inst)
 {
     int *prev, next;
 #ifdef RTAPI
@@ -350,7 +272,7 @@ void free_inst_struct(hal_inst_t * inst)
     next = *prev;
     while (next != 0) {
 	pin = SHMPTR(next);
-	if (pin->owner_id == inst->inst_id) {
+	if (pin->owner_id == hh_get_id(&inst->hdr)) {
 	    /* this pin belongs to our instance, unlink from list */
 	    *prev = pin->next_ptr;
 	    /* and delete it */
@@ -366,7 +288,7 @@ void free_inst_struct(hal_inst_t * inst)
     next = *prev;
     while (next != 0) {
 	param = SHMPTR(next);
-	if (param->owner_id == inst->inst_id) {
+	if (param->owner_id == hh_get_id(&inst->hdr)) {
 	    /* this param belongs to our instance, unlink from list */
 	    *prev = param->next_ptr;
 	    /* and delete it */
@@ -402,4 +324,48 @@ void free_inst_struct(hal_inst_t * inst)
 	}
 	next = *prev;
     }
+}
+#endif
+
+//---- new!!
+
+void free_inst_struct(hal_inst_t * inst)
+{
+    // can't delete the instance until we delete its "stuff"
+    // need to check for functs only if a realtime component
+
+    foreach_args_t args =  {
+	// search for objects owned by this instance
+	.owner_id  = hh_get_id(&inst->hdr),
+    };
+
+#ifdef RTAPI
+
+    args.type = HAL_FUNCT;
+    halg_foreach(0, &args, free_object);
+
+    // now that the funct is gone, call the dtor for this instance
+    // get owning comp
+
+    hal_comp_t *comp = halpr_find_owning_comp(hh_get_id(&inst->hdr));
+    if (comp->dtor) {
+	// NB - pins, params etc still intact
+	// this instance is owned by this comp, call destructor
+	HALDBG("calling custom destructor(%s,%s)",
+	       comp->name,
+	       hh_get_name(&inst->hdr));
+	comp->dtor(hh_get_name(&inst->hdr),
+		   SHMPTR(inst->inst_data_ptr),
+		   inst->inst_size);
+    }
+#endif // RTAPI
+
+    args.type = HAL_PIN;
+    halg_foreach(0, &args, free_object);  // free pins
+
+    args.type = HAL_PARAM;
+    halg_foreach(0, &args, free_object);  // free params
+
+    // now we can delete the instance itself
+    free_halobject((hal_object_ptr) inst);
 }
