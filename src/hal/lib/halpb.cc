@@ -51,8 +51,8 @@ int pbadd_owned(hal_object_ptr o, foreach_args_t *args)
 int
 halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
 {
-    pbcomp->set_name(comp->name);
-    pbcomp->set_comp_id(comp->comp_id);
+    pbcomp->set_name(ho_name(comp));
+    pbcomp->set_comp_id(ho_id(comp));
     pbcomp->set_type(comp->type);
     pbcomp->set_state(comp->state);
     pbcomp->set_last_update(comp->last_update);
@@ -65,7 +65,7 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
     pbcomp->set_userarg2(comp->userarg2);
 
     foreach_args_t args;
-    args.owning_comp = comp->comp_id;
+    args.owning_comp = ho_id(comp);
     args.user_ptr1 = (void *)pbcomp;
     halg_foreach(0, &args, pbadd_owned);
     return 0;
