@@ -326,7 +326,7 @@ hal_group_t *halpr_find_group_of_member(const char *name)
 	    if (member->sig_member_ptr) { // a signal member
 
 		sig = SHMPTR(member->sig_member_ptr);
-		if (strcmp(name, sig->name) == 0) {
+		if (strcmp(name, ho_name(sig)) == 0) {
 		    HALDBG("find_group_of_member(%s): found signal in group '%s'",
 			   name, group->name);
 		    return group;
@@ -427,9 +427,9 @@ int hal_member_new(const char *group, const char *member,
 
 	    if (ptr->sig_member_ptr) {
 		sig = SHMPTR(ptr->sig_member_ptr);
-		if (strcmp(member, sig->name) == 0) {
+		if (strcmp(member, ho_name(sig)) == 0) {
 		    HALERR("group '%s' already has signal member '%s'",
-			   group, sig->name);
+			   group, ho_name(sig));
 		    return -EINVAL;
 		}
 	    }
@@ -485,7 +485,7 @@ int hal_member_delete(const char *group, const char *member)
 	next = *prev;
 	while (next != 0) {
 	    mptr = SHMPTR(next);
-	    if (strcmp(member, sig->name) == 0) {
+	    if (strcmp(member, ho_name(sig)) == 0) {
 		/* this is the right member, unlink from list */
 		*prev = mptr->next_ptr;
 		/* and delete it */
@@ -628,7 +628,7 @@ int hal_cgroup_apply(hal_compiled_group_t *cg, int handle, hal_type_t type, hal_
 
     if (sig->writers > 0)
 	HALWARN("group '%s': member signal '%s' already has updater",
-		cg->group->name, sig->name);
+		cg->group->name, ho_name(sig));
 
     switch (type) {
     case HAL_TYPE_UNSPECIFIED:
@@ -712,7 +712,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		break;
 	    default:
 		HALERR("BUG: detect_changes(%s): invalid type for signal %s: %d",
-		       cg->group->name, sig->name, sig->type);
+		       cg->group->name, ho_name(sig), sig->type);
 		return -EINVAL;
 	    }
 	    m++;
