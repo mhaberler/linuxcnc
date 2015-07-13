@@ -232,64 +232,6 @@ void unlink_pin(hal_pin_t * pin)
     }
 }
 
-#warning REVIVE ME
-#if 0
-// find a pin by owner id, which may refer to a instance or a comp
-hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start)
-{
-    int next;
-    hal_pin_t *pin;
-
-    /* is this the first call? */
-    if (start == 0) {
-	/* yes, start at beginning of pin list */
-	next = hal_data->pin_list_ptr;
-    } else {
-	/* no, start at next pin */
-	next = start->next_ptr;
-    }
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if (pin->owner_id == owner_id) {
-	    /* found a match */
-	    return pin;
-	}
-	/* didn't find it yet, look at next one */
-	next = pin->next_ptr;
-    }
-    /* if loop terminates, we reached end of list without finding a match */
-    return 0;
-}
-
-hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start)
-{
-    int sig_ptr, next;
-    hal_pin_t *pin;
-
-    /* get offset of 'sig' component */
-    sig_ptr = SHMOFF(sig);
-    /* is this the first call? */
-    if (start == 0) {
-	/* yes, start at beginning of pin list */
-	next = hal_data->pin_list_ptr;
-    } else {
-	/* no, start at next pin */
-	next = start->next_ptr;
-    }
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if (pin->signal == sig_ptr) {
-	    /* found a match */
-	    return pin;
-	}
-	/* didn't find it yet, look at next one */
-	next = pin->next_ptr;
-    }
-    /* if loop terminates, we reached end of list without finding a match */
-    return 0;
-}
-#endif
-
 void free_pin_struct(hal_pin_t * pin)
 {
     unlink_pin(pin);
