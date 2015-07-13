@@ -122,7 +122,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 
 	hal_comp_t *comp;
 
-	if (halpr_find_inst_by_name(name) != NULL) {
+	if (halpr_find_pin_by_name(name) != NULL) {
 	    HALERR("duplicate pin '%s'", name);
 	    return -EEXIST;
 	}
@@ -143,7 +143,9 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	    return -EINVAL;
 	}
 
-	// this will be 0 for legacy comps which use comp_id
+	// this will be 0 for legacy comps which use comp_id to
+	// refer to a comp - pins owned by an instance will refer
+	// to an instance:
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
 	int inst_id = (inst ? ho_id(inst) : 0);
 

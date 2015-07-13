@@ -194,7 +194,7 @@ typedef struct {
 
     int comp_list_ptr;		/* root of linked list of components */
     int pin_list_ptr;		/* root of linked list of pins */
-    int sig_list_ptr;		/* root of linked list of signals */
+    // int sig_list_ptr;		/* root of linked list of signals */
     int thread_list_ptr;	/* root of linked list of threads */
 
     long base_period;		/* timer period for realtime tasks */
@@ -204,7 +204,7 @@ typedef struct {
 
     int comp_free_ptr;		/* list of free component structs */
     int pin_free_ptr;		/* list of free pin structs */
-    int sig_free_ptr;		/* list of free signal structs */
+    // int sig_free_ptr;		/* list of free signal structs */
     hal_list_t funct_entry_free;	/* list of free funct entry structs */
     int thread_free_ptr;	/* list of free thread structs */
 
@@ -309,14 +309,15 @@ typedef enum {
     This structure contains information about a 'signal' object.
 */
 typedef struct hal_sig {
-    int next_ptr;		/* next signal in linked list */
+    halhdr_t hdr;		// common HAL object header
+    //    int next_ptr;		/* next signal in linked list */
     int data_ptr;		/* offset of signal value */
     hal_type_t type;		/* data type */
     int readers;		/* number of input pins linked */
     int writers;		/* number of output pins linked */
     int bidirs;			/* number of I/O pins linked */
-    int handle;                // unique ID
-    char name[HAL_NAME_LEN + 1];	/* signal name */
+    // int handle;                // unique ID
+    // char name[HAL_NAME_LEN + 1];	/* signal name */
 } hal_sig_t;
 
 /** HAL 'parameter' data structure.
@@ -324,13 +325,9 @@ typedef struct hal_sig {
 */
 typedef struct hal_param {
     halhdr_t hdr;		// common HAL object header
-    //    int next_ptr;		/* next parameter in linked list */
     int data_ptr;		/* offset of parameter value */
-    // int owner_id;		/* component that owns this signal */
-    //    int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
-    // int handle;                // unique ID
     char name[HAL_NAME_LEN + 1];	/* parameter name */
 } hal_param_t;
 
@@ -560,9 +557,11 @@ hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
     or NULL if no matching object is found.
 */
 extern hal_comp_t *halpr_find_comp_by_name(const char *name);
-extern hal_sig_t *halpr_find_sig_by_name(const char *name);
 extern hal_thread_t *halpr_find_thread_by_name(const char *name);
 
+static inline  hal_sig_t *halpr_find_sig_by_name(const char *name) {
+    return halg_find_object_by_name(0, HAL_SIGNAL, name).sig;
+}
 
 static inline hal_funct_t *halpr_find_funct_by_name(const char *name) {
     return halg_find_object_by_name(0, HAL_FUNCT, name).funct;

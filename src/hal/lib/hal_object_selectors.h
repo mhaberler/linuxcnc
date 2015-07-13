@@ -67,15 +67,6 @@ int yield_versioned_vtable_object(hal_object_ptr o, foreach_args_t *args);
 int yield_foreach(hal_object_ptr o, foreach_args_t *args);
 
 //--------------------------------------------------------------------
-// use this selector to free any number of matching HAL objects,
-// of type HAL_PIN HAL_PARAM HAL_INST HAL_THREAD HAL_FUNCT etc
-//
-// required argument:
-//     .user_ptr1 = <callback>,
-//     .user_ptr2 = <cb_data>,
-int free_object(hal_object_ptr o, foreach_args_t *args);
-
-//--------------------------------------------------------------------
 // use this selector to count the number of objects owned
 // by a component
 //
@@ -85,5 +76,24 @@ int free_object(hal_object_ptr o, foreach_args_t *args);
 // the comp id is passed in args->user_arg1
 // the count is returned in args->user_arg2
 int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args);
+
+//--------------------------------------------------------------------
+// use this selector to delete HAL objects from an iterator which holds
+// the HAL mutex.
+// this only works for objects which support a conditionally locked
+// halg_delete_<object> method, currently:
+// HAL_SIGNAL
+int unlocked_delete_halobject(hal_object_ptr o, foreach_args_t *args);
+
+
+//----------- HAL library internal use only below --------------------
+// use this selector to free any number of matching HAL objects,
+// of type HAL_PIN HAL_PARAM HAL_INST HAL_THREAD HAL_FUNCT etc
+// (HAL library internal use only)
+//
+// required argument:
+//     .user_ptr1 = <callback>,
+//     .user_ptr2 = <cb_data>,
+int free_object(hal_object_ptr o, foreach_args_t *args);
 
 #endif

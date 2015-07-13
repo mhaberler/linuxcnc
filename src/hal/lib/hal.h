@@ -743,7 +743,12 @@ extern int hal_signal_new(const char *name, hal_type_t type);
     If successful, 'hal_signal_delete()' returns 0.  On
     failure, it returns a negative error code.
 */
-extern int hal_signal_delete(const char *name);
+
+int halg_signal_delete(const int use_hal_mutex, const char *name);
+
+static inline int hal_signal_delete(const char *name) {
+    return halg_signal_delete(1, name);
+}
 
 /** 'hal_link()' links a pin to a signal.  'pin_name' and 'sig_name' are
     strings containing the pin and signal names.  If the pin is already
