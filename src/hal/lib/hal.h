@@ -561,7 +561,7 @@ typedef enum {
     HAL_PARAM         = 3,
     HAL_THREAD        = 4,
     HAL_FUNCT         = 5,
-    HAL_ALIAS         = 6,
+    // HAL_ALIAS         = 6,
     HAL_COMP_RT       = 7,
     HAL_COMP_USER     = 8,
     HAL_COMP_REMOTE   = 9,
@@ -633,19 +633,39 @@ extern unsigned char hal_get_lock(void);
     On failure they return a negative error code.
 */
 // generic call
-int hal_pin_new(const char *name,
-		const hal_type_t type,
-		const hal_pin_dir_t dir,
-		void **data_ptr_addr,
-		const int owner_id);
+int halg_pin_new(const int use_hal_mutex,
+		 const char *name,
+		 const hal_type_t type,
+		 const hal_pin_dir_t dir,
+		 void **data_ptr_addr,
+		 const int owner_id);
+
+static inline int hal_pin_new(const char *name,
+			      const hal_type_t type,
+			      const hal_pin_dir_t dir,
+			      void **data_ptr_addr,
+			      const int owner_id) {
+    return halg_pin_new(1, name, type,  dir,
+			data_ptr_addr, owner_id);
+}
 
 // printf-style version of hal_pin_new()
 int hal_pin_newf(hal_type_t type,
-		     hal_pin_dir_t dir,
-		     void ** data_ptr_addr,
-		     int owner_id,
-		     const char *fmt, ...)
+		 hal_pin_dir_t dir,
+		 void ** data_ptr_addr,
+		 int owner_id,
+		 const char *fmt, ...)
     __attribute__((format(printf,5,6)));
+
+// generic printf-style version of hal_pin_new()
+int halg_pin_newf(const int use_hal_mutex,
+		  hal_type_t type,
+		  hal_pin_dir_t dir,
+		  void ** data_ptr_addr,
+		  int owner_id,
+		  const char *fmt, ...)
+    __attribute__((format(printf,6,7)));
+
 
 static inline int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
 				  hal_bit_t ** data_ptr_addr, int owner_id) {
@@ -683,7 +703,7 @@ extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     hal_s32_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 	__attribute__((format(printf,4,5)));
 
-/** 'hal_pin_new()' creates a new 'pin' object.  It is a generic
+/** 'halg_pin_new()' creates a new 'pin' object.  It is a generic
     version of the eight functions above.  It is provided ONLY for
     those special cases where a generic function is needed.  It is
     STRONGLY recommended that the functions above be used instead,
@@ -695,7 +715,7 @@ extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     the functions above.
     'type' is the hal type of the new pin - the type of data that
     will be passed in/out of the component through the new pin.
-    If successful, hal_pin_new() returns 0.  On failure
+    If successful, halg_pin_new() returns 0.  On failure
     it returns a negative error code.
 */
 
@@ -705,14 +725,6 @@ extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     All pins belonging to a component are removed when the component
     calls 'hal_exit()'.
 */
-
-/** 'hal_pin_alias()' assigns an alternate name, aka an alias, to
-    a pin.  Once assigned, the pin can be referred to by either its
-    original name or the alias.  Calling this function with 'alias'
-    set to NULL will remove any existing alias.
-*/
-extern int hal_pin_alias(const char *pin_name, const char *alias);
-
 
 /***********************************************************************
 *                      "SIGNAL" FUNCTIONS                              *
@@ -933,13 +945,6 @@ extern int hal_param_bit_set(const char *name, int value);
 extern int hal_param_float_set(const char *name, double value);
 extern int hal_param_u32_set(const char *name, unsigned long value);
 extern int hal_param_s32_set(const char *name, signed long value);
-
-/** 'hal_param_alias()' assigns an alternate name, aka an alias, to
-    a parameter.  Once assigned, the parameter can be referred to by
-    either its original name or the alias.  Calling this function
-    with 'alias' set to NULL will remove any existing alias.
-*/
-extern int hal_param_alias(const char *pin_name, const char *alias);
 
 /** 'hal_param_set()' is a generic function that sets the value of a
     parameter.  It is provided ONLY for those special cases where a

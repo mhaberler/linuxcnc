@@ -11,12 +11,13 @@
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
 
-int hal_pin_newfv(hal_type_t type,
-		  hal_pin_dir_t dir,
-		  void ** data_ptr_addr,
-		  int owner_id,
-		  const char *fmt,
-		  va_list ap)
+int halg_pin_newfv(const int use_hal_mutex,
+		   hal_type_t type,
+		   hal_pin_dir_t dir,
+		   void ** data_ptr_addr,
+		   int owner_id,
+		   const char *fmt,
+		   va_list ap)
 {
     char name[HAL_NAME_LEN + 1];
     int sz;
@@ -26,7 +27,7 @@ int hal_pin_newfv(hal_type_t type,
 	       sz, name);
         return -ENOMEM;
     }
-    return hal_pin_new(name, type, dir, data_ptr_addr, owner_id);
+    return halg_pin_new(use_hal_mutex, name, type, dir, data_ptr_addr, owner_id);
 }
 
 int hal_pin_bit_newf(hal_pin_dir_t dir,
@@ -35,7 +36,7 @@ int hal_pin_bit_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_BIT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    ret = halg_pin_newfv(1, HAL_BIT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -46,7 +47,7 @@ int hal_pin_float_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_FLOAT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    ret = halg_pin_newfv(1, HAL_FLOAT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -57,7 +58,7 @@ int hal_pin_u32_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_U32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    ret = halg_pin_newfv(1, HAL_U32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -68,7 +69,7 @@ int hal_pin_s32_newf(hal_pin_dir_t dir,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(HAL_S32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    ret = halg_pin_newfv(1,HAL_S32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -83,15 +84,35 @@ int hal_pin_newf(hal_type_t type,
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_pin_newfv(type, dir, data_ptr_addr, owner_id, fmt, ap);
+    ret = halg_pin_newfv(1, type, dir, data_ptr_addr, owner_id, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+// generic printf-style version of hal_pin_new()
+int halg_pin_newf(const int use_hal_mutex,
+		  hal_type_t type,
+		  hal_pin_dir_t dir,
+		  void ** data_ptr_addr,
+		  int owner_id,
+		  const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halg_pin_newfv(use_hal_mutex, type, dir, data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
     return ret;
 }
 
 /* this is a generic function that does the majority of the work. */
 
-int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
-		    void **data_ptr_addr, int owner_id)
+int halg_pin_new(const int use_hal_mutex,
+		 const char *name,
+		 hal_type_t type,
+		 hal_pin_dir_t dir,
+		 void **data_ptr_addr,
+		 int owner_id)
 {
     hal_pin_t *new;
 
@@ -115,10 +136,10 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	return -EINVAL;
     }
 
-    HALDBG("creating pin '%s'", name);
+    HALDBG("creating pin '%s' lock=%d", name, use_hal_mutex);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_comp_t *comp;
 

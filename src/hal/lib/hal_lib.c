@@ -306,8 +306,9 @@ EXPORT_SYMBOL(hal_comp_name);
 EXPORT_SYMBOL(hal_malloc);
 
 // hal_pin.c:
-EXPORT_SYMBOL(hal_pin_new);
+EXPORT_SYMBOL(halg_pin_new);
 EXPORT_SYMBOL(hal_pin_newf);
+EXPORT_SYMBOL(halg_pin_newf);
 
 EXPORT_SYMBOL(hal_pin_bit_new);
 EXPORT_SYMBOL(hal_pin_float_new);
@@ -319,10 +320,10 @@ EXPORT_SYMBOL(hal_pin_float_newf);
 EXPORT_SYMBOL(hal_pin_u32_newf);
 EXPORT_SYMBOL(hal_pin_s32_newf);
 
-EXPORT_SYMBOL(hal_signal_new);
-EXPORT_SYMBOL(hal_signal_delete);
-EXPORT_SYMBOL(hal_link);
-EXPORT_SYMBOL(hal_unlink);
+EXPORT_SYMBOL(halg_signal_new);
+EXPORT_SYMBOL(halg_signal_delete);
+EXPORT_SYMBOL(halg_link);
+EXPORT_SYMBOL(halg_unlink);
 
 // hal_param.c:
 EXPORT_SYMBOL(hal_param_new);
