@@ -38,15 +38,16 @@ int hal_xinitf(const int type,
 	       sz, hal_name);
         return -EINVAL;
     }
-    return hal_xinit(type, userarg1, userarg2, ctor, dtor, hal_name);
+    return halg_xinit(1, type, userarg1, userarg2, ctor, dtor, hal_name);
 }
 
-int hal_xinit(const int type,
-	      const int userarg1,
-	      const int userarg2,
-	      const hal_constructor_t ctor,
-	      const hal_destructor_t dtor,
-	      const char *name)
+int halg_xinit(const int use_hal_mutex,
+	       const int type,
+	       const int userarg1,
+	       const int userarg2,
+	       const hal_constructor_t ctor,
+	       const hal_destructor_t dtor,
+	       const char *name)
 {
     int comp_id, retval;
 
@@ -161,7 +162,7 @@ int hal_xinit(const int type,
     }
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_comp_t *comp;
 
 	/* make sure name is unique in the system */
@@ -254,7 +255,7 @@ int hal_xinit(const int type,
 }
 
 
-int hal_exit(int comp_id)
+int halg_exit(const int use_hal_mutex, int comp_id)
 {
     int comptype;
 
@@ -262,7 +263,7 @@ int hal_exit(int comp_id)
     HALDBG("removing component %d", comp_id);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_comp_t *comp = halpr_find_comp_by_id(comp_id);
 
 	if (comp == NULL) {
@@ -311,9 +312,9 @@ int hal_exit(int comp_id)
     return 0;
 }
 
-int hal_ready(int comp_id)
+int halg_ready(const int use_hal_mutex, int comp_id)
 {
-    WITH_HAL_MUTEX();
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
 
     hal_comp_t *comp = halpr_find_comp_by_id(comp_id);
     if (comp == NULL) {

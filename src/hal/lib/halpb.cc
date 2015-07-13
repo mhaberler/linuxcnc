@@ -96,14 +96,14 @@ halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct)
 {
     int id;
-    hal_comp_t *owner = halpr_find_owning_comp(hh_get_owner_id(&funct->hdr));
+    hal_comp_t *owner = halpr_find_owning_comp(ho_owner_id(funct));
     if (owner == NULL)
 	id = -1;
     else
-	id = owner->comp_id;
+	id = ho_id(owner);
     pbfunct->set_owner_id(id);
-    pbfunct->set_name(hh_get_name(&funct->hdr));
-    pbfunct->set_handle(hh_get_id(&funct->hdr));
+    pbfunct->set_name(ho_name(funct));
+    pbfunct->set_handle(ho_id(funct));
     pbfunct->set_users(funct->users);
     pbfunct->set_runtime(*(funct->runtime));
     pbfunct->set_maxtime(funct->maxtime);

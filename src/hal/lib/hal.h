@@ -271,12 +271,23 @@ enum comp_state {
 typedef int (*hal_constructor_t) (const char *name, const int argc, const char**argv);
 typedef int (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
 
-int hal_xinit(const int type,
-	      const int userarg1,
-	      const int userarg2,
-	      const hal_constructor_t ctor,
-	      const hal_destructor_t dtor,
-	      const char *name);
+// generic version
+int halg_xinit(const int use_hal_mutex,
+	       const int type,
+	       const int userarg1,
+	       const int userarg2,
+	       const hal_constructor_t ctor,
+	       const hal_destructor_t dtor,
+	       const char *name);
+
+static inline int hal_xinit(const int type,
+			    const int userarg1,
+			    const int userarg2,
+			    const hal_constructor_t ctor,
+			    const hal_destructor_t dtor,
+			    const char *name) {
+    return halg_xinit(1, type, userarg1, userarg2, ctor, dtor, name);
+}
 
 // printf-style version of hal_xinit
 int hal_xinitf(const int type,
@@ -291,9 +302,9 @@ int hal_xinitf(const int type,
 // backwards compatibility:
 static inline int hal_init(const char *name) {
 #ifdef RTAPI
-    return hal_xinit(TYPE_RT, 0, 0, NULL, NULL, name);
+    return halg_xinit(1, TYPE_RT, 0, 0, NULL, NULL, name);
 #else
-    return hal_xinit(TYPE_USER, 0, 0, NULL, NULL, name);
+    return halg_xinit(1, TYPE_USER, 0, 0, NULL, NULL, name);
 #endif
 }
 
@@ -415,7 +426,11 @@ extern int hal_retrieve_pinstate(const char *comp_name,
     On success, hal_exit() returns 0, on failure it
     returns a negative error code.
 */
-extern int hal_exit(int comp_id);
+int halg_exit(const int use_hal_mutex, int comp_id);
+
+static inline int hal_exit(int comp_id) {
+    return halg_exit(1,  comp_id);
+}
 
 /** hal_malloc() allocates a block of memory from the main HAL
     shared memory area.  It should be used by all components to
@@ -440,7 +455,11 @@ extern void *hal_malloc(long int size);
     halcmd 'loadusr -W hal_example' to wait until the userspace
     component 'hal_example' is ready before continuing.
 */
-extern int hal_ready(int comp_id);
+int halg_ready(const int use_hal_mutex, int comp_id);
+
+static inline int hal_ready(int comp_id) {
+    return halg_ready(1, comp_id);
+}
 
 /** hal_comp_name() returns the name of the given component, or NULL
     if comp_id is not a loaded component
@@ -1131,6 +1150,9 @@ int halg_reference_vtable(const int use_hal_mutex,
 			  void **vtableref);
 int halg_unreference_vtable(const int use_hal_mutex, int vtable_id);
 int halg_remove_vtable(const int use_hal_mutex, const int vtable_id);
+
+// returns number of vtables exported by a component.
+int halg_count_exported_vtables(const int use_hal_mutex, const int comp_id);
 
 // returns vtable ID (handle, >0) or error code (< 0)
 // mark as owned by comp comp_id (optional, zero if not owned)
