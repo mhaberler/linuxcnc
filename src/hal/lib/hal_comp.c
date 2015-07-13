@@ -692,14 +692,11 @@ int init_hal_data(void)
 
     hal_data->comp_list_ptr = 0;
     hal_data->pin_list_ptr = 0;
-    hal_data->sig_list_ptr = 0;
     hal_data->thread_list_ptr = 0;
     hal_data->base_period = 0;
     hal_data->threads_running = 0;
-    //    hal_data->oldname_free_ptr = 0;
     hal_data->comp_free_ptr = 0;
     hal_data->pin_free_ptr = 0;
-    hal_data->sig_free_ptr = 0;
 
     dlist_init_entry(&(hal_data->funct_entry_free));
 

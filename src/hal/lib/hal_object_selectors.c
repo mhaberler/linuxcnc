@@ -122,6 +122,34 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
     return 0; // continue visiting
 }
 
+int unlocked_delete_halobject(hal_object_ptr o, foreach_args_t *args)
+{
+    HALDBG("name=%s id=%d owner=%d type=%d"
+	   " seltype=%d selid=%d selowner=%d selcomp=%d",
+	   hh_get_name(o.hdr),
+	   hh_get_id(o.hdr),
+	   hh_get_owner_id(o.hdr),
+	   hh_get_type(o.hdr),
+	   args->type,
+	   args->id,
+	   args->owner_id,
+	   args->owning_comp);
+
+    switch (args->type) {
+
+    case HAL_SIGNAL:
+	halg_signal_delete(0, ho_name(o.sig));
+	break;
+
+    default:
+	HALBUG("type %d not supported (object type=%d)",
+	       args->type, hh_get_type(o.hdr));
+	return -1;
+    }
+    return 0; // continue visiting
+}
+
+
 int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args)
 {
     int owner_id = hh_get_owner_id(o.hdr);

@@ -475,7 +475,7 @@ static int preflight_net_cmd(char *signal, hal_sig_t *sig, char *pins[])
 	} else if(pin->signal != 0) {
             hal_sig_t *osig = SHMPTR(pin->signal);
             halcmd_error("Pin '%s' was already linked to signal '%s'\n",
-			 ho_name(pin), osig->name);
+			 ho_name(pin), ho_name(osig));
             return -EINVAL;
 	}
 	if (type == -1) {
@@ -1388,7 +1388,25 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 }
 
 
+int do_delsig_cmd(char *sig_name)
+{
+    int retval;
 
+    if ( strcmp(sig_name, "all" ) != 0 ) {
+	retval = hal_signal_delete(sig_name);
+	if (retval == 0)
+	    halcmd_info("Signal '%s' deleted'\n", sig_name);
+	return retval;
+    }
+    foreach_args_t args =  {
+	.type = HAL_SIGNAL,
+    };
+    // NB: the iterator holds the lock, the callback
+    // uses halg_delete_<type> calls
+    return halg_foreach(1, &args, unlocked_delete_halobject);
+}
+
+#if 0
 int do_delsig_cmd(char *mod_name)
 {
     int next, retval, retval1, n;
@@ -1413,7 +1431,7 @@ int do_delsig_cmd(char *mod_name)
 	    sig = SHMPTR(next);
 	    /* we want to unload this signal, remember its name */
 	    if ( n < ( MAX_EXPECTED_SIGS - 1 ) ) {
-	        strncpy(sigs[n], sig->name, HAL_NAME_LEN );
+	        strncpy(sigs[n], ho_name(sig), HAL_NAME_LEN );
 		sigs[n][HAL_NAME_LEN] = '\0';
 		n++;
 	    }
@@ -1450,6 +1468,7 @@ int do_delsig_cmd(char *mod_name)
     }
     return retval1;
 }
+#endif
 
 int do_unloadusr_cmd(char *mod_name)
 {
@@ -2031,17 +2050,18 @@ static void print_inst_info(char **patterns)
 static int print_vtable_entry(hal_object_ptr o, foreach_args_t *args)
 {
     hal_vtable_t *vt = o.vtable;
-    if ( match(args->user_ptr1, hh_get_name(o.hdr)) ) {
+    if ( match(args->user_ptr1, ho_name(vt)) ) {
 	halcmd_output(" %5d  %-20.20s  %-5d   %-5d",
-		      hh_get_id(o.hdr),
-		      hh_get_name(o.hdr),
+		      ho_id(vt),
+		      ho_name(vt),
 		      vt->version,
 		      vt->refcount);
 	if (vt->context == 0)
 	    halcmd_output("   RT   ");
 	else
 	    halcmd_output("   %-5d", vt->context);
-	hal_comp_t *comp = halpr_find_comp_by_id(hh_get_owner_id(o.hdr));
+
+	hal_comp_t *comp = halpr_find_comp_by_id(ho_owner_id(vt));
 	if (comp) {
 	    halcmd_output("   %-5d %-30.30s", comp->comp_id,  comp->name);
 	} else {
@@ -2119,7 +2139,7 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
 	if (sig == 0) {
 	    halcmd_output("\n");
 	} else {
-	    halcmd_output(" %s %s\n", data_arrow1((int) pin->dir), sig->name);
+	    halcmd_output(" %s %s\n", data_arrow1((int) pin->dir), ho_name(sig));
 	}
 #ifdef DEBUG
 	halcmd_output("%s %d:%d sig=%p dptr=%p *dptr=%p\n",
@@ -2146,20 +2166,32 @@ static void print_pin_info(int type, char **patterns)
     halcmd_output("\n");
 }
 
-static int pin_sig_callback(hal_pin_t *pin, hal_sig_t *sig, void *user)
+static int linked_pin_callback(hal_pin_t *pin, hal_sig_t *sig, void *user)
 {
     halcmd_output("                         %s %s\n",
 		  data_arrow2((int) pin->dir),
-		      ho_name(pin));
-    return 0;
+		  ho_name(pin));
+    return 0; // continue iterating
+}
+
+static int print_signal_entry(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_sig_t *sig = o.sig;
+    if ( match(args->user_ptr1, ho_name(sig)) ) {
+	void *dptr = SHMPTR(sig->data_ptr);
+	halcmd_output("%s  %s  %s\n",
+		      data_type((int) sig->type),
+		      data_value((int) sig->type, dptr),
+		      ho_name(sig));
+
+	// look for pin(s) linked to this signal
+	halg_foreach_pin_by_signal(false, sig, linked_pin_callback, NULL);
+    }
+    return 0; // continue iterating
 }
 
 static void print_sig_info(int type, char **patterns)
 {
-    int next;
-    hal_sig_t *sig;
-    void *dptr;
-    hal_pin_t *pin;
 
     if (scriptmode != 0) {
     	print_script_sig_info(type, patterns);
@@ -2167,22 +2199,32 @@ static void print_sig_info(int type, char **patterns)
     }
     halcmd_output("Signals:\n");
     halcmd_output("Type          Value  Name     (linked to)\n");
+
+    foreach_args_t args =  {
+	.type = HAL_SIGNAL,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_signal_entry);
+    halcmd_output("\n");
+
+#if 0
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->sig_list_ptr;
     while (next != 0) {
 	sig = SHMPTR(next);
-	if ( tmatch(type, sig->type) && match(patterns, sig->name) ) {
+	if ( tmatch(type, sig->type) && match(patterns, ho_name(sig)) ) {
 	    dptr = SHMPTR(sig->data_ptr);
 	    halcmd_output("%s  %s  %s\n", data_type((int) sig->type),
-		data_value((int) sig->type, dptr), sig->name);
+		data_value((int) sig->type, dptr), ho_name(sig));
 
 	    /* look for pin(s) linked to this signal */
-	    halg_foreach_pin_by_signal(0, sig, pin_sig_callback, NULL);
+	    halg_foreach_pin_by_signal(false, sig, linked_pin_callback, NULL);
 	}
 	next = sig->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");
+#endif
 }
 
 
@@ -2668,11 +2710,12 @@ static void print_mem_status()
     rtapi_mutex_give(&(hal_data->mutex));
     recycled = count_list(hal_data->oldname_free_ptr);
     halcmd_output("  active/recycled aliases:    %d/%d\n", active, recycled);
-#endif    
+
     // count signals
     active = count_list(hal_data->sig_list_ptr);
     recycled = count_list(hal_data->sig_free_ptr);
     halcmd_output("  active/recycled signals:    %d/%d\n", active, recycled);
+#endif
 
     // count threads
     active = count_list(hal_data->thread_list_ptr);
@@ -3126,7 +3169,7 @@ static int print_member_cb(int level, hal_group_t **groups, hal_member_t *member
     void *dptr = SHMPTR(sig->data_ptr);
 
     halcmd_output("\t%-14.14s  %-6.6s %16.16s 0x%8.8x %f ",
-		  sig->name,
+		  ho_name(sig),
 		  data_type((int) sig->type),
 		  data_value((int) sig->type, dptr),
 		  member->userarg1,

@@ -8,7 +8,6 @@
 #include "hal_group.h"
 #include "hal_internal.h"
 
-static hal_sig_t *alloc_sig_struct(void);
 void free_sig_struct(hal_sig_t * sig);
 
 /***********************************************************************
@@ -17,21 +16,16 @@ void free_sig_struct(hal_sig_t * sig);
 
 int hal_signal_new(const char *name, hal_type_t type)
 {
-
-    int *prev, next, cmp;
-    hal_sig_t *new, *ptr;
+    hal_sig_t *new;
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(name, HAL_NAME_LEN);
+    HALDBG("creating signal '%s'", name);
 
     {
-	void *data_addr  __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	HALDBG("creating signal '%s'", name);
+	WITH_HAL_MUTEX();
+	void *data_addr;
 
 	/* check for an existing signal with the same name */
 	if (halpr_find_sig_by_name(name) != 0) {
@@ -57,13 +51,12 @@ int hal_signal_new(const char *name, hal_type_t type)
 	    return -EINVAL;
 	    break;
 	}
-	/* allocate a new signal structure */
-	new = alloc_sig_struct();
-	if ((new == 0) || (data_addr == 0)) {
-	    /* alloc failed */
-	    HALERR("insufficient memory for signal '%s'", name);
-	    return -ENOMEM;
-	}
+
+	// allocate signal descriptor
+	if ((new = shmalloc_desc(sizeof(hal_sig_t))) == NULL)
+	    NOMEM("signal '%s'",  name);
+	hh_init_hdrf(&new->hdr, HAL_SIGNAL, 0, "%s", name);
+
 	/* initialize the signal value */
 	switch (type) {
 	case HAL_BIT:
@@ -87,78 +80,40 @@ int hal_signal_new(const char *name, hal_type_t type)
 	new->readers = 0;
 	new->writers = 0;
 	new->bidirs = 0;
-	new->handle = rtapi_next_handle();
-	rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
 
-	/* search list for 'name' and insert new structure */
-	prev = &(hal_data->sig_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-	    cmp = strcmp(ptr->name, new->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		new->next_ptr = next;
-		*prev = SHMOFF(new);
-		return 0;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
+	// make it visible
+	add_object(&new->hdr);
     }
+    return 0;
 }
 
-int hal_signal_delete(const char *name)
+int halg_signal_delete(const int use_hal_mutex, const char *name)
 {
-
-    int *prev, next;
-
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(name, HAL_NAME_LEN);
-
     HALDBG("deleting signal '%s'", name);
 
     {
-	hal_sig_t *sig  __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+	hal_sig_t *sig = halpr_find_sig_by_name(name);
 
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-	/* search for the signal */
-	prev = &(hal_data->sig_list_ptr);
-	next = *prev;
-	while (next != 0) {
-	    sig = SHMPTR(next);
-	    if (strcmp(sig->name, name) == 0) {
-		hal_group_t *grp = halpr_find_group_of_member(name);
-		if (grp) {
-		    HALERR("cannot delete signal '%s'"
-			   " since it is member of group '%s'",
-			   name, grp->name);
-		    return -EINVAL;
-		}
-		/* this is the right signal, unlink from list */
-		*prev = sig->next_ptr;
-		/* and delete it */
-		free_sig_struct(sig);
-		/* done */
-		return 0;
-	    }
-	    /* no match, try the next one */
-	    prev = &(sig->next_ptr);
-	    next = *prev;
+	if (sig == NULL) {
+	    HALERR("signal '%s' not found",  name);
+	    return -EINVAL;
 	}
+	hal_group_t *grp = halpr_find_group_of_member(name);
+	if (grp != NULL) {
+	    HALERR("cannot delete signal '%s'"
+		   " since it is member of group '%s'",
+		   name, grp->name);
+	    return -EINVAL;
+	}
+	// free_sig_struct will unlink any linked pins
+	// before freeing the signal descriptor
+	free_sig_struct(sig);
     }
-    /* if we get here, we didn't find a match */
-    HALERR("signal '%s' not found",  name);
-    return -EINVAL;
+    return 0;
 }
 
 
@@ -168,31 +123,25 @@ int hal_link(const char *pin_name, const char *sig_name)
     hal_comp_t *comp;
     void **data_ptr_addr, *data_addr;
 
-
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(pin_name, HAL_NAME_LEN);
     CHECK_STRLEN(sig_name, HAL_NAME_LEN);
-
     HALDBG("linking pin '%s' to '%s'", pin_name, sig_name);
 
     {
-	hal_pin_t *pin  __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing data structures */
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+	hal_pin_t *pin;
 
 	/* locate the pin */
 	pin = halpr_find_pin_by_name(pin_name);
 	if (pin == 0) {
-	    /* not found */
 	    HALERR("pin '%s' not found", pin_name);
 	    return -EINVAL;
 	}
 	/* locate the signal */
 	sig = halpr_find_sig_by_name(sig_name);
 	if (sig == 0) {
-	    /* not found */
 	    HALERR("signal '%s' not found", sig_name);
 	    return -EINVAL;
 	}
@@ -202,10 +151,10 @@ int hal_link(const char *pin_name, const char *sig_name)
 	    return 0;
 	}
 	/* is the pin connected to something else? */
-	if(pin->signal) {
+	if (pin->signal) {
 	    sig = SHMPTR(pin->signal);
 	    HALERR("pin '%s' is linked to '%s', cannot link to '%s'",
-		   pin_name, sig->name, sig_name);
+		   pin_name, ho_name(sig), sig_name);
 	    return -EINVAL;
 	}
 	/* check types */
@@ -215,13 +164,11 @@ int hal_link(const char *pin_name, const char *sig_name)
 	}
 	/* linking output pin to sig that already has output or I/O pins? */
 	if ((pin->dir == HAL_OUT) && ((sig->writers > 0) || (sig->bidirs > 0 ))) {
-	    /* yes, can't do that */
 	    HALERR("signal '%s' already has output or I/O pin(s)", sig_name);
 	    return -EINVAL;
 	}
 	/* linking bidir pin to sig that already has output pin? */
 	if ((pin->dir == HAL_IO) && (sig->writers > 0)) {
-	    /* yes, can't do that */
 	    HALERR("signal '%s' already has output pin", sig_name);
 	    return -EINVAL;
 	}
@@ -231,8 +178,12 @@ int hal_link(const char *pin_name, const char *sig_name)
 	data_addr = comp->shmem_base + sig->data_ptr;
 	*data_ptr_addr = data_addr;
 
-	if (( sig->readers == 0 ) && ( sig->writers == 0 ) && ( sig->bidirs == 0 )) {
-	    /* this is the first pin for this signal, copy value from pin's "dummy" field */
+	if (( sig->readers == 0 ) && ( sig->writers == 0 ) &&
+	    ( sig->bidirs == 0 )) {
+
+	    // this signal is not linked to any pins
+	    // copy value from pin's "dummy" field,
+	    // making it 'inherit' the value of the first pin
 	    data_addr = hal_shmem_base + sig->data_ptr;
 
 	    // assure proper typing on assignment, assigning a hal_data_u is
@@ -256,9 +207,8 @@ int hal_link(const char *pin_name, const char *sig_name)
 		*((hal_float_t *) data_addr) = pin->dummysig.f;
 		break;
 	    default:
-		hal_print_msg(RTAPI_MSG_ERR,
-			      "HAL: BUG: pin '%s' has invalid type %d !!\n",
-			      ho_name(pin), pin->type);
+		HALBUG("pin '%s' has invalid type %d !!\n",
+		       ho_name(pin), pin->type);
 		return -EINVAL;
 	    }
 	}
@@ -288,10 +238,8 @@ int hal_unlink(const char *pin_name)
     HALDBG("unlinking pin '%s'", pin_name);
 
     {
-	hal_pin_t *pin __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing data structures */
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+	hal_pin_t *pin;
 
 	/* locate the pin */
 	pin = halpr_find_pin_by_name(pin_name);
@@ -305,58 +253,8 @@ int hal_unlink(const char *pin_name)
 	/* found pin, unlink it */
 	unlink_pin(pin);
 
-	// done, mutex will be released on scope exit automagically
 	return 0;
     }
-}
-
-
-hal_sig_t *halpr_find_sig_by_name(const char *name)
-{
-    int next;
-    hal_sig_t *sig;
-
-    /* search signal list for 'name' */
-    next = hal_data->sig_list_ptr;
-    while (next != 0) {
-	sig = SHMPTR(next);
-	if (strcmp(sig->name, name) == 0) {
-	    /* found a match */
-	    return sig;
-	}
-	/* didn't find it yet, look at next one */
-	next = sig->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
-    return 0;
-}
-
-static hal_sig_t *alloc_sig_struct(void)
-{
-    hal_sig_t *p;
-
-    /* check the free list */
-    if (hal_data->sig_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->sig_free_ptr);
-	/* unlink it from the free list */
-	hal_data->sig_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_desc(sizeof(hal_sig_t));
-    }
-    if (p) {
-	/* make sure it's empty */
-	p->next_ptr = 0;
-	p->data_ptr = 0;
-	p->type = 0;
-	p->readers = 0;
-	p->writers = 0;
-	p->bidirs = 0;
-	p->name[0] = '\0';
-    }
-    return p;
 }
 
 static int unlink_pin_callback(hal_pin_t *pin, hal_sig_t *sig, void *user)
@@ -369,6 +267,5 @@ void free_sig_struct(hal_sig_t * sig)
 {
     // unlink any pins linked to this signal
     halg_foreach_pin_by_signal(0, sig, unlink_pin_callback, NULL);
-    // poof!
     free_halobject((hal_object_ptr) sig);
 }

@@ -98,12 +98,12 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
 int
 halpr_describe_signal(hal_sig_t *sig, pb::Signal *pbsig)
 {
-    pbsig->set_name(sig->name);
+    pbsig->set_name(ho_name(sig));
     pbsig->set_type((pb::ValueType)sig->type);
     pbsig->set_readers(sig->readers);
     pbsig->set_writers(sig->writers);
     pbsig->set_bidirs(sig->bidirs);
-    pbsig->set_handle(sig->handle);
+    pbsig->set_handle(ho_id(sig));
     return hal_sig2pb(sig, pbsig);
 }
 
