@@ -1374,21 +1374,6 @@ int do_loadrt_cmd(char *mod_name, char *args[])
     return loadrt_cmd(true, mod_name, args);
 }
 
-
-    if ( strcmp(sig_name, "all" ) != 0 ) {
-	retval = hal_signal_delete(sig_name);
-	if (retval == 0)
-	    halcmd_info("Signal '%s' deleted'\n", sig_name);
-	return retval;
-    }
-    foreach_args_t args =  {
-	.type = HAL_SIGNAL,
-    };
-    // NB: the iterator holds the lock, the callback
-    // uses halg_delete_<type> calls
-    return halg_foreach(1, &args, unlocked_delete_halobject);
-}
-
 int do_delsig_cmd(char *sig_name)
 {
     int retval;
@@ -1407,6 +1392,72 @@ int do_delsig_cmd(char *sig_name)
     return halg_foreach(1, &args, unlocked_delete_halobject);
 }
 
+||||||| merged common ancestors
+#if 0
+int do_delsig_cmd(char *mod_name)
+{
+    int next, retval, retval1, n;
+    hal_sig_t *sig;
+    char sigs[MAX_EXPECTED_SIGS][HAL_NAME_LEN+1];
+
+    /* check for "all" */
+    if ( strcmp(mod_name, "all" ) != 0 ) {
+	retval = hal_signal_delete(mod_name);
+	if (retval == 0) {
+	    /* print success message */
+	    halcmd_info("Signal '%s' deleted'\n", mod_name);
+	}
+	return retval;
+    } else {
+	/* build a list of signal(s) to delete */
+	n = 0;
+	rtapi_mutex_get(&(hal_data->mutex));
+
+	next = hal_data->sig_list_ptr;
+	while (next != 0) {
+	    sig = SHMPTR(next);
+	    /* we want to unload this signal, remember its name */
+	    if ( n < ( MAX_EXPECTED_SIGS - 1 ) ) {
+	        strncpy(sigs[n], ho_name(sig), HAL_NAME_LEN );
+		sigs[n][HAL_NAME_LEN] = '\0';
+		n++;
+	    }
+	    next = sig->next_ptr;
+	}
+	rtapi_mutex_give(&(hal_data->mutex));
+	sigs[n][0] = '\0';
+
+	if ( sigs[0][0] == '\0' ) {
+	    /* desired signals not found */
+	    halcmd_error("no signals found to be deleted\n");
+	    return -1;
+	}
+	/* we now have a list of components, unload them */
+	n = 0;
+	retval1 = 0;
+	while ( sigs[n][0] != '\0' ) {
+	    retval = hal_signal_delete(sigs[n]);
+	/* check for fatal error */
+	    if ( retval < -1 ) {
+		return retval;
+	    }
+	    /* check for other error */
+	    if ( retval != 0 ) {
+		retval1 = retval;
+	    }
+	    if (retval == 0) {
+		/* print success message */
+		halcmd_info("Signal '%s' deleted'\n",
+		sigs[n]);
+	    }
+	    n++;
+	}
+    }
+    return retval1;
+}
+#endif
+=======
+>>>>>>> out the window.
 
 int do_unloadusr_cmd(char *mod_name)
 {
