@@ -611,20 +611,21 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 		if (hs->type != (hal_type_t) s.type()) {
 		    note_printf(self->tx,
 				"signal type mismatch: pb=%d/hal=%d, handle=%d name=%s",
-				s.type(), hs->type, handle, hs->name);
+				s.type(), hs->type, handle, ho_name(hs));
 		    continue;
 		}
 		if (hs->writers > 0) {
 		    note_printf(self->tx,
 				"cannot update signal '%s'  - %d output pin(s) linked",
-				hs->name, hs->writers);
+				ho_name(hs), hs->writers);
 		    continue;
 		}
 		// set value
 		hal_data_u *vp = (hal_data_u *) hal_sig2u(hs);
 		assert(vp != NULL);
 		if (hal_pbsig2u(&s, vp)) {
-		    note_printf(self->tx, "bad signal type %d name=%s",s.type(), hs->name);
+		    note_printf(self->tx, "bad signal type %d name=%s",
+				s.type(), ho_name(hs));
 		    continue;
 		}
 	    } else {
@@ -711,7 +712,7 @@ process_get(htself_t *self, const std::string &from,  void *socket)
 		assert(hs != NULL);
 		pb::Signal *pbsignal = self->tx.add_signal();
 		// reply with just value and handle
-		pbsignal->set_handle(hs->handle);
+		pbsignal->set_handle(ho_id(hs));
 		hal_sig2pb(hs, pbsignal);
 	    }
 	} else {
@@ -776,14 +777,14 @@ int describe_signal_by_name(htself_t *self, const char *name)
 	return -1;
     }
     // add to items if not yet present
-    it = self->items.find(hs->handle);
+    it = self->items.find(ho_id(hs));
     if (it == self->items.end()) {
 	// pin not found. add to items
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_SIGNAL;
 	hi->o.signal = hs;
 	hi->ptr = SHMPTR(hs->data_ptr);
-	self->items[hs->handle] = hi;
+	self->items[ho_id(hs)] = hi;
 	// printf("add signal %s to items\n", hs->name);
     }
     // add binding in reply - includes handle

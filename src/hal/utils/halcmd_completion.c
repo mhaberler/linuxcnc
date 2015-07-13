@@ -147,9 +147,10 @@ static int writer_match(hal_pin_dir_t dir, int writers) {
 }
 
 static void check_match_type_pin(const char *name) {
+#if 0
     int next = hal_data->pin_list_ptr;
     int sz = strcspn(name, " \t");
-#if 0
+
     while(next) {
         hal_pin_t *pin = SHMPTR(next);
         next = pin->next_ptr;
@@ -163,9 +164,10 @@ static void check_match_type_pin(const char *name) {
 }
 
 static void check_match_type_signal(const char *name) {
+#warning FIXME
+#if 0
     int next = hal_data->sig_list_ptr;
     int sz = strcspn(name, " \t");
-
     while(next) {
         hal_sig_t *sig = SHMPTR(next);
         next = sig->next_ptr;
@@ -175,6 +177,7 @@ static void check_match_type_signal(const char *name) {
             return;
         }
     }
+#endif
 }
 
 static char *thread_generator(const char *text, int state) { 
@@ -272,8 +275,10 @@ static char *attached_funct_generator(const char *text, int state) {
 }
 
 static char *signal_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
+
     if(!state) {
         next = hal_data->sig_list_ptr;
         len = strlen(text);
@@ -287,6 +292,7 @@ static char *signal_generator(const char *text, int state) {
 	if ( strncmp(text, sig->name, len) == 0 )
             return strdup(sig->name);
     }
+#endif
     return NULL;
 }
 

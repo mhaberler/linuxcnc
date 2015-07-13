@@ -182,14 +182,14 @@ add_sig_to_items(int level, hal_group_t **groups,
 {
     hal_sig_t *sig = (hal_sig_t *) SHMPTR(member->sig_member_ptr);
     htself_t *self = (htself_t *)cb_data;
-    itemmap_iterator it = self->items.find(sig->handle);
+    itemmap_iterator it = self->items.find(ho_id(sig));
 
     if (it == self->items.end()) { // not in handle map
 	halitem_t *hi = new halitem_t();
 	hi->type = HAL_SIGNAL;
 	hi->o.signal = sig;
 	hi->ptr = SHMPTR(sig->data_ptr);
-	self->items[sig->handle] = hi;
+	self->items[ho_id(sig)] = hi;
     }
     return 0;
 }
@@ -275,7 +275,7 @@ group_report_cb(int phase, hal_compiled_group_t *cgroup,
 
     case REPORT_SIGNAL: // per-reported-signal action
 	signal = self->tx.add_signal();
-	signal->set_handle(sig->handle);
+	signal->set_handle(ho_id(sig));
 	retval = hal_sig2pb(sig, signal);
 	assert(retval == 0);
 	break;
