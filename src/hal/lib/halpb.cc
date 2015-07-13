@@ -63,35 +63,11 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
 	pbcomp->set_args((const char *)SHMPTR(comp->insmod_args));
     pbcomp->set_userarg1(comp->userarg1);
     pbcomp->set_userarg2(comp->userarg2);
-#if 0
-    int next = hal_data->pin_list_ptr;
-    while (next != 0) {
-	hal_pin_t *pin = (hal_pin_t *)SHMPTR(next);
-	hal_comp_t *owner = halpr_find_owning_comp(ho_owner_id(pin));
-	if ((owner != NULL) && (owner->comp_id == comp->comp_id)) {
-	    pb::Pin *pbpin = pbcomp->add_pin();
-	    halpr_describe_pin(pin, pbpin);
-	}
-	next = pin->next_ptr;
-    }
-#endif
+
     foreach_args_t args;
     args.owning_comp = comp->comp_id;
     args.user_ptr1 = (void *)pbcomp;
     halg_foreach(0, &args, pbadd_owned);
-
-#if 0
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	hal_param_t *param = (hal_param_t *)SHMPTR(next);
-	hal_comp_t *owner = halpr_find_owning_comp(param->owner_id);
-	if ((owner != NULL) && (owner->comp_id == comp->comp_id)) {
-	    pb::Param *pbparam = pbcomp->add_param();
-	    halpr_describe_param(param, pbparam);
-	}
-	next = param->next_ptr;
-    }
-#endif
     return 0;
 }
 
