@@ -410,7 +410,7 @@ process_rcomp_bind(htself_t *self, const std::string &from,
 	    (c->state == COMP_UNBOUND)) {                    // currently unbound
 	    rtapi_print_msg(RTAPI_MSG_DBG,
 			    "%s: comp %s first bind, accepting initial pin values from BIND request",
-			    self->cfg->progname, c->name);
+			    self->cfg->progname, ho_name(c));
 	    if (apply_initial_values(self, pbcomp))
 		return send_pbcontainer(from, self->tx, socket);
 	}
