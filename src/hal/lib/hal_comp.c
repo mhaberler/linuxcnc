@@ -494,25 +494,6 @@ void free_comp_struct(hal_comp_t * comp)
 	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
     };
     halg_foreach(0, &args, free_object);
-#if 0
-    /* search the function list for this component's functs */
-    prev = &(hal_data->funct_list_ptr);
-    next = *prev;
-    while (next != 0) {
-	funct = SHMPTR(next);
-	hal_comp_t *owner = halpr_find_owning_comp(funct->owner_id);
-	if (owner == comp) {
-	    /* this function belongs to our component, unlink from list */
-	    *prev = funct->next_ptr;
-	    /* and delete it */
-	    free_funct_struct(funct);
-	} else {
-	    /* no match, try the next one */
-	    prev = &(funct->next_ptr);
-	}
-	next = *prev;
-    }
-#endif
 
     // here, technically all the comp's functs are
     // delf'd and not visible anymore
@@ -525,17 +506,7 @@ void free_comp_struct(hal_comp_t * comp)
 	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
     };
     halg_foreach(0, &iargs, free_object);
-#if 0
-    next = hal_data->inst_list_ptr;
-    while (next != 0) {
-	hal_inst_t *inst = SHMPTR(next);
-	next = inst->next_ptr;
-	if (hh_get_owner_id(&inst->hdr) == comp->comp_id) {
-	    // this instance is owned by this comp
-	    free_inst_struct(inst);
-	}
-    }
-#endif
+
     // here all insts, their pins, params and functs are gone.
 
 #endif /* RTAPI */
@@ -548,24 +519,6 @@ void free_comp_struct(hal_comp_t * comp)
 	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
     };
     halg_foreach(0, &pinargs, free_object);
-#if 0
-    /* search the pin list for this component's pins */
-    prev = &(hal_data->pin_list_ptr);
-    next = *prev;
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if (pin->owner_id == comp->comp_id) {
-	    /* this pin belongs to our component, unlink from list */
-	    *prev = pin->next_ptr;
-	    /* and delete it */
-	    free_pin_struct(pin);
-	} else {
-	    /* no match, try the next one */
-	    prev = &(pin->next_ptr);
-	}
-	next = *prev;
-    }
-#endif
 
     foreach_args_t paramargs =  {
 	// wipe params owned by this comp
@@ -573,24 +526,7 @@ void free_comp_struct(hal_comp_t * comp)
 	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
     };
     halg_foreach(0, &paramargs, free_object);
-#if 0
-    /* search the parameter list for this component's parameters */
-    prev = &(hal_data->param_list_ptr);
-    next = *prev;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if (param->owner_id == comp->comp_id) {
-	    /* this param belongs to our component, unlink from list */
-	    *prev = param->next_ptr;
-	    /* and delete it */
-	    free_param_struct(param);
-	} else {
-	    /* no match, try the next one */
-	    prev = &(param->next_ptr);
-	}
-	next = *prev;
-    }
-#endif
+
     /* now we can delete the component itself */
     /* clear contents of struct */
     comp->comp_id = 0;
@@ -691,12 +627,10 @@ int init_hal_data(void)
     dlist_init_entry(&(hal_data->halobjects));
 
     hal_data->comp_list_ptr = 0;
-    hal_data->pin_list_ptr = 0;
     hal_data->thread_list_ptr = 0;
     hal_data->base_period = 0;
     hal_data->threads_running = 0;
     hal_data->comp_free_ptr = 0;
-    hal_data->pin_free_ptr = 0;
 
     dlist_init_entry(&(hal_data->funct_entry_free));
 
