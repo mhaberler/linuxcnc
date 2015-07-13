@@ -18,14 +18,14 @@
 #include <stdlib.h>		/* exit() */
 #include "rtapi/shmdrv/shmdrv.h"
 
-int hal_bind(const char *comp_name)
+int halg_bind(const int use_hal_mutex, const char *comp_name)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(comp_name, HAL_NAME_LEN);
     {
-	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
-	rtapi_mutex_get(&(hal_data->mutex));
+	hal_comp_t *comp;
 	comp = halpr_find_comp_by_name(comp_name);
 
 	if (comp == NULL) {
@@ -48,14 +48,13 @@ int hal_bind(const char *comp_name)
     return 0;
 }
 
-int hal_unbind(const char *comp_name)
+int halg_unbind(const int use_hal_mutex, const char *comp_name)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(comp_name, HAL_NAME_LEN);
     {
-	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+	hal_comp_t *comp;
 
 	comp = halpr_find_comp_by_name(comp_name);
 	if (comp == NULL) {
@@ -78,16 +77,15 @@ int hal_unbind(const char *comp_name)
     return 0;
 }
 
-int hal_acquire(const char *comp_name, int pid)
+int halg_acquire(const int use_hal_mutex, const char *comp_name, int pid)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(comp_name, HAL_NAME_LEN);
     {
-	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+	hal_comp_t *comp;
 
-	rtapi_mutex_get(&(hal_data->mutex));
 	comp = halpr_find_comp_by_name(comp_name);
-
 	if (comp == NULL) {
 	    HALERR("no such component '%s'", comp_name);
 	    return -EINVAL;
@@ -113,20 +111,19 @@ int hal_acquire(const char *comp_name, int pid)
 		return -EINVAL;
 	    }
 	comp->pid = pid;
-	return comp->comp_id;
+	return ho_id(comp);
     }
 }
 
-int hal_release(const char *comp_name)
+int halg_release(const int use_hal_mutex, const char *comp_name)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(comp_name, HAL_NAME_LEN);
     {
-	hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+	hal_comp_t *comp;
 
-	rtapi_mutex_get(&(hal_data->mutex));
 	comp = halpr_find_comp_by_name(comp_name);
-
 	if (comp == NULL) {
 	    HALERR("no such component '%s'", comp_name);
 	    return -EINVAL;
@@ -152,6 +149,7 @@ int hal_release(const char *comp_name)
     return 0;
 }
 
+#if 0
 // introspection support for remote components.
 
 int hal_retrieve_compstate(const char *comp_name,
@@ -174,7 +172,7 @@ int hal_retrieve_compstate(const char *comp_name,
 	next = hal_data->comp_list_ptr;
 	while (next != 0) {
 	    comp = SHMPTR(next);
-	    if (!comp_name || (strcmp(comp->name, comp_name)) == 0) {
+	    if (!comp_name || (strcmp(ho_name(comp), comp_name)) == 0) {
 		nvisited++;
 		/* this is the right comp */
 		if (callback) {
@@ -186,7 +184,7 @@ int hal_retrieve_compstate(const char *comp_name,
 		    state.last_unbound = comp->last_unbound;
 		    state.pid = comp->pid;
 		    state.insmod_args = comp->insmod_args;
-		    strncpy(state.name, comp->name, sizeof(comp->name));
+		    strncpy(state.name, ho_name(comp), sizeof(comp->name));
 
 		    result = callback(&state, cb_data);
 		    if (result < 0) {
@@ -215,7 +213,7 @@ int hal_retrieve_compstate(const char *comp_name,
 	return nvisited;
     }
 }
-
+#endif
 static int count_pins_and_tracked_pins(hal_object_ptr o, foreach_args_t *args)
 {
     args->user_arg1++;     // pin count
@@ -258,7 +256,7 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
 	   // technically rcomps are legacy (not instantiable)
 	   // so match on owner_id instead of owning_comp
 	   // since all pins directly owned by comp, not an inst
-	   .owner_id = comp->comp_id,
+	   .owner_id = ho_id(comp),
        };
        halg_foreach(0, &args, count_pins_and_tracked_pins);
        pincount = args.user_arg1;
@@ -367,7 +365,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 	default:
 	    HALERR("BUG: hal_ccomp_match(%s): invalid type for pin %s: %d",
-		   cc->comp->name, ho_name(pin), pin->type);
+		   ho_name(cc->comp), ho_name(pin), pin->type);
 	    return -EINVAL;
 	}
     }

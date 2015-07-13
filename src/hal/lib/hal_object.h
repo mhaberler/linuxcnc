@@ -44,7 +44,10 @@ static inline void  hh_set_type(halhdr_t *o, __u32 type){ o->_type = type; }
 // this enables us to eventually drop the name from the header
 // and move to a string table
 static inline const char *hh_get_name(halhdr_t *o)    { return o->_name; }
+
 int hh_set_namefv(halhdr_t *o, const char *fmt, va_list ap);
+int hh_set_namef(halhdr_t *hh, const char *fmt, ...);
+
 static inline void hh_clear_name(halhdr_t *o)         { o->_name[0] = '\0'; }
 
 static inline hal_bool hh_is_valid(halhdr_t *o)       { return (o->_valid != 0); }

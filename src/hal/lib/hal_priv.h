@@ -244,9 +244,8 @@ extern hal_data_t *hal_data;
     component calls hal_init().
 */
 typedef struct hal_comp {
-    int next_ptr;		/* next component in the list */
-    int comp_id;		/* component ID (RTAPI module id) */
-    int type;			/* one of: TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE */
+    halhdr_t hdr;		// common HAL object header
+    int type;			/* subtype, one of: TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE */
     int state;                  /* one of: COMP_INITIALIZING, COMP_UNBOUND, */
                                 /* COMP_BOUND, COMP_READY */
     // the next two should be time_t, but kernel wont like them
@@ -256,7 +255,6 @@ typedef struct hal_comp {
     long int last_unbound;           /* timestamp of last unbind operation */
     int pid;			     /* PID of component (user components only) */
     void *shmem_base;           /* base of shmem for this component */
-    char name[HAL_NAME_LEN + 1];     /* component name */
 
     hal_constructor_t ctor;     // NULL for non-instatiable legacy comps
     hal_destructor_t dtor;      // may be NULL for a default destructor
@@ -283,19 +281,13 @@ typedef struct hal_inst {
 */
 typedef struct hal_pin {
     halhdr_t hdr;		// common HAL object header
-
-    // int next_ptr;		/* next pin in linked list */
     int data_ptr_addr;		/* address of pin data pointer */
-    // int owner_id;		/* component that owns this pin */
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
-    // int oldname;		/* old name if aliased, else zero */
     hal_type_t type;		/* data type */
     hal_pin_dir_t dir;		/* pin direction */
-    // int handle;                 // unique ID
     int flags;
     __u8 eps_index;
-    // char name[HAL_NAME_LEN + 1];	/* pin name */
 } hal_pin_t;
 
 typedef enum {
@@ -307,14 +299,11 @@ typedef enum {
 */
 typedef struct hal_sig {
     halhdr_t hdr;		// common HAL object header
-    //    int next_ptr;		/* next signal in linked list */
     int data_ptr;		/* offset of signal value */
     hal_type_t type;		/* data type */
     int readers;		/* number of input pins linked */
     int writers;		/* number of output pins linked */
     int bidirs;			/* number of I/O pins linked */
-    // int handle;                // unique ID
-    // char name[HAL_NAME_LEN + 1];	/* signal name */
 } hal_sig_t;
 
 /** HAL 'parameter' data structure.
@@ -553,8 +542,11 @@ hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
     an object that matches 'name'.  They return a pointer to the object,
     or NULL if no matching object is found.
 */
-extern hal_comp_t *halpr_find_comp_by_name(const char *name);
 extern hal_thread_t *halpr_find_thread_by_name(const char *name);
+
+static inline  hal_comp_t *halpr_find_comp_by_name(const char *name) {
+    return halg_find_object_by_name(0, HAL_COMPONENT, name).comp;
+}
 
 static inline  hal_sig_t *halpr_find_sig_by_name(const char *name) {
     return halg_find_object_by_name(0, HAL_SIGNAL, name).sig;
@@ -576,7 +568,17 @@ static inline hal_pin_t *halpr_find_pin_by_name(const char *name) {
     return halg_find_object_by_name(0, HAL_PIN, name).pin;
 }
 
-
+/** The 'find_xxx_by_ID()' functions search for
+    an object that matches 'name'.  They return a pointer to the object,
+    or NULL if no matching object is found.
+*/
+/** 'find_comp_by_id()' searches for an object whose
+    component ID matches 'id'.  It returns a pointer to that component,
+    or NULL if no match is found.
+*/
+static inline hal_comp_t *halpr_find_comp_by_id(int id) {
+    return halg_find_object_by_id(0, HAL_COMPONENT, id).comp;
+}
 
 // observers needed in haltalk
 // I guess we better come up with generic iterators for this kind of thing
@@ -594,11 +596,7 @@ hal_find_pin_by_name(const char *name);
 /** Allocates a HAL component structure */
 extern hal_comp_t *halpr_alloc_comp_struct(void);
 
-/** 'find_comp_by_id()' searches the component list for an object whose
-    component ID matches 'id'.  It returns a pointer to that component,
-    or NULL if no match is found.
-*/
-extern hal_comp_t *halpr_find_comp_by_id(int id);
+
 
 /** 'find_pin_by_sig()' finds pin(s) that are linked to a specific signal.
     If 'start' is NULL, it starts at the beginning of the pin list, and

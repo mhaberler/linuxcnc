@@ -21,7 +21,7 @@ int halpr_pin_count(const char *name)
 
     foreach_args_t args =  {
 	.type = HAL_PIN,
-	.owning_comp = comp->comp_id,
+	.owning_comp = ho_id(comp),
     };
     return halg_foreach(0, &args, NULL);
 }
@@ -36,7 +36,7 @@ halpr_param_count(const char *name)
 
     foreach_args_t args =  {
 	.type = HAL_PARAM,
-	.owning_comp = comp->comp_id,
+	.owning_comp = ho_id(comp),
     };
     return halg_foreach(0, &args, NULL);
 }
