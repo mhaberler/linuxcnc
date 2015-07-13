@@ -193,8 +193,6 @@ typedef struct {
     hal_list_t halobjects;      // list of all named HAL objects
 
     int comp_list_ptr;		/* root of linked list of components */
-    int pin_list_ptr;		/* root of linked list of pins */
-    // int sig_list_ptr;		/* root of linked list of signals */
     int thread_list_ptr;	/* root of linked list of threads */
 
     long base_period;		/* timer period for realtime tasks */
@@ -203,8 +201,7 @@ typedef struct {
     //int oldname_free_ptr;	/* list of free oldname structs */
 
     int comp_free_ptr;		/* list of free component structs */
-    int pin_free_ptr;		/* list of free pin structs */
-    // int sig_free_ptr;		/* list of free signal structs */
+
     hal_list_t funct_entry_free;	/* list of free funct entry structs */
     int thread_free_ptr;	/* list of free thread structs */
 

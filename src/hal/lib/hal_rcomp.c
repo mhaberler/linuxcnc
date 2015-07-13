@@ -215,84 +215,6 @@ int hal_retrieve_compstate(const char *comp_name,
 	return nvisited;
     }
 }
-#if 0
-int hal_retrieve_pinstate(const char *comp_name,
-			  hal_retrieve_pins_callback_t callback,
-			  void *cb_data)
-{
-    int next;
-    int nvisited = 0;
-    int result;
-    hal_comp_t *comp = NULL;
-    hal_comp_t *owner;
-    hal_pinstate_t pinstate;
-
-    CHECK_HALDATA();
-    CHECK_STRLEN(comp_name, HAL_NAME_LEN);
-
-    {
-	hal_pin_t *pin __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	if (comp_name != NULL) {
-	    comp = halpr_find_comp_by_name(comp_name);
-	    if (comp == NULL) {
-		HALERR("no such component '%s'", comp_name);
-		return -EINVAL;
-	    }
-	}
-	// either comp == NULL, so visit all pins
-	// or comp != NULL, in which case visit only this
-	// component's pins
-
-	// walk the pinlist
-	next = hal_data->pin_list_ptr;
-	while (next != 0) {
-	    pin = SHMPTR(next);
-	    owner = halpr_find_owning_comp(pin->owner_id);
-	    if (!comp_name || (owner->comp_id == comp->comp_id)) {
-		nvisited++;
-		/* this is the right comp */
-		if (callback) {
-		    // fill in the details:
-		    // NB: cover remote link case!
-		    pinstate.value = SHMPTR(pin->data_ptr_addr);
-		    pinstate.type = pin->type;
-		    pinstate.dir = pin->dir;
-		    pinstate.epsilon = hal_data->epsilon[pin->eps_index];
-		    pinstate.flags = pin->flags;
-		    strncpy(pinstate.name, pin->name, sizeof(pin->name));
-		    strncpy(pinstate.owner_name, owner->name, sizeof(owner->name));
-
-		    result = callback(&pinstate, cb_data);
-		    if (result < 0) {
-			// callback signaled an error, pass that back up.
-			return result;
-		    } else if (result > 0) {
-			// callback signaled 'stop iterating'.
-			// pass back the number of visited pins so far.
-			return nvisited;
-		    } else {
-			// callback signaled 'OK to continue'
-			// fall through
-		    }
-		} else {
-		    // null callback passed in,
-		    // just count pins
-		    // nvisited already bumped above.
-		}
-	    }
-	    /* no match, try the next one */
-	    next = pin->next_ptr;
-	}
-	HALDBG("hal_retrieve_pinstate: visited %d pins", nvisited);
-	/* if we get here, we ran through all the pins, so return count */
-	return nvisited;
-    }
-}
-#endif
 
 static int count_pins_and_tracked_pins(hal_object_ptr o, foreach_args_t *args)
 {
@@ -341,20 +263,7 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        halg_foreach(0, &args, count_pins_and_tracked_pins);
        pincount = args.user_arg1;
        n = args.user_arg2;
-#if 0
-       next = hal_data->pin_list_ptr;
-       n = 0;
-       while (next != 0) {
-	    pin = SHMPTR(next);
-	    owner = halpr_find_owning_comp(ho_owner(pin));
-	    if (owner->comp_id == comp->comp_id) {
-		if (!(pin->flags & PIN_DO_NOT_TRACK))
-		    n++;
-		pincount++;
-	    }
-	    next = pin->next_ptr;
-       }
-#endif
+
        if (n == 0) {
 	   HALERR("component %s has no pins to watch for changes",
 		  name);
@@ -391,17 +300,6 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
        args.user_arg1 = 0; // pin index in cc
        halg_foreach(0, &args, fill_pin_array);
 
-#if 0
-       next = hal_data->pin_list_ptr;
-       while (next != 0) {
-	   pin = SHMPTR(next);
-	   owner = halpr_find_owning_comp(pin->owner_id);
-	   if ((owner->comp_id == comp->comp_id) &&
-	       !(pin->flags & PIN_DO_NOT_TRACK))
-	       tc->pin[n++] = pin;
-	   next = pin->next_ptr;
-       }
-#endif
        assert(args.user_arg1 == tc->n_pins);
        tc->magic = CCOMP_MAGIC;
        *ccomp = tc;
