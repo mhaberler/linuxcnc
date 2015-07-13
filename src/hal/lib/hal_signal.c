@@ -14,17 +14,18 @@ void free_sig_struct(hal_sig_t * sig);
 *                      "SIGNAL" FUNCTIONS                              *
 ************************************************************************/
 
-int hal_signal_new(const char *name, hal_type_t type)
+int halg_signal_new(const int use_hal_mutex,
+		   const char *name, hal_type_t type)
 {
     hal_sig_t *new;
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(name, HAL_NAME_LEN);
-    HALDBG("creating signal '%s'", name);
+    HALDBG("creating signal '%s' lock=%d", name, use_hal_mutex);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	void *data_addr;
 
 	/* check for an existing signal with the same name */
@@ -92,7 +93,7 @@ int halg_signal_delete(const int use_hal_mutex, const char *name)
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(name, HAL_NAME_LEN);
-    HALDBG("deleting signal '%s'", name);
+    HALDBG("deleting signal '%s' lock=%d", name, use_hal_mutex);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
@@ -117,7 +118,9 @@ int halg_signal_delete(const int use_hal_mutex, const char *name)
 }
 
 
-int hal_link(const char *pin_name, const char *sig_name)
+int halg_link(const int use_hal_mutex,
+	      const char *pin_name,
+	      const char *sig_name)
 {
     hal_sig_t *sig;
     hal_comp_t *comp;
@@ -127,10 +130,12 @@ int hal_link(const char *pin_name, const char *sig_name)
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(pin_name, HAL_NAME_LEN);
     CHECK_STRLEN(sig_name, HAL_NAME_LEN);
-    HALDBG("linking pin '%s' to '%s'", pin_name, sig_name);
-
+    HALDBG("linking pin '%s' to '%s' lock=%d",
+	   pin_name,
+	   sig_name,
+	   use_hal_mutex);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_pin_t *pin;
 
 	/* locate the pin */
@@ -229,16 +234,18 @@ int hal_link(const char *pin_name, const char *sig_name)
     return 0;
 }
 
-int hal_unlink(const char *pin_name)
+int halg_unlink(const int use_hal_mutex,
+		const char *pin_name)
 {
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(pin_name, HAL_NAME_LEN);
-    HALDBG("unlinking pin '%s'", pin_name);
+    HALDBG("unlinking pin '%s' lock=%d",
+	   pin_name, use_hal_mutex);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_pin_t *pin;
 
 	/* locate the pin */
