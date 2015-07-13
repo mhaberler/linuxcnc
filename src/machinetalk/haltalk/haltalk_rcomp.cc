@@ -303,7 +303,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 	break;
 
     case REPORT_END: // finalize & send
-	retval = send_pbcontainer(cc->comp->name,
+	retval = send_pbcontainer(ho_name(cc->comp),
 				  self->tx,
 				  self->mksock[SVC_HALRCOMP].socket);
 	assert(retval == 0);
