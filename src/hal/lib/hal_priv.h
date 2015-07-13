@@ -531,12 +531,12 @@ typedef struct hal_vtable {
 
 // generic lookup by name
 hal_object_ptr halg_find_object_by_name(const int use_hal_mutex,
-				      const int type,
-				      const char *name);
+					const int type,
+					const char *name);
 // generic lookup by ID
 hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
-				    const int type,
-				    const int id);
+				      const int type,
+				      const int id);
 
 /** The 'find_xxx_by_name()' functions search the appropriate list for
     an object that matches 'name'.  They return a pointer to the object,
@@ -568,6 +568,14 @@ static inline hal_pin_t *halpr_find_pin_by_name(const char *name) {
     return halg_find_object_by_name(0, HAL_PIN, name).pin;
 }
 
+hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
+				       const char *name,
+				       const int version);
+static inline hal_vtable_t *halpr_find_vtable_by_name(const char *name,
+						      const int version) {
+    return halg_find_vtable_by_name(0, name, version);
+}
+
 /** The 'find_xxx_by_ID()' functions search for
     an object that matches 'name'.  They return a pointer to the object,
     or NULL if no matching object is found.
@@ -576,8 +584,11 @@ static inline hal_pin_t *halpr_find_pin_by_name(const char *name) {
     component ID matches 'id'.  It returns a pointer to that component,
     or NULL if no match is found.
 */
-static inline hal_comp_t *halpr_find_comp_by_id(int id) {
+static inline hal_comp_t *halpr_find_comp_by_id(const int id) {
     return halg_find_object_by_id(0, HAL_COMPONENT, id).comp;
+}
+static inline hal_vtable_t *halpr_find_vtable_by_id(const int id) {
+    return halg_find_object_by_id(0, HAL_VTABLE, id).vtable;
 }
 
 // observers needed in haltalk
@@ -594,7 +605,7 @@ hal_pin_t *
 hal_find_pin_by_name(const char *name);
 
 /** Allocates a HAL component structure */
-extern hal_comp_t *halpr_alloc_comp_struct(void);
+// extern hal_comp_t *halpr_alloc_comp_struct(void);
 
 
 
@@ -605,12 +616,6 @@ extern hal_comp_t *halpr_alloc_comp_struct(void);
     the next matching pin.  If no match is found, it returns NULL
 */
 extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
-
-// vtable private API:
-hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
-				       const char *name,
-				       int version);
-hal_vtable_t *halg_find_vtable_by_id(const int use_hal_mutex, const int vtable_id);
 
 // private instance API:
 
@@ -630,17 +635,17 @@ static inline hal_inst_t *halpr_find_inst_by_id(const int id)
 // always succeeds for pins, params, functs
 hal_comp_t *halpr_find_owning_comp(const int owner_id);
 
-// iterators - by instance id
-hal_pin_t *halpr_find_pin_by_instance_id(const int inst_id,
-					 const hal_pin_t * start);
-hal_param_t *halpr_find_param_by_instance_id(const int inst_id,
-					     const hal_param_t * start);
-hal_funct_t *halpr_find_funct_by_instance_id(const int inst_id,
-					     const hal_funct_t * start);
+/* // iterators - by instance id */
+/* hal_pin_t *halpr_find_pin_by_instance_id(const int inst_id, */
+/* 					 const hal_pin_t * start); */
+/* hal_param_t *halpr_find_param_by_instance_id(const int inst_id, */
+/* 					     const hal_param_t * start); */
+/* hal_funct_t *halpr_find_funct_by_instance_id(const int inst_id, */
+/* 					     const hal_funct_t * start); */
 
 // iterate over insts owned by a particular comp.
 // if comp_id < 0, return ALL instances, regardless which comp owns them.
-hal_inst_t *halpr_find_inst_by_owning_comp(const int comp_id, hal_inst_t *start);
+// hal_inst_t *halpr_find_inst_by_owning_comp(const int comp_id, hal_inst_t *start);
 
 // iterators - by owner id, which can refer to either a comp or an instance
 hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start);

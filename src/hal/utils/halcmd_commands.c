@@ -70,7 +70,7 @@
 
 const char *logpath = "/var/log/linuxcnc.log";
 
-static int unloadrt_comp(char *mod_name);
+static int unloadrt_comp(const char *mod_name);
 static void print_comp_info(char **patterns);
 static void print_inst_info(char **patterns);
 static void print_vtable_info(char **patterns);
@@ -1376,149 +1376,104 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 
 int do_delsig_cmd(char *sig_name)
 {
-    int retval;
-
-    if ( strcmp(sig_name, "all" ) != 0 ) {
-	retval = hal_signal_delete(sig_name);
-	if (retval == 0)
-	    halcmd_info("Signal '%s' deleted'\n", sig_name);
-	return retval;
-    }
     foreach_args_t args =  {
 	.type = HAL_SIGNAL,
+	.name = ( strcmp(sig_name, "all" ) != 0 ) ? NULL : sig_name,
     };
     // NB: the iterator holds the lock, the callback
     // uses halg_delete_<type> calls
     return halg_foreach(1, &args, unlocked_delete_halobject);
 }
 
-||||||| merged common ancestors
-#if 0
-int do_delsig_cmd(char *mod_name)
+static int unload_usr_cb(hal_object_ptr o, foreach_args_t *args)
 {
-    int next, retval, retval1, n;
-    hal_sig_t *sig;
-    char sigs[MAX_EXPECTED_SIGS][HAL_NAME_LEN+1];
+    hal_comp_t *comp = o.comp;
 
-    /* check for "all" */
-    if ( strcmp(mod_name, "all" ) != 0 ) {
-	retval = hal_signal_delete(mod_name);
-	if (retval == 0) {
-	    /* print success message */
-	    halcmd_info("Signal '%s' deleted'\n", mod_name);
-	}
-	return retval;
-    } else {
-	/* build a list of signal(s) to delete */
-	n = 0;
-	rtapi_mutex_get(&(hal_data->mutex));
-
-	next = hal_data->sig_list_ptr;
-	while (next != 0) {
-	    sig = SHMPTR(next);
-	    /* we want to unload this signal, remember its name */
-	    if ( n < ( MAX_EXPECTED_SIGS - 1 ) ) {
-	        strncpy(sigs[n], ho_name(sig), HAL_NAME_LEN );
-		sigs[n][HAL_NAME_LEN] = '\0';
-		n++;
-	    }
-	    next = sig->next_ptr;
-	}
-	rtapi_mutex_give(&(hal_data->mutex));
-	sigs[n][0] = '\0';
-
-	if ( sigs[0][0] == '\0' ) {
-	    /* desired signals not found */
-	    halcmd_error("no signals found to be deleted\n");
-	    return -1;
-	}
-	/* we now have a list of components, unload them */
-	n = 0;
-	retval1 = 0;
-	while ( sigs[n][0] != '\0' ) {
-	    retval = hal_signal_delete(sigs[n]);
-	/* check for fatal error */
-	    if ( retval < -1 ) {
-		return retval;
-	    }
-	    /* check for other error */
-	    if ( retval != 0 ) {
-		retval1 = retval;
-	    }
-	    if (retval == 0) {
-		/* print success message */
-		halcmd_info("Signal '%s' deleted'\n",
-		sigs[n]);
-	    }
-	    n++;
-	}
+    if ((comp->type == TYPE_REMOTE)
+	&& comp->pid == 0) {
+	// found a disowned remote component
+	// need to cleanup with hal_exit
+	// NB: no point in acquiring the HAL mutex
+	// since it is held in the calling iterator
+	halg_exit(0, ho_id(comp));
+	return 0;
     }
-    return retval1;
+    // an owned remote component, or a user component
+    // owned by somebody other than us receives a signal
+    if (((comp->type == TYPE_REMOTE) && (comp->pid != 0)) ||
+	((comp->type == TYPE_USER) && comp->pid != args->user_arg1)) {
+
+	// found a userspace or remote component and it is not us
+	// send SIGTERM to unload this component
+	// this will also exit haltalk if unloadusr of a remote
+	// comp which is being served by haltalk
+	kill(abs(comp->pid), SIGTERM);
+    }
+    return 0;
 }
-#endif
-=======
->>>>>>> out the window.
 
-int do_unloadusr_cmd(char *mod_name)
+int do_unloadusr_cmd(char *name)
 {
-    int next, all;
-    hal_comp_t *comp;
-    pid_t ourpid = getpid();
+    foreach_args_t args =  {
+	.type = HAL_COMPONENT,
+	.name = strcmp(name, "all") ? NULL : name,
+	.user_arg1 = getpid(),
+    };
+    // NB: the iterator acquires the lock, so the callback
+    // uses halg_<type> calls with the lock param set to 0
+    halg_foreach(1, &args, unload_usr_cb);
+    return 0;
+}
 
-    /* check for "all" */
-    if ( strcmp(mod_name, "all" ) == 0 ) {
-	all = 1;
-    } else {
-	all = 0;
-    }
-    /* build a list of component(s) to unload */
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->comp_list_ptr;
-    while (next != 0) {
-	comp = SHMPTR(next);
-	// do this here because hal_exit() wipes
-	// the comp->next_ptr field
-	next = comp->next_ptr;
+static int unload_rt_cb(hal_object_ptr o, foreach_args_t *args)
+{
+    // HAL mutex held in caller.
+    hal_comp_t *comp = o.comp;
 
-	if ((comp->type == TYPE_REMOTE)
-	    && comp->pid == 0) {
-	    /* found a disowned remote component */
-	    if ( all || ( strcmp(mod_name, comp->name) == 0 )) {
-		// we want to unload this component,so hal_exit() it
-		// need to temporarily release the mutex
-		// because hal_exit() grabs it too
-		rtapi_mutex_give(&(hal_data->mutex));
-		hal_exit(comp->comp_id);
-		rtapi_mutex_get(&(hal_data->mutex));
-	    }
-	}
-	// an owned remote component, or a user component
-	// owned by somebody other than us receives a signal
-	if (((comp->type == TYPE_REMOTE) && (comp->pid != 0)) ||
-	    ((comp->type == TYPE_USER) && comp->pid != ourpid)) {
+    // on first pass, skip comps which export vtables
+    if (args->user_arg1 &&
+	halg_count_exported_vtables(0, ho_id(comp)))
+	return 0; // but continue iterating
 
-	    /* found a userspace or remote component besides us */
-	    if ( all || ( strcmp(mod_name, comp->name) == 0 )) {
-		/* we want to unload this component, send it SIGTERM */
-                kill(abs(comp->pid), SIGTERM);
-	    }
-	}
-    }
     rtapi_mutex_give(&(hal_data->mutex));
-    return 0;
+    int retval = unloadrt_comp(ho_name(comp));
+    rtapi_mutex_get(&(hal_data->mutex));
+
+    args->user_arg2 = retval; // pass it back
+    // check for fatal error
+    if ( retval < -1 )
+	return retval;
+    return 0; // continue
 }
 
-// user_arg2 returns the number of vtables exported by the
-// comp with id passed in in user_arg1
-int _count_exported_vtables(hal_object_ptr o, foreach_args_t *args)
+
+int do_unloadrt_cmd(char *name)
 {
-    if (hh_get_owner_id(o.hdr) == args->user_arg1) {
-	args->user_arg2++;
-    }
+    int ret;
+
+    foreach_args_t args =  {
+	.type = HAL_COMPONENT,
+	.name = strcmp(name, "all") ? NULL : name,
+	.user_arg1 = 1, // signifiy 'skip if vtable exported'
+    };
+    ret = halg_foreach(1, &args, unload_rt_cb);
+    if (ret < 0)
+	goto FATAL;
+
+    args.user_arg1 = 0; // now unload those which exported vtables
+    halg_foreach(1, &args, unload_rt_cb);
+    if (ret < 0)
+	goto FATAL;
     return 0;
+
+ FATAL:
+    halcmd_error("unloadrt failed rc=%d\n", args.user_arg2);
+    return args.user_arg2;
 }
 
-int do_unloadrt_cmd(char *mod_name)
+
+#if 0
+int XXXXdo_unloadrt_cmd(char *mod_name)
 {
     int next, retval, retval1, nc, nvt, all;
     hal_comp_t *comp;
@@ -1593,6 +1548,7 @@ int do_unloadrt_cmd(char *mod_name)
     zlist_destroy (&vtables);
     return retval1;
 }
+#endif
 
 int do_shutdown_cmd(void)
 {
@@ -1606,7 +1562,7 @@ int do_ping_cmd(void)
     return retval;
 }
 
-static int unloadrt_comp(char *mod_name)
+static int unloadrt_comp(const char *mod_name)
 {
     int retval;
 
@@ -1917,20 +1873,89 @@ static int inst_count(hal_comp_t *comp)
 {
     foreach_args_t args =  {
 	.type = HAL_INST,
-	.owner_id = comp->comp_id,
+	.owner_id = ho_id(comp),
     };
     return halg_foreach(0, &args, yield_count);
 }
 
+static int print_comp_entry(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_comp_t *comp = o.comp;
+    bool has_ctor = (comp->ctor != NULL) ;
+    bool has_dtor = (comp->dtor != NULL) ;
+    bool is_hallib = (comp->type == TYPE_HALLIB);
+
+    if (match(args->user_ptr1, ho_name(comp))) {
+
+	halcmd_output(" %5d  %-4s %c%c%c%c  %4d %-*s",
+		      ho_id(comp),
+		      type_name(comp),
+		      has_ctor ? 'c': ' ',
+		      has_dtor ? 'd': ' ',
+		      is_hallib ? 'i': ' ',
+		      ' ',
+		      inst_count(comp),
+		      HAL_NAME_LEN,
+		      ho_name(comp));
+
+	switch (comp->type) {
+	case TYPE_USER:
+	case TYPE_HALLIB:
+
+	    halcmd_output(" %-5d %s", comp->pid,
+			  state_name(comp->state));
+	    break;
+
+	case TYPE_RT:
+	    halcmd_output(" RT    %s",
+			  state_name(comp->state));
+	    break;
+
+	case TYPE_REMOTE:
+	    halcmd_output(" %-5d %s", comp->pid,
+			  state_name(comp->state));
+	    time_t now = time(NULL);
+	    if (comp->last_update) {
+
+		halcmd_output(", update:-%ld",-(comp->last_update-now));
+	    } else
+		halcmd_output(", update:never");
+
+	    if (comp->last_bound) {
+
+		halcmd_output(", bound:%lds",comp->last_bound-now);
+	    } else
+		halcmd_output(", bound:never");
+	    if (comp->last_unbound) {
+		time_t now = time(NULL);
+
+		halcmd_output(", unbound:%lds", comp->last_unbound-now);
+	    } else
+		halcmd_output(", unbound:never");
+	    break;
+	default:
+	    halcmd_output(" %-5s %s", "", state_name(comp->state));
+	}
+	halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
+	halcmd_output("\n");
+    }
+    return 0;
+}
+
 static void print_comp_info(char **patterns)
 {
-    int next;
-    hal_comp_t *comp;
-
     if (scriptmode == 0) {
-	halcmd_output("Loaded HAL Components:\n");
+	halcmd_output("HAL Components:\n");
 	halcmd_output("    ID  Type Flags Inst %-*s PID   State\n", HAL_NAME_LEN, "Name");
     }
+    foreach_args_t args =  {
+	.type = HAL_COMPONENT,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_comp_entry);
+    halcmd_output("\n");
+#if 0
+
     rtapi_mutex_get(&(hal_data->mutex));
     next = hal_data->comp_list_ptr;
     while (next != 0) {
@@ -2001,22 +2026,24 @@ static void print_comp_info(char **patterns)
     }
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");
+#endif
 }
 
 
 static int print_inst_line(hal_object_ptr o, foreach_args_t *args)
 {
-    if ( match(args->user_ptr1, hh_get_name(o.hdr))) {
-	hal_comp_t *comp = halpr_find_comp_by_id(hh_get_owner_id(o.hdr));
+    hal_inst_t *inst = o.inst;
+    if ( match(args->user_ptr1, ho_name(inst))) {
+	hal_comp_t *comp = halpr_find_comp_by_id(ho_owner_id(inst));
 
 	halcmd_output("%5d %5d %5d  %-*s %-*s",
-		      hh_get_id(o.hdr),
-		      comp->comp_id,
-		      o.inst->inst_size,
+		      ho_id(inst),
+		      ho_id(comp),
+		      inst->inst_size,
 		      25, // HAL_NAME_LEN,
-		      hh_get_name(o.hdr),
+		      ho_name(inst),
 		      20, // HAL_NAME_LEN,
-		      comp->name);
+		      ho_name(comp));
 	halcmd_output("\n");
     }
     return 0; // continue
@@ -2052,7 +2079,7 @@ static int print_vtable_entry(hal_object_ptr o, foreach_args_t *args)
 
 	hal_comp_t *comp = halpr_find_comp_by_id(ho_owner_id(vt));
 	if (comp) {
-	    halcmd_output("   %-5d %-30.30s", comp->comp_id,  comp->name);
+	    halcmd_output("   %-5d %-30.30s", ho_id(comp),  ho_name(comp));
 	} else {
 	    halcmd_output("   * not owned by a component *");
 	}
@@ -2095,8 +2122,8 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
 	}
 	if (scriptmode == 0) {
 
-	    halcmd_output(" %5d  ", comp->comp_id);
-	    if (comp->comp_id == ho_owner_id(pin))
+	    halcmd_output(" %5d  ", ho_id(comp));
+	    if ( ho_id(comp) == ho_owner_id(pin))
 		halcmd_output("     ");
 	    else
 		halcmd_output("%5d", ho_owner_id(pin));
@@ -2119,7 +2146,7 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
 	    }
 	} else {
 	    halcmd_output("%s %s %s %s %-30.30s",
-			  comp->name,
+			  ho_name(comp),
 			  data_type((int) pin->type),
 			  pin_data_dir((int) pin->dir),
 			  data_value2((int) pin->type, dptr),
@@ -2255,31 +2282,30 @@ static void print_script_sig_info(int type, char **patterns)
 
 static int print_param_line(hal_object_ptr o, foreach_args_t *args)
 {
-    if ( match(args->user_ptr1, hh_get_name(o.hdr))) {
-	int param_owner_id = hh_get_owner_id(o.hdr);
+    hal_param_t *param = o.param;
+
+    if ( match(args->user_ptr1, ho_name(param))) {
+	int param_owner_id = ho_owner_id(param);
 	hal_comp_t *comp = halpr_find_owning_comp(param_owner_id);
-	hal_param_t *param = (hal_param_t *)o.any;
 
 	if (scriptmode == 0) {
-	    halcmd_output(" %5d  ", comp->comp_id);
-	    if (comp->comp_id == param_owner_id)
+	    halcmd_output(" %5d  ", ho_id(comp));
+	    if (ho_id(comp) == param_owner_id)
 		halcmd_output("     ");
 	    else
 		halcmd_output("%5d", param_owner_id);
-
-
 
 	    halcmd_output("  %5s %-3s  %9s  %s\n",
 			  data_type((int) param->type),
 			  param_data_dir((int) param->dir),
 			  data_value((int) param->type, SHMPTR(param->data_ptr)),
-			  hh_get_name(o.hdr));
+			  ho_name(param));
 	} else {
 	    halcmd_output("%s %s %s %s %s\n",
-			  comp->name, data_type((int) param->type),
+			  ho_name(comp), data_type((int) param->type),
 			  param_data_dir((int) param->dir),
 			  data_value2((int) param->type, SHMPTR(param->data_ptr)),
-			  hh_get_name(o.hdr));
+			  ho_name(param));
 	}
     }
     return 0; // continue
@@ -2347,28 +2373,28 @@ static int print_funct_line(hal_object_ptr o, foreach_args_t *args)
 {
     hal_funct_t *fptr = o.funct;
 
-    if ( match(args->user_ptr1, hh_get_name(o.hdr))) {
-	hal_comp_t *comp =  halpr_find_owning_comp(hh_get_owner_id(o.hdr));
-	if (scriptmode == 0) {
+    if ( match(args->user_ptr1, ho_name(fptr))) {
+	hal_comp_t *comp =  halpr_find_owning_comp(ho_id(fptr));
 
-	    halcmd_output(" %5d  ", comp->comp_id);
-	    if (comp->comp_id == hh_get_owner_id(o.hdr))
+	if (scriptmode == 0) {
+	    halcmd_output(" %5d  ", ho_id(comp));
+	    if (ho_id(comp) == ho_owner_id(fptr))
 		halcmd_output("     ");
 	    else
-		halcmd_output("%5d", hh_get_owner_id(o.hdr));
+		halcmd_output("%5d", ho_owner_id(fptr));
 	    halcmd_output(" %08lx  %08lx  %-3s  %5d %-7s %s\n",
 
 			  (long)fptr->funct.l,
 			  (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
 			  fptr->users,
 			  ftype(fptr->type),
-			  hh_get_name(o.hdr));
+			  ho_name(fptr));
 	} else {
 	    halcmd_output("%s %08lx %08lx %s %3d %s\n",
-			  comp->name,
+			  ho_name(comp),
 			  (long)fptr->funct.l,
 			  (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
-			  fptr->users, hh_get_name(o.hdr));
+			  fptr->users, ho_name(fptr));
 	}
     }
     return 0; // continue
@@ -2512,19 +2538,11 @@ static void print_thread_info(char **patterns)
 
 static void print_comp_names(char **patterns)
 {
-    int next;
-    hal_comp_t *comp;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->comp_list_ptr;
-    while (next != 0) {
-	comp = SHMPTR(next);
-	if ( match(patterns, comp->name) ) {
-	    halcmd_output("%s ", comp->name);
-	}
-	next = comp->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_COMPONENT,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
     halcmd_output("\n");
 }
 
@@ -2671,11 +2689,12 @@ static void print_mem_status()
     active = count_list(hal_data->comp_list_ptr);
     recycled = count_list(hal_data->comp_free_ptr);
     halcmd_output("  active/recycled components: %d/%d\n", active, recycled);
+#if 0
     // count pins
     active = count_list(hal_data->pin_list_ptr);
     recycled = count_list(hal_data->pin_free_ptr);
     halcmd_output("  active/recycled pins:       %d/%d\n", active, recycled);
-#if 0
+
     // count parameters
     active = count_list(hal_data->param_list_ptr);
     recycled = count_list(hal_data->param_free_ptr);
@@ -3490,7 +3509,7 @@ int do_newcomp_cmd(char *comp, char *opt[])
     return 0;
 }
 
-
+#if 0
 int do_ready_cmd(char *comp_name, char *tokens[])
 {
     int retval, comp_id;
@@ -3516,6 +3535,31 @@ int do_ready_cmd(char *comp_name, char *tokens[])
     if (retval < 0) {
 	halcmd_error("ready: cant hal_ready component '%s':  %s\n",
 		     comp_name, strerror(-comp_id));
+	return -EINVAL;
+    }
+    return 0;
+}
+#endif
+
+int do_ready_cmd(char *comp_name, char *tokens[])
+{
+    int retval;
+
+    WITH_HAL_MUTEX();
+    hal_comp_t *comp = halpr_find_comp_by_name(comp_name);
+
+    if (comp == NULL) {
+	halcmd_error( "No such component: %s\n", comp_name);
+	return -ENOENT;
+    }
+    if(comp->type != TYPE_REMOTE) {
+	halcmd_error( "%s is not a remote component\n", comp_name);
+	return -ENOSYS;
+    }
+    retval = halg_ready(0, ho_id(comp));
+    if (retval < 0) {
+	halcmd_error("ready: cant hal_ready component '%s':  %s\n",
+		     comp_name, strerror(-retval));
 	return -EINVAL;
     }
     return 0;

@@ -365,8 +365,10 @@ static char *setp_generator(const char *text, int state) {
 
 
 static char *usrcomp_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
+
     if(!state) {
         next = hal_data->comp_list_ptr;
         len = strlen(text);
@@ -382,12 +384,14 @@ static char *usrcomp_generator(const char *text, int state) {
             return strdup(comp->name);
     }
     rl_attempted_completion_over = 1;
+#endif
     return NULL;
 }
 
 
 // return names of loaded comps which are instantiable
 static char *icomp_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
     if(!state) {
@@ -404,11 +408,13 @@ static char *icomp_generator(const char *text, int state) {
             return strdup(comp->name);
     }
     rl_attempted_completion_over = 1;
+#endif
     return NULL;
 }
 
 
 static char *comp_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
     if(!state) {
@@ -425,11 +431,13 @@ static char *comp_generator(const char *text, int state) {
             return strdup(comp->name);
     }
     rl_attempted_completion_over = 1;
+#endif
     return NULL;
 }
 
 
 static char *rtcomp_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
     if(!state) {
@@ -447,6 +455,7 @@ static char *rtcomp_generator(const char *text, int state) {
             return strdup(comp->name);
     }
     rl_attempted_completion_over = 1;
+#endif
     return NULL;
 }
 
@@ -473,6 +482,7 @@ static char *parameter_alias_generator(const char *text, int state) {
 }
 
 static char *pin_alias_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
 
@@ -480,7 +490,7 @@ static char *pin_alias_generator(const char *text, int state) {
         next = hal_data->pin_list_ptr;
         len = strlen(text);
     }
-#if 0
+
     while(next) {
         hal_pin_t *pin = SHMPTR(next);
         next = pin->next_ptr;

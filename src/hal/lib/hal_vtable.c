@@ -70,7 +70,7 @@ int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halg_find_vtable_by_id(0, vtable_id)) == NULL) {
+	if ((vt = halpr_find_vtable_by_id(vtable_id)) == NULL) {
 	    HALERR("vtable %d not found", vtable_id);
 	    return -ENOENT;
 	}
@@ -105,7 +105,7 @@ int halg_reference_vtable(const int use_hal_mutex,
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halg_find_vtable_by_name(0, name, version)) == NULL) {
+	if ((vt = halpr_find_vtable_by_name(name, version)) == NULL) {
 	    HALERR("vtable '%s' version %d not found", name, version);
 	    return -ENOENT;
 	}
@@ -142,7 +142,7 @@ int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
 	hal_vtable_t *vt;
 
 	// make sure no such vtable name already exists
-	if ((vt = halg_find_vtable_by_id(0, vtable_id)) == NULL) {
+	if ((vt = halpr_find_vtable_by_id(vtable_id)) == NULL) {
 	    HALERR("vtable %d not found", vtable_id);
 	    return -ENOENT;
 	}
@@ -172,7 +172,7 @@ int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
 
 hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
 				       const char *name,
-				       int version)
+				       const int version)
 {
     foreach_args_t args =  {
 	.type = HAL_VTABLE,
@@ -185,17 +185,27 @@ hal_vtable_t *halg_find_vtable_by_name(const int use_hal_mutex,
     return NULL;
 }
 
-hal_vtable_t *halg_find_vtable_by_id(const int use_hal_mutex,
-				     int vtable_id)
+// user_arg2 returns the number of vtables exported by the
+// comp with id passed in in user_arg1
+static int count_exported_vtables_cb(hal_object_ptr o,
+				     foreach_args_t *args)
+{
+    if (hh_get_owner_id(o.hdr) == args->user_arg1) {
+	args->user_arg2++;
+    }
+    return 0;
+}
+
+int halg_count_exported_vtables(const int use_hal_mutex,
+				const int comp_id)
 {
     foreach_args_t args =  {
 	.type = HAL_VTABLE,
-	.id = vtable_id,
-	.user_ptr1 = NULL
+	.user_arg1 = comp_id,
+	.user_arg2 = 0, // returned count of exported vtables
     };
-    if (halg_foreach(use_hal_mutex, &args, yield_match))
-	return args.user_ptr1;
-    return NULL;
+    halg_foreach(use_hal_mutex, &args, count_exported_vtables_cb);
+    return args.user_arg2;
 }
 
 #ifdef RTAPI
@@ -204,5 +214,5 @@ EXPORT_SYMBOL(halg_remove_vtable);
 EXPORT_SYMBOL(halg_reference_vtable);
 EXPORT_SYMBOL(halg_unreference_vtable);
 EXPORT_SYMBOL(halg_find_vtable_by_name);
-EXPORT_SYMBOL(halg_find_vtable_by_id);
+EXPORT_SYMBOL(halg_count_exported_vtables);
 #endif
