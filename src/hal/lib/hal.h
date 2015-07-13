@@ -735,7 +735,12 @@ extern int hal_pin_alias(const char *pin_name, const char *alias);
     If successful, 'hal_signal_new() returns 0.  On failure
     it returns a negative error code.
 */
-extern int hal_signal_new(const char *name, hal_type_t type);
+int halg_signal_new(const int use_hal_mutex,
+		    const char *name, hal_type_t type);
+
+static inline  int hal_signal_new(const char *name, hal_type_t type) {
+    return halg_signal_new(1, name, type);
+}
 
 /** 'hal_signal_delete()' deletes a signal object.  Any pins linked to
     the object are unlinked.
@@ -761,14 +766,23 @@ static inline int hal_signal_delete(const char *name) {
     On success, hal_link() returns 0, on failure it returns a
     negative error code.
 */
-extern int hal_link(const char *pin_name, const char *sig_name);
+extern int halg_link(const int use_hal_mutex,
+		     const char *pin_name,
+		     const char *sig_name);
+static inline int hal_link(const char *pin_name,
+			   const char *sig_name){
+    return halg_link(1, pin_name, sig_name);
+}
 
 /** 'hal_unlink()' unlinks any signal from the specified pin.  'pin_name'
     is a string containing the pin name.
     On success, hal_unlink() returns 0, on failure it
     returns a negative error code.
 */
-extern int hal_unlink(const char *pin_name);
+extern int halg_unlink(const int use_hal_mutex, const char *pin_name);
+static inline int hal_unlink(const char *pin_name) {
+    return halg_unlink(1, pin_name);
+}
 
 /***********************************************************************
 *                     "PARAMETER" FUNCTIONS                            *
