@@ -154,7 +154,7 @@ int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args)
 {
     int owner_id = hh_get_owner_id(o.hdr);
     hal_comp_t *owner = halpr_find_owning_comp(args->user_arg1);
-    if ((owner != NULL) && (owner->comp_id == owner_id))
+    if ((owner != NULL) && (ho_id(owner) == owner_id))
 	args->user_arg2++;
     return 0;
 }

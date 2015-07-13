@@ -8,15 +8,26 @@
 #include "hal_list.h"
 #include "hal_internal.h"
 
+
 int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
 {
     int sz = rtapi_vsnprintf(hh->_name, sizeof(hh->_name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
+    if(sz == -1 || sz > sizeof(hh->_name)) {
         HALERR("length %d invalid for name starting with '%s'",
 	       sz, hh->_name);
         return -ENOMEM;
     }
     return 0;
+}
+
+int hh_set_namef(halhdr_t *hh, const char *fmt, ...)
+{
+    int ret;
+    va_list ap;
+    va_start(ap, fmt);
+    ret = hh_set_namefv(hh, fmt, ap);
+    va_end(ap);
+    return ret;
 }
 
 int  hh_init_hdrfv(halhdr_t *hh,
@@ -100,7 +111,7 @@ int halg_foreach(bool use_hal_mutex,
 	    hal_comp_t *oc = halpr_find_owning_comp(hh_get_owner_id(hh));
 	    if (oc == NULL)
 		continue;  // a bug, halpr_find_owning_comp will log already
-	    if (!(oc->comp_id == args->owning_comp))
+	    if (!(ho_id(oc) == args->owning_comp))
 		continue;
 	}
 
@@ -137,9 +148,9 @@ int halg_foreach(bool use_hal_mutex,
 
 #ifdef RTAPI
 
-EXPORT_SYMBOL(hh_set_namefv);
-//EXPORT_SYMBOL(hh_set_namef);
-EXPORT_SYMBOL(hh_init_hdrf);
-EXPORT_SYMBOL(hh_clear_hdr);
+/* EXPORT_SYMBOL(hh_set_namefv); */
+/* EXPORT_SYMBOL(hh_set_namef); */
+/* EXPORT_SYMBOL(hh_init_hdrf); */
+/* EXPORT_SYMBOL(hh_clear_hdr); */
 EXPORT_SYMBOL(halg_foreach);
 #endif
