@@ -297,11 +297,27 @@ static inline int hal_init(const char *name) {
 #endif
 }
 
+
 #if defined(ULAPI)
-extern int hal_bind(const char *comp);
-extern int hal_unbind(const char *comp);
-extern int hal_acquire(const char *comp, int pid);
-extern int hal_release(const char *comp_name);
+// generic functions (with/without lock)
+extern int halg_bind(const int use_hal_mutex, const char *comp);
+extern int halg_unbind(const int use_hal_mutex, const char *comp);
+extern int halg_acquire(const int use_hal_mutex, const char *comp, int pid);
+extern int halg_release(const int use_hal_mutex, const char *comp);
+
+// legacy wrappers
+static inline int hal_bind(const char *comp) {
+    return halg_bind(1, comp);
+}
+static inline  int hal_unbind(const char *comp) {
+    return halg_unbind(1, comp);
+}
+static inline  int hal_acquire(const char *comp, int pid) {
+    return halg_acquire(1, comp, pid);
+}
+static inline  int hal_release(const char *comp) {
+        return halg_release(1, comp);
+}
 
 // introspection support: component and pin iterators
 // These functions are read-only with respect to HAL state.
@@ -429,7 +445,7 @@ extern int hal_ready(int comp_id);
 /** hal_comp_name() returns the name of the given component, or NULL
     if comp_id is not a loaded component
 */
-extern char* hal_comp_name(int comp_id);
+extern const char* hal_comp_name(int comp_id);
 
 // return the state of a component, or -ENOENT on failure (e.g not existent)
 int hal_comp_state_by_name(const char *name);
@@ -561,10 +577,10 @@ typedef enum {
     HAL_PARAM         = 3,
     HAL_THREAD        = 4,
     HAL_FUNCT         = 5,
-    // HAL_ALIAS         = 6,
-    HAL_COMP_RT       = 7,
-    HAL_COMP_USER     = 8,
-    HAL_COMP_REMOTE   = 9,
+    HAL_COMPONENT     = 6, // type tag in halhdr
+    HAL_COMP_RT       = 7, // sub-type in comp->type
+    HAL_COMP_USER     = 8, // sub-type in comp->type
+    HAL_COMP_REMOTE   = 9, // sub-type in comp->type
     HAL_RING          = 10,
     HAL_GROUP         = 11,
     HAL_MEMBER_SIGNAL = 12,
