@@ -48,14 +48,14 @@ int yield_foreach(hal_object_ptr o, foreach_args_t *args)
 
 int free_object(hal_object_ptr o, foreach_args_t *args)
 {
-    HALDBG("name=%s id=%d owner=%d type=%d seltype=%d selid=%d selowner=%d",
-	   hh_get_name(o.hdr),
-	   hh_get_id(o.hdr),
-	   hh_get_owner_id(o.hdr),
-	   hh_get_type(o.hdr),
-	   args->type,
-	   args->id,
-	   args->owner_id);
+    /* HALDBG("name=%s id=%d owner=%d type=%d seltype=%d selid=%d selowner=%d", */
+    /* 	   hh_get_name(o.hdr), */
+    /* 	   hh_get_id(o.hdr), */
+    /* 	   hh_get_owner_id(o.hdr), */
+    /* 	   hh_get_type(o.hdr), */
+    /* 	   args->type, */
+    /* 	   args->id, */
+    /* 	   args->owner_id); */
 
     switch (args->type) {
 
