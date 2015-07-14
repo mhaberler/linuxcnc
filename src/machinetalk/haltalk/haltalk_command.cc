@@ -279,7 +279,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 
     // compile the component
     hal_compiled_comp_t *cc;
-    if ((retval = hal_compile_comp(cname, &cc))) {
+    if ((retval = halg_compile_comp(true, cname, &cc))) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: create_rcomp:hal_compile_comp(%s)"
 			" failed - skipping component: %s",

@@ -1,4 +1,3 @@
-ifeq (1,0)
 HALTALK_DIR := machinetalk/haltalk
 
 HALTALK_SRCS :=  $(addprefix $(HALTALK_DIR)/, \
@@ -35,4 +34,3 @@ $(call TOOBJSDEPS, $(HALTALK_SRCS)) : EXTRAFLAGS += $(HALTALK_CXXFLAGS)
 
 USERSRCS += $(HALTALK_SRCS)
 TARGETS += ../bin/haltalk
-endif
