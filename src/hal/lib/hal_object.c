@@ -81,61 +81,62 @@ int halg_foreach(bool use_hal_mutex,
     int nvisited = 0, result;
 
     CHECK_NULL(args);
+    {
+	// run with HAL mutex if use_hal_mutex nonzero:
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
-    // run with HAL mutex if use_hal_mutex nonzero:
-    WITH_HAL_MUTEX_IF(use_hal_mutex);
+	dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
 
-    dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
+	    // cop out if the object list emptied by now
+	    // (may happen through callbacks when deleting)
+	    if (dlist_empty_careful(&hh->list))
+		break;
 
-	// cop out if the object list emptied by now
-	// (may happen through callbacks when deleting)
-	if (dlist_empty_careful(&hh->list))
-	    break;
-
-	// 1. select by type if given
-	if (args->type && (hh_get_type(hh) != args->type))
-	    continue;
-
-	// 2. by id if nonzero
-	if  (args->id && (args->id != hh_get_id(hh)))
-	    continue;
-
-	// 3. by owner id if nonzero
-	if (args->owner_id && (args->owner_id != hh_get_owner_id(hh)))
-	    continue;
-
-	// 4. by owning comp (directly-legacy case, or indirectly -
-	// for pins, params and functs owned by an instance).
-	// see comments near the foreach_args definition in hal_object.h.
-	if (args->owning_comp) {
-	    hal_comp_t *oc = halpr_find_owning_comp(hh_get_owner_id(hh));
-	    if (oc == NULL)
-		continue;  // a bug, halpr_find_owning_comp will log already
-	    if (!(ho_id(oc) == args->owning_comp))
+	    // 1. select by type if given
+	    if (args->type && (hh_get_type(hh) != args->type))
 		continue;
-	}
 
-	// 5. by name if non-NULL - prefix match OK for name strings
-	if (args->name && strcmp(hh_get_name(hh), args->name))
-	    continue;
+	    // 2. by id if nonzero
+	    if  (args->id && (args->id != hh_get_id(hh)))
+		continue;
 
-	nvisited++;
-	if (callback) {
-	    result = callback((hal_object_ptr)hh, args);
-	    if (result < 0) {
-		// callback signalled an error, pass that back up.
-		return result;
-	    } else if (result > 0) {
-		// callback signalled 'stop iterating'.
-		// pass back the number of visited vtables.
-		return nvisited;
-	    } else {
-		// callback signalled 'OK to continue'
-		// fall through
+	    // 3. by owner id if nonzero
+	    if (args->owner_id && (args->owner_id != hh_get_owner_id(hh)))
+		continue;
+
+	    // 4. by owning comp (directly-legacy case, or indirectly -
+	    // for pins, params and functs owned by an instance).
+	    // see comments near the foreach_args definition in hal_object.h.
+	    if (args->owning_comp) {
+		hal_comp_t *oc = halpr_find_owning_comp(hh_get_owner_id(hh));
+		if (oc == NULL)
+		    continue;  // a bug, halpr_find_owning_comp will log already
+		if (!(ho_id(oc) == args->owning_comp))
+		    continue;
 	    }
-	} else {
-	    // null callback passed in,
-	    // just count matces
+
+	    // 5. by name if non-NULL - prefix match OK for name strings
+	    if (args->name && strcmp(hh_get_name(hh), args->name))
+		continue;
+
+	    nvisited++;
+	    if (callback) {
+		result = callback((hal_object_ptr)hh, args);
+		if (result < 0) {
+		    // callback signalled an error, pass that back up.
+		    return result;
+		} else if (result > 0) {
+		    // callback signalled 'stop iterating'.
+		    // pass back the number of visited vtables.
+		    return nvisited;
+		} else {
+		    // callback signalled 'OK to continue'
+		    // fall through
+		}
+	    } else {
+		// null callback passed in,
+		// just count matces
+	    }
 	}
     }
     // no match, try the next one
