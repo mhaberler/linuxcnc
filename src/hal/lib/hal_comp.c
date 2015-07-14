@@ -521,16 +521,6 @@ int init_hal_data(void)
 
     hal_data->threads_running = 0;
 
-
-    hal_data->group_list_ptr = 0;
-    hal_data->member_list_ptr = 0;
-    hal_data->ring_list_ptr = 0;
-
-    hal_data->group_free_ptr = 0;
-    hal_data->member_free_ptr = 0;
-    hal_data->ring_free_ptr = 0;
-
-
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
     // silly 1-based shm segment id allocation FIXED
     // yeah, 'user friendly', how could one possibly think zero might be a valid id

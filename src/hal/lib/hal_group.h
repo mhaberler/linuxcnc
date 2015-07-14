@@ -6,27 +6,26 @@
 
 RTAPI_BEGIN_DECLS
 
-XXX halhdr_t hdr;		// common HAL object header
 
-typedef struct hal_member {
-    int next_ptr;		/* next member in linked list */
-    int sig_member_ptr;          /* offset of hal_signal_t  */
-    int group_member_ptr;        /* offset of hal_group_t (nested) */
-    int userarg1;                /* interpreted by using layer */
-    int handle;                 // unique ID
-    __u8 eps_index;             // index into haldata->epsilon[]; default 0
-} hal_member_t;
-
+// groups are top-level objects and have no owner,
+// hence hdr.owner_id == 0
 typedef struct hal_group {
-    int next_ptr;		/* next group in free list */
+    halhdr_t hdr;		// common HAL object header
     int refcount;               /* advisory by using code */
     int userarg1;	        /* interpreted by using layer */
     int userarg2;	        /* interpreted by using layer */
-    int handle;                 /* immutable ID */
-    char name[HAL_NAME_LEN + 1];	/* group name */
-    int member_ptr;             /* list of group members */
 } hal_group_t;
 
+// members are subordinate to a group identified by the group_id
+// in the hdr.
+// a member may refer to a group, or a signal, identified by
+// member_id.
+typedef struct hal_member {
+    halhdr_t hdr;		// common HAL object header
+    int sig_ptr;                // refers to a signal descriptor
+    int userarg1;               // interpreted by using layer
+    __u8 eps_index;             // index into haldata->epsilon[]; default 0
+} hal_member_t;
 
 #define CGROUP_MAGIC  0xbeef7411
 typedef struct hal_compiled_group {
@@ -180,13 +179,17 @@ int demo_report(int phase, hal_compiled_group_t *cgroup, hal_sig_t *sig,
 // non-zero value, halpr_foreach_member returns the number of members visited.
 //
 // NB: halpr_foreach_member() does not lock hal_data.
-#define RESOLVE_NESTED_GROUPS 1
-#define MAX_NESTED_GROUPS 10
+/* #define RESOLVE_NESTED_GROUPS 1 */
+/* #define MAX_NESTED_GROUPS 10 */
 
-typedef int (*hal_member_callback_t)(int level, hal_group_t **groups,
-				     hal_member_t *member, void *cb_data);
-extern int halpr_foreach_member(const char *group,
-				hal_member_callback_t callback, void *cb_data, int flags);
+/* typedef int (*hal_member_callback_t)(int level, hal_group_t **groups, */
+/* 				     hal_member_t *member, void *cb_data); */
+/* extern int halpr_foreach_member(const char *group, */
+/* 				hal_member_callback_t callback, void *cb_data, int flags); */
+
+
+
+
 
 // group execution argument conventions:
 //
@@ -241,11 +244,9 @@ extern int halpr_foreach_member(const char *group,
 //                 (abs(value - previous-value) > hal_data->epsilon[eps_index]
 
 
-
-// the following functions do NOT lock the hal mutex:
-extern hal_group_t *halpr_find_group_by_name(const char *name);
-extern hal_group_t *halpr_find_group_of_member(const char *member);
-
+static inline hal_group_t *halpr_find_group_by_name(const char *name){
+    return halg_find_object_by_name(0, HAL_GROUP, name).group;
+}
 
 
 RTAPI_END_DECLS
