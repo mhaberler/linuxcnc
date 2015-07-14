@@ -113,6 +113,7 @@ static void save_params(FILE *dst);
 static void save_threads(FILE *dst);
 static void print_help_commands(void);
 static int print_name(hal_object_ptr o, foreach_args_t *args);
+static int print_objects(char **patterns);
 
 static int inst_count(hal_comp_t *comp);
 
@@ -1029,6 +1030,8 @@ int do_show_cmd(char *type, char **patterns)
 	print_ring_info(patterns);
     } else if (strcmp(type, "eps") == 0) {
 	print_eps_info(patterns);
+    } else if (strcmp(type, "objects") == 0) {
+	print_objects(patterns);
     } else {
 	halcmd_error("Unknown 'show' type '%s'\n", type);
 	return -1;
@@ -1429,6 +1432,12 @@ static int unload_rt_cb(hal_object_ptr o, foreach_args_t *args)
 {
     // HAL mutex held in caller.
     hal_comp_t *comp = o.comp;
+
+    // skip user, remote comps,
+    // and.. the HAL library which is a comp, too
+
+    if (comp->type != TYPE_RT)
+	return 0;
 
     // on first pass, skip comps which export vtables
     if (args->user_arg1 &&
@@ -1954,79 +1963,6 @@ static void print_comp_info(char **patterns)
     };
     halg_foreach(true, &args, print_comp_entry);
     halcmd_output("\n");
-#if 0
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->comp_list_ptr;
-    while (next != 0) {
-	comp = SHMPTR(next);
-	bool has_ctor = (comp->ctor != NULL) ;
-	bool has_dtor = (comp->dtor != NULL) ;
-	bool is_hallib = (comp->type == TYPE_HALLIB) ;
-
-	if ( match(patterns, comp->name) ) {
-
-	    halcmd_output(" %5d  %-4s %c%c%c%c  %4d %-*s",
-			  comp->comp_id,
-			  type_name(comp),
-			  has_ctor ? 'c': ' ',
-			  has_dtor ? 'd': ' ',
-			  is_hallib ? 'i': ' ',
-			  ' ',
-			  inst_count(comp),
-			  HAL_NAME_LEN,
-			  comp->name);
-
-	    switch (comp->type) {
-	    case TYPE_USER:
-	    case TYPE_HALLIB:
-
-		halcmd_output(" %-5d %s", comp->pid,
-			      state_name(comp->state));
-		break;
-
-	    case TYPE_RT:
-		halcmd_output(" RT    %s",
-			      state_name(comp->state));
-		break;
-
-		/* halcmd_output(" HAL   %s", */
-		/* 	      state_name(comp->state)); */
-		/* break; */
-
-	    case TYPE_REMOTE:
-		halcmd_output(" %-5d %s", comp->pid,
-			      state_name(comp->state));
-		time_t now = time(NULL);
-		if (comp->last_update) {
-
-		    halcmd_output(", update:-%ld",-(comp->last_update-now));
-		} else
-		    halcmd_output(", update:never");
-
-		if (comp->last_bound) {
-
-		    halcmd_output(", bound:%lds",comp->last_bound-now);
-		} else
-		    halcmd_output(", bound:never");
-		if (comp->last_unbound) {
-		    time_t now = time(NULL);
-
-		    halcmd_output(", unbound:%lds", comp->last_unbound-now);
-		} else
-		    halcmd_output(", unbound:never");
-		break;
-	    default:
-		halcmd_output(" %-5s %s", "", state_name(comp->state));
-	    }
-	    halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
-	    halcmd_output("\n");
-	}
-	next = comp->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    halcmd_output("\n");
-#endif
 }
 
 
@@ -2222,25 +2158,6 @@ static void print_sig_info(int type, char **patterns)
     };
     halg_foreach(true, &args, print_signal_entry);
     halcmd_output("\n");
-
-#if 0
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->sig_list_ptr;
-    while (next != 0) {
-	sig = SHMPTR(next);
-	if ( tmatch(type, sig->type) && match(patterns, ho_name(sig)) ) {
-	    dptr = SHMPTR(sig->data_ptr);
-	    halcmd_output("%s  %s  %s\n", data_type((int) sig->type),
-		data_value((int) sig->type, dptr), ho_name(sig));
-
-	    /* look for pin(s) linked to this signal */
-	    halg_foreach_pin_by_signal(false, sig, linked_pin_callback, NULL);
-	}
-	next = sig->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    halcmd_output("\n");
-#endif
 }
 
 
@@ -2327,38 +2244,6 @@ static void print_param_info(int type, char **patterns)
     halcmd_output("\n");
 }
 
-#if 0
-static void print_param_aliases(char **patterns)
-{
-    int next;
-    hal_oldname_t *oldname;
-    hal_param_t *param;
-
-    if (scriptmode == 0) {
-	halcmd_output("Parameter Aliases:\n");
-	halcmd_output(" %-*s  %s\n", HAL_NAME_LEN, "Alias", "Original Name");
-    }
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if ( param->oldname != 0 ) {
-	    /* name is an alias */
-	    oldname = SHMPTR(param->oldname);
-	    if ( match(patterns, param->name) || match(patterns, oldname->name) ) {
-		if (scriptmode == 0) {
-		    halcmd_output(" %-*s  %s\n", HAL_NAME_LEN, param->name, oldname->name);
-		} else {
-		    halcmd_output(" %s  %s\n", param->name, oldname->name);
-		}
-	    }
-	}
-	next = param->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    halcmd_output("\n");
-}
-#endif
 static const char *ftype(int ft)
 {
     switch (ft) {
@@ -2374,8 +2259,13 @@ static int print_funct_line(hal_object_ptr o, foreach_args_t *args)
     hal_funct_t *fptr = o.funct;
 
     if ( match(args->user_ptr1, ho_name(fptr))) {
-	hal_comp_t *comp =  halpr_find_owning_comp(ho_id(fptr));
 
+	hal_comp_t *comp =  halpr_find_owning_comp(ho_owner_id(fptr));
+	if (!comp) {
+	    halcmd_error("BUG: no owning comp for owner_id %d\n",
+			 ho_owner_id(fptr));
+	    return 0;
+	}
 	if (scriptmode == 0) {
 	    halcmd_output(" %5d  ", ho_id(comp));
 	    if (ho_id(comp) == ho_owner_id(fptr))
@@ -2383,7 +2273,6 @@ static int print_funct_line(hal_object_ptr o, foreach_args_t *args)
 	    else
 		halcmd_output("%5d", ho_owner_id(fptr));
 	    halcmd_output(" %08lx  %08lx  %-3s  %5d %-7s %s\n",
-
 			  (long)fptr->funct.l,
 			  (long)fptr->arg, (fptr->uses_fp ? "YES" : "NO"),
 			  fptr->users,
@@ -2414,6 +2303,25 @@ static void print_funct_info(char **patterns)
     halcmd_output("\n");
 }
 
+static int print_objects(char **patterns)
+{
+    halhdr_t *hh, *tmp;
+    hal_object_ptr o;
+
+    dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
+	o = (hal_object_ptr)hh;
+	halcmd_output("name=%20.20s\tid=%d\towner=%d\ttype=%d\tvalid=%d\n",
+		       hh_get_name(o.hdr),
+		       hh_get_id(o.hdr),
+		       hh_get_owner_id(o.hdr),
+		       hh_get_type(o.hdr),
+		       hh_is_valid(o.hdr));
+    }
+    return 0;
+}
+
+
+
 static void print_thread_stats(hal_thread_t *tptr)
 {
     int flavor = global_data->rtapi_thread_flavor;
@@ -2421,7 +2329,7 @@ static void print_thread_stats(hal_thread_t *tptr)
 	&global_data->thread_status[tptr->task_id];
 
     halcmd_output("\nLowlevel thread statistics for '%s':\n\n",
-		  tptr->name);
+		  ho_name(tptr));
 
     // generic statistics counters
     halcmd_output("    updates=%d\t", ts->num_updates);
@@ -2481,19 +2389,72 @@ static void print_thread_stats(hal_thread_t *tptr)
     halcmd_output("\n");
 }
 
+static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_thread_t *tptr = o.thread;
+
+    char **patterns = args->user_ptr1;
+    int named = patterns && patterns[0] && strlen(patterns[0]);
+
+    if (match(patterns, ho_name(tptr))) {
+	// note that the scriptmode format string has no \n
+	// TODO FIXME add thread runtime and max runtime to this print
+	halcmd_output(((scriptmode == 0) ?
+		       "%11ld  %-3s  %20s ( %8ld, %8ld )\n" :
+		       "%ld %s %s %ld %ld"),
+		      tptr->period,
+		      (tptr->uses_fp ? "YES" : "NO"),
+		      ho_name(tptr),
+		      (long)tptr->runtime,
+		      (long)tptr->maxtime);
+
+	hal_list_t *list_root = &(tptr->funct_list);
+	hal_list_t *list_entry = dlist_next(list_root);
+	int n = 1;
+	while (list_entry != list_root) {
+	    /* print the function info */
+	    hal_funct_entry_t *fentry = (hal_funct_entry_t *) list_entry;
+	    hal_funct_t *funct = SHMPTR(fentry->funct_ptr);
+	    /* scriptmode only uses one line per thread, which contains:
+	       thread period, FP flag, name, then all functs separated by spaces  */
+	    if (scriptmode == 0) {
+		halcmd_output("                 %2d %s\n", n,
+			      ho_name(funct));
+	    } else {
+		halcmd_output(" %s", ho_name(funct));
+	    }
+	    n++;
+	    list_entry = dlist_next(list_entry);
+	}
+	if (scriptmode != 0) {
+	    halcmd_output("\n");
+	} else {
+	    // if a thread name was given, print the flavor specific stats
+	    if (named)
+		print_thread_stats(tptr);
+	}
+    }
+    return 0;
+}
+
 static void print_thread_info(char **patterns)
 {
     int next_thread, n;
     hal_thread_t *tptr;
-    hal_list_t *list_root, *list_entry;
-    hal_funct_entry_t *fentry;
-    hal_funct_t *funct;
+
     int named = patterns && patterns[0] && strlen(patterns[0]);
 
     if (scriptmode == 0) {
 	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
 	halcmd_output("     Period  FP     Name               (     Time, Max-Time )\n");
     }
+    foreach_args_t args =  {
+	.type = HAL_THREAD,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_thread_entry);
+    halcmd_output("\n");
+#if 0
     rtapi_mutex_get(&(hal_data->mutex));
     next_thread = hal_data->thread_list_ptr;
     while (next_thread != 0) {
@@ -2534,6 +2495,7 @@ static void print_thread_info(char **patterns)
     }
     rtapi_mutex_give(&(hal_data->mutex));
     halcmd_output("\n");
+#endif
 }
 
 static void print_comp_names(char **patterns)
@@ -2580,21 +2542,6 @@ static void print_param_names(char **patterns)
 	.user_ptr1 = patterns
     };
     halg_foreach(1, &args, print_name);
-#if 0
-    int next;
-    hal_param_t *param;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if ( match(patterns, param->name) ) {
-	    halcmd_output("%s ", param->name);
-	}
-	next = param->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-#endif
     halcmd_output("\n");
 }
 
@@ -2685,11 +2632,12 @@ static void print_mem_status()
     halcmd_output("  used/total shared memory:   %ld/%d\n",
 		  (long)(global_data->hal_size - hal_data->shmem_avail),
 		  global_data->hal_size);
+#if 0
     // count components
     active = count_list(hal_data->comp_list_ptr);
     recycled = count_list(hal_data->comp_free_ptr);
     halcmd_output("  active/recycled components: %d/%d\n", active, recycled);
-#if 0
+
     // count pins
     active = count_list(hal_data->pin_list_ptr);
     recycled = count_list(hal_data->pin_free_ptr);
@@ -2718,23 +2666,20 @@ static void print_mem_status()
     rtapi_mutex_give(&(hal_data->mutex));
     recycled = count_list(hal_data->oldname_free_ptr);
     halcmd_output("  active/recycled aliases:    %d/%d\n", active, recycled);
-<<<<<<< HEAD
-#endif
-||||||| merged common ancestors
-#endif    
-=======
 
->>>>>>> signals done
     // count signals
     active = count_list(hal_data->sig_list_ptr);
     recycled = count_list(hal_data->sig_free_ptr);
     halcmd_output("  active/recycled signals:    %d/%d\n", active, recycled);
-#endif
+
 
     // count threads
     active = count_list(hal_data->thread_list_ptr);
     recycled = count_list(hal_data->thread_free_ptr);
+
     halcmd_output("  active/recycled threads:    %d/%d\n", active, recycled);
+#endif
+
     // count groups
     active = count_list(hal_data->group_list_ptr);
     recycled = count_list(hal_data->group_free_ptr);
@@ -3568,9 +3513,9 @@ int do_ready_cmd(char *comp_name, char *tokens[])
 int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[])
 {
     int retval;
-    hal_type_t type = HAL_BIT; // shut up warnin
+    hal_type_t type = HAL_BIT; // shut up warning
     hal_pin_dir_t dir = HAL_IN;
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
+    hal_comp_t *comp;
     hal_pin_t *pin;
     char *s,*cp;
     int flags = 0;
@@ -3578,96 +3523,92 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
     int i;
     void *p;
 
-    rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(comp_name);
-    pin = halpr_find_pin_by_name(pin_name);
+    {
+	WITH_HAL_MUTEX();
+	comp = halpr_find_comp_by_name(comp_name);
+	pin = halpr_find_pin_by_name(pin_name);
 
-    if (!comp) {
-        halcmd_error("No such component: %s\n", comp_name);
-        return -ENOENT;
-    }
-    if (comp->type != TYPE_REMOTE) {
-        halcmd_error( "%s is not a remote component\n", comp_name);
-        return -ENOSYS;
-    }
-    if (pin) {
-        halcmd_error("pin '%s' already exists\n", pin_name);
-        return -ENOENT;
-    }
-    if (strcasecmp(type_name, "bit") == 0) {
-	type =  HAL_BIT;
-    } else if (strcasecmp(type_name, "float") == 0) {
-	type = HAL_FLOAT;
-    } else if (strcasecmp(type_name, "u32") == 0) {
-	type = HAL_U32;
-    } else if (strcasecmp(type_name, "s32") == 0) {
-	type = HAL_S32;
-    } else {
-	halcmd_error("Unknown pin type '%s'\n", type_name);
-	retval = -EINVAL;
-    }
+	if (!comp) {
+	    halcmd_error("No such component: %s\n", comp_name);
+	    return -ENOENT;
+	}
+	if (comp->type != TYPE_REMOTE) {
+	    halcmd_error( "%s is not a remote component\n", comp_name);
+	    return -ENOSYS;
+	}
+	if (pin) {
+	    halcmd_error("pin '%s' already exists\n", pin_name);
+	    return -ENOENT;
+	}
+	if (strcasecmp(type_name, "bit") == 0) {
+	    type =  HAL_BIT;
+	} else if (strcasecmp(type_name, "float") == 0) {
+	    type = HAL_FLOAT;
+	} else if (strcasecmp(type_name, "u32") == 0) {
+	    type = HAL_U32;
+	} else if (strcasecmp(type_name, "s32") == 0) {
+	    type = HAL_S32;
+	} else {
+	    halcmd_error("Unknown pin type '%s'\n", type_name);
+	    retval = -EINVAL;
+	}
 #define EPSILON "eps="
 #define FLAGS "flags="
 
-    for (i = 0; ((s = args[i]) != NULL) && strlen(s); i++) {
-	if (!strcasecmp(s,"in")) {
-	    dir = HAL_IN;
-	} else if  (!strcasecmp(s,"out")) {
-	    dir = HAL_OUT;
-	}  else if  (!strcasecmp(s,"inout") || !strcasecmp(s,"io")) {
-	    dir = HAL_IO;
-	} else if (!strncasecmp(s, EPSILON, strlen(EPSILON))) {
-	    if (type != HAL_FLOAT) {
-		halcmd_error("%s make no sense for non-float pins\n", s);
+	for (i = 0; ((s = args[i]) != NULL) && strlen(s); i++) {
+	    if (!strcasecmp(s,"in")) {
+		dir = HAL_IN;
+	    } else if  (!strcasecmp(s,"out")) {
+		dir = HAL_OUT;
+	    }  else if  (!strcasecmp(s,"inout") || !strcasecmp(s,"io")) {
+		dir = HAL_IO;
+	    } else if (!strncasecmp(s, EPSILON, strlen(EPSILON))) {
+		if (type != HAL_FLOAT) {
+		    halcmd_error("%s make no sense for non-float pins\n", s);
+		    return -EINVAL;
+		}
+		eps_index = strtoul(strchr(s,'=') + 1, &cp, 0);
+		if ((*cp != '\0') && (!isspace(*cp))) {
+		    halcmd_error("value '%s' invalid for epsilon (int required)\n", cp);
+		    return -EINVAL;
+		}
+	    } else if (!strncasecmp(s, FLAGS, strlen(FLAGS))) {
+		flags = strtoul(strchr(s,'=') + 1, &cp, 10);
+		if ((*cp != '\0') && (!isspace(*cp))) {
+		    halcmd_error("value '%s' invalid for flags (int required)\n", cp);
+		    return -EINVAL;
+		}
+	    } else {
+		halcmd_error("newpin: invalid option '%s' "
+			     "(use one or several of: in out io eps=<flaot> flags=<int>)",s);
 		return -EINVAL;
 	    }
-	    eps_index = strtoul(strchr(s,'=') + 1, &cp, 0);
-	    if ((*cp != '\0') && (!isspace(*cp))) {
-		halcmd_error("value '%s' invalid for epsilon (int required)\n", cp);
-		return -EINVAL;
-	    }
-	} else if (!strncasecmp(s, FLAGS, strlen(FLAGS))) {
-	    flags = strtoul(strchr(s,'=') + 1, &cp, 10);
-	    if ((*cp != '\0') && (!isspace(*cp))) {
-		halcmd_error("value '%s' invalid for flags (int required)\n", cp);
-		return -EINVAL;
-	    }
-	} else {
-	    halcmd_error("newpin: invalid option '%s' "
-			 "(use one or several of: in out io eps=<flaot> flags=<int>)",s);
+	}
+	// hal_malloc wants the mutex but we're holding it so use halg_malloc
+	if ((p = halg_malloc(0, sizeof(void *))) == NULL) {
+	    halcmd_error("cant allocate memory for pin '%s'\n", pin_name);
 	    return -EINVAL;
 	}
-    }
-    // hal_malloc wants the mutex too
-    rtapi_mutex_give(&(hal_data->mutex));
-    if ((p = hal_malloc(sizeof(void *))) == NULL) {
-	// grab mutex - autorelease will free it
-	rtapi_mutex_get(&(hal_data->mutex));
-	halcmd_error("cant allocate memory for pin '%s'\n", pin_name);
-	return -EINVAL;
-    }
-    memset(p, 0, sizeof(void *));
+	memset(p, 0, sizeof(void *));
 
-    // mutex not held here - hal_pin_new wants it
-    retval = hal_pin_new(pin_name, type, dir, p, comp->comp_id);
-    if (retval < 0) {
-	// re-grab
-	rtapi_mutex_get(&(hal_data->mutex));
-	halcmd_error("cant create pin '%s':  %s\n",
-		     pin_name, strerror(-retval));
-	return -EINVAL;
-    }
-    rtapi_mutex_get(&(hal_data->mutex));
+	// same here - use unlocked pin_new
+	retval = halg_pin_new(0, pin_name, type, dir, p, ho_id(comp));
+	if (retval < 0) {
+	    halcmd_error("cant create pin '%s':  %s\n",
+			 pin_name, strerror(-retval));
+	    return -EINVAL;
+	}
 
-    pin = halpr_find_pin_by_name(pin_name);
-    if (pin) {
-	pin->eps_index = eps_index;
-	pin->flags = flags;
-    } else {
-	halcmd_error("FATAL: cant find new pin '%s':  %s\n",
-		     pin_name, strerror(-retval));
-	return -EINVAL;
-    }
+	pin = halpr_find_pin_by_name(pin_name);
+	if (pin) {
+	    pin->eps_index = eps_index;
+	    pin->flags = flags;
+	} else {
+	    halcmd_error("FATAL: cant find new pin '%s':  %s\n",
+			 pin_name, strerror(-retval));
+	    return -EINVAL;
+	}
+    } // unlocks HAL mutex
     return 0;
 }
 
@@ -3904,6 +3845,7 @@ int do_sleep_cmd(char *naptime)
 
 static void save_comps(FILE *dst)
 {
+#if 0
     int next;
     hal_comp_t *comp;
 
@@ -3937,6 +3879,7 @@ static void save_comps(FILE *dst)
     }
 #endif
     rtapi_mutex_give(&(hal_data->mutex));
+#endif
 }
 #if 0
 static void save_aliases(FILE *dst)
@@ -4132,6 +4075,7 @@ static void save_params(FILE *dst)
 
 static void save_threads(FILE *dst)
 {
+    #if 0
     int next_thread;
     hal_thread_t *tptr;
     hal_list_t *list_root, *list_entry;
@@ -4155,6 +4099,7 @@ static void save_threads(FILE *dst)
 	next_thread = tptr->next_ptr;
     }
     rtapi_mutex_give(&(hal_data->mutex));
+    #endif
 }
 
 int do_setexact_cmd() {

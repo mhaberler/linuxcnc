@@ -449,7 +449,11 @@ static inline int hal_exit(int comp_id) {
     all components completely clears memory and you start
     fresh.
 */
-extern void *hal_malloc(long int size);
+void *halg_malloc(const int use_hal_mutex, long int size);
+
+static inline void *hal_malloc(long int size) {
+    return halg_malloc(1, size);
+}
 
 /** hal_ready() indicates that this component is ready.  This allows
     halcmd 'loadusr -W hal_example' to wait until the userspace
@@ -1073,6 +1077,9 @@ int hal_export_functf(void (*funct) (void *, long),
 */
 extern int hal_create_thread(const char *name, unsigned long period_nsec,
 			     int uses_fp, int cpu_id);
+
+// generic. delete a named thread, or all threads if name == NULL
+int halg_exit_thread(const int use_hal_mutex, const char *name);
 
 /** hal_thread_delete() deletes a realtime thread.
     'name' is the name of the thread, which must have been created

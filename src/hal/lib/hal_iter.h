@@ -16,7 +16,7 @@ RTAPI_BEGIN_DECLS
 // <0 - stop iterating and return that value (typically error code)
 typedef int (*hal_pertype_callback_t)  (hal_object_ptr o,  void *arg);
 
-// generic version
+// generic version of per-type/name iterator
 int halg_foreach_type(const int use_hal_mutex,
 		      const int type,
 		      const char *name,
@@ -38,12 +38,25 @@ typedef int (*hal_inst_callback_t)  (hal_inst_t *inst,  void *arg);
 
 //int halpr_foreach_sig(const char *name,   hal_sig_callback_t callback, void *arg);
 int halpr_foreach_ring(const char *name,  hal_ring_callback_t callback, void *arg);
-int halpr_foreach_thread(const char *name,hal_thread_callback_t callback, void *arg);
 
+static inline int
+halpr_foreach_thread(const char *name,
+		     hal_thread_callback_t callback,
+		     void *arg) {
+    return halg_foreach_type(0, HAL_THREAD, name,
+			     (hal_pertype_callback_t) callback, arg);
+}
 
-// int halpr_foreach_vtable(const char *name,   hal_vtable_callback_t callback, void *arg);
+static inline int
+halpr_foreach_vtable(const char *name,
+		     hal_vtable_callback_t callback,
+		     void *arg) {
+    return halg_foreach_type(0, HAL_VTABLE, name,
+			     (hal_pertype_callback_t) callback, arg);
+}
 
-static inline int halpr_foreach_comp(const char *name,  hal_comp_callback_t callback, void *arg)
+static inline int halpr_foreach_comp(const char *name,
+				     hal_comp_callback_t callback, void *arg)
 {
     return halg_foreach_type(0, HAL_COMPONENT, name,
 			     (hal_pertype_callback_t) callback,

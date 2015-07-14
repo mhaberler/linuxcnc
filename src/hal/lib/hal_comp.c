@@ -260,7 +260,6 @@ int halg_exit(const int use_hal_mutex, int comp_id)
     int comptype;
 
     CHECK_HALDATA();
-    HALDBG("removing component %d", comp_id);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
@@ -270,6 +269,8 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	    HALERR("no such component with id %d", comp_id);
 	    return -EINVAL;
 	}
+	HALDBG("removing component %d '%s'", comp_id, ho_name(comp));
+
 	// record type, since we're about to zap the comp in free_comp_struct()
 	// which would be a dangling reference
 	comptype = comp->type;
@@ -280,35 +281,41 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	// turn, dependent objects of instances
 	free_comp_struct(comp);
 
-	// if unloading the hal_lib component, destroy HAL shm
-	if (comptype == TYPE_HALLIB) {
-	    int retval;
-
-	    /* release RTAPI resources */
-	    retval = rtapi_shmem_delete(lib_mem_id, comp_id);
-	    if (retval) {
-		HALERR("rtapi_shmem_delete(%d,%d) failed: %d",
-		       lib_mem_id, comp_id, retval);
-	    }
-	    // HAL shm is history, take note ASAP
-	    lib_mem_id = -1;
-	    hal_shmem_base = NULL;
-	    hal_data = NULL;;
-
-	    retval = rtapi_exit(comp_id);
-	    if (retval) {
-		HALERR("rtapi_exit(%d) failed: %d",
-		       lib_module_id, retval);
-	    }
-	    // the hal_lib RTAPI module is history, too
-	    // in theory we'd be back to square 1
-	    lib_module_id = -1;
-
-	} else {
-	    // the standard case
-	    rtapi_exit(comp_id);
-	}
     } // scope exit - HAL mutex released
+
+    // if unloading the hal_lib component, destroy HAL shm.
+    // this must happen without the HAL mutex, because the
+    // HAL mutex lives in the very shm segment which we're
+    // about to release, which will it make impossible to
+    // release the mutex (and leave the HAL shm locked
+    // for other processes
+    if (comptype == TYPE_HALLIB) {
+	int retval;
+
+	/* release RTAPI resources */
+	retval = rtapi_shmem_delete(lib_mem_id, comp_id);
+	if (retval) {
+	    HALERR("rtapi_shmem_delete(%d,%d) failed: %d",
+		   lib_mem_id, comp_id, retval);
+	}
+	// HAL shm is history, take note ASAP
+	lib_mem_id = -1;
+	hal_shmem_base = NULL;
+	hal_data = NULL;;
+
+	retval = rtapi_exit(comp_id);
+	if (retval) {
+	    HALERR("rtapi_exit(%d) failed: %d",
+		   lib_module_id, retval);
+	}
+	// the hal_lib RTAPI module is history, too
+	// in theory we'd be back to square 1
+	lib_module_id = -1;
+
+    } else {
+	// the standard case
+	rtapi_exit(comp_id);
+    }
     return 0;
 }
 
@@ -354,6 +361,8 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
 	return NULL;
     }
 
+    HAL_ASSERT(ho_type(inst) == HAL_INST);
+
     // found the instance. Retrieve its owning comp:
     comp =  halpr_find_comp_by_id(ho_owner_id(inst));
     if (comp == NULL) {
@@ -361,6 +370,9 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
 	HALERR("BUG: instance %s/%d's comp_id %d refers to a non-existant comp",
 	       ho_name(inst), ho_id(inst), ho_owner_id(inst));
     }
+
+    HAL_ASSERT(ho_type(comp) == HAL_COMPONENT);
+
     return comp;
 }
 
@@ -377,7 +389,7 @@ void free_comp_struct(hal_comp_t * comp)
     foreach_args_t args =  {
 	// search for functs owned by this comp
 	.type = HAL_FUNCT,
-	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
+	.owner_id  = ho_id(comp),
     };
     halg_foreach(0, &args, free_object);
 
@@ -389,7 +401,7 @@ void free_comp_struct(hal_comp_t * comp)
     foreach_args_t iargs =  {
 	// search for insts owned by this comp
 	.type = HAL_INST,
-	.owner_id  = comp->comp_id, //hh_get_id(&comp->hdr),
+	.owner_id  = ho_id(comp),
     };
     halg_foreach(0, &iargs, free_object);
 
@@ -480,7 +492,6 @@ static int delete_instance(const hal_funct_args_t *fa)
 */
 int init_hal_data(void)
 {
-
     /* has the block already been initialized? */
     if (hal_data->version != 0) {
 	/* yes, verify version code */
@@ -502,15 +513,14 @@ int init_hal_data(void)
 
     /* initialize everything */
     dlist_init_entry(&(hal_data->halobjects));
+    dlist_init_entry(&(hal_data->funct_entry_free));
+    dlist_init_entry(&(hal_data->threads));
 
-    hal_data->thread_list_ptr = 0;
     hal_data->base_period = 0;
+    hal_data->exact_base_period = 0;
+
     hal_data->threads_running = 0;
 
-    dlist_init_entry(&(hal_data->funct_entry_free));
-
-    hal_data->thread_free_ptr = 0;
-    hal_data->exact_base_period = 0;
 
     hal_data->group_list_ptr = 0;
     hal_data->member_list_ptr = 0;
@@ -519,6 +529,7 @@ int init_hal_data(void)
     hal_data->group_free_ptr = 0;
     hal_data->member_free_ptr = 0;
     hal_data->ring_free_ptr = 0;
+
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
     // silly 1-based shm segment id allocation FIXED
@@ -536,6 +547,8 @@ int init_hal_data(void)
     hal_data->epsilon[0] = DEFAULT_EPSILON;
 
     // FIXME for now, grab half of hal_data
+    // TBD: increase arena on malloc failure (like half of remaining memory
+    // or fixed increments)
     rtapi_heap_init(&hal_data->heap);
     rtapi_heap_addmem(&hal_data->heap, hal_data->arena,
 		      global_data->hal_size/2);

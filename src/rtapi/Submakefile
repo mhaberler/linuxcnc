@@ -304,6 +304,19 @@ FLAVOR_SRCS =  rtapi/flavor.c rtapi/rtapi_compat.c
 USERSRCS += $(FLAVOR_SRCS)
 TARGETS += ../libexec/flavor
 
+$(call TOOBJSDEPS, rtapi/shmdrv/mutexwatch.c)): \
+	EXTRAFLAGS +=  $(RTAPI_MSGD_CFLAGS) \
+	-DTHREADS_HEADERS=\"rtapi/rt-preempt.h\"
+
+../bin/mutexwatch: $(call TOOBJS, rtapi/shmdrv/mutexwatch.c) \
+		../lib/liblinuxcncshm.so ../lib/liblinuxcncini.so
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p $(dir $@)
+	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ -lrt
+
+USERSRCS += rtapi/shmdrv/mutexwatch.c
+TARGETS += ../bin/mutexwatch
+
 ##################################################################
 #                     rtapi.ini config file
 ##################################################################
