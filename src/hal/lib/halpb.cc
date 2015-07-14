@@ -86,8 +86,8 @@ halpr_describe_signal(hal_sig_t *sig, pb::Signal *pbsig)
 int
 halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 {
-    pbring->set_name(ring->name);
-    pbring->set_handle(ring->handle);
+    pbring->set_name(ho_name(ring));
+    pbring->set_handle(ho_id(ring));
     //FIXME use new attach function to query flags
     // XXX describing more detail would require a temporary attach.
     return 0;

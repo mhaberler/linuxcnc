@@ -6,8 +6,6 @@
 #include "hal_internal.h"
 #include "hal_ring.h"		/* HAL ringbuffer decls */
 
-static hal_ring_t *alloc_ring_struct(void);
-static void free_ring_struct(hal_ring_t * p);
 static int next_ring_id(void);
 static int hal_ring_newfv(int size, int sp_size, int flags,
 			  const char *fmt, va_list ap);
@@ -29,10 +27,13 @@ int hal_ring_newf(int size, int sp_size, int mode, const char *fmt, ...)
     return ret;
 }
 
-int hal_ring_new(const char *name, int size, int sp_size, int mode)
+int hal_ring_new(const char *name,
+		 int size,
+		 int sp_size,
+		 int mode)
 {
     hal_ring_t *rbdesc;
-    int *prev, next, cmp, retval;
+    int retval;
     int ring_id;
     ringheader_t *rhptr;
 
@@ -41,27 +42,28 @@ int hal_ring_new(const char *name, int size, int sp_size, int mode)
     CHECK_LOCK(HAL_LOCK_LOAD);
 
     {
-	hal_ring_t *ptr __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+	hal_ring_t *ptr;
 
 	// make sure no such ring name already exists
 	if ((ptr = halpr_find_ring_by_name(name)) != 0) {
 	    HALERR("ring '%s' already exists", name);
 	    return -EEXIST;
 	}
+
+	// allocate a new ring descriptor
+	if ((rbdesc = shmalloc_desc(sizeof(hal_ring_t))) == NULL)
+	    NOMEM("ring '%s'",  name);
+	hh_init_hdrf(&rbdesc->hdr, HAL_RING, 0, "%s", name);
+
 	// allocate a new ring id - needed since we dont track ring shm
 	// segments in RTAPI
 	if ((ring_id = next_ring_id()) < 0) {
 	    HALERR("cant allocate new ring id for '%s'", name);
+	    shmfree_desc(rbdesc);
 	    return -ENOMEM;
 	}
 
-	// allocate a new ring descriptor
-	if ((rbdesc = alloc_ring_struct()) == 0)
-	    NOMEM("ring '%s'", name);
-
-	rbdesc->handle = rtapi_next_handle();
 	rbdesc->flags = mode;
 	rbdesc->ring_id = ring_id;
 
@@ -102,33 +104,12 @@ int hal_ring_new(const char *name, int size, int sp_size, int mode)
 
 	ringheader_init(rhptr, rbdesc->flags, size, sp_size);
 	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
-	rtapi_snprintf(rbdesc->name, sizeof(rbdesc->name), "%s", name);
-	rbdesc->next_ptr = 0;
 
-	// search list for 'name' and insert new structure
-	prev = &(hal_data->ring_list_ptr);
-	next = *prev;
-	while (1) {
-	    if (next == 0) {
-		/* reached end of list, insert here */
-		rbdesc->next_ptr = next;
-		*prev = SHMOFF(rbdesc);
-		return 0;
-	    }
-	    ptr = SHMPTR(next);
-	    cmp = strcmp(ptr->name, rbdesc->name);
-	    if (cmp > 0) {
-		/* found the right place for it, insert here */
-		rbdesc->next_ptr = next;
-		*prev = SHMOFF(rbdesc);
-		return 0;
-	    }
-	    /* didn't find it yet, look at next one */
-	    prev = &(ptr->next_ptr);
-	    next = *prev;
-	}
-	// automatic unlock by scope exit
-    }
+	// make it visible
+	add_object(&rbdesc->hdr);
+
+    } // automatic unlock by scope exit
+    return 0;
 }
 
 int hal_ring_deletef(const char *fmt, ...)
@@ -150,8 +131,8 @@ int hal_ring_delete(const char *name)
     CHECK_LOCK(HAL_LOCK_LOAD);
 
     {
-	hal_ring_t *hrptr __attribute__((cleanup(halpr_autorelease_mutex)));
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+	hal_ring_t *hrptr;
 
 	// ring must exist
 	if ((hrptr = halpr_find_ring_by_name(name)) == NULL) {
@@ -199,27 +180,10 @@ int hal_ring_delete(const char *name)
 		return retval;
 	    }
 	}
-	// search for the ring (again..)
-	int *prev = &(hal_data->ring_list_ptr);
-	int next = *prev;
-	while (next != 0) {
-	    hrptr = SHMPTR(next);
-	    if (strcmp(hrptr->name, name) == 0) {
-		// this is the right ring
-		// unlink from list
-		*prev = hrptr->next_ptr;
-		// and delete it, linking it on the free list
-		free_ring_struct(hrptr);
-		return 0;
-	    }
-	    // no match, try the next one
-	    prev = &(hrptr->next_ptr);
-	    next = *prev;
-	}
 
-	HALERR("BUG: deleting ring '%s'; not found in ring_list?",
-	       name);
-	return -ENOENT;
+	// free descriptor
+	free_halobject((hal_object_ptr)hrptr);
+	return 0;
     }
 
 }
@@ -244,8 +208,8 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr,unsigned *flags)
 
     // no mutex(es) held up to here
     {
-	int retval  __attribute__((cleanup(halpr_autorelease_mutex)));
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
+	int retval;
 
 	if ((rbdesc = halpr_find_ring_by_name(name)) == NULL) {
 	    HALERR("no such ring '%s'", name);
@@ -324,36 +288,12 @@ int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
 
     // no mutex(es) held up to here
     {
-	int retval __attribute__((cleanup(halpr_autorelease_mutex)));
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
 
 	ringheader_t *rhptr = rbptr->header;
 	rhptr->refcount--;
 	rbptr->magic = 0;  // invalidate FIXME
-
-	// unlocking happens automatically on scope exit
     }
-    return 0;
-}
-
-//NB: not HAL lock
-hal_ring_t *halpr_find_ring_by_name(const char *name)
-{
-    int next;
-    hal_ring_t *ring;
-
-    /* search ring list for 'name' */
-    next = hal_data->ring_list_ptr;
-    while (next != 0) {
-	ring = SHMPTR(next);
-	if (strcmp(ring->name, name) == 0) {
-	    /* found a match */
-	    return ring;
-	}
-	/* didn't find it yet, look at next one */
-	next = ring->next_ptr;
-    }
-    /* if loop terminates, we reached end of list with no match */
     return 0;
 }
 
@@ -377,31 +317,6 @@ static int next_ring_id(void)
 	}
     }
     return -EBUSY; // no more slots available
-}
-
-static hal_ring_t *alloc_ring_struct(void)
-{
-    hal_ring_t *p;
-
-    /* check the free list */
-    if (hal_data->ring_free_ptr != 0) {
-	/* found a free structure, point to it */
-	p = SHMPTR(hal_data->ring_free_ptr);
-	/* unlink it from the free list */
-	hal_data->ring_free_ptr = p->next_ptr;
-	p->next_ptr = 0;
-    } else {
-	/* nothing on free list, allocate a brand new one */
-	p = shmalloc_desc(sizeof(hal_ring_t));
-    }
-    return p;
-}
-
-static void free_ring_struct(hal_ring_t * p)
-{
-    /* add it to free list */
-    p->next_ptr = hal_data->ring_free_ptr;
-    hal_data->ring_free_ptr = SHMOFF(p);
 }
 
 // varargs helpers
