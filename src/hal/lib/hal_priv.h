@@ -206,12 +206,6 @@ typedef struct {
     // this gets around the unexposed rtapi_data segment in userland flavors
     RTAPI_DECLARE_BITMAP(rings, HAL_MAX_RINGS);
 
-    int group_list_ptr;	        /* list of group structs */
-    int group_free_ptr;	        /* list of free group structs */
-
-    int member_list_ptr;	/* list of member structs */
-    int member_free_ptr;	/* list of free member structs */
-
     double epsilon[MAX_EPSILON];
 
     // HAL heap for shmalloc_desc()

@@ -601,22 +601,19 @@ typedef enum {
     HAL_THREAD        = 4,
     HAL_FUNCT         = 5,
     HAL_COMPONENT     = 6, // type tag in halhdr
-    HAL_COMP_RT       = 7, // sub-type in comp->type
-    HAL_COMP_USER     = 8, // sub-type in comp->type
-    HAL_COMP_REMOTE   = 9, // sub-type in comp->type
-    HAL_RING          = 10,
-    HAL_GROUP         = 11,
-    HAL_MEMBER_SIGNAL = 12,
-    HAL_MEMBER_GROUP  = 13,
-    HAL_MEMBER_PIN    = 14,
+    HAL_VTABLE        = 7,
+    HAL_INST          = 8,
+    HAL_RING          = 9,
+    HAL_GROUP         = 10,
+    HAL_MEMBER        = 11,
 
-    RING_RECORD       = 16,
-    RING_STREAM       = 17,
-
-    HAL_VTABLE        = 18,
-    HAL_INST          = 19,
-
-    RING_MULTIFRAME   = 20,
+    //unused
+    /* HAL_MEMBER_SIGNAL = 13, */
+    /* HAL_MEMBER_GROUP  = 13, */
+    /* HAL_MEMBER_PIN    = 14, */
+    /* RING_RECORD       = 16, */
+    /* RING_STREAM       = 17, */
+    /* RING_MULTIFRAME   = 20, */
 
 } hal_object_type;
 /***********************************************************************

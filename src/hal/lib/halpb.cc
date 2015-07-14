@@ -137,40 +137,40 @@ int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread)
 
 int halpr_describe_member(hal_member_t *member, pb::Member *pbmember)
 {
-    if (member->sig_member_ptr) {
-	hal_sig_t *sig = (hal_sig_t *)SHMPTR(member->sig_member_ptr);
-	pbmember->set_mtype(pb::HAL_MEMBER_SIGNAL);
-	pbmember->set_userarg1(member->userarg1);
-	if (sig->type == HAL_FLOAT)
-	    pbmember->set_epsilon(hal_data->epsilon[member->eps_index]);
-	pb::Signal *pbsig = pbmember->mutable_signal();
-	halpr_describe_signal(sig, pbsig);
-    } else {
-	hal_group_t *group = (hal_group_t *)SHMPTR(member->group_member_ptr);
-	pbmember->set_mtype(pb::HAL_MEMBER_GROUP);
-	pbmember->set_groupname(group->name);
-	pbmember->set_handle(group->handle);
-    }
+    hal_sig_t *sig = (hal_sig_t *)SHMPTR(member->sig_ptr);
+    pbmember->set_mtype(pb::HAL_SIGNAL);
+    pbmember->set_userarg1(member->userarg1);
+    if (sig->type == HAL_FLOAT)
+	pbmember->set_epsilon(hal_data->epsilon[member->eps_index]);
+    pb::Signal *pbsig = pbmember->mutable_signal();
+    halpr_describe_signal(sig, pbsig);
     return 0;
 }
 
-static int describe_member(int level, hal_group_t **groups,
-			   hal_member_t *member, void *arg)
+static int describe_member(hal_object_ptr o, foreach_args_t *args)
 {
-    pb::Group *pbgroup =  (pb::Group *) arg;
+    pb::Group *pbgroup =  (pb::Group *) args->user_ptr1;
     pb::Member *pbmember = pbgroup->add_member();
-    halpr_describe_member(member, pbmember);
+    halpr_describe_member(o.member, pbmember);
     return 0;
 }
 
 int halpr_describe_group(hal_group_t *g, pb::Group *pbgroup)
 {
-    pbgroup->set_name(g->name);
+    pbgroup->set_name(ho_name(g));
+    pbgroup->set_handle(ho_id(g));
+
     pbgroup->set_refcount(g->refcount);
     pbgroup->set_userarg1(g->userarg1);
     pbgroup->set_userarg2(g->userarg2);
-    pbgroup->set_handle(g->handle);
 
-    halpr_foreach_member(g->name, describe_member, pbgroup, RESOLVE_NESTED_GROUPS);
+    foreach_args_t args =  {
+	.type = HAL_MEMBER,
+    };
+    // gcc doesnt grok this in an initializer:
+    args.owner_id = ho_id(g);
+    args.user_ptr1 = (void *) pbgroup;
+
+    halg_foreach(0, &args, describe_member);
     return 0;
 }

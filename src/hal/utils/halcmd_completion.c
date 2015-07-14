@@ -639,6 +639,7 @@ static char *loadrt_generator(const char *text, int state) {
 }
 
 static char *group_generator(const char *text, int state) {
+#if 0
     static int len;
     static int next;
 
@@ -653,13 +654,14 @@ static char *group_generator(const char *text, int state) {
         if ( strncmp(text, group->name, len) == 0 )
             return strdup(group->name);
     }
+#endif
     return NULL;
 }
 
 static char *ring_generator(const char *text, int state) {
     static int len;
     static int next;
-
+#if 0
     if(!state) {
         next = hal_data->ring_list_ptr;
         len = strlen(text);
@@ -671,6 +673,7 @@ static char *ring_generator(const char *text, int state) {
         if ( strncmp(text, ring->name, len) == 0 )
             return strdup(ring->name);
     }
+#endif
     return NULL;
 }
 
