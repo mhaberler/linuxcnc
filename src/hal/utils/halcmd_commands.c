@@ -3118,7 +3118,7 @@ static int print_group_entry(hal_object_ptr o, foreach_args_t *args)
 	    .type = HAL_MEMBER,
 	    .owner_id = ho_id(gptr)
 	};
-	halg_foreach(true, &args, print_member_entry);
+	halg_foreach(false, &args, print_member_entry);
 	halcmd_output("\n");
     }
     return 0;
