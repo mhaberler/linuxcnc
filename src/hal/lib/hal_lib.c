@@ -167,16 +167,17 @@ void halpr_autorelease_mutex(void *variable)
 	rtapi_mutex_give(&(hal_data->mutex));
     else
 	// programming error
-	HALBUG("halpr_autorelease_mutex called before hal_data inited");
+	HALBUG("called before hal_data inited, protector %p", variable);
 }
 
 // conditional version - makes locking a scope a runtime decision together with
 // WITH_HAL_MUTEX_IF(<integer>)
 void halpr_autorelease_mutex_if(void *variable)
 {
-    if (hal_data == NULL) // programming error
-	HALBUG("halpr_autorelease_mutex_if called before hal_data inited");
-
+    if (hal_data == NULL) { // programming error
+	HALBUG("called before hal_data inited, protector %p", variable);
+	return;
+    }
     if (variable == NULL) {
 	HALBUG("halpr_autorelease_mutex_if called with NULL variable?");
 	return;
@@ -191,9 +192,6 @@ void halpr_autorelease_mutex_if(void *variable)
 ************************************************************************/
 
 #ifdef RTAPI
-
-extern int hal_exit_threads(void); // in hal_thread.c
-
 
 /* these functions are called when the hal_lib RT module is insmod'ed
    or rmmod'ed, or the respective userland DSO is loaded and
@@ -221,7 +219,7 @@ void rtapi_app_exit(void)
 {
     HALDBG("removing RT hal_lib support");
     hal_proc_clean();
-    hal_exit_threads();
+    halg_exit_thread(1, NULL);
     hal_exit(lib_module_id);
     HALDBG("RT hal_lib support removed successfully");
 }
@@ -245,6 +243,7 @@ void rtapi_app_exit(void)
 static void  __attribute__ ((destructor))  ulapi_hal_lib_cleanup(void)
 {
     // exit the HAL library component (hal_lib%d % pid)
+    HALDBG("lib_module_id=%d", lib_module_id);
     if (lib_module_id > -1)
 	hal_exit(lib_module_id);
 
@@ -296,14 +295,14 @@ const char *hal_lasterror(void)
 // ------------ public API:  ------------
 // hal_comp.c:
 EXPORT_SYMBOL(hal_init);
-EXPORT_SYMBOL(hal_xinit);
+EXPORT_SYMBOL(halg_xinit);
 EXPORT_SYMBOL(hal_xinitf);
-EXPORT_SYMBOL(hal_ready);
-EXPORT_SYMBOL(hal_exit);
+EXPORT_SYMBOL(halg_ready);
+EXPORT_SYMBOL(halg_exit);
 EXPORT_SYMBOL(hal_comp_name);
 
 // hal_memory.c:
-EXPORT_SYMBOL(hal_malloc);
+EXPORT_SYMBOL(halg_malloc);
 
 // hal_pin.c:
 EXPORT_SYMBOL(halg_pin_new);
@@ -381,11 +380,13 @@ EXPORT_SYMBOL(halpr_find_inst_by_name);
 
 EXPORT_SYMBOL(halpr_find_owning_comp);
 
-EXPORT_SYMBOL(halpr_find_inst_by_id);
-EXPORT_SYMBOL(halpr_find_comp_by_id);
+//EXPORT_SYMBOL(halpr_find_inst_by_id);
 
 EXPORT_SYMBOL(halg_foreach_pin_by_signal);
+
 EXPORT_SYMBOL(halg_find_object_by_name);
+EXPORT_SYMBOL(halg_find_object_by_id);
+
 //EXPORT_SYMBOL();
 //EXPORT_SYMBOL();
 

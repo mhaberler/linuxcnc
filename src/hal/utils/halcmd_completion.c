@@ -180,7 +180,8 @@ static void check_match_type_signal(const char *name) {
 #endif
 }
 
-static char *thread_generator(const char *text, int state) { 
+static char *thread_generator(const char *text, int state) {
+    #if 0
     static int len;
     static int next;
     if(!state) {
@@ -194,6 +195,7 @@ static char *thread_generator(const char *text, int state) {
 	if ( strncmp(text, thread->name, len) == 0 )
             return strdup(thread->name);
     }
+    #endif
     return NULL;
 }
 

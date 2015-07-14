@@ -190,20 +190,12 @@ typedef struct {
     int shmem_bot;		/* bottom of free shmem (first free byte) */
     int shmem_top;		/* top of free shmem (1 past last free) */
 
-    hal_list_t halobjects;      // list of all named HAL objects
-
-    int comp_list_ptr;		/* root of linked list of components */
-    int thread_list_ptr;	/* root of linked list of threads */
+    hal_list_t halobjects;       // list of all named HAL objects
+    hal_list_t threads;          // list of threads in ascending priority
+    hal_list_t funct_entry_free; // list of free funct entry structs
 
     long base_period;		/* timer period for realtime tasks */
     int threads_running;	/* non-zero if threads are started */
-
-    //int oldname_free_ptr;	/* list of free oldname structs */
-
-    int comp_free_ptr;		/* list of free component structs */
-
-    hal_list_t funct_entry_free;	/* list of free funct entry structs */
-    int thread_free_ptr;	/* list of free thread structs */
 
 
     int exact_base_period;      /* if set, pretend that rtapi satisfied our
@@ -412,11 +404,6 @@ int hal_export_xfunctf( const hal_export_xfunct_args_t *xf, const char *fmt, ...
 
 typedef struct hal_funct {
     halhdr_t hdr;
-    /* int next_ptr;		/\* next function in linked list *\/ */
-    /* int owner_id;		/\* component that added this funct *\/ */
-    /* int handle;                 // unique ID */
-    /* char name[HAL_NAME_LEN + 1];	/\* function name *\/ */
-
     hal_funct_signature_t type; // drives call signature, addf
     int uses_fp;		/* floating point flag */
     int reentrant;		/* non-zero if function is re-entrant */
@@ -437,7 +424,7 @@ typedef struct hal_funct_entry {
 } hal_funct_entry_t;
 
 typedef struct hal_thread {
-    int next_ptr;		/* next thread in linked list */
+    halhdr_t hdr;
     int uses_fp;		/* floating point flag */
     long int period;		/* period of the thread, in nsec */
     int priority;		/* priority of the thread */
@@ -445,9 +432,9 @@ typedef struct hal_thread {
     hal_s32_t runtime;		/* duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
     hal_list_t funct_list;	/* list of functions to run */
+    hal_list_t thread;          // list of threads in ascending priority
+                                // root: hal_data.threads
     int cpu_id;                 /* cpu to bind on, or -1 */
-    int handle;                 // unique ID
-    char name[HAL_NAME_LEN + 1];	/* thread name */
 } hal_thread_t;
 
 
@@ -468,12 +455,12 @@ static inline long fa_period(const hal_funct_args_t *fa)
 static inline const char* fa_thread_name(const hal_funct_args_t *fa)
 {
     if (fa->thread)
-	return fa->thread->name;
+	return ho_name(fa->thread);
     return "";
 }
 static inline const char* fa_funct_name(const hal_funct_args_t *fa)
 {
-    return hh_get_name(&fa->funct->hdr);
+    return ho_name(fa->funct);
 }
 
 static inline const int fa_argc(const hal_funct_args_t *fa) { return fa->argc; }
@@ -542,7 +529,9 @@ hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
     an object that matches 'name'.  They return a pointer to the object,
     or NULL if no matching object is found.
 */
-extern hal_thread_t *halpr_find_thread_by_name(const char *name);
+static inline hal_thread_t *halpr_find_thread_by_name(const char *name){
+    return halg_find_object_by_name(0, HAL_THREAD, name).thread;
+}
 
 static inline  hal_comp_t *halpr_find_comp_by_name(const char *name) {
     return halg_find_object_by_name(0, HAL_COMPONENT, name).comp;
@@ -584,6 +573,7 @@ static inline hal_vtable_t *halpr_find_vtable_by_name(const char *name,
     component ID matches 'id'.  It returns a pointer to that component,
     or NULL if no match is found.
 */
+
 static inline hal_comp_t *halpr_find_comp_by_id(const int id) {
     return halg_find_object_by_id(0, HAL_COMPONENT, id).comp;
 }
@@ -624,10 +614,10 @@ extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
 // succeeds only for pins, params, functs owned by a hal_inst_t
 // returns NULL for legacy code using comp_id for pins/params/functs
 
-hal_inst_t *halg_find_inst_by_id(const int use_hal_mutex,
-				 const int id);
+/* hal_inst_t *halg_find_inst_by_id(const int use_hal_mutex, */
+/* 				 const int id); */
 static inline hal_inst_t *halpr_find_inst_by_id(const int id)
-{ return halg_find_inst_by_id(0, id); }
+{ return halg_find_object_by_id(0, HAL_INST, id).inst; }
 
 // given the owner_id of pin, param or funct,
 // find the owning component regardless whether the object
@@ -661,6 +651,7 @@ hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id, hal_funct_t * star
 // see http://git.mah.priv.at/gitweb?p=emc2-dev.git;a=shortlog;h=refs/heads/hal-lock-unlock
 // NB: make sure the mutex is actually held in the using code when leaving scope!
 void halpr_autorelease_mutex(void *variable);
+void halpr_autorelease_mutex_if(void *variable);
 
 
 // scope protection macro for simplified usage
@@ -696,7 +687,7 @@ void halpr_autorelease_mutex(void *variable);
 
 #define _WITH_HAL_MUTEX_IF(unique, cond)				\
     int __PASTE(__scope_protector_,unique)				\
-	 __attribute__((cleanup(halpr_autorelease_mutex))) = cond;	\
+	 __attribute__((cleanup(halpr_autorelease_mutex_if))) = cond;	\
     if (cond) rtapi_mutex_get(&(hal_data->mutex));
 
 #define WITH_HAL_MUTEX_IF(intval) _WITH_HAL_MUTEX_IF(__LINE__, intval)

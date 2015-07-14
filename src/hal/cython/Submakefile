@@ -1,4 +1,4 @@
-
+ifeq (1,0)
 
 HALNGDIR := hal/cython
 HALNGMKDIR :=  $(HALNGDIR)/machinekit
@@ -99,3 +99,4 @@ cython-clean:
 	for f in compat hal rtapi shmcommon; do \
 	    rm -f hal/cython/machinekit/$$f.c; \
 	done
+endif

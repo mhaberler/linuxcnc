@@ -113,8 +113,8 @@ int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct)
 
 int halpr_describe_thread(hal_thread_t *thread, pb::Thread *pbthread)
 {
-    pbthread->set_name(thread->name);
-    pbthread->set_handle(thread->handle);
+    pbthread->set_name(ho_name(thread));
+    pbthread->set_handle(ho_id(thread));
     pbthread->set_uses_fp(thread->uses_fp);
     pbthread->set_period(thread->period);
     pbthread->set_priority(thread->priority);
