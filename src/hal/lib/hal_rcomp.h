@@ -39,7 +39,9 @@ typedef int(*comp_report_callback_t)(int,  hal_compiled_comp_t *,
 				     hal_data_u *value,
 				     void *cb_data);
 
-extern int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp);
+int halg_compile_comp(const int use_hal_mutex,
+		      const char *name,
+		      hal_compiled_comp_t **ccomp);
 extern int hal_ccomp_match(hal_compiled_comp_t *ccomp);
 extern int hal_ccomp_report(hal_compiled_comp_t *ccomp,
 			    comp_report_callback_t report_cb,
