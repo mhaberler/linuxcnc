@@ -187,6 +187,11 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
 	    return -EINVAL;
 	}
 	new->task_id = retval;
+
+	/* init time logging variables */
+	new->runtime = 0;
+	new->maxtime = 0;
+
 	/* start task */
 	retval = rtapi_task_start(new->task_id, new->period);
 	if (retval < 0) {
@@ -196,15 +201,11 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
 	/* insert new structure at head of list */
 	dlist_add_before(&new->thread, &hal_data->threads);
 
-	/* new->next_ptr = hal_data->thread_list_ptr; */
-	/* hal_data->thread_list_ptr = SHMOFF(new); */
+	// make it visible
+	add_object(&new->hdr);
 
-	// exit block protected by scoped lock
-    }
+    } // exit block protected by scoped lock
 
-    /* init time logging variables */
-    new->runtime = 0;
-    new->maxtime = 0;
 
     HALDBG("thread %s id %d created prio=%d",
 	   name, new->task_id, new->priority);
