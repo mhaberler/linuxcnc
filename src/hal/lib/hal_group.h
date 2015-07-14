@@ -66,25 +66,6 @@ extern int hal_ref_group(const char *group);
 extern int hal_unref_group(const char *group);
 
 
-// group iterator
-// for each defined group, call the callback function iff:
-// - a NULL group argument is give: this will cause all groups to be visited.
-// - a non-null group argument will visit exactly that group with an exact name match (no prefix matching).
-// - if the group was found, 1 is returned, else 0.
-// cb_data can be used in any fashion and it is not inspected.
-
-// callback return values:
-//    0:   this signals 'continue iterating'
-//    >0:  this signals 'stop iteration and return count'
-//    <0:  this signals an error. Stop iterating and return the error code.
-// if iteration runs to completion and the callback has never returned a
-// non-zero value, halpr_foreach_group returns the number of groups visited.
-//
-// NB: halpr_foreach_group() does not lock hal_data.
-extern int halpr_foreach_group(const char *groupname,
-			       hal_group_callback_t callback, void *cb_data);
-
-
 // group level operations:
 // typedef struct {} .. compiled_group_t;
 // typedef struct {} .. group_status_t;
