@@ -64,8 +64,8 @@ static inline int halpr_foreach_comp(const char *name,
 }
 
 static inline int halpr_foreach_sig(const char *name,
-					hal_sig_callback_t callback,
-					void *arg)
+				    hal_sig_callback_t callback,
+				    void *arg)
 {
     return halg_foreach_type(0, HAL_SIGNAL, name,
 			     (hal_pertype_callback_t) callback,

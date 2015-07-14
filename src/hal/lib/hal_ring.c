@@ -122,9 +122,57 @@ int hal_ring_deletef(const char *fmt, ...)
     return ret;
 }
 
+int free_ring_struct(hal_ring_t *hrptr)
+{
+    ringheader_t *rhptr;
+    int shmid = -1;
+    int retval;
+
+    if (hrptr->flags & ALLOC_HALMEM) {
+	// ring exists as HAL memory.
+	rhptr = SHMPTR(hrptr->ring_offset);
+    } else {
+	// ring exists as shm segment. Retrieve shared memory address.
+	if ((shmid = rtapi_shmem_new_inst(hrptr->ring_shmkey,
+					  rtapi_instance, lib_module_id,
+					  0 )) < 0) {
+	    if (shmid != -EEXIST)  {
+		HALERR("ring '%s': rtapi_shmem_new_inst() failed %d",
+		       ho_name(hrptr), shmid);
+		return shmid;
+	    }
+	}
+	if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr, 0))) {
+	    HALERR("ring '%s': rtapi_shmem_getptr %d failed %d",
+		   ho_name(hrptr), shmid, retval);
+	    return -ENOMEM;
+	}
+    }
+    // assure attach/detach balance is zero:
+    if (rhptr->refcount) {
+	HALERR("ring '%s' still attached - refcount=%d",
+	       ho_name(hrptr), rhptr->refcount);
+	return -EBUSY;
+    }
+
+    HALDBG("deleting ring '%s'", ho_name(hrptr));
+    if (hrptr->flags & ALLOC_HALMEM) {
+	; // if there were a HAL memory free function, call it here
+    } else {
+	if ((retval = rtapi_shmem_delete(shmid, lib_module_id)) < 0)  {
+	    HALERR("ring '%s': rtapi_shmem_delete(%d,%d) failed: %d",
+		   ho_name(hrptr), shmid, lib_module_id, retval);
+	    return retval;
+	}
+    }
+    // free descriptor
+    free_halobject((hal_object_ptr)hrptr);
+    return 0;
+}
+
+
 int hal_ring_delete(const char *name)
 {
-    int retval;
 
     CHECK_HALDATA();
     CHECK_STRLEN(name, HAL_NAME_LEN);
@@ -139,53 +187,9 @@ int hal_ring_delete(const char *name)
 	    HALERR("ring '%s' not found", name);
 	    return -ENOENT;
 	}
-
-	ringheader_t *rhptr;
-	int shmid = -1;
-
-	if (hrptr->flags & ALLOC_HALMEM) {
-	    // ring exists as HAL memory.
-	    rhptr = SHMPTR(hrptr->ring_offset);
-	} else {
-	    // ring exists as shm segment. Retrieve shared memory address.
-	    if ((shmid = rtapi_shmem_new_inst(hrptr->ring_shmkey,
-					      rtapi_instance, lib_module_id,
-					      0 )) < 0) {
-		if (shmid != -EEXIST)  {
-		    HALERR("ring '%s': rtapi_shmem_new_inst() failed %d",
-			   name, shmid);
-		    return shmid;
-		}
-	    }
-	    if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr, 0))) {
-		HALERR("ring '%s': rtapi_shmem_getptr %d failed %d",
-		       name, shmid, retval);
-		return -ENOMEM;
-	    }
-	}
-	// assure attach/detach balance is zero:
-	if (rhptr->refcount) {
-	    HALERR("ring '%s' still attached - refcount=%d",
-		   name, rhptr->refcount);
-	    return -EBUSY;
-	}
-
-	HALDBG("deleting ring '%s'", name);
-	if (hrptr->flags & ALLOC_HALMEM) {
-	    ; // if there were a HAL memory free function, call it here
-	} else {
-	    if ((retval = rtapi_shmem_delete(shmid, lib_module_id)) < 0)  {
-		HALERR("ring '%s': rtapi_shmem_delete(%d,%d) failed: %d",
-		       name, shmid, lib_module_id, retval);
-		return retval;
-	    }
-	}
-
-	// free descriptor
-	free_halobject((hal_object_ptr)hrptr);
-	return 0;
+	free_ring_struct(hrptr);
     }
-
+    return 0;
 }
 
 int hal_ring_attachf(ringbuffer_t *rb, unsigned *flags, const char *fmt, ...)
