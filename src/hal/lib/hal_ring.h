@@ -4,6 +4,7 @@
 #include <rtapi.h>
 #include <ring.h>
 #include <multiframe.h>
+#include "hal_internal.h"
 
 
 RTAPI_BEGIN_DECLS
@@ -13,14 +14,12 @@ RTAPI_BEGIN_DECLS
 // any module may attach to it.
 
 typedef struct hal_ring {
-    char name[HAL_NAME_LEN + 1]; // ring HAL name
-    int next_ptr;		 // next ring in used/free lists
+    halhdr_t hdr;		// common HAL object header
     int ring_id;                 // as per alloc bitmap
     int ring_shmkey;             // RTAPI shm key - if in shmseg
     int total_size;              // size of shm segment allocated
     unsigned ring_offset;        // if created in HAL shared memory
     unsigned flags;
-    int handle;                  // unique ID
 } hal_ring_t;
 
 // some components use a fifo and a scratchpad shared memory area,
@@ -97,7 +96,14 @@ int hal_ring_detachf(ringbuffer_t *rb, const char *fmt, ...)
     __attribute__((format(printf,2,3)));
 
 // not part of public API. Use with HAL lock engaged.
-hal_ring_t *halpr_find_ring_by_name(const char *name);
+
+static inline hal_ring_t *halpr_find_ring_by_name(const char *name){
+    return halg_find_object_by_name(0, HAL_RING, name).ring;
+}
+static inline hal_ring_t *halpr_find_ring_by_id(const int id){
+    return halg_find_object_by_id(0, HAL_RING, id).ring;
+}
+
 
 RTAPI_END_DECLS
 

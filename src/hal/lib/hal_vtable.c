@@ -83,6 +83,7 @@ int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 	}
 	HALDBG("vtable %s/%d version %d removed",
 	       hh_get_name(&vt->hdr), vtable_id,  vt->version);
+
 	free_halobject((hal_object_ptr)vt);
 	return 0;
     }
