@@ -114,6 +114,7 @@ static void save_threads(FILE *dst);
 static void print_help_commands(void);
 static int print_name(hal_object_ptr o, foreach_args_t *args);
 static int print_objects(char **patterns);
+static int print_mutexes(char **patterns);
 
 static int inst_count(hal_comp_t *comp);
 
@@ -1032,6 +1033,8 @@ int do_show_cmd(char *type, char **patterns)
 	print_eps_info(patterns);
     } else if (strcmp(type, "objects") == 0) {
 	print_objects(patterns);
+    } else if (strcmp(type, "mutex") == 0) {
+	print_mutexes(patterns);
     } else {
 	halcmd_error("Unknown 'show' type '%s'\n", type);
 	return -1;
@@ -2310,7 +2313,7 @@ static int print_objects(char **patterns)
 
     dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
 	o = (hal_object_ptr)hh;
-	halcmd_output("name=%20.20s\tid=%d\towner=%d\ttype=%d\tvalid=%d\n",
+	halcmd_output("name=%-20.20s\tid=%d\towner=%d\ttype=%d\tvalid=%d\n",
 		       hh_get_name(o.hdr),
 		       hh_get_id(o.hdr),
 		       hh_get_owner_id(o.hdr),
@@ -2320,7 +2323,21 @@ static int print_objects(char **patterns)
     return 0;
 }
 
+#include "rtapi_global.h"
+#include "rtapi/shmdrv/shmdrv.h"
+static int print_mutexes(char **patterns)
+{
+    extern global_data_t *global_data;
+    extern hal_data_t *hal_data;
+    if (MMAP_OK(global_data))
+	halcmd_output("global_data->mutex: %ld\n", global_data->mutex);
 
+    if (MMAP_OK(hal_data)) {
+	printf("hal_data->mutex: %ld\n", hal_data->mutex);
+	printf("hal_data->heap.mutex: %ld\n", hal_data->heap.mutex);
+    }
+    return 0;
+}
 
 static void print_thread_stats(hal_thread_t *tptr)
 {
