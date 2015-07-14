@@ -1,95 +1,6 @@
 #include "hal_iter.h"
 
 
-int halpr_foreach_thread(const char *name,
-		       hal_thread_callback_t callback, void *cb_data)
-{
-    hal_thread_t *thread;
-    int next;
-    int nvisited = 0;
-    int result;
-
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
-
-    /* search for the thread */
-    next = hal_data->thread_list_ptr;
-    while (next != 0) {
-	thread = SHMPTR(next);
-	if (!name || (strcmp(thread->name, name)) == 0) {
-	    nvisited++;
-	    /* this is the right thread */
-	    if (callback) {
-		result = callback(thread, cb_data);
-		if (result < 0) {
-		    // callback threadnaled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signaled 'stop iterating'.
-		    // pass back the number of visited threads.
-		    return nvisited;
-		} else {
-		    // callback signaled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count threads
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = thread->next_ptr;
-    }
-    /* if we get here, we ran through all the threads, so return count */
-    return nvisited;
-}
-
-#if 0
-int halpr_foreach_funct(const char *name,
-		       hal_funct_callback_t callback, void *cb_data)
-{
-    hal_funct_t *funct;
-    int next;
-    int nvisited = 0;
-    int result;
-
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_CONFIG);
-
-    /* search for the funct */
-    next = hal_data->funct_list_ptr;
-    while (next != 0) {
-	funct = SHMPTR(next);
-	if (!name || (strcmp(funct->name, name)) == 0) {
-	    nvisited++;
-	    /* this is the right funct */
-	    if (callback) {
-		result = callback(funct, cb_data);
-		if (result < 0) {
-		    // callback signaled an error, pass that back up.
-		    return result;
-		} else if (result > 0) {
-		    // callback signaled 'stop iterating'.
-		    // pass back the number of visited functs.
-		    return nvisited;
-		} else {
-		    // callback signaled 'OK to continue'
-		    // fall through
-		}
-	    } else {
-		// null callback passed in,
-		// just count functs
-		// nvisited already bumped above.
-	    }
-	}
-	/* no match, try the next one */
-	next = funct->next_ptr;
-    }
-    /* if we get here, we ran through all the functs, so return count */
-    return nvisited;
-}
-#endif
 int halpr_foreach_ring(const char *name,
 		       hal_ring_callback_t callback, void *cb_data)
 {
@@ -200,7 +111,7 @@ hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
 	.type = type,
 	.id = id
     };
-    if (halg_foreach(use_hal_mutex, &args, yield_match))
+    if (halg_foreach(use_hal_mutex, &args, yield_match) == 1)
 	return (hal_object_ptr) args.user_ptr1;
     return HO_NULL;
 }

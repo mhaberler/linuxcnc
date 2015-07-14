@@ -62,7 +62,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 
 	// make it visible
 	add_object(&inst->hdr);
-	return hh_get_id(&inst->hdr);
+	return ho_id(inst);
     }
 }
 
@@ -101,7 +101,6 @@ hal_inst_t *halg_find_inst_by_id(const int use_hal_mutex,
     return NULL;
 }
 
-
 void free_inst_struct(hal_inst_t * inst)
 {
     // can't delete the instance until we delete its "stuff"
@@ -109,7 +108,7 @@ void free_inst_struct(hal_inst_t * inst)
 
     foreach_args_t args =  {
 	// search for objects owned by this instance
-	.owner_id  = hh_get_id(&inst->hdr),
+	.owner_id  = ho_id(inst),
     };
 
 #ifdef RTAPI
@@ -120,14 +119,14 @@ void free_inst_struct(hal_inst_t * inst)
     // now that the funct is gone, call the dtor for this instance
     // get owning comp
 
-    hal_comp_t *comp = halpr_find_owning_comp(hh_get_id(&inst->hdr));
+    hal_comp_t *comp = halpr_find_owning_comp(ho_id(inst));
     if (comp->dtor) {
 	// NB - pins, params etc still intact
 	// this instance is owned by this comp, call destructor
 	HALDBG("calling custom destructor(%s,%s)",
-	       comp->name,
-	       hh_get_name(&inst->hdr));
-	comp->dtor(hh_get_name(&inst->hdr),
+	       ho_name(comp),
+	       ho_name(inst));
+	comp->dtor(ho_name(inst),
 		   SHMPTR(inst->inst_data_ptr),
 		   inst->inst_size);
     }

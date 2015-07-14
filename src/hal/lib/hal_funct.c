@@ -87,7 +87,7 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 	if (comp->type == TYPE_USER) {
 	    /* not a realtime component */
 	    HALERR("funct '%s': component %s/%d is not realtime (%d)",
-		   name, comp->name, comp->comp_id, comp->type);
+		   name, ho_name(comp), ho_id(comp), comp->type);
 	    return -EINVAL;
 	}
 
@@ -320,9 +320,6 @@ int hal_add_funct_to_thread(const char *funct_name,
 
 int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 {
-    hal_funct_t *funct;
-    hal_list_t *list_root, *list_entry;
-    hal_funct_entry_t *funct_entry;
 
     char buff[HAL_NAME_LEN + 1];
     rtapi_snprintf(buff, HAL_NAME_LEN, "%s.funct", funct_name);
@@ -339,7 +336,7 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	hal_thread_t *thread;
 
 	/* search function list for the function */
-	funct = halpr_find_funct_by_name(funct_name);
+	hal_funct_t *funct = halpr_find_funct_by_name(funct_name);
 	if (funct == NULL) {
 	    funct = halpr_find_funct_by_name((const char*)buff);
 	    if (funct == NULL) {
@@ -360,8 +357,8 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	    return -EINVAL;
 	}
 	/* ok, we have thread and function, does thread use funct? */
-	list_root = &(thread->funct_list);
-	list_entry = dlist_next(list_root);
+	hal_list_t *list_root = &(thread->funct_list);
+	hal_list_t *list_entry = dlist_next(list_root);
 	while (1) {
 	    if (list_entry == list_root) {
 		/* reached end of list, funct not found */
@@ -369,7 +366,7 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 		       thread_name, funct_name);
 		return -EINVAL;
 	    }
-	    funct_entry = (hal_funct_entry_t *) list_entry;
+	    hal_funct_entry_t *funct_entry = (hal_funct_entry_t *) list_entry;
 	    if (SHMPTR(funct_entry->funct_ptr) == funct) {
 		/* this funct entry points to our funct, unlink */
 		dlist_remove_entry(list_entry);
@@ -431,44 +428,45 @@ void free_funct_entry_struct(hal_funct_entry_t * funct_entry)
 
 #ifdef RTAPI
 
+static int thread_cb(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_thread_t *thread = o.thread;
+    hal_funct_t *funct = args->user_ptr1;
+
+    /* start at root of funct_entry list */
+    hal_list_t *list_root = &(thread->funct_list);
+    hal_list_t *list_entry = dlist_next(list_root);
+
+    /* run thru funct_entry list */
+    while (list_entry != list_root) {
+	/* point to funct entry */
+	hal_funct_entry_t *funct_entry = (hal_funct_entry_t *) list_entry;
+	/* test it */
+	if (SHMPTR(funct_entry->funct_ptr) == funct) {
+	    /* this funct entry points to our funct, unlink */
+	    list_entry = dlist_remove_entry(list_entry);
+	    /* and delete it */
+	    free_funct_entry_struct(funct_entry);
+	} else {
+	    /* no match, try the next one */
+	    list_entry = dlist_next(list_entry);
+	}
+    }
+    return 0;
+}
+
 void free_funct_struct(hal_funct_t * funct)
 {
-    int next_thread;
-    hal_thread_t *thread;
-    hal_list_t *list_root, *list_entry;
-    hal_funct_entry_t *funct_entry;
-
     if (funct->users > 0) {
 	/* We can't casually delete the function, there are thread(s) which
 	   will call it.  So we must check all the threads and remove any
 	   funct_entrys that call this function */
-	/* start at root of thread list */
-	next_thread = hal_data->thread_list_ptr;
-	/* run through thread list */
-	while (next_thread != 0) {
-	    /* point to thread */
-	    thread = SHMPTR(next_thread);
-	    /* start at root of funct_entry list */
-	    list_root = &(thread->funct_list);
-	    list_entry = dlist_next(list_root);
-	    /* run thru funct_entry list */
-	    while (list_entry != list_root) {
-		/* point to funct entry */
-		funct_entry = (hal_funct_entry_t *) list_entry;
-		/* test it */
-		if (SHMPTR(funct_entry->funct_ptr) == funct) {
-		    /* this funct entry points to our funct, unlink */
-		    list_entry = dlist_remove_entry(list_entry);
-		    /* and delete it */
-		    free_funct_entry_struct(funct_entry);
-		} else {
-		    /* no match, try the next one */
-		    list_entry = dlist_next(list_entry);
-		}
-	    }
-	    /* move on to the next thread */
-	    next_thread = thread->next_ptr;
-	}
+
+	foreach_args_t args =  {
+	    .type = HAL_THREAD,
+	    .user_ptr1 = funct,
+	};
+	halg_foreach(0, &args, thread_cb);
     }
     free_halobject((hal_object_ptr) funct);
 }

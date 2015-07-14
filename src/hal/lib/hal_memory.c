@@ -7,20 +7,19 @@
 #include "hal_internal.h"
 
 // part of public API
-void *hal_malloc(long int size)
+void *halg_malloc(const int use_hal_mutex, long int size)
 {
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
+
     void *retval;
 
     if (hal_data == 0) {
 	HALERR("hal_malloc called before init");
 	return 0;
     }
-    /* get the mutex */
-    rtapi_mutex_get(&(hal_data->mutex));
     /* allocate memory */
     retval = shmalloc_rt(size);
-    /* release the mutex */
-    rtapi_mutex_give(&(hal_data->mutex));
+
     /* check return value */
     if (retval == 0) {
 	HALDBG("hal_malloc() can't allocate %ld bytes", size);
@@ -39,33 +38,8 @@ void *shmalloc_desc(long int size)
 {
     void *retval;
     retval = rtapi_calloc(&hal_data->heap, 1, size);
+    // TBD: extend shm arena on failure.
     return retval;
-
-#if 0
-    long int tmp_bot;
-
-    /* deal with alignment requirements */
-    tmp_bot = hal_data->shmem_bot;
-    if (size >= 8) {
-	/* align on 8 byte boundary */
-	tmp_bot = (tmp_bot + 7) & (~7);
-    } else if (size >= 4) {
-	/* align on 4 byte boundary */
-	tmp_bot = (tmp_bot + 3) & (~3);
-    } else if (size == 2) {
-	/* align on 2 byte boundary */
-	tmp_bot = (tmp_bot + 1) & (~1);
-    }
-    /* is there enough memory available? */
-    if ((hal_data->shmem_top - tmp_bot) < size) {
-	/* no */
-	return 0;
-    }
-    /* memory is available, allocate it */
-    retval = SHMPTR(tmp_bot);
-    hal_data->shmem_bot = tmp_bot + size;
-    hal_data->shmem_avail = hal_data->shmem_top - hal_data->shmem_bot;
-#endif
 }
 
 void *shmalloc_rt(long int size)
