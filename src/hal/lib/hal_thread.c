@@ -231,7 +231,7 @@ int halg_exit_thread(const int use_hal_mutex, const char *name)
 	    .type = HAL_THREAD,
 	    .name = (char *)name
 	};
-	int ret = halg_foreach(use_hal_mutex, &args, delete_thread_cb);
+	int ret = halg_foreach(0, &args, delete_thread_cb);
 	if (name && (ret == 0)) {
 	    HALERR("thread '%s' not found",   name);
 	    return -EINVAL;
