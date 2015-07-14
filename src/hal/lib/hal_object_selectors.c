@@ -130,7 +130,7 @@ int unlocked_delete_halobject(hal_object_ptr o, foreach_args_t *args)
     switch (args->type) {
 
     case HAL_SIGNAL:
-	halg_signal_delete(0, ho_name(o.sig));
+	return halg_signal_delete(0, ho_name(o.sig));
 	break;
 
     default:
