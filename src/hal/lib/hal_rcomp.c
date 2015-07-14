@@ -231,7 +231,9 @@ static int fill_pin_array(hal_object_ptr o, foreach_args_t *args)
 }
 
 // component reporting support
-int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
+int halg_compile_comp(const int use_hal_mutex,
+		      const char *name,
+		      hal_compiled_comp_t **ccomp)
 {
    hal_compiled_comp_t *tc;
    int pincount = 0;
@@ -239,10 +241,10 @@ int hal_compile_comp(const char *name, hal_compiled_comp_t **ccomp)
    CHECK_HALDATA();
    CHECK_STRLEN(name, HAL_NAME_LEN);
    {
+       WITH_HAL_MUTEX_IF(use_hal_mutex);
+
        hal_comp_t *comp;
        int n;
-
-       WITH_HAL_MUTEX();
 
        if ((comp = halpr_find_comp_by_name(name)) == NULL) {
 	    HALERR("no such component '%s'", name);
