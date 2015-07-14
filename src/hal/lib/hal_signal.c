@@ -88,6 +88,18 @@ int halg_signal_new(const int use_hal_mutex,
     return 0;
 }
 
+// walk members and count references back to the signal descriptor
+// normally this would be done by object ID, but for speed reasons
+// (group matching) group members directly refer to the signal
+// descriptor
+int count_memberships(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_member_t *m = o.member;
+    if (m->sig_ptr == args->user_arg1)
+	args->user_arg2++; // # of member refs
+    return 0; // continue
+}
+
 int halg_signal_delete(const int use_hal_mutex, const char *name)
 {
     CHECK_HALDATA();
@@ -101,14 +113,20 @@ int halg_signal_delete(const int use_hal_mutex, const char *name)
 
 	if (sig == NULL) {
 	    HALERR("signal '%s' not found",  name);
-	    return -EINVAL;
+	    return -ENOENT;
 	}
-	hal_group_t *grp = halpr_find_group_of_member(name);
-	if (grp != NULL) {
+
+	// check if this signal is a member in a group
+	foreach_args_t args =  {
+	    .type = HAL_MEMBER,
+	    .user_arg1 = SHMOFF(sig)
+	};
+	halg_foreach(0, &args, count_memberships);
+	if (args.user_arg2) {
 	    HALERR("cannot delete signal '%s'"
-		   " since it is member of group '%s'",
-		   name, grp->name);
-	    return -EINVAL;
+		   " since it is a member of a group",
+		   name);
+	    return -EBUSY;
 	}
 	// free_sig_struct will unlink any linked pins
 	// before freeing the signal descriptor

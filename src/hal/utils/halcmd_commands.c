@@ -2469,11 +2469,6 @@ static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
 
 static void print_thread_info(char **patterns)
 {
-    int next_thread, n;
-    hal_thread_t *tptr;
-
-    int named = patterns && patterns[0] && strlen(patterns[0]);
-
     if (scriptmode == 0) {
 	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
 	halcmd_output("     Period  FP     Name               (     Time, Max-Time )\n");
@@ -2484,48 +2479,6 @@ static void print_thread_info(char **patterns)
     };
     halg_foreach(true, &args, print_thread_entry);
     halcmd_output("\n");
-#if 0
-    rtapi_mutex_get(&(hal_data->mutex));
-    next_thread = hal_data->thread_list_ptr;
-    while (next_thread != 0) {
-	tptr = SHMPTR(next_thread);
-	if ( match(patterns, tptr->name) ) {
-		/* note that the scriptmode format string has no \n */
-		// TODO FIXME add thread runtime and max runtime to this print
-	    halcmd_output(((scriptmode == 0) ? "%11ld  %-3s  %20s ( %8ld, %8ld )\n" : "%ld %s %s %ld %ld"),
-		tptr->period, (tptr->uses_fp ? "YES" : "NO"), tptr->name, (long)tptr->runtime, (long)tptr->maxtime);
-
-	    list_root = &(tptr->funct_list);
-	    list_entry = dlist_next(list_root);
-	    n = 1;
-	    while (list_entry != list_root) {
-		/* print the function info */
-		fentry = (hal_funct_entry_t *) list_entry;
-		funct = SHMPTR(fentry->funct_ptr);
-		/* scriptmode only uses one line per thread, which contains:
-		   thread period, FP flag, name, then all functs separated by spaces  */
-		if (scriptmode == 0) {
-		    halcmd_output("                 %2d %s\n", n,
-				  hh_get_name(&funct->hdr));
-		} else {
-		    halcmd_output(" %s", hh_get_name(&funct->hdr));
-		}
-		n++;
-		list_entry = dlist_next(list_entry);
-	    }
-	    if (scriptmode != 0) {
-		halcmd_output("\n");
-	    } else {
-		// if a thread name was given, print the flavor specific stats
-		if (named)
-		    print_thread_stats(tptr);
-	    }
-	}
-	next_thread = tptr->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    halcmd_output("\n");
-#endif
 }
 
 static void print_comp_names(char **patterns)
@@ -2632,27 +2585,27 @@ static int count_list(int list_root)
     return n;
 }
 
-static int count_members()
-{
-    int n, nextg, nextm;
-    hal_group_t *group;
-    hal_member_t *member;
-    rtapi_mutex_get(&(hal_data->mutex));
-    nextg = hal_data->group_list_ptr;
-    n = 0;
-    while (nextg != 0) {
-	group = SHMPTR(nextg);
-	nextm = group->member_ptr;
-	while (nextm != 0) {
-	    member = SHMPTR(nextm);
-	    n++;
-	    nextm = member->next_ptr;
-	}
-	nextg = group->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    return n;
-}
+/* static int count_members() */
+/* { */
+/*     int n, nextg, nextm; */
+/*     hal_group_t *group; */
+/*     hal_member_t *member; */
+/*     rtapi_mutex_get(&(hal_data->mutex)); */
+/*     nextg = hal_data->group_list_ptr; */
+/*     n = 0; */
+/*     while (nextg != 0) { */
+/* 	group = SHMPTR(nextg); */
+/* 	nextm = group->member_ptr; */
+/* 	while (nextm != 0) { */
+/* 	    member = SHMPTR(nextm); */
+/* 	    n++; */
+/* 	    nextm = member->next_ptr; */
+/* 	} */
+/* 	nextg = group->next_ptr; */
+/*     } */
+/*     rtapi_mutex_give(&(hal_data->mutex)); */
+/*     return n; */
+/* } */
 
 static void print_mem_status()
 {
@@ -2708,7 +2661,13 @@ static void print_mem_status()
     recycled = count_list(hal_data->thread_free_ptr);
 
     halcmd_output("  active/recycled threads:    %d/%d\n", active, recycled);
-#endif
+
+    // count rings
+    active = count_list(hal_data->ring_list_ptr);
+    recycled = count_list(hal_data->ring_free_ptr);
+    halcmd_output("  active/deleted rings:       %d/%d\n", active, recycled);
+    halcmd_output("RTAPI message level:  RT:%d User:%d\n",
+		  global_data->rt_msg_level, global_data->user_msg_level);
 
     // count groups
     active = count_list(hal_data->group_list_ptr);
@@ -2719,12 +2678,9 @@ static void print_mem_status()
     recycled = count_list(hal_data->member_free_ptr);
     halcmd_output("  active/recycled member:     %d/%d\n", active, recycled);
 
-    // count rings
-    active = count_list(hal_data->ring_list_ptr);
-    recycled = count_list(hal_data->ring_free_ptr);
-    halcmd_output("  active/deleted rings:       %d/%d\n", active, recycled);
-    halcmd_output("RTAPI message level:  RT:%d User:%d\n",
-		  global_data->rt_msg_level, global_data->user_msg_level);
+#endif
+
+
 }
 
 /* Switch function for pin/sig/param type for the print_*_list functions */
@@ -3135,74 +3091,59 @@ int do_delm_cmd(char *group, char *member)
 
 static void print_group_names(char **patterns)
 {
-    int next_group;
-    hal_group_t *gptr;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next_group = hal_data->group_list_ptr;
-    while (next_group != 0) {
-	gptr = SHMPTR(next_group);
-	if ( match(patterns, gptr->name) ) {
-	    halcmd_output("%s ", gptr->name);
-	}
-	next_group = gptr->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_GROUP,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
     halcmd_output("\n");
 }
 
-static int print_member_cb(int level, hal_group_t **groups, hal_member_t *member,
-				  void *cb_data)
+static int print_member_entry(hal_object_ptr o, foreach_args_t *args)
 {
-    hal_sig_t *sig = SHMPTR(member->sig_member_ptr);
+    hal_sig_t *sig = SHMPTR(o.member->sig_ptr);
     void *dptr = SHMPTR(sig->data_ptr);
 
     halcmd_output("\t%-14.14s  %-6.6s %16.16s 0x%8.8x %f ",
 		  ho_name(sig),
 		  data_type((int) sig->type),
 		  data_value((int) sig->type, dptr),
-		  member->userarg1,
-		  hal_data->epsilon[member->eps_index]);
-
-    // print stack of nested group references
-    while (level) {
-	halcmd_output("%s ", groups[level]->name);
-	level--;
-    }
+		  o.member->userarg1,
+		  hal_data->epsilon[o.member->eps_index]);
     halcmd_output("\n");
     return 0;
 }
 
+static int print_group_entry(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_group_t *gptr = o.group;
+    char **patterns = args->user_ptr1;
+    if ( match(patterns, ho_name(gptr)) ) {
+	halcmd_output("Group name      Arg1       Arg2       Refs\n");
+
+	halcmd_output("%-15.15s 0x%8.8x 0x%8.8x %d \n",
+		      ho_name(gptr), gptr->userarg1, gptr->userarg2,
+		      gptr->refcount);
+	if (scriptmode == 0) {
+	    halcmd_output("\n\tMember          Type              Value Arg1       Epsilon  Groupref:\n");
+	}
+	foreach_args_t args =  {
+	    .type = HAL_MEMBER,
+	    .owner_id = ho_id(gptr)
+	};
+	halg_foreach(true, &args, print_member_entry);
+	halcmd_output("\n");
+    }
+    return 0;
+}
 
 static void print_group_info(char **patterns)
 {
-    int next_group;
-    hal_group_t *gptr;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next_group = hal_data->group_list_ptr;
-    while (next_group != 0) {
-	gptr = SHMPTR(next_group);
-	if ( match(patterns, gptr->name) ) {
-	    halcmd_output("Group name      Arg1       Arg2       Refs\n");
-
-	    halcmd_output("%-15.15s 0x%8.8x 0x%8.8x %d \n",
-			  gptr->name, gptr->userarg1, gptr->userarg2,
-			  gptr->refcount);
-	    if (gptr->member_ptr) {
-
-		if (scriptmode == 0) {
-		    halcmd_output("\n\tMember          Type              Value Arg1       Epsilon  Groupref:\n");
-		}
-		halpr_foreach_member(gptr->name, print_member_cb, NULL,
-				     RESOLVE_NESTED_GROUPS);
-	    }
-	    halcmd_output("\n");
-
-	}
-	next_group = gptr->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    foreach_args_t args =  {
+	.type = HAL_GROUP,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_group_entry);
     halcmd_output("\n");
 }
 
@@ -3220,21 +3161,13 @@ static void print_eps_info(char **patterns)
 }
 
 // ring support code
-
 static void print_ring_names(char **patterns)
 {
-    int next_ring __attribute__((cleanup(halpr_autorelease_mutex)));
-    hal_ring_t *rptr;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    next_ring = hal_data->ring_list_ptr;
-    while (next_ring != 0) {
-	rptr = SHMPTR(next_ring);
-	if ( match(patterns, rptr->name) ) {
-	    halcmd_output("%s ", rptr->name);
-	}
-	next_ring = rptr->next_ptr;
-    }
+    foreach_args_t args =  {
+	.type = HAL_RING,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(1, &args, print_name);
     halcmd_output("\n");
 }
 
@@ -3269,69 +3202,69 @@ void dump_rings(const char *where, int attach, int detach)
 }
 #endif
 
+static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_ring_t *rptr = o.ring;
+    ringheader_t *rh;
+    ringbuffer_t ringbuffer;
+    int retval;
 
+    if ( match(args->user_ptr1, ho_name(rptr))) {
+	unsigned flags;
+	if ((retval = hal_ring_attach(ho_name(rptr), &ringbuffer, &flags))) {
+	    halcmd_error("%s: hal_ring_attach(%d) failed ",
+			 ho_name(rptr), rptr->ring_id);
+	    goto done;
+	}
+	rh = ringbuffer.header;
+	/* Name           Size       Type   Rdr Wrt Ref Flags  */
+	/* ring_0         16392      record 0   0   2   recmax:16376  */
+	char *rtype = "unknown";
+	switch (rh->type) {
+	case RINGTYPE_RECORD:    rtype = "record"; break;
+	case RINGTYPE_MULTIPART: rtype = "multi"; break;
+	case RINGTYPE_STREAM:    rtype = "stream"; break;
+	}
+	halcmd_output("%-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
+		      ho_name(rptr),
+		      rh->size,
+		      rtype,
+		      rh->reader,rh->reader_instance,
+		      rh->writer,rh->writer_instance,
+		      rh->refcount-1);
+	if (rh->use_rmutex)
+	    halcmd_output(" rmutex");
+	if (rh->use_wmutex )
+	    halcmd_output(" wmutex");
+	if (rh->type == RINGTYPE_STREAM)
+	    halcmd_output(" free:%zu ",
+			  stream_write_space(rh));
+	else
+	    halcmd_output(" recmax:%zu ",
+			  record_write_space(rh));
+	if (ring_scratchpad_size(&ringbuffer))
+	    halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
+	halcmd_output("\n");
+	if ((retval = hal_ring_detach(ho_name(rptr),  &ringbuffer)) < 0) {
+	    halcmd_error("%s: rtapi_ring_detach(%d) failed ",
+			 ho_name(rptr), rptr->ring_id);
+	}
+    }
+ done:
+    return 0;
+}
 
 static void print_ring_info(char **patterns)
 {
-    int next_ring, retval;
-    hal_ring_t *rptr;
-    ringheader_t *rh;
-    ringbuffer_t ringbuffer;
-
     if (scriptmode == 0) {
 	halcmd_output("Rings:\n");
 	halcmd_output("Name           Size       Type   Rdr Wrt Ref Flags \n");
     }
-
-    //    rtapi_mutex_get(&(hal_data->mutex));
-    next_ring = hal_data->ring_list_ptr;
-    while (next_ring != 0) {
-	rptr = SHMPTR(next_ring);
-	if ( match(patterns, rptr->name) ) {
-	    unsigned flags;
-	    if ((retval = hal_ring_attach(rptr->name, &ringbuffer, &flags))) {
-		halcmd_error("%s: hal_ring_attach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-		goto failed;
-	    }
-	    rh = ringbuffer.header;
-/* Name           Size       Type   Rdr Wrt Ref Flags  */
-/* ring_0         16392      record 0   0   2   recmax:16376  */
-	    char *rtype = "unknown";
-	    switch (rh->type) {
-	    case RINGTYPE_RECORD:    rtype = "record"; break;
-	    case RINGTYPE_MULTIPART: rtype = "multi"; break;
-	    case RINGTYPE_STREAM:    rtype = "stream"; break;
-	    }
-	    halcmd_output("%-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
-			  rptr->name,
-			  rh->size,
-			  rtype,
-			  rh->reader,rh->reader_instance,
-			  rh->writer,rh->writer_instance,
-			  rh->refcount-1);
-	    if (rh->use_rmutex)
-		halcmd_output(" rmutex");
-	    if (rh->use_wmutex )
-		halcmd_output(" wmutex");
-	    if (rh->type == RINGTYPE_STREAM)
-		halcmd_output(" free:%zu ",
-			      stream_write_space(rh));
-	    else
-		halcmd_output(" recmax:%zu ",
-			      record_write_space(rh));
-	    if (ring_scratchpad_size(&ringbuffer))
-		halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
-	    halcmd_output("\n");
-	    if ((retval = hal_ring_detach(rptr->name,  &ringbuffer)) < 0) {
-		halcmd_error("%s: rtapi_ring_detach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-		goto failed;
-	    }
-	}
-	next_ring = rptr->next_ptr;
-    }
- failed:
+    foreach_args_t args =  {
+	.type = HAL_RING,
+	.user_ptr1 = patterns
+    };
+    halg_foreach(true, &args, print_ring_entry);
     halcmd_output("\n");
 }
 

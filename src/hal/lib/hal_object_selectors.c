@@ -63,13 +63,12 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	free_pin_struct(o.pin);
 	break;
 
-    case HAL_PARAM:
-	//free_param_struct(o.param);
-	free_halobject((hal_object_ptr)o);
+    case HAL_SIGNAL:
+	free_sig_struct(o.sig);
 	break;
 
-    case HAL_INST:
-	free_inst_struct(o.inst);
+    case HAL_PARAM:
+	free_halobject((hal_object_ptr)o);
 	break;
 
 #ifdef RTAPI
@@ -82,19 +81,17 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	break;
 #endif
 
-    case HAL_COMP_RT:
-    case HAL_COMP_USER:
-    case HAL_COMP_REMOTE:
+    case HAL_COMPONENT:
 	free_comp_struct(o.comp);
 	break;
 
-    case HAL_SIGNAL:
-	free_sig_struct(o.sig);
+    case HAL_VTABLE:
+	free_halobject((hal_object_ptr)o);
 	break;
 
-
-#ifdef LATER
- 
+    case HAL_INST:
+	free_inst_struct(o.inst);
+	break;
 
     case HAL_RING:
 	free_ring_struct(o.ring);
@@ -104,16 +101,10 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	free_group_struct(o.group);
 	break;
 
-    case HAL_MEMBER_SIGNAL:
-    case HAL_MEMBER_GROUP:
-    case HAL_MEMBER_PIN:
-	free_member_struct(o.member);
+    case HAL_MEMBER:
+	free_halobject((hal_object_ptr)o);
 	break;
 
-    case HAL_VTABLE:
-	free_halobject(o.any);
-	break;
-#endif
     default:
 	HALBUG("type %d not supported (object type=%d)",
 	       args->type, hh_get_type(o.hdr));
@@ -159,3 +150,5 @@ int yield_count_owned_by_comp(hal_object_ptr o, foreach_args_t *args)
 	args->user_arg2++;
     return 0;
 }
+
+
