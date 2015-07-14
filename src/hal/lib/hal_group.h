@@ -6,6 +6,8 @@
 
 RTAPI_BEGIN_DECLS
 
+XXX halhdr_t hdr;		// common HAL object header
+
 typedef struct hal_member {
     int next_ptr;		/* next member in linked list */
     int sig_member_ptr;          /* offset of hal_signal_t  */

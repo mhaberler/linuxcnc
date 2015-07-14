@@ -209,9 +209,6 @@ typedef struct {
     int group_list_ptr;	        /* list of group structs */
     int group_free_ptr;	        /* list of free group structs */
 
-    int ring_list_ptr;          /* list of ring structs */
-    int ring_free_ptr;          /* list of free ring structs */
-
     int member_list_ptr;	/* list of member structs */
     int member_free_ptr;	/* list of free member structs */
 
