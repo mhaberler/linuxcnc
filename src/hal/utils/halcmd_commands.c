@@ -1388,7 +1388,12 @@ int do_delsig_cmd(char *sig_name)
     };
     // NB: the iterator holds the lock, the callback
     // uses halg_delete_<type> calls
-    return halg_foreach(1, &args, unlocked_delete_halobject);
+    int retval = halg_foreach(1, &args, unlocked_delete_halobject);
+    if (retval < 0) {
+	halcmd_error("delsig %s failed: %s\n", sig_name, hal_lasterror());
+	return retval;
+    }
+    return 0;
 }
 
 static int unload_usr_cb(hal_object_ptr o, foreach_args_t *args)
