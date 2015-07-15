@@ -2334,12 +2334,9 @@ static int print_objects(char **patterns)
 
     dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
 	o = (hal_object_ptr)hh;
-	halcmd_output("name=%-20.20s\tid=%d\towner=%d\ttype=%d\tvalid=%d\n",
-		       hh_get_name(o.hdr),
-		       hh_get_id(o.hdr),
-		       hh_get_owner_id(o.hdr),
-		       hh_get_type(o.hdr),
-		       hh_is_valid(o.hdr));
+	char buffer[200];
+	hh_snprintf(buffer, sizeof(buffer), hh);
+	halcmd_output("%s\n", buffer);
     }
     return 0;
 }
