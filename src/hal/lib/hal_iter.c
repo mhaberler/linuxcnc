@@ -39,7 +39,7 @@ int halg_foreach_type(const int use_hal_mutex,
 	.type = type,
 	.name = (char *) name,
 	.user_ptr1 = cb,
-	.user_ptr1 = arg
+	.user_ptr2 = arg
     };
     return halg_foreach(use_hal_mutex,
 			&args,
