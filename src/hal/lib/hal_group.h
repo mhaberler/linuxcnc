@@ -105,12 +105,12 @@ extern int hal_cgroup_match(hal_compiled_group_t *cgroup);
 // given a cgroup which returned a non-zero value from hal_cgroup_match(),
 // generate a report.
 // the report callback is called for the following phases:
-enum report_phase {
+typedef enum {
     REPORT_BEGIN,
     REPORT_SIGNAL, // for cgroups only
     REPORT_PIN,    // for ccomp's only
     REPORT_END
-};
+} report_phase_t;
 
 #if 0
 // a sample report callback would have the following structure:
@@ -131,45 +131,6 @@ int demo_report(int phase, hal_compiled_group_t *cgroup, hal_sig_t *sig,
     return 0;
 }
 #endif
-
-
-// member iterator
-// visit the group named 'group', or all groups if group was passed as NULL
-//
-// for each member in matching groups, call the callback function
-// if the member happens is a nested group:
-//   if flags & RESOLVE_NESTED_GROUPS is nonzero:
-//     all nested groups are resolved recursivel and
-//     the callback happens at the leaf (signal level)
-//   else
-//     the callback happens at the top level without nested group resolution
-//     in this case using code must be prepared to deal with a group or signal member
-//     in the callback function
-//
-//
-// cb_data can be used in any fashion and it is passed to the callback
-// uninspected and unmodified.
-//
-// callback return values are interpreted as follows:
-//    0:   this signals 'continue iterating'
-//    >0:  this signals 'stop iteration and return count'
-//    <0:  this signals a user-defined error situation;
-//         stop iterating and return the error code.
-//
-// if iteration runs to completion and the callback has never returned a
-// non-zero value, halpr_foreach_member returns the number of members visited.
-//
-// NB: halpr_foreach_member() does not lock hal_data.
-/* #define RESOLVE_NESTED_GROUPS 1 */
-/* #define MAX_NESTED_GROUPS 10 */
-
-/* typedef int (*hal_member_callback_t)(int level, hal_group_t **groups, */
-/* 				     hal_member_t *member, void *cb_data); */
-/* extern int halpr_foreach_member(const char *group, */
-/* 				hal_member_callback_t callback, void *cb_data, int flags); */
-
-
-
 
 
 // group execution argument conventions:
