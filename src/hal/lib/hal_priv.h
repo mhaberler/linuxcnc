@@ -590,13 +590,6 @@ hal_find_pin_by_name(const char *name);
 
 
 
-/** 'find_pin_by_sig()' finds pin(s) that are linked to a specific signal.
-    If 'start' is NULL, it starts at the beginning of the pin list, and
-    returns the first pin that is linked to 'sig'.  Otherwise it assumes
-    that 'start' is the value returned by a previous call, and it returns
-    the next matching pin.  If no match is found, it returns NULL
-*/
-extern hal_pin_t *halpr_find_pin_by_sig(hal_sig_t * sig, hal_pin_t * start);
 
 // private instance API:
 
