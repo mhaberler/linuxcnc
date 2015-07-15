@@ -284,6 +284,28 @@ void hal_print_error(const char *fmt, ...)
     va_end(args);
 }
 
+void hal_print_loc(const int level,
+		     const char *func,
+		     const int line,
+		     const char *topic,
+		     const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    const char *pfmt = "%s:%d %s ";
+    rtapi_snprintf(_hal_errmsg, HALPRINTBUFFERLEN, pfmt,
+		   func  == NULL ? "(nil)" : func,
+		   line,
+		   topic == NULL ? "" : topic);
+    int n = strlen(_hal_errmsg);
+
+    vsnprintf(_hal_errmsg + n, HALPRINTBUFFERLEN - n, fmt, args);
+    rtapi_print_msg(level, _hal_errmsg);
+    va_end(args);
+}
+
+
 const char *hal_lasterror(void)
 {
     return _hal_errmsg;
