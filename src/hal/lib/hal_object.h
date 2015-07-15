@@ -32,7 +32,7 @@ static inline void *hh_get_next(halhdr_t *o)
 }
 static inline void  hh_set_next(halhdr_t *o, void *next)   { dlist_add_after(&o->list, (hal_list_t *)next); }
 
-static inline int   hh_get_id(halhdr_t *o)  { return o->_id; }
+static inline int   hh_get_id(const halhdr_t *o)  { return o->_id; }
 static inline void  hh_set_id(halhdr_t *o, int id)    { o->_id = id; }
 
 static inline int   hh_get_owner_id(const halhdr_t *o){ return o->_owner_id; }
@@ -40,17 +40,18 @@ static inline void  hh_set_owner_id(halhdr_t *o, int owner) { o->_owner_id = own
 
 static inline __u32   hh_get_type(const halhdr_t *o)    { return o->_type; }
 static inline void  hh_set_type(halhdr_t *o, __u32 type){ o->_type = type; }
+const char *hh_get_typestr(const halhdr_t *hh);
 
 // this enables us to eventually drop the name from the header
 // and move to a string table
-static inline const char *hh_get_name(halhdr_t *o)    { return o->_name; }
+static inline const char *hh_get_name(const halhdr_t *o)    { return o->_name; }
 
 int hh_set_namefv(halhdr_t *o, const char *fmt, va_list ap);
 int hh_set_namef(halhdr_t *hh, const char *fmt, ...);
 
 static inline void hh_clear_name(halhdr_t *o)         { o->_name[0] = '\0'; }
 
-static inline hal_bool hh_is_valid(halhdr_t *o)       { return (o->_valid != 0); }
+static inline hal_bool hh_is_valid(const halhdr_t *o)       { return (o->_valid != 0); }
 static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
 static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 
@@ -59,8 +60,11 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 #define ho_owner_id(h)  hh_get_owner_id(&(h)->hdr)
 #define ho_name(h)  hh_get_name(&(h)->hdr)
 #define ho_type(h)  hh_get_type(&(h)->hdr)
+#define ho_typestr(h)  hh_get_typestr(&(h)->hdr)
 
-
+// print common HAL object header to a sized buffer.
+// returns number of chars used or -1 for 'too small buffer'
+int hh_snprintf(char *buf, size_t size, const halhdr_t *hh);
 
 #define add_object(h) dlist_add_before(&(h)->list, OBJECTLIST)
 #define unlink_object(h) dlist_remove_entry(&(h)->list)
