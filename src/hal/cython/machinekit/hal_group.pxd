@@ -3,21 +3,18 @@ from .rtapi cimport rtapi_atomic_type
 
 cdef extern from "hal_group.h" :
 
-    int REPORT_BEGIN
-    int REPORT_SIGNAL
-    int REPORT_PIN
-    int REPORT_END
+    # ctypedef enum report_phase_t:
+    #     REPORT_BEGIN
+    #     REPORT_SIGNAL
+    #     REPORT_PIN
+    #     REPORT_END
 
     int GROUP_REPORT_ON_CHANGE
 
-    int RESOLVE_NESTED_GROUPS
-
-    int HAL_SIGNAL
-    int HAL_GROUP
 
     ctypedef struct hal_member_t:
         int next_ptr
-        int sig_member_ptr
+        int sig_ptr
         int group_member_ptr
         int userarg1
         unsigned char eps_index
