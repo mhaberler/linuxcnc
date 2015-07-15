@@ -162,17 +162,6 @@ extern char *hal_shmem_base;
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
 
-
-/* /\** HAL "oldname" data structure. */
-/*     When a pin or parameter gets an alias, this structure is used to */
-/*     store the original name. */
-/* *\/ */
-/* typedef struct hal_oldname { */
-/*     int next_ptr;		/\* next struct (used for free list only) *\/ */
-/*     char name[HAL_NAME_LEN + 1];	/\* the original name *\/ */
-/* } hal_oldname_t; */
-
-
 /* Master HAL data structure
    There is a single instance of this structure in the machine.
    It resides at the base of the HAL shared memory block, where it
@@ -184,9 +173,7 @@ extern char *hal_shmem_base;
 typedef struct {
     int version;		/* version code for structs, etc */
     unsigned long mutex;	/* protection for linked lists, etc. */
-
     hal_s32_t shmem_avail;	/* amount of shmem left free */
-
     int shmem_bot;		/* bottom of free shmem (first free byte) */
     int shmem_top;		/* top of free shmem (1 past last free) */
 
@@ -195,11 +182,11 @@ typedef struct {
     hal_list_t funct_entry_free; // list of free funct entry structs
 
     long base_period;		/* timer period for realtime tasks */
-    int threads_running;	/* non-zero if threads are started */
-
-
     int exact_base_period;      /* if set, pretend that rtapi satisfied our
 				   period request exactly */
+
+    int threads_running;	/* non-zero if threads are started */
+
     unsigned char lock;         /* hal locking, can be one of the HAL_LOCK_* types */
 
     // since rings are realy just glorified named shm segments, allocate by map
@@ -212,6 +199,7 @@ typedef struct {
     struct rtapi_heap heap;
     unsigned char arena[0] __attribute__((aligned(16)));
     // heap grows from here
+
 } hal_data_t;
 
 /* This pointer is set by hal_init() to point to the  master data structure.
@@ -297,7 +285,6 @@ typedef struct hal_param {
     int data_ptr;		/* offset of parameter value */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
-    char name[HAL_NAME_LEN + 1];	/* parameter name */
 } hal_param_t;
 
 

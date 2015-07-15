@@ -156,19 +156,20 @@ int halg_foreach(bool use_hal_mutex,
 		    return result;
 		} else if (result > 0) {
 		    // callback signalled 'stop iterating'.
-		    // pass back the number of visited vtables.
+		    // pass back the number of visited objects sp far.
 		    return nvisited;
 		} else {
 		    // callback signalled 'OK to continue'
 		    // fall through
 		}
 	    } else {
-		// null callback passed in,
-		// just count matces
+		// null callback passed in.
+		// same meaning as returning 0 from the callback:
+		// continue iterating.
+		// return value will be the number of matches.
 	    }
 	}
-    }
-    // no match, try the next one
+    } // no match, try the next one
 
     // if we get here, we ran through all the matched objects,
     // so return match count
@@ -177,10 +178,13 @@ int halg_foreach(bool use_hal_mutex,
 
 
 #ifdef RTAPI
-
 /* EXPORT_SYMBOL(hh_set_namefv); */
 /* EXPORT_SYMBOL(hh_set_namef); */
+/* EXPORT_SYMBOL(hh_init_hdrfv); */
 /* EXPORT_SYMBOL(hh_init_hdrf); */
 /* EXPORT_SYMBOL(hh_clear_hdr); */
+/* EXPORT_SYMBOL(hh_get_typestr); */
+/* EXPORT_SYMBOL(hh_snprintf); */
+/* EXPORT_SYMBOL(free_halobject); */
 EXPORT_SYMBOL(halg_foreach);
 #endif
