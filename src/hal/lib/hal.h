@@ -523,21 +523,12 @@ typedef enum {
     HAL_PARAM         = 3,
     HAL_THREAD        = 4,
     HAL_FUNCT         = 5,
-    HAL_COMPONENT     = 6, // type tag in halhdr
+    HAL_COMPONENT     = 6,
     HAL_VTABLE        = 7,
     HAL_INST          = 8,
     HAL_RING          = 9,
     HAL_GROUP         = 10,
     HAL_MEMBER        = 11,
-
-    //unused
-    /* HAL_MEMBER_SIGNAL = 13, */
-    /* HAL_MEMBER_GROUP  = 13, */
-    /* HAL_MEMBER_PIN    = 14, */
-    /* RING_RECORD       = 16, */
-    /* RING_STREAM       = 17, */
-    /* RING_MULTIFRAME   = 20, */
-
 } hal_object_type;
 /***********************************************************************
 *                      "LOCKING" FUNCTIONS                             *
