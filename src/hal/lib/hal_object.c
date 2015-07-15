@@ -66,6 +66,35 @@ int hh_clear_hdr(halhdr_t *hh)
     return ret;
 }
 
+const char *hh_get_typestr(const halhdr_t *hh)
+{
+    switch (hh_get_type(hh)) {
+    case HAL_PIN           : return "PIN"; break;
+    case HAL_SIGNAL        : return "SIGNAL"; break;
+    case HAL_PARAM         : return "PARAM"; break;
+    case HAL_THREAD        : return "THREAD"; break;
+    case HAL_FUNCT         : return "FUNCT"; break;
+    case HAL_COMPONENT     : return "COMPONENT"; break;
+    case HAL_VTABLE        : return "VTABLE"; break;
+    case HAL_INST          : return "INST"; break;
+    case HAL_RING          : return "RING"; break;
+    case HAL_GROUP         : return "GROUP"; break;
+    case HAL_MEMBER        : return "MEMBER"; break;
+    default:  return "**invalid**"; break;
+    }
+}
+
+int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
+{
+    return rtapi_snprintf(buf, size,
+			  "%s %s id=%d owner=%d valid=%d",
+			  hh_get_typestr(hh),
+			  hh_get_name(hh),
+			  hh_get_id(hh),
+			  hh_get_owner_id(hh),
+			  hh_is_valid(hh));
+}
+
 void free_halobject(hal_object_ptr o)
 {
     unlink_object(o.hdr);
