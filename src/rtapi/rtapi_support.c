@@ -233,6 +233,9 @@ void rtapi_print_msg(int level, const char *fmt, ...) {
 #define RTAPIPRINTBUFFERLEN 256
 static char _rtapi_logmsg[RTAPIPRINTBUFFERLEN];
 
+const char *rtapi_last_msg(void) {
+    return _rtapi_logmsg;
+}
 void rtapi_print_loc(const int level,
 		     const char *func,
 		     const int line,

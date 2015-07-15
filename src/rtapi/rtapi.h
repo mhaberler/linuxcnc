@@ -303,6 +303,8 @@ void rtapi_print_loc(const int level,
 		     const char *fmt, ...)
     __attribute__((format(printf,5,6)));
 
+// returns the string the last rtapi_print_loc() call formatted to
+const char *rtapi_last_msg(void);
 
 // checking & logging shorthands
 #define RTAPIERR(fmt, ...)					\
