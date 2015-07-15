@@ -103,6 +103,40 @@ typedef struct foreach_args foreach_args_t;
 
 typedef int (*hal_object_callback_t)  (hal_object_ptr object,
 				       foreach_args_t *args);
+
+// the foreach_args_t struct serves a dual purpose:
+// - it drives object matching in the halg_foreach iterator.
+// - it has some user_* fields to pass values to/from the callback routine.
+//
+// the user_* fields have no bearing on matching - they are strictly
+// for passing values to/from the callback routine.
+
+// only the following foreach_args_t fields drive matching:
+// name type id  owner_id owning_comp
+//
+// examples:
+//
+// foreach_args_t args = { .type = HAL_PIN } will match all pins
+//
+// foreach_args_t args = { .type = HAL_PIN, .owner_id = 123 } will
+// match pins owned by comp with id 123, OR instance with id 123
+//
+// foreach_args_t args = { .type = HAL_PIN, .owning_comp = 453 } will
+// match pins owned by comp with id 123 either direcly or through an
+// instance (whose ID does not matter)
+
+// foreach_args_t args = { .type = HAL_PIN, .name = "foo" } will
+// match all pins whose name starts with 'foo'
+//
+// foreach_args_t args = { .type = HAL_PIN, .id = 789 } will
+// match exactly zero or one times depending if pin with id 789 exists or not
+//
+// foreach_args_t args = { .type = HAL_PIN, .owning_comp = 453, .id = 789 }
+// will match exactly zero or one times depending if pin with id 789 exists
+// or not, but only if owned by comp with id 453 directly or indirectly
+
+// foreach_args_t args = { .name = "bar"  } will match all objects whose name begins with "bar"
+
 typedef struct foreach_args {
     // standard selection parameters - in only:
     int type;         // one of hal_object_type or 0
