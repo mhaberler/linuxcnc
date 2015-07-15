@@ -28,15 +28,14 @@ cdef int _testme(hal_object_ptr o,  foreach_args_t *args):
     else:
         return -1
 
+cdef foreach_args_t nullargs
+
 def testiter():
     hal_required()
     names = []
-    cdef foreach_args_t args
+    # bit of a cludge - cython cant do struct initializers
+    cdef foreach_args_t args = nullargs
     args.type = HAL_PIN
-    args.id = 0
-    args.owner_id = 0
-    args.owning_comp = 0
-    args.name = NULL
     args.user_ptr1 = <void *>names
 
     rc = halg_foreach(1, &args, _testme)
