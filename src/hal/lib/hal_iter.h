@@ -129,7 +129,10 @@ static inline int halpr_foreach_ring(const char *name,
 typedef int (*hal_pin_signal_callback_t)(hal_pin_t *pin,
 					 hal_sig_t *sig,
 					 void *user);
-// iterate over pins linked to a signal.
+
+// 'halg_foreach_pin_by_signal' finds pin(s) that are linked to a specific signal.
+// the callback is executed for each pin linked to sig.
+// any user-specific argumens can be passed via 'user'
 int halg_foreach_pin_by_signal(const int use_hal_mutex,
 			       hal_sig_t *sig,
 			       hal_pin_signal_callback_t cb,
