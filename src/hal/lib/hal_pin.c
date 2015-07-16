@@ -193,7 +193,7 @@ int halg_pin_new(const int use_hal_mutex,
 	*data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
 
 	// make it visible
-	add_object(&new->hdr);
+	halg_add_object(false, (hal_object_ptr)new);
 	return 0;
     }
 }
@@ -256,5 +256,5 @@ void unlink_pin(hal_pin_t * pin)
 void free_pin_struct(hal_pin_t * pin)
 {
     unlink_pin(pin);
-    free_halobject((hal_object_ptr) pin);
+    halg_free_object(false, (hal_object_ptr) pin);
 }

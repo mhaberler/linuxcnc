@@ -49,7 +49,8 @@ int halg_export_vtable(const int use_hal_mutex,
 #else
 	vt->context = getpid(); // in per-process memory, no shareable code
 #endif
-	add_object(&vt->hdr);
+	// make it visible
+	halg_add_object(false, (hal_object_ptr)vt);
 
 	HALDBG("created vtable '%s' vtable=%p version=%d",
 	       hh_get_name(&vt->hdr), vt->vtable, vt->version);
@@ -84,7 +85,7 @@ int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 	HALDBG("vtable %s/%d version %d removed",
 	       hh_get_name(&vt->hdr), vtable_id,  vt->version);
 
-	free_halobject((hal_object_ptr)vt);
+	halg_free_object(false, (hal_object_ptr)vt);
 	return 0;
     }
 }
