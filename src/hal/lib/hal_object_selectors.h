@@ -94,7 +94,7 @@ int unlocked_delete_halobject(hal_object_ptr o, foreach_args_t *args);
 // required argument:
 //     .user_ptr1 = <callback>,
 //     .user_ptr2 = <cb_data>,
-int free_object(hal_object_ptr o, foreach_args_t *args);
+int yield_free(hal_object_ptr o, foreach_args_t *args);
 
 
 

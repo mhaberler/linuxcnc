@@ -45,8 +45,7 @@ int yield_foreach(hal_object_ptr o, foreach_args_t *args)
     return callback(o, args->user_ptr2);
 }
 
-
-int free_object(hal_object_ptr o, foreach_args_t *args)
+int yield_free(hal_object_ptr o, foreach_args_t *args)
 {
     /* HALDBG("name=%s id=%d owner=%d type=%d seltype=%d selid=%d selowner=%d", */
     /* 	   hh_get_name(o.hdr), */
@@ -68,7 +67,7 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	break;
 
     case HAL_PARAM:
-	free_halobject((hal_object_ptr)o);
+	halg_free_object(false, (hal_object_ptr)o);
 	break;
 
 #ifdef RTAPI
@@ -86,7 +85,7 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	break;
 
     case HAL_VTABLE:
-	free_halobject((hal_object_ptr)o);
+	halg_free_object(false, (hal_object_ptr)o);
 	break;
 
     case HAL_INST:
@@ -102,7 +101,7 @@ int free_object(hal_object_ptr o, foreach_args_t *args)
 	break;
 
     case HAL_MEMBER:
-	free_halobject((hal_object_ptr)o);
+	halg_free_object(false, (hal_object_ptr)o);
 	break;
 
     default:

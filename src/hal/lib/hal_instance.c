@@ -61,7 +61,7 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	    *(inst_data) = m;
 
 	// make it visible
-	add_object(&inst->hdr);
+	halg_add_object(false, (hal_object_ptr)inst);
 	return ho_id(inst);
     }
 }
@@ -100,7 +100,7 @@ void free_inst_struct(hal_inst_t * inst)
 #ifdef RTAPI
 
     args.type = HAL_FUNCT;
-    halg_foreach(0, &args, free_object);
+    halg_foreach(0, &args, yield_free);
 
     // now that the funct is gone, call the dtor for this instance
     // get owning comp
@@ -119,11 +119,11 @@ void free_inst_struct(hal_inst_t * inst)
 #endif // RTAPI
 
     args.type = HAL_PIN;
-    halg_foreach(0, &args, free_object);  // free pins
+    halg_foreach(0, &args, yield_free);  // free pins
 
     args.type = HAL_PARAM;
-    halg_foreach(0, &args, free_object);  // free params
+    halg_foreach(0, &args, yield_free);  // free params
 
     // now we can delete the instance itself
-    free_halobject((hal_object_ptr) inst);
+    halg_free_object(false, (hal_object_ptr) inst);
 }

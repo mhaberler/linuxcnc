@@ -83,7 +83,7 @@ int halg_signal_new(const int use_hal_mutex,
 	new->bidirs = 0;
 
 	// make it visible
-	add_object(&new->hdr);
+	halg_add_object(false, (hal_object_ptr)new);
     }
     return 0;
 }
@@ -292,5 +292,5 @@ void free_sig_struct(hal_sig_t * sig)
 {
     // unlink any pins linked to this signal
     halg_foreach_pin_by_signal(0, sig, unlink_pin_callback, NULL);
-    free_halobject((hal_object_ptr) sig);
+    halg_free_object(false, (hal_object_ptr) sig);
 }

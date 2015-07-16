@@ -117,7 +117,7 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 	nf->maxtime = 0;
 	nf->maxtime_increased = 0;
 
-	add_object(&nf->hdr);
+	halg_add_object(false, (hal_object_ptr)nf);
     }
     // unlocked here
 
@@ -467,6 +467,6 @@ void free_funct_struct(hal_funct_t * funct)
 	};
 	halg_foreach(0, &args, thread_cb);
     }
-    free_halobject((hal_object_ptr) funct);
+    halg_free_object(false, (hal_object_ptr) funct);
 }
 #endif

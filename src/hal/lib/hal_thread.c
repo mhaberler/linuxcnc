@@ -202,7 +202,7 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
 	dlist_add_before(&new->thread, &hal_data->threads);
 
 	// make it visible
-	add_object(&new->hdr);
+	halg_add_object(false, (hal_object_ptr)new);
 
     } // exit block protected by scoped lock
 
@@ -300,6 +300,6 @@ void free_thread_struct(hal_thread_t * thread)
     }
     // remove from priority list
     dlist_remove_entry(&thread->thread);
-    free_halobject((hal_object_ptr) thread);
+    halg_free_object(false, (hal_object_ptr) thread);
 }
 #endif /* RTAPI */
