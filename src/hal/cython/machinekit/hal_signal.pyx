@@ -7,7 +7,7 @@ cdef class Signal:
     cdef hal_data_u *_storage
 
     def _alive_check(self):
-        if self._handle != self._sig.handle:
+        if self._handle != hh_get_id(&self._sig.hdr):
             # the underlying HAL signal was deleted.
             raise RuntimeError("link: underlying HAL signal already deleted")
 
@@ -43,14 +43,14 @@ cdef class Signal:
                     raise RuntimeError("BUG: couldnt lookup signal %s" % name)
 
         self._storage = <hal_data_u *>shmptr(self._sig.data_ptr)
-        self._handle = self._sig.handle  # memoize for liveness check
+        self._handle = hh_get_id(&self._sig.hdr)  # memoize for liveness check
         if init:
             self.set(init)
 
     def link(self, *pins):
         self._alive_check()
         for p in pins:
-            net(self._sig.name, p)
+            net(hh_get_name(&self._sig.hdr), p)
 
     def __iadd__(self, pins):
         self._alive_check()
@@ -83,7 +83,7 @@ cdef class Signal:
 
     def delete(self):
         # this will cause a handle mismatch if later operating on a deleted signal wrapper
-        r = hal_signal_delete(self._sig.name)
+        r = hal_signal_delete(hh_get_name(&self._sig.hdr))
         if (r < 0):
             raise RuntimeError("Fail to delete signal %s: %s" % (self._name, hal_lasterror()))
 
@@ -91,7 +91,7 @@ cdef class Signal:
         self._alive_check()
         if self._sig.writers > 0:
             raise RuntimeError("Signal %s already as %d writer(s)" %
-                                      (self._sig.name, self._sig.writers))
+                                      (hh_get_name(&self._sig.hdr), self._sig.writers))
         return py2hal(self._sig.type, self._storage, v)
 
     def get(self):
@@ -112,7 +112,7 @@ cdef class Signal:
         with HALMutex():
             p = halpr_find_pin_by_sig(self._sig,p)
             while p != NULL:
-                pinnames.append(p.name)
+                pinnames.append(hh_get_name(&p.hdr))
                 p = halpr_find_pin_by_sig(self._sig, p)
 
         pinlist = []
@@ -124,7 +124,7 @@ cdef class Signal:
     property name:
         def __get__(self):
             self._alive_check()
-            return self._sig.name
+            return hh_get_name(&self._sig.hdr)
 
     property writername:
         def __get__(self):
@@ -161,26 +161,48 @@ cdef class Signal:
     property handle:
         def __get__(self):
             self._alive_check()
-            return self._sig.handle
+            return hh_get_id(&self._sig.hdr)
 
     def __repr__(self):
         return "<hal.Signal %s %s %s>" % (self.name,
                                           describe_hal_type(self.type),
                                           self.get())
 
+# cdef modifier_name(hal_sig_t *sig, int dir):
+#      cdef hal_pin_t *pin
+#      cdef int next
 
+#      with HALMutex():
+#          next = hal_data.pin_list_ptr
+#          while next != 0:
+#              pin = <hal_pin_t *>shmptr(next)
+#              if <hal_sig_t *>shmptr(pin.signal) == sig and pin.dir == dir:
+#                  return pin.name
+#              next = pin.next_ptr
+#      return None
+
+cdef int _find_writer(hal_object_ptr o,  foreach_args_t *args):
+    cdef hal_pin_t *pin
+    pin = o.pin
+    if <hal_sig_t *>shmptr(pin.signal) == args.user_ptr1 and pin.dir == args.user_arg1:
+        result =  <object>args.user_ptr2
+        result.append(hh_get_name(o.hdr))
+        if pin.dir == HAL_OUT:
+            return 1  # stop iteration, there can only be one writer
+    return 0 # continue
+
+# find the names of pins which modify a given signal
+# can be a name on dir == HAL_OUT or a list of names on HAL_IO
 cdef modifier_name(hal_sig_t *sig, int dir):
-     cdef hal_pin_t *pin
-     cdef int next
+    names = []
+    cdef foreach_args_t args = nullargs
+    args.type = hal_const.HAL_PIN
+    args.user_arg1 = dir
+    args.user_ptr1 = <void *>sig
+    args.user_ptr2 = <void *>names
 
-     with HALMutex():
-         next = hal_data.pin_list_ptr
-         while next != 0:
-             pin = <hal_pin_t *>shmptr(next)
-             if <hal_sig_t *>shmptr(pin.signal) == sig and pin.dir == dir:
-                 return pin.name
-             next = pin.next_ptr
-     return None
+    rc = halg_foreach(1, &args, _find_writer)
+    return names
 
 
 cdef _newsig(char *name, int type, init=None):

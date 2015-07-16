@@ -95,7 +95,8 @@ int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 			  hh_is_valid(hh));
 }
 
-
+// iterator callback for halg_add_object()
+// determines insertion point
 static int find_previous(hal_object_ptr o, foreach_args_t *args)
 {
     hal_object_ptr new = (hal_object_ptr) args->user_ptr1;
@@ -226,6 +227,7 @@ int halg_foreach(bool use_hal_mutex,
 /* EXPORT_SYMBOL(hh_clear_hdr); */
 /* EXPORT_SYMBOL(hh_get_typestr); */
 /* EXPORT_SYMBOL(hh_snprintf); */
-/* EXPORT_SYMBOL(free_halobject); */
+/* EXPORT_SYMBOL(halg_add_object); */
+/* EXPORT_SYMBOL(halg_free_object); */
 EXPORT_SYMBOL(halg_foreach);
 #endif

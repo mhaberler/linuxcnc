@@ -285,10 +285,10 @@ void hal_print_error(const char *fmt, ...)
 }
 
 void hal_print_loc(const int level,
-		     const char *func,
-		     const int line,
-		     const char *topic,
-		     const char *fmt, ...)
+		   const char *func,
+		   const int line,
+		   const char *topic,
+		   const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);

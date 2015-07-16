@@ -5,7 +5,7 @@
 cdef int _collect_pin_names(hal_pin_t *pin,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):
-        arg.append(pin.name)
+        arg.append(hh_get_name(&pin.hdr))
         return 0
     else:
         return -1
