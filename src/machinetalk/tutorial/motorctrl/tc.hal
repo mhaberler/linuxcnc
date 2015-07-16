@@ -1,0 +1,28 @@
+sete 1 0.001
+newcomp motorctrl timer=100 # acceptdefaults
+newpin motorctrl motorctrl.cmd_maxacc    float out
+newpin motorctrl motorctrl.cmd_maxvel    float out
+newpin motorctrl motorctrl.cmd_pos       float out
+newpin motorctrl motorctrl.fb_acc        float in eps=1
+newpin motorctrl motorctrl.fb_acc.scale  float in eps=1
+newpin motorctrl motorctrl.fb_pos        float in eps=1
+newpin motorctrl motorctrl.fb_pos.scale  float in eps=1
+newpin motorctrl motorctrl.fb_vel        float in eps=1
+newpin motorctrl motorctrl.fb_vel.scale  float in eps=1
+newpin motorctrl motorctrl.led1          bit in
+newpin motorctrl motorctrl.lowpass_gain  float out
+newpin motorctrl motorctrl.scope_trigger bit out
+newpin motorctrl motorctrl.togglebutton1 bit out
+newpin motorctrl motorctrl.togglebutton1-not bit out
+ready  motorctrl
+
+newsig curr-pos float
+newsig curr-vel float
+newsig curr-acc float
+newsig led bit
+
+newg dro 100
+newm dro led
+newm dro curr-pos
+newm dro curr-vel
+newm dro curr-acc

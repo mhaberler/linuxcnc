@@ -1,5 +1,5 @@
 from .hal_priv cimport MAX_EPSILON, hal_data_u
-from .hal_util cimport shmptr, pin_linked, linked_signal
+from .hal_util cimport shmptr, pin_linked, linked_signal,py2hal,hal2py
 
 
 def describe_hal_type(haltype):
@@ -52,7 +52,7 @@ cdef class _Pin:
                 raise RuntimeError("Fail to allocate HAL memory for pin %s" % name)
 
             name = "{}.{}".format(comp.name, name)
-            r = hal_pin_new(name, t, dir, <void **>(self._storage), (<Component>comp)._comp.comp_id)
+            r = hal_pin_new(name, t, dir, <void **>(self._storage), (<Component>comp).ho_id(comp))
             if r:
                 raise RuntimeError("Fail to create pin %s: %d %s" % (name, r, hal_lasterror()))
             with HALMutex():
@@ -65,7 +65,7 @@ cdef class _Pin:
     property signame:
         def __get__(self):
             if not  pin_linked(self._pin): return None  # raise exception?
-            return linked_signal(self._pin).name
+            return hh_get_name(&linked_signal(self._pin).hdr)
 
     property signal:
         def __get__(self):
@@ -82,14 +82,15 @@ cdef class _Pin:
         def __get__(self): return self._pin.eps_index
         def __set__(self, int eps):
             if (eps < 0) or (eps > MAX_EPSILON-1):
-                raise RuntimeError("pin %s : epsilon index out of range" % (self._pin.name, eps))
+                raise RuntimeError("pin %s : epsilon index out of range" %
+                                   (hh_get_name(&self._pin.hdr), eps))
             self._pin.eps_index = eps
 
     property handle:
-        def __get__(self): return self._pin.handle
+        def __get__(self): return hh_get_id(&self._pin.hdr)
 
     property name:
-        def __get__(self): return self._pin.name
+        def __get__(self): return hh_get_name(&self._pin.hdr)
 
     property dir:
         def __get__(self): return self._pin.dir
@@ -108,17 +109,18 @@ cdef class _Pin:
         return self.link(pins)
 
     def unlink(self):
-        r = hal_unlink(self._pin.name)
+        r = hal_unlink(hh_get_name(&self._pin.hdr))
         if r:
             raise RuntimeError("Failed to unlink pin %s: %d - %s" %
-                               (self._pin.name, r, hal_lasterror()))
+                               (hh_get_name(&self._pin.hdr), r, hal_lasterror()))
 
     def _set(self, v):
         cdef hal_data_u *_dptr
         if self._storage == NULL: # an existing pin, wrapped
 
             if pin_linked(self._pin):
-                raise RuntimeError("cannot set value of linked pin %s:" % self._pin.name)
+                raise RuntimeError("cannot set value of linked pin %s:" %
+                                   hh_get_name(&self._pin.hdr))
 
             # retrieve address of dummy signal
             _dptr = <hal_data_u *>&self._pin.dummysig

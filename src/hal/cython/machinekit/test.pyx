@@ -13,10 +13,8 @@ from .hal_objectops cimport *
 from cpython.bool cimport *
 from os import strerror,getpid
 
-HAL_PIN = hal_const.HAL_PIN
+
 TYPE_USER =    hal_const.TYPE_USER
-
-
 
 # testiter callback: add pin names into list
 cdef int _testme(hal_object_ptr o,  foreach_args_t *args):
@@ -35,7 +33,7 @@ def testiter():
     names = []
     # bit of a cludge - cython cant do struct initializers
     cdef foreach_args_t args = nullargs
-    args.type = HAL_PIN
+    args.type = hal_const.HAL_PIN
     args.user_ptr1 = <void *>names
 
     rc = halg_foreach(1, &args, _testme)

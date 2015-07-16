@@ -784,28 +784,6 @@ char **halcmd_completer(const char *text, int start, int end, hal_completer_func
     } else if(startswith(buffer, "linksp ") && argno == 2) {
         check_match_type_signal(buffer + 7);
         result = func(text, pin_generator);
-    } else if (startswith(buffer, "alias ")) {
-        if (argno == 1) {
-            result = completion_matches_table(text, alias_table, func);
-        } else if (argno == 2) {
-            n = nextword(buffer);
-            if (startswith(n, "pin")) {
-                result = func(text, pin_generator);
-            } else if (startswith(n, "param")) {
-                result = func(text, parameter_generator);
-            }
-        }
-    } else if(startswith(buffer, "unalias ")) {
-        if (argno == 1) {
-            result = completion_matches_table(text, alias_table, func);
-        } else if (argno == 2) {
-            n = nextword(buffer);
-            if (startswith(n, "pin")) {
-                result = func(text, pin_alias_generator);
-            } else if (startswith(n, "param")) {
-                result = func(text, parameter_alias_generator);
-            }
-        }
     } else if(startswith(buffer, "linkpp ") && argno == 1) {
         result = func(text, pin_generator);
     } else if(startswith(buffer, "linkpp ") && argno == 2) {

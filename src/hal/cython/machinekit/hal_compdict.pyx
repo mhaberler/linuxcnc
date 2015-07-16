@@ -4,7 +4,7 @@
 cdef int _collect_comp_names(hal_comp_t *comp,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):
-        arg.append(comp.name)
+        arg.append(hh_get_name(&comp.hdr))
         return 0
     else:
         return -1

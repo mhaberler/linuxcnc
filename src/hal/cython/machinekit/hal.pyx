@@ -6,15 +6,19 @@
 
 # made usable: Michael Haberler 6/2014
 
+
+
 cimport cython
 cimport hal_const
 cimport ring_const
 from .hal cimport *
 from .rtapi cimport *
+#from .hal_object cimport *
 from .hal_priv cimport *
 from .hal_rcomp cimport *
 from .hal_ring cimport *
 from .hal_iter cimport *
+from .hal_objectops cimport *
 
 from os import strerror,getpid
 
@@ -23,6 +27,12 @@ class ComponentExit(Exception):
 
 class InternalError(Exception):
     pass
+
+# hack needed to zero-init foreach_args_t
+# Cython cannot zero-init a struct
+# the following line will emit a static nullargs
+# which can be copied from to zero-init foreach_args_t
+cdef foreach_args_t nullargs
 
 
 TYPE_INVALID = hal_const.TYPE_INVALID
@@ -81,17 +91,17 @@ include "hal_pindict.pyx"
 include "hal_signal.pyx"
 include "hal_component.pyx"
 include "hal_compdict.pyx"
-include "hal_inst.pyx"
-include "hal_instdict.pyx"
-include "hal_threads.pyx"
-include "hal_funct.pyx"
+# include "hal_inst.pyx"
+# include "hal_instdict.pyx"
+# include "hal_threads.pyx"
+# include "hal_funct.pyx"
 include "hal_sigdict.pyx"
-include "hal_epsilon.pyx"
+# include "hal_epsilon.pyx"
 include "hal_net.pyx"
-include "hal_ring.pyx"
-include "hal_group.pyx"
-include "hal_loadusr.pyx"
-include "hal_rcomp.pyx"
+# include "hal_ring.pyx"
+# include "hal_group.pyx"
+# include "hal_loadusr.pyx"
+# include "hal_rcomp.pyx"
 
 # list of component ID's to hal_exit() on unloading the module
 cdef list _comps = []
