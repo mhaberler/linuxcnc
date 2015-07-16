@@ -95,10 +95,51 @@ int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 			  hh_is_valid(hh));
 }
 
-void free_halobject(hal_object_ptr o)
+
+static int find_previous(hal_object_ptr o, foreach_args_t *args)
 {
-    unlink_object(o.hdr);
+    hal_object_ptr new = (hal_object_ptr) args->user_ptr1;
+
+    // compare the name of the current object to the name of
+    // the object to be inserted:
+    int ret = strcmp(hh_get_name(new.hdr), hh_get_name(o.hdr));
+    if (ret < 0) {
+	// advance point of insertion:
+	args->user_ptr2 = (void *)&o.hdr->list;
+	return 1; // stop iteration
+    }
+    return 0; // continue iteration
+}
+
+void halg_add_object(const bool use_hal_mutex,
+		     hal_object_ptr o)
+{
+    // args.user_ptr2 is the potential point of insertion
+    // for the new object within the object list.
+    // start at head, and iterate over objects of the same type.
+    foreach_args_t args =  {
+	// visit objects of the same type as the one to be inserted:
+	.type = hh_get_type(o.hdr),
+	// object to be inserted
+	.user_ptr1 = o.any,
+	// current head
+	.user_ptr2 = OBJECTLIST,
+    };
+    halg_foreach(0, &args, find_previous);
+    // insert new object after the new insertion point.
+    // if nothing found, insert after head.
+    dlist_add_before(&o.hdr->list, args.user_ptr2);
+}
+
+void halg_free_object(const bool use_hal_mutex,
+		      hal_object_ptr o)
+{
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
+    // unlink from list of active objects
+    dlist_remove_entry(&o.hdr->list);
+    // zap the header, including valid bit
     hh_clear_hdr(o.hdr);
+    // return descriptor memory to HAL heap
     shmfree_desc(o.hdr);
 }
 

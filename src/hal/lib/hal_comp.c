@@ -210,7 +210,7 @@ int halg_xinit(const int use_hal_mutex,
 	comp->insmod_args = 0;
 
 	// make it visible
-	add_object(&comp->hdr);
+	halg_add_object(false, (hal_object_ptr)comp);
     }
     // scope exited - mutex released
 
@@ -391,7 +391,7 @@ void free_comp_struct(hal_comp_t * comp)
 	.type = HAL_FUNCT,
 	.owner_id  = ho_id(comp),
     };
-    halg_foreach(0, &args, free_object);
+    halg_foreach(0, &args, yield_free);
 
     // here, technically all the comp's functs are
     // delf'd and not visible anymore
@@ -403,7 +403,7 @@ void free_comp_struct(hal_comp_t * comp)
 	.type = HAL_INST,
 	.owner_id  = ho_id(comp),
     };
-    halg_foreach(0, &iargs, free_object);
+    halg_foreach(0, &iargs, yield_free);
 
     // here all insts, their pins, params and functs are gone.
 
@@ -416,17 +416,17 @@ void free_comp_struct(hal_comp_t * comp)
 	.type = HAL_PIN,
 	.owner_id  = ho_id(comp),
     };
-    halg_foreach(0, &pinargs, free_object);
+    halg_foreach(0, &pinargs, yield_free);
 
     foreach_args_t paramargs =  {
 	// wipe params owned by this comp
 	.type = HAL_PARAM,
 	.owner_id  = ho_id(comp),
     };
-    halg_foreach(0, &paramargs, free_object);
+    halg_foreach(0, &paramargs, yield_free);
 
     //  now we can delete the component itself.
-    free_halobject((hal_object_ptr)comp);
+    halg_free_object(false, (hal_object_ptr)comp);
 }
 
 #ifdef RTAPI

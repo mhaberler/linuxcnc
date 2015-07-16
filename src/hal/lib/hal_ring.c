@@ -106,7 +106,7 @@ int hal_ring_new(const char *name,
 	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
 
 	// make it visible
-	add_object(&rbdesc->hdr);
+	halg_add_object(false, (hal_object_ptr)rbdesc);
 
     } // automatic unlock by scope exit
     return 0;
@@ -166,7 +166,7 @@ int free_ring_struct(hal_ring_t *hrptr)
 	}
     }
     // free descriptor
-    free_halobject((hal_object_ptr)hrptr);
+    halg_free_object(false, (hal_object_ptr)hrptr);
     return 0;
 }
 

@@ -34,7 +34,7 @@ int hal_group_new(const char *name, int arg1, int arg2)
 	group->userarg1 = arg1;
 	group->userarg2 = arg2;
 
-	add_object(&group->hdr);
+	halg_add_object(false, (hal_object_ptr)group);
 	return 0;
     }
 }
@@ -130,7 +130,7 @@ int hal_member_new(const char *group, const char *member,
 	new->userarg1 = arg1;
 	new->eps_index = eps_index;
 
-	add_object(&new->hdr);
+	halg_add_object(false, (hal_object_ptr)new);
 	return 0;
     }
 }
@@ -165,7 +165,7 @@ int hal_member_delete(const char *group, const char *member)
 	    return -ENOENT;
 	}
 	HALDBG("deleting member '%s' from group '%s'",  member, group);
-	free_halobject((hal_object_ptr) mptr);
+	halg_free_object(false, (hal_object_ptr) mptr);
     }
     return 0;
 }
@@ -405,7 +405,7 @@ void free_group_struct(hal_group_t * group)
 	.type = HAL_MEMBER,
 	.owner_id = ho_id(group),
     };
-    halg_foreach(0, &args, free_object);
-    free_halobject((hal_object_ptr)group);
+    halg_foreach(0, &args, yield_free);
+    halg_free_object(false, (hal_object_ptr)group);
 }
 

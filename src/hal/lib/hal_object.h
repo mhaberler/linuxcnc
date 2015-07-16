@@ -66,10 +66,13 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 // returns number of chars used or -1 for 'too small buffer'
 int hh_snprintf(char *buf, size_t size, const halhdr_t *hh);
 
-#define add_object(h) dlist_add_before(&(h)->list, OBJECTLIST)
-#define unlink_object(h) dlist_remove_entry(&(h)->list)
+// adds a HAL object into the object list with partial ordering:
+// all objects of the same type will be kept sorted by name.
+void halg_add_object(const bool use_hal_mutex,  hal_object_ptr o);
 
-void free_halobject(hal_object_ptr o);
+// free a HAL object
+// invalidates and removes the object, and frees the descriptor.
+void halg_free_object(const bool use_hal_mutex, hal_object_ptr o);
 
 
 // initialize a HAL object header with unique ID and name,

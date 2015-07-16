@@ -169,7 +169,7 @@ int hal_param_new(const char *name,
 	new->dir = dir;
 
 	// make it visible
-	add_object(&new->hdr);
+	halg_add_object(false, (hal_object_ptr)new);
     }
     return 0;
 }
