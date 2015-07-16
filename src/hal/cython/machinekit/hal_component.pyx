@@ -33,7 +33,7 @@ cdef class Component:
     def newpin(self, *a, **kw):
         if self._comp.state != COMP_INITIALIZING:
             raise RuntimeError("component %s: cannot add pin in state %d" %
-                               (self._comp.name,self._comp.state))
+                               (hh_get_name(&self._comp.hdr),self._comp.state))
         p =  Pin(self, *a,**kw)
         self._itemdict[a[0]] = p
         return p
@@ -41,13 +41,15 @@ cdef class Component:
     def __getitem__(self, name):
         if name in self._itemdict:
             return self._itemdict[name].get()
-        raise KeyError("component %s: nonexistent pin %s" % (self._comp.name, name))
+        raise KeyError("component %s: nonexistent pin %s" %
+                       (hh_get_name(&self._comp.hdr), name))
 
     def __setitem__(self, name, value):
         if name in self._itemdict:
             self._itemdict[name].set(value)
         else:
-            raise KeyError("component %s: nonexistent pin %s" % (self._comp.name, name))
+            raise KeyError("component %s: nonexistent pin %s" %
+                           (hh_get_name(&self._comp.hdr), name))
 
     def pins(self):
         ''' return list of Pin objects owned by this component, which includes all instance pins'''
@@ -56,10 +58,10 @@ cdef class Component:
 
         pinnames = []
         with HALMutex():
-            p = halpr_find_pin_by_owner_id(self._comp.comp_id, p)
+            p = halpr_find_pin_by_owner_id(hh_get_id(&self._comp.hdr), p)
             while p != NULL:
-                pinnames.append(p.name)
-                p = halpr_find_pin_by_owner_id(self._comp.comp_id, p)
+                pinnames.append(hh_get_name(&p.hdr))
+                p = halpr_find_pin_by_owner_id(hh_get_id(&self._comp.hdr), p)
 
         pinlist = []
         for n in pinnames:
@@ -75,49 +77,51 @@ cdef class Component:
     def exit(self):
         if self._cc != NULL:
             hal_ccomp_free(self._cc)
-        if self._comp.comp_id > 0:
-            hal_exit(self._comp.comp_id)
+        if hh_get_id(&self._comp.hdr) > 0:
+            hal_exit(hh_get_id(&self._comp.hdr))
         # not sure this is a good idea:
         #raise ComponentExit("component %s exited" % self._comp.name)
 
     def ready(self):
-        rc = hal_ready(self._comp.comp_id)
+        rc = hal_ready(hh_get_id(&self._comp.hdr))
         if rc:
             raise RuntimeError("Failed to ready component '%s' - %d : %d - %s" %
-                               (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                               (hh_get_name(&self._comp.hdr),
+                                hh_get_id(&self._comp.hdr),
+                                rc, hal_lasterror()))
 
     def bind(self):
-        rc = hal_bind(self._comp.name)
+        rc = hal_bind(hh_get_name(&self._comp.hdr))
         if rc < 0:
             raise RuntimeError("Failed to bind component '%s' - %d : %d - %s" %
-                               (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                               (hh_get_name(&self._comp.hdr),hh_get_id(&self._comp.hdr), rc, hal_lasterror()))
 
     def unbind(self):
-        rc = hal_unbind(self._comp.name)
+        rc = hal_unbind(hh_get_name(&self._comp.hdr))
         if rc < 0:
            raise RuntimeError("Failed to unbind component '%s' - %d : %d - %s" %
-                               (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                               (hh_get_name(&self._comp.hdr),hh_get_id(&self._comp.hdr), rc, hal_lasterror()))
 
     def acquire(self, int pid):
-        rc = hal_acquire(self._comp.name, pid)
+        rc = hal_acquire(hh_get_name(&self._comp.hdr), pid)
         if rc < 0:
             raise RuntimeError("Failed to acquire component '%s' - %d : %d - %s" %
-                               (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                               (hh_get_name(&self._comp.hdr),hh_get_id(&self._comp.hdr), rc, hal_lasterror()))
 
     def release(self):
-        rc = hal_release(self._comp.name)
+        rc = hal_release(hh_get_name(&self._comp.hdr))
         if rc < 0:
             raise RuntimeError("Failed to release component '%s' - %d : %d - %s" %
-                               (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                               (hh_get_name(&self._comp.hdr),hh_get_id(&self._comp.hdr), rc, hal_lasterror()))
 
     property name:
-        def __get__(self): return self._comp.name
+        def __get__(self): return hh_get_name(&self._comp.hdr)
 
     property type:
         def __get__(self): return self._comp.type
 
     property id:
-        def __get__(self): return self._comp.comp_id
+        def __get__(self): return hh_get_name(&self._comp.hdr)
 
     property pid:
         def __get__(self): return self._comp.pid
@@ -156,14 +160,18 @@ cdef class Component:
 
     def changed(self,  userdata=None, report_all=False):
         if self._cc == NULL:
-            rc = hal_compile_comp(self._comp.name, &self._cc)
+            rc = hal_compile_comp(hh_get_name(&self._comp.hdr), &self._cc)
             if rc < 0:
                 raise RuntimeError("Failed to compile component '%s' - %d : %d - %s" %
-                                   (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                                   (hh_get_name(&self._comp.hdr),
+                                    hh_get_name(&self._comp.hdr),
+                                    rc, hal_lasterror()))
         nchanged = hal_ccomp_match(self._cc)
         if nchanged < 0:
                 raise RuntimeError("hal_ccomp_match failed '%s' - %d : %d - %s" %
-                                   (self._comp.name,self._comp.comp_id, rc, hal_lasterror()))
+                                   (hh_get_name(&self._comp.hdr),
+                                    hh_get_name(&self._comp.hdr),
+                                    rc, hal_lasterror()))
         if nchanged == 0 and not report_all:
             return 0
         rc = hal_ccomp_report(self._cc, comp_callback, <void *>userdata, int(report_all))
@@ -176,13 +184,17 @@ cdef class Component:
 # a callable
 # a list
 # fail changed() if not one of the above
-cdef int comp_callback(int phase, hal_compiled_comp_t * cc, hal_pin_t *p,hal_data_u *value,void *userdata):
+cdef int comp_callback(int phase,
+                       hal_compiled_comp_t * cc,
+                       hal_pin_t *p,
+                       hal_data_u *value,
+                       void *userdata):
     arg =  <object>userdata
     if callable(arg):
         if phase == REPORT_BEGIN:
             (arg)(phase, None, None)
         elif phase == REPORT_PIN:
-            (arg)(phase, p.name,pin_value(p))
+            (arg)(phase, hh_get_name(&p.hdr),pin_value(p))
         elif phase == REPORT_END:
             (arg)(phase, None, None)
         else:
@@ -191,7 +203,7 @@ cdef int comp_callback(int phase, hal_compiled_comp_t * cc, hal_pin_t *p,hal_dat
 
     if  isinstance(arg, list):
         if phase == REPORT_PIN:
-            arg.append((p.name,pin_value(p)))
+            arg.append((hh_get_name(&p.hdr),pin_value(p)))
         elif phase == REPORT_BEGIN:
             del arg[0:len(arg)]  # clear result list
         return 0

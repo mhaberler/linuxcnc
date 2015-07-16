@@ -4,7 +4,7 @@
 cdef int _collect_sig_names(hal_sig_t *sig,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):
-        arg.append(sig.name)
+        arg.append(hh_get_name(&sig.hdr))
         return 0
     else:
         return -1
