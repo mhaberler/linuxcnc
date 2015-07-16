@@ -1,0 +1,10 @@
+newsig curr-pos float
+newsig curr-vel float
+newsig curr-acc float
+newsig led bit
+
+newg dro 100
+newm dro led
+newm dro curr-pos
+newm dro curr-vel
+newm dro curr-acc
