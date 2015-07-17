@@ -11,15 +11,14 @@ RTAPI_BEGIN_DECLS
 // hence hdr.owner_id == 0
 typedef struct hal_group {
     halhdr_t hdr;		// common HAL object header
-    int refcount;               /* advisory by using code */
     int userarg1;	        /* interpreted by using layer */
     int userarg2;	        /* interpreted by using layer */
 } hal_group_t;
 
 // members are subordinate to a group identified by the group_id
 // in the hdr.
-// a member may refer to a group, or a signal, identified by
-// member_id.
+// a member refers to a signal of the same name,
+// through sig_ptr (for performance reasons).
 typedef struct hal_member {
     halhdr_t hdr;		// common HAL object header
     int sig_ptr;                // refers to a signal descriptor

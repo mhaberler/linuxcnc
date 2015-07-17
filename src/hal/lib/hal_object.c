@@ -63,6 +63,7 @@ int hh_clear_hdr(halhdr_t *hh)
     hh_set_owner_id(hh, 0);
     hh_clear_name(hh);
     hh_set_invalid(hh);
+    hh->_refcnt = 0;
     return ret;
 }
 
@@ -87,11 +88,12 @@ const char *hh_get_typestr(const halhdr_t *hh)
 int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 {
     return rtapi_snprintf(buf, size,
-			  "%s %s id=%d owner=%d valid=%d",
+			  "%s %s id=%d owner=%d valid=%d refcnt=%d",
 			  hh_get_typestr(hh),
 			  hh_get_name(hh),
 			  hh_get_id(hh),
 			  hh_get_owner_id(hh),
+			  hh_get_refcnt(hh),
 			  hh_is_valid(hh));
 }
 
@@ -132,16 +134,25 @@ void halg_add_object(const bool use_hal_mutex,
     dlist_add_before(&o.hdr->list, args.user_ptr2);
 }
 
-void halg_free_object(const bool use_hal_mutex,
+int halg_free_object(const bool use_hal_mutex,
 		      hal_object_ptr o)
 {
     WITH_HAL_MUTEX_IF(use_hal_mutex);
+
+    if (hh_get_refcnt(o.hdr)) {
+	HALERR("not deleting %s %s - still referenced (refcount=%d)",
+	       hh_get_typestr(o.hdr),
+	       hh_get_name(o.hdr),
+	       hh_get_refcnt(o.hdr));
+	return -EBUSY;
+    }
     // unlink from list of active objects
     dlist_remove_entry(&o.hdr->list);
     // zap the header, including valid bit
     hh_clear_hdr(o.hdr);
     // return descriptor memory to HAL heap
     shmfree_desc(o.hdr);
+    return 0;
 }
 
 int halg_foreach(bool use_hal_mutex,

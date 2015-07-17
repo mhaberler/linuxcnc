@@ -41,7 +41,6 @@ int halg_export_vtable(const int use_hal_mutex,
 	    NOMEM("vtable '%s'",  name);
 
 	hh_init_hdrf(&vt->hdr, HAL_VTABLE, comp_id, "%s", name);
-	vt->refcount = 0;
 	vt->vtable  =  vtref;
 	vt->version =  version;
 #ifdef RTAPI
@@ -76,17 +75,16 @@ int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 	    return -ENOENT;
 	}
 	// still referenced?
-	if (vt->refcount > 0) {
+	if (ho_referenced(vt)) {
 	    HALERR("vtable %d busy (refcount=%d)",
-		   vtable_id, vt->refcount);
+		   vtable_id, ho_refcnt(vt));
 	    return -ENOENT;
 
 	}
 	HALDBG("vtable %s/%d version %d removed",
 	       hh_get_name(&vt->hdr), vtable_id,  vt->version);
 
-	halg_free_object(false, (hal_object_ptr)vt);
-	return 0;
+	return halg_free_object(false, (hal_object_ptr)vt);
     }
 }
 
@@ -125,7 +123,8 @@ int halg_reference_vtable(const int use_hal_mutex,
 	    return -ENOENT;
 	}
 
-	vt->refcount += 1;
+	ho_incref(vt);
+
 	*vtableref = vt->vtable;
 	HALDBG("vtable %s,%d found vtable=%p context=%d",
 	       hh_get_name(&vt->hdr), vt->version, vt->vtable, vt->context);
@@ -161,11 +160,10 @@ int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
 		   hh_get_name(&vt->hdr), vtable_id, context, vt->context);
 	    return -ENOENT;
 	}
-
-	vt->refcount -= 1;
+	ho_decref(vt);
 	HALDBG("vtable %s/%d refcount=%d",
 	       hh_get_name(&vt->hdr),
-	       vtable_id, vt->refcount);
+	       vtable_id, ho_refcnt(vt));
 
 	// automatic unlock by scope exit
 	return 0;
