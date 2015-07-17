@@ -44,7 +44,6 @@
 #include "rtapi_compat.h"
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"	/* private HAL decls */
-#include "hal_iter.h"
 #include "hal_ring.h"	        /* ringbuffer declarations */
 #include "hal_group.h"	        /* group/member declarations */
 #include "hal_rcomp.h"	        /* remote component declarations */

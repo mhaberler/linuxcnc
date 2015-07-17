@@ -8,7 +8,6 @@ from .rtapi cimport *
 from .hal_priv cimport *
 from .hal_rcomp cimport *
 from .hal_ring cimport *
-from .hal_iter cimport *
 from .hal_objectops cimport *
 from cpython.bool cimport *
 from os import strerror,getpid

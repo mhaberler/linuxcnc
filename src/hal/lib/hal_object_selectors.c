@@ -39,11 +39,6 @@ int count_subordinate_objects(hal_object_ptr o, foreach_args_t *args)
     return 0; // continue visiting
 }
 
-int yield_foreach(hal_object_ptr o, foreach_args_t *args)
-{
-    hal_object_callback_t callback = args->user_ptr1;
-    return callback(o, args->user_ptr2);
-}
 
 int yield_free(hal_object_ptr o, foreach_args_t *args)
 {

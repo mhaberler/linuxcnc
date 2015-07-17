@@ -1,6 +1,6 @@
 # Components pseudo dictionary
 
-# hal_iter callback: add comp names into list
+# callback: add comp names into list
 cdef int _collect_comp_names(hal_comp_t *comp,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):

@@ -61,7 +61,6 @@
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
-#include "hal_iter.h"
 #include "hal_internal.h"
 
 #include "rtapi_string.h"
@@ -341,10 +340,12 @@ EXPORT_SYMBOL(hal_pin_float_newf);
 EXPORT_SYMBOL(hal_pin_u32_newf);
 EXPORT_SYMBOL(hal_pin_s32_newf);
 
+// hal_signal.c:
 EXPORT_SYMBOL(halg_signal_new);
 EXPORT_SYMBOL(halg_signal_delete);
 EXPORT_SYMBOL(halg_link);
 EXPORT_SYMBOL(halg_unlink);
+EXPORT_SYMBOL(halg_foreach_pin_by_signal);
 
 // hal_param.c:
 EXPORT_SYMBOL(hal_param_new);
@@ -387,27 +388,28 @@ EXPORT_SYMBOL(hal_inst_delete);
 // hal_lib.c:
 EXPORT_SYMBOL(hal_print_msg);
 EXPORT_SYMBOL(hal_print_error);
+EXPORT_SYMBOL(hal_print_loc);
 EXPORT_SYMBOL(hal_lasterror);
 EXPORT_SYMBOL(hal_shmem_base);
 
 // ------------ private API:  ------------
 //  found in their respective source files:
-EXPORT_SYMBOL(halpr_find_comp_by_name);
-EXPORT_SYMBOL(halpr_find_pin_by_name);
-EXPORT_SYMBOL(halpr_find_sig_by_name);
-EXPORT_SYMBOL(halpr_find_param_by_name);
-EXPORT_SYMBOL(halpr_find_thread_by_name);
-EXPORT_SYMBOL(halpr_find_funct_by_name);
-EXPORT_SYMBOL(halpr_find_inst_by_name);
+/* EXPORT_SYMBOL(halpr_find_comp_by_name); */
+/* EXPORT_SYMBOL(halpr_find_pin_by_name); */
+/* EXPORT_SYMBOL(halpr_find_sig_by_name); */
+/* EXPORT_SYMBOL(halpr_find_param_by_name); */
+/* EXPORT_SYMBOL(halpr_find_thread_by_name); */
+/* EXPORT_SYMBOL(halpr_find_funct_by_name); */
+/* EXPORT_SYMBOL(halpr_find_inst_by_name); */
 
+// hal_comp.c:
 EXPORT_SYMBOL(halpr_find_owning_comp);
 
-//EXPORT_SYMBOL(halpr_find_inst_by_id);
 
-EXPORT_SYMBOL(halg_foreach_pin_by_signal);
-
+// hal_object.c:
 EXPORT_SYMBOL(halg_find_object_by_name);
 EXPORT_SYMBOL(halg_find_object_by_id);
+EXPORT_SYMBOL(halg_foreach);
 
 //EXPORT_SYMBOL();
 //EXPORT_SYMBOL();

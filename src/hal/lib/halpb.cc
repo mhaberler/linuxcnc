@@ -64,7 +64,7 @@ halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp)
     pbcomp->set_userarg1(comp->userarg1);
     pbcomp->set_userarg2(comp->userarg2);
 
-    foreach_args_t args;
+    foreach_args_t args = {};
     args.owning_comp = ho_id(comp);
     args.user_ptr1 = (void *)pbcomp;
     halg_foreach(0, &args, pbadd_owned);
