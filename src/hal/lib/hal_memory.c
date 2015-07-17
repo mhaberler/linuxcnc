@@ -6,24 +6,19 @@
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
 
+
 // part of public API
 void *halg_malloc(const int use_hal_mutex, long int size)
 {
     WITH_HAL_MUTEX_IF(use_hal_mutex);
 
-    void *retval;
-
     if (hal_data == 0) {
-	HALERR("hal_malloc called before init");
+	HALERR("called before init");
 	return 0;
     }
-    /* allocate memory */
-    retval = shmalloc_rt(size);
-
-    /* check return value */
-    if (retval == 0) {
-	HALDBG("hal_malloc() can't allocate %ld bytes", size);
-    }
+    void *retval = shmalloc_rt(size);
+    if (retval == NULL)
+	HALERR("out of rt memory - allocating %ld bytes", size);
     return retval;
 }
 
@@ -34,11 +29,39 @@ void shmfree_desc(void *p)
     rtapi_free(&hal_data->heap, p);
 }
 
+int heap_addmem(size_t click)
+{
+    size_t actual = RTAPI_ALIGN(click, HAL_ARENA_ALIGN);
+
+    HALDBG("extending arena by %zu bytes", actual);
+
+    if (hal_freemem() < HAL_HEAP_MINFREE) {
+	HALERR("can't extend arena - below minfree: %d", hal_freemem());
+	return 0;
+    }
+    // TBD: lock this. Probably best to use the rtapi heap mutex.
+    if (rtapi_heap_addmem(&hal_data->heap,
+			  SHMPTR(hal_data->shmem_bot),
+			  actual)) {
+	HALERR("rtapi_heap_addmem failed");
+	return -ENOMEM;
+    }
+    hal_data->shmem_bot += actual;
+    return 0;
+}
+
 void *shmalloc_desc(long int size)
 {
-    void *retval;
-    retval = rtapi_calloc(&hal_data->heap, 1, size);
-    // TBD: extend shm arena on failure.
+    void *retval = rtapi_calloc(&hal_data->heap, 1, size);
+
+    // extend shm arena on failure
+    if (retval == NULL) {
+	heap_addmem(HAL_HEAP_INCREMENT);
+
+	retval = rtapi_calloc(&hal_data->heap, 1, size);
+	if (retval == NULL)
+	    HALERR("giving up - can't allocate %ld bytes", size);
+    }
     return retval;
 }
 

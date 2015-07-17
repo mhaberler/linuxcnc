@@ -209,8 +209,23 @@ typedef union {
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
 
+// #define HEAP_EXERCISE
 
+// HAL heap params
+#ifdef HEAP_EXERCISE
 
+// force frequent arena extension
+#define HAL_HEAP_INITIAL     1024
+#define HAL_HEAP_INCREMENT   1024
+
+#else
+
+#define HAL_HEAP_INITIAL     (HAL_SIZE/4)  // 64k descriptors
+#define HAL_HEAP_INCREMENT   (hal_freemem() / 2)
+#endif
+
+#define HAL_HEAP_MINFREE      (1024)   // shmem_top - shmem_bot
+#define HAL_ARENA_ALIGN 16
 
 /* Master HAL data structure
    There is a single instance of this structure in the machine.
@@ -247,10 +262,11 @@ typedef struct {
 
     // HAL heap for shmalloc_desc()
     struct rtapi_heap heap;
-    unsigned char arena[0] __attribute__((aligned(16)));
+    unsigned char arena[0] __attribute__((aligned(HAL_ARENA_ALIGN)));
     // heap grows from here
 
 } hal_data_t;
+
 
 /* This pointer is set by hal_init() to point to the  master data structure.
    All access should use these
@@ -258,6 +274,12 @@ typedef struct {
    into either kernel or user space.  */
 
 extern hal_data_t *hal_data;
+
+static inline size_t hal_freemem(void) {
+    if (hal_data == NULL)
+	return 0;
+    return hal_data->shmem_top - hal_data->shmem_bot;
+}
 
 /** HAL 'component' data structure.
     This structure contains information that is unique to a HAL component.
