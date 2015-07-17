@@ -546,7 +546,8 @@ int init_hal_data(void)
     // initial heap allocation
     rtapi_heap_init(&hal_data->heap);
     heap_addmem(HAL_HEAP_INITIAL);
-    rtapi_heap_setflags(&hal_data->heap, -1);
+    // rtapi_heap_setflags(&hal_data->heap, -1); // verbose heap allocator
+    rtapi_heap_setflags(&hal_data->heap, 0);
     rtapi_heap_setloghdlr(&hal_data->heap, rtapi_get_msg_handler());
 
     /* done, release mutex */
