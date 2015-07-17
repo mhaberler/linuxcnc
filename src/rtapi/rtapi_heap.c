@@ -179,7 +179,7 @@ size_t _rtapi_heap_print_freelist(struct rtapi_heap *h)
 int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size)
 {
     if (space < (void*) h) return -EINVAL;
-    if (size < RTAPI_HEAP_MIN_ALLOC) return -EINVAL;
+    //    if (size < RTAPI_HEAP_MIN_ALLOC) return -EINVAL;
     rtapi_malloc_hdr_t *arena = space;
     arena->s.size = size / sizeof(rtapi_malloc_hdr_t);
     _rtapi_free(h, (void *) (arena + 1));
