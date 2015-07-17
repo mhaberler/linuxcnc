@@ -30,9 +30,10 @@ typedef enum {
 // prefix any additional accessors with hh_.
 
 typedef struct halhdr {
-    hal_list_t list;                  // NB: leave as first member
-    __s32    _id;
-    __s32    _owner_id;
+    hal_list_t list;                   // NB: leave as first member
+    __s16    _id;                      // immutable object id
+    __s16    _owner_id;                // id of owning object, 0 for toplevel objects
+    __s8     _refcnt;                  // generic reference count
     __u32    _type :  5;               // enum hal_object_type
     __u32    _valid : 1;               // marks as active/unreferenced object
     __u32    _spare : 2;               //
@@ -53,10 +54,16 @@ static inline void  hh_set_next(halhdr_t *o, void *next)   { dlist_add_after(&o-
 static inline int   hh_get_id(const halhdr_t *o)  { return o->_id; }
 static inline void  hh_set_id(halhdr_t *o, int id)    { o->_id = id; }
 
+static inline int hh_get_refcnt(const halhdr_t *o)  { return o->_refcnt; }
+
+// these probably should use atomics, but then header ops are under the hal_mutex lock anyway
+static inline int hh_incr_refcnt(halhdr_t *o)  { o->_refcnt++; return o->_refcnt; }
+static inline int hh_decr_refcnt(halhdr_t *o)  { o->_refcnt--; return o->_refcnt; }
+
 static inline int   hh_get_owner_id(const halhdr_t *o){ return o->_owner_id; }
 static inline void  hh_set_owner_id(halhdr_t *o, int owner) { o->_owner_id = owner; }
 
-static inline __u32   hh_get_type(const halhdr_t *o)    { return o->_type; }
+static inline __u32 hh_get_type(const halhdr_t *o)    { return o->_type; }
 static inline void  hh_set_type(halhdr_t *o, __u32 type){ o->_type = type; }
 const char *hh_get_typestr(const halhdr_t *hh);
 
@@ -93,6 +100,11 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 #define ho_type(h)  hh_get_type(&(h)->hdr)
 #define ho_typestr(h)  hh_get_typestr(&(h)->hdr)
 
+#define ho_referenced(h)  (hh_get_refcnt(&(h)->hdr) != 0)
+#define ho_refcnt(h)  hh_get_refcnt(&(h)->hdr)
+#define ho_incref(h)  hh_incr_refcnt(&(h)->hdr)
+#define ho_decref(h)  hh_decr_refcnt(&(h)->hdr)
+
 // print common HAL object header to a sized buffer.
 // returns number of chars used or -1 for 'too small buffer'
 int hh_snprintf(char *buf, size_t size, const halhdr_t *hh);
@@ -103,7 +115,8 @@ void halg_add_object(const bool use_hal_mutex,  hal_object_ptr o);
 
 // free a HAL object
 // invalidates and removes the object, and frees the descriptor.
-void halg_free_object(const bool use_hal_mutex, hal_object_ptr o);
+// returns -EBUSY if reference count not zero.
+int halg_free_object(const bool use_hal_mutex, hal_object_ptr o);
 
 
 // initialize a HAL object header with unique ID and name,
@@ -122,7 +135,6 @@ int  hh_init_hdrfv(halhdr_t *o,
 
 // invalidate a hal object header
 int hh_clear_hdr(halhdr_t *o);
-
 
 // halg_foreach: generic HAL object iterator
 // set to replace the gazillion of type-specific iterators

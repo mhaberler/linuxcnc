@@ -48,8 +48,8 @@ void  shmfree_desc(void *p);
 void free_funct_entry_struct(hal_funct_entry_t * funct_entry);
 void free_funct_struct(hal_funct_t * funct);
 void free_inst_struct(hal_inst_t *inst);
-void free_comp_struct(hal_comp_t * comp);
-void free_sig_struct(hal_sig_t * sig);
+int  free_comp_struct(hal_comp_t * comp);
+int free_sig_struct(hal_sig_t * sig);
 int free_ring_struct(hal_ring_t *hrptr);
 void free_group_struct(hal_group_t * group);
 

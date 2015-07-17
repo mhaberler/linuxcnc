@@ -2017,7 +2017,7 @@ static int print_vtable_entry(hal_object_ptr o, foreach_args_t *args)
 		      ho_id(vt),
 		      ho_name(vt),
 		      vt->version,
-		      vt->refcount);
+		      ho_refcnt(vt));
 	if (vt->context == 0)
 	    halcmd_output("   RT   ");
 	else
@@ -2319,7 +2319,6 @@ static int print_objects(char **patterns)
     hal_object_ptr o;
 
     dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
-	o = (hal_object_ptr)hh;
 	char buffer[200];
 	hh_snprintf(buffer, sizeof(buffer), hh);
 	halcmd_output("%s\n", buffer);
@@ -3126,7 +3125,7 @@ static int print_group_entry(hal_object_ptr o, foreach_args_t *args)
 
 	halcmd_output("%-15.15s 0x%8.8x 0x%8.8x %d \n",
 		      ho_name(gptr), gptr->userarg1, gptr->userarg2,
-		      gptr->refcount);
+		      ho_refcnt(gptr));
 	if (scriptmode == 0) {
 	    halcmd_output("\n\tMember          Type              Value Arg1       Epsilon  Groupref:\n");
 	}

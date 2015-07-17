@@ -160,7 +160,7 @@ int halpr_describe_group(hal_group_t *g, pb::Group *pbgroup)
     pbgroup->set_name(ho_name(g));
     pbgroup->set_handle(ho_id(g));
 
-    pbgroup->set_refcount(g->refcount);
+    pbgroup->set_refcount(ho_refcnt(g));
     pbgroup->set_userarg1(g->userarg1);
     pbgroup->set_userarg2(g->userarg2);
 
