@@ -1429,7 +1429,7 @@ int do_unloadusr_cmd(char *name)
 {
     foreach_args_t args =  {
 	.type = HAL_COMPONENT,
-	.name = strcmp(name, "all") ? NULL : name,
+	.name = strcmp(name, "all") ?  name : NULL,
 	.user_arg1 = getpid(),
     };
     // NB: the iterator acquires the lock, so the callback
