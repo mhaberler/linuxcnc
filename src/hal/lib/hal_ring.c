@@ -165,9 +165,8 @@ int free_ring_struct(hal_ring_t *hrptr)
 	    return retval;
 	}
     }
-    // free descriptor
-    halg_free_object(false, (hal_object_ptr)hrptr);
-    return 0;
+    // free descriptor. May return -EBUSY if ring referenced.
+    return halg_free_object(false, (hal_object_ptr)hrptr);
 }
 
 
