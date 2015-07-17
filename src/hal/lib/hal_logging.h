@@ -2,6 +2,7 @@
 #define HAL_LOGGING_H
 
 #include <rtapi.h>
+RTAPI_BEGIN_DECLS
 
 void hal_print_loc(const int level,
 		     const char *func,
@@ -101,5 +102,7 @@ void hal_print_loc(const int level,
 			## __VA_ARGS__);			\
 	return -ENOMEM;						\
     } while(0)
+
+RTAPI_END_DECLS
 
 #endif // HAL_LOGGING_H

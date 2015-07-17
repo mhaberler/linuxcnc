@@ -5,6 +5,24 @@
 #include "hal_priv.h"
 #include "hal_list.h"
 
+
+// type tags of HAL objects. See also protobuf/proto/types.proto/enum ObjectType
+// which must match:
+typedef enum {
+    HAL_OBJECT_INVALID = 0,
+    HAL_PIN           = 1,
+    HAL_SIGNAL        = 2,
+    HAL_PARAM         = 3,
+    HAL_THREAD        = 4,
+    HAL_FUNCT         = 5,
+    HAL_COMPONENT     = 6,
+    HAL_VTABLE        = 7,
+    HAL_INST          = 8,
+    HAL_RING          = 9,
+    HAL_GROUP         = 10,
+    HAL_MEMBER        = 11,
+} hal_object_type;
+
 // common header for all HAL objects
 // this MUST be the first field in any named object descriptor,
 // so any named object can be cast to a halobj_t *
@@ -21,7 +39,7 @@ typedef struct halhdr {
     char   _name[HAL_NAME_LEN + 1];    // component name
 } halhdr_t;
 
-#define OBJECTLIST (&hal_data->halobjects)  // list of all named HAL objects
+#define OBJECTLIST (&hal_data->halobjects)  // head of all named HAL objects
 
 // accessors for common HAL object attributes
 // no locking - caller is expected to aquire the HAL mutex with WITH_HAL_MUTEX()
@@ -41,6 +59,19 @@ static inline void  hh_set_owner_id(halhdr_t *o, int owner) { o->_owner_id = own
 static inline __u32   hh_get_type(const halhdr_t *o)    { return o->_type; }
 static inline void  hh_set_type(halhdr_t *o, __u32 type){ o->_type = type; }
 const char *hh_get_typestr(const halhdr_t *hh);
+
+// determine if an object is first-class or dependent on some other object
+static inline bool hh_is_toplevel(__u32 type) {
+    switch (type) {
+    case HAL_PIN:
+    case HAL_PARAM:
+    case HAL_FUNCT:
+    case HAL_INST:
+    case HAL_MEMBER:
+	return false;
+    }
+    return true;
+}
 
 // this enables us to eventually drop the name from the header
 // and move to a string table
