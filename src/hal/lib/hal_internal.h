@@ -64,6 +64,8 @@ void unlink_pin(hal_pin_t * pin);
 
 void free_pin_struct(hal_pin_t * pin);
 
+int heap_addmem(size_t click);
+
 RTAPI_END_DECLS
 
 #endif /* HAL_INTERNAL_H */

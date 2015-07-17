@@ -531,8 +531,6 @@ int init_hal_data(void)
     hal_data->threads_running = 0;
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
-    // silly 1-based shm segment id allocation FIXED
-    // yeah, 'user friendly', how could one possibly think zero might be a valid id
     RTAPI_BIT_SET(hal_data->rings,0);
 
     /* set up for shmalloc_xx() */
@@ -545,16 +543,11 @@ int init_hal_data(void)
 	hal_data->epsilon[i] = 0.0;
     hal_data->epsilon[0] = DEFAULT_EPSILON;
 
-    // FIXME for now, grab half of hal_data
-    // TBD: increase arena on malloc failure (like half of remaining memory
-    // or fixed increments)
+    // initial heap allocation
     rtapi_heap_init(&hal_data->heap);
-    rtapi_heap_addmem(&hal_data->heap, hal_data->arena,
-		      global_data->hal_size/2);
+    heap_addmem(HAL_HEAP_INITIAL);
     rtapi_heap_setflags(&hal_data->heap, -1);
     rtapi_heap_setloghdlr(&hal_data->heap, rtapi_get_msg_handler());
-    hal_data->shmem_bot = SHMOFF(&hal_data->arena[global_data->hal_size/2]);
-
 
     /* done, release mutex */
     rtapi_mutex_give(&(hal_data->mutex));
