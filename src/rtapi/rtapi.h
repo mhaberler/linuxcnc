@@ -90,6 +90,8 @@
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #endif
 
+#define RTAPI_ALIGN(x,boundary)  (x + (-x & (boundary - 1)))
+
 #include "rtapi_int.h"
 
 
