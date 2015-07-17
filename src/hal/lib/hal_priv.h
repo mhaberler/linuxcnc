@@ -500,7 +500,6 @@ static inline const void * fa_arg(const hal_funct_args_t *fa) { return fa->funct
 typedef struct hal_vtable {
     halhdr_t hdr;		   // common HAL object header
     int context;                   // 0 for RT, pid for userland
-    int refcount;                  // prevents unloading while referenced
     int version;                   // tags switchs struct version
     void *vtable;     // pointer to vtable (valid in loading context only)
 } hal_vtable_t;

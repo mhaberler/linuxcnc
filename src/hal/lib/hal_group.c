@@ -54,9 +54,9 @@ int hal_group_delete(const char *name)
 	    HALERR("group '%s' not found", name);
 	    return -ENOENT;
 	}
-	if (group->refcount) {
+	if (ho_referenced(group)) {
 	    HALERR("cannot delete group '%s' (still used: %d)",
-		   name, group->refcount);
+		   name, ho_refcnt(group));
 	    return -EBUSY;
 	}
 	// NB: freeing any members is done in free_group_struct
@@ -71,7 +71,7 @@ int hal_ref_group(const char *name)
     hal_group_t *group  = halpr_find_group_by_name(name);
     if (group == NULL)
 	return -ENOENT;
-    group->refcount += 1;
+    ho_incref(group);
     return 0;
 }
 
@@ -81,7 +81,7 @@ int hal_unref_group(const char *name)
     hal_group_t *group = halpr_find_group_by_name(name);
     if (group == NULL)
 	return -ENOENT;
-    group->refcount -= 1;
+    ho_decref(group);
     return 0;
 }
 
@@ -99,7 +99,7 @@ int hal_member_new(const char *group, const char *member,
 	WITH_HAL_MUTEX();
 
 	hal_member_t *new;
-	hal_sig_t *sig = NULL;
+	hal_sig_t *sig;
 
 	hal_group_t *grp = halpr_find_group_by_name(group);
 	if (!grp) {
@@ -108,9 +108,9 @@ int hal_member_new(const char *group, const char *member,
 	}
 
 	// fail if group referenced
-	if (grp->refcount) {
+	if (ho_referenced(grp)) {
 	    HALERR("cannot change referenced group '%s', refcount=%d",
-		   group, grp->refcount);
+		   group, ho_refcnt(grp));
 	    return -EBUSY;
 	}
 
@@ -119,6 +119,8 @@ int hal_member_new(const char *group, const char *member,
 	    return -ENOENT;
 	}
 	HALDBG("adding signal '%s' to group '%s'",  member, group);
+
+	ho_incref(sig); // prevent deletion
 
 	// TBD: detect duplicate insertion
 
@@ -147,6 +149,7 @@ int hal_member_delete(const char *group, const char *member)
 
 	hal_group_t *grp;
 	hal_member_t  *mptr;
+	hal_sig_t *sig;
 
 	grp = halpr_find_group_by_name(group);
 	if (!grp) {
@@ -154,9 +157,10 @@ int hal_member_delete(const char *group, const char *member)
 	    return -EINVAL;
 	}
 	// fail if group referenced
-	if (grp->refcount) {
+	if (ho_referenced(grp)) {
+
 	    HALERR("cannot change referenced group '%s', refcount=%d",
-		   group, grp->refcount);
+		   group,  ho_refcnt(grp));
 	    return -EBUSY;
 	}
 	mptr = halg_find_object_by_name(0, HAL_MEMBER, member).member;
@@ -164,6 +168,15 @@ int hal_member_delete(const char *group, const char *member)
 	    HALERR("no such member '%s'", member);
 	    return -ENOENT;
 	}
+
+	if ((sig = halpr_find_sig_by_name(member)) == NULL) {
+	    HALBUG("no such signal '%s' ??", member);
+	    return -ENOENT;
+	} else {
+	    // drop refcnt on signal
+	    ho_decref(sig); // permit deletion if 0
+	}
+
 	HALDBG("deleting member '%s' from group '%s'",  member, group);
 	halg_free_object(false, (hal_object_ptr) mptr);
     }
@@ -275,7 +288,7 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
 
     tc->magic = CGROUP_MAGIC;
     tc->group = grp;
-    grp->refcount++;
+    ho_incref(grp);
     tc->user_data = NULL;
     tc->user_flags = 0;
     *cgroup = tc;

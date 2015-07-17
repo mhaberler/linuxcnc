@@ -111,6 +111,7 @@ int halg_acquire(const int use_hal_mutex, const char *comp_name, int pid)
 		return -EINVAL;
 	    }
 	comp->pid = pid;
+	ho_incref(comp); // prevent deletion
 	return ho_id(comp);
     }
 }
@@ -145,6 +146,7 @@ int halg_release(const int use_hal_mutex, const char *comp_name)
 	    // return -EINVAL;
 	}
 	comp->pid = 0;
+	ho_decref(comp); // enable deletion if last ref
     }
     return 0;
 }

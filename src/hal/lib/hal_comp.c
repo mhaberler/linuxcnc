@@ -12,7 +12,6 @@
 #endif
 
 hal_comp_t *halpr_alloc_comp_struct(void);
-void free_comp_struct(hal_comp_t * comp);
 
 #ifdef RTAPI
 static int init_hal_data(void);
@@ -269,6 +268,7 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	    HALERR("no such component with id %d", comp_id);
 	    return -EINVAL;
 	}
+
 	HALDBG("removing component %d '%s'", comp_id, ho_name(comp));
 
 	// record type, since we're about to zap the comp in free_comp_struct()
@@ -377,8 +377,16 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
 }
 
 
-void free_comp_struct(hal_comp_t * comp)
+int free_comp_struct(hal_comp_t * comp)
 {
+
+    // dont exit if the comp is still reference, eg a remote comp
+    // served by haltalk:
+    if (ho_referenced(comp)) {
+	HALERR("not exiting comp %s - still referenced (refcnt=%d)",
+	       ho_name(comp), ho_refcnt(comp));
+	return -EBUSY;
+    }
 
     /* can't delete the component until we delete its "stuff" */
     /* need to check for functs only if a realtime component */
@@ -427,6 +435,7 @@ void free_comp_struct(hal_comp_t * comp)
 
     //  now we can delete the component itself.
     halg_free_object(false, (hal_object_ptr)comp);
+    return 0;
 }
 
 #ifdef RTAPI
