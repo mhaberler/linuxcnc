@@ -2316,7 +2316,6 @@ static void print_funct_info(char **patterns)
 static int print_objects(char **patterns)
 {
     halhdr_t *hh, *tmp;
-    hal_object_ptr o;
 
     dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
 	char buffer[200];
@@ -2572,20 +2571,20 @@ static void print_lock_status()
 	halcmd_output("  HAL_LOCK_RUN     - running/stopping HAL is locked\n");
 }
 
-static int count_list(int list_root)
-{
-    int n, next;
+/* static int count_list(int list_root) */
+/* { */
+/*     int n, next; */
 
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = list_root;
-    n = 0;
-    while (next != 0) {
-	n++;
-	next = *((int *) SHMPTR(next));
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    return n;
-}
+/*     rtapi_mutex_get(&(hal_data->mutex)); */
+/*     next = list_root; */
+/*     n = 0; */
+/*     while (next != 0) { */
+/* 	n++; */
+/* 	next = *((int *) SHMPTR(next)); */
+/*     } */
+/*     rtapi_mutex_give(&(hal_data->mutex)); */
+/*     return n; */
+/* } */
 
 /* static int count_members() */
 /* { */
@@ -3807,7 +3806,7 @@ int do_sleep_cmd(char *naptime)
     nanosleep(&ts, NULL);
     return 0;
 }
-
+/*
 static void save_comps(FILE *dst)
 {
 #if 0
@@ -3822,7 +3821,7 @@ static void save_comps(FILE *dst)
 	if ( comp->type == TYPE_RT ) {
 
 	    // FIXME XXX MAH - save halcmd defined remote comps!!
-	    /* only print realtime components */
+	    // only print realtime components
 	    if ( comp->insmod_args == 0 ) {
 		fprintf(dst, "#loadrt %s  (not loaded by loadrt, no args saved)\n", comp->name);
 	    } else {
@@ -3832,7 +3831,7 @@ static void save_comps(FILE *dst)
 	}
 	next = comp->next_ptr;
     }
-#if 0  /* newinst deferred to version 2.2 */
+#if 0  // newinst deferred to version 2.2
     next = hal_data->comp_list_ptr;
     while (next != 0) {
 	comp = SHMPTR(next);
@@ -3846,7 +3845,42 @@ static void save_comps(FILE *dst)
     rtapi_mutex_give(&(hal_data->mutex));
 #endif
 }
+*/
+static int save_comp_line(hal_object_ptr o, foreach_args_t *args)
+{
+FILE *dst = (FILE*) args->user_ptr2;
+
+    hal_comp_t *comp = o.comp;
+    if ( match(args->user_ptr1, ho_name(comp)) ) {
+		if ( comp->type == TYPE_RT ) {
+	    // FIXME XXX MAH - save halcmd defined remote comps!!
+	    // only print realtime components
+	    if ( comp->insmod_args == 0 )
+			fprintf(dst, "#loadrt %s  (not loaded by loadrt, no args saved)\n", ho_name(comp));
+	    else
+			fprintf(dst, "loadrt %s %s\n", ho_name(comp),(char *)SHMPTR(comp->insmod_args));
+		}
+	}
+    return 0; // continue iterating
+}
+
+static void save_comps(FILE *dst)
+{
+    fprintf(dst, "# components\n");
+
+    foreach_args_t args =  {
+    .type = HAL_COMPONENT,
+    .user_ptr1 = NULL, // all of them
+    .user_ptr2 = dst,
+    };
+    halg_foreach(true, &args, save_comp_line);
+
+    fprintf(dst, "\n");
+}
+
+//////////////////////////////////////////////////////////////////////////
 #if 0
+// Think we are doing away with aliases, so left as is
 static void save_aliases(FILE *dst)
 {
     int next;
@@ -3881,191 +3915,139 @@ static void save_aliases(FILE *dst)
 }
 #endif
 
+////////////////////////////////////////////////////////////////////////
+
+static int save_sig_line(hal_object_ptr o, foreach_args_t *args)
+{
+    FILE *dst = (FILE*) args->user_ptr1;
+    int only_unlinked = args->user_arg1;
+    hal_sig_t *sig = o.sig;
+
+    if (!(only_unlinked && (sig->readers || sig->writers)) )
+	fprintf(dst, "newsig %s %s\n", ho_name(sig), data_type((int) sig->type));
+
+    return 0; // continue iterating
+}
+
 static void save_signals(FILE *dst, int only_unlinked)
 {
-#warning FIXME
-#if 0
-    int next;
-    hal_sig_t *sig;
-
     fprintf(dst, "# signals\n");
-    rtapi_mutex_get(&(hal_data->mutex));
 
-    for( next = hal_data->sig_list_ptr; next; next = sig->next_ptr) {
-	sig = SHMPTR(next);
-        if(only_unlinked && (sig->readers || sig->writers)) continue;
-	fprintf(dst, "newsig %s %s\n", sig->name, data_type((int) sig->type));
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-#endif
+    foreach_args_t args =  {
+	.type = HAL_SIGNAL,
+	.user_ptr1 = dst,
+	.user_arg1 = only_unlinked
+    };
+    halg_foreach(true, &args, save_sig_line);
+    fprintf(dst, "\n");
 }
 
 static void save_links(FILE *dst, int arrow)
 {
-#warning FIXME
-#if 0
-    int next;
-    hal_pin_t *pin;
-    hal_sig_t *sig;
-    const char *arrow_str;
+    halcmd_error("the link and linka commands are deprecated, use 'save net' instead\n");
+}
 
-    fprintf(dst, "# links\n");
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->pin_list_ptr;
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if (pin->signal != 0) {
-	    sig = SHMPTR(pin->signal);
-	    if (arrow != 0) {
-		arrow_str = data_arrow1((int) pin->dir);
-	    } else {
-		arrow_str = "\0";
-	    }
-	    fprintf(dst, "linkps %s %s %s\n", ho_name(pin), arrow_str, sig->name);
-	}
-	next = pin->next_ptr;
+
+static int fill_pin_array(hal_pin_t *pin, hal_sig_t *sig, void *user)
+{
+    // pin and sig are guaranteed to be non-NULL, and linked to each other
+    FILE *dst = (FILE *) user;
+
+    switch (pin->dir) {
+    case HAL_IN:
+	fprintf(dst, "net %s => %s\n", ho_name(sig), ho_name(pin) );
+	break;
+    case HAL_OUT:
+	fprintf(dst, "net %s <= %s\n", ho_name(sig), ho_name(pin) );
+	break;
+    case HAL_IO:
+	fprintf(dst, "net %s <=> %s\n", ho_name(sig), ho_name(pin) );
+	break;
+    default: ;
     }
-    rtapi_mutex_give(&(hal_data->mutex));
-#endif
+    return 0; // continue iterating
+}
+
+static int save_net_line(hal_object_ptr o, foreach_args_t *args)
+{
+    halg_foreach_pin_by_signal(false, o.sig, fill_pin_array, args->user_ptr1);
+    return 0;
 }
 
 static void save_nets(FILE *dst, int arrow)
 {
-#warning FIXME
-#if 0
-    int next;
-    hal_pin_t *pin;
-    hal_sig_t *sig;
-    const char *arrow_str;
-
     fprintf(dst, "# nets\n");
-    rtapi_mutex_get(&(hal_data->mutex));
 
-    for (next = hal_data->sig_list_ptr; next != 0; next = sig->next_ptr) {
-	sig = SHMPTR(next);
-        if(arrow == 3) {
-            int state = 0, first = 1;
+    foreach_args_t args =  {
+	.type = HAL_SIGNAL,
+	.user_ptr1 = dst,
+	.user_arg1 = arrow // let's ignore this configurable arrow nonsense ;)
+    };
+    halg_foreach(true, &args, save_net_line);
+    fprintf(dst, "\n");
+}
 
-            /* If there are no pins connected to this signal, do nothing */
-            pin = halpr_find_pin_by_sig(sig, 0);
-            if(!pin) continue;
+////////////////////////////////////////////////////////////////////////
 
-            fprintf(dst, "net %s", sig->name);
+static int save_param_line(hal_object_ptr o, foreach_args_t *args)
+{
+    FILE *dst = (FILE*) args->user_ptr1;
+    hal_param_t *param = o.param;
 
-            /* Step 1: Output pin, if any */
-
-            for(pin = halpr_find_pin_by_sig(sig, 0); pin;
-                    pin = halpr_find_pin_by_sig(sig, pin)) {
-                if(pin->dir != HAL_OUT) continue;
-                fprintf(dst, " %s", ho_name(pin));
-                state = 1;
-            }
-
-            /* Step 2: I/O pins, if any */
-            for(pin = halpr_find_pin_by_sig(sig, 0); pin;
-                    pin = halpr_find_pin_by_sig(sig, pin)) {
-                if(pin->dir != HAL_IO) continue;
-                fprintf(dst, " ");
-                if(state) { fprintf(dst, "=> "); state = 0; }
-                else if(!first) { fprintf(dst, "<=> "); }
-                fprintf(dst, "%s", ho_name(pin));
-                first = 0;
-            }
-            if(!first) state = 1;
-
-            /* Step 3: Input pins, if any */
-            for(pin = halpr_find_pin_by_sig(sig, 0); pin;
-                    pin = halpr_find_pin_by_sig(sig, pin)) {
-                if(pin->dir != HAL_IN) continue;
-                fprintf(dst, " ");
-                if(state) { fprintf(dst, "=> "); state = 0; }
-                fprintf(dst, "%s", ho_name(pin));
-            }
-
-            fprintf(dst, "\n");
-        } else if(arrow == 2) {
-            /* If there are no pins connected to this signal, do nothing */
-            pin = halpr_find_pin_by_sig(sig, 0);
-            if(!pin) continue;
-
-            fprintf(dst, "net %s", sig->name);
-            pin = halpr_find_pin_by_sig(sig, 0);
-            while (pin != 0) {
-                fprintf(dst, " %s", ho_name(pin));
-                pin = halpr_find_pin_by_sig(sig, pin);
-            }
-            fprintf(dst, "\n");
-        } else {
-            fprintf(dst, "newsig %s %s\n",
-                    sig->name, data_type((int) sig->type));
-            pin = halpr_find_pin_by_sig(sig, 0);
-            while (pin != 0) {
-                if (arrow != 0) {
-                    arrow_str = data_arrow2((int) pin->dir);
-                } else {
-                    arrow_str = "\0";
-                }
-                fprintf(dst, "linksp %s %s %s\n",
-                        sig->name, arrow_str, ho_name(pin));
-                pin = halpr_find_pin_by_sig(sig, pin);
-            }
-        }
+    if (param->dir != HAL_RO){
+        //param is writable, save its value
+        fprintf(dst, "setp %s %s\n", ho_name(param),
+		data_value((int) param->type, SHMPTR(param->data_ptr)));
     }
-    rtapi_mutex_give(&(hal_data->mutex));
-#endif
+    return 0; // continue
 }
 
 static void save_params(FILE *dst)
 {
-#warning FIXME
-#if 0
-    int next;
-    hal_param_t *param;
-
     fprintf(dst, "# parameter values\n");
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if (param->dir != HAL_RO) {
-	    /* param is writable, save its value */
-	    fprintf(dst, "setp %s %s\n", param->name,
-		data_value((int) param->type, SHMPTR(param->data_ptr)));
-	}
-	next = param->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-#endif
+    foreach_args_t args =  {
+	.type = HAL_PARAM,
+	.user_ptr1 = dst
+    };
+    halg_foreach(true, &args, save_param_line);
+    fprintf(dst, "\n");
+
 }
 
-static void save_threads(FILE *dst)
+static int save_thread_line(hal_object_ptr o, foreach_args_t *args)
 {
-    #if 0
-    int next_thread;
-    hal_thread_t *tptr;
+    FILE *dst = (FILE*) args->user_ptr1;
+
+    hal_thread_t *tptr = o.thread;
     hal_list_t *list_root, *list_entry;
     hal_funct_entry_t *fentry;
     hal_funct_t *funct;
 
-    fprintf(dst, "# realtime thread/function links\n");
-    rtapi_mutex_get(&(hal_data->mutex));
-    next_thread = hal_data->thread_list_ptr;
-    while (next_thread != 0) {
-	tptr = SHMPTR(next_thread);
-	list_root = &(tptr->funct_list);
-	list_entry = dlist_next(list_root);
-	while (list_entry != list_root) {
-	    /* print the function info */
-	    fentry = (hal_funct_entry_t *) list_entry;
-	    funct = SHMPTR(fentry->funct_ptr);
-	    fprintf(dst, "addf %s %s\n", hh_get_name(&funct->hdr), tptr->name);
-	    list_entry = dlist_next(list_entry);
-	}
-	next_thread = tptr->next_ptr;
+    list_root = &(tptr->funct_list);
+    list_entry = dlist_next(list_root);
+    while (list_entry != list_root) {
+	/* print the function info */
+	fentry = (hal_funct_entry_t *) list_entry;
+	funct = SHMPTR(fentry->funct_ptr);
+	fprintf(dst, "addf %s %s\n", ho_name(funct), ho_name(tptr));
+	list_entry = dlist_next(list_entry);
     }
-    rtapi_mutex_give(&(hal_data->mutex));
-    #endif
+    return 0; // continue
 }
+
+static void save_threads(FILE *dst)
+{
+    fprintf(dst, "# realtime thread/function links\n");
+
+    foreach_args_t args =  {
+	.type = HAL_THREAD,
+	.user_ptr1 = dst
+    };
+    halg_foreach(true, &args, save_thread_line);
+    fprintf(dst, "\n");
+}
+
+////////////////////////////////////////////////////////////////////////
 
 int do_setexact_cmd() {
     int retval = 0;
