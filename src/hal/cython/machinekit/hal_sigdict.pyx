@@ -1,6 +1,6 @@
 # Signals pseudo dictionary
 
-# hal_iter callback: add signal names into list
+# add signal names into list
 cdef int _collect_sig_names(hal_sig_t *sig,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):

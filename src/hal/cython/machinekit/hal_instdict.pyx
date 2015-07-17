@@ -1,6 +1,6 @@
 # Instances pseudo dictionary
 
-# hal_iter callback: add inst names into list
+# callback: add inst names into list
 cdef int _collect_inst_names(hal_inst_t *inst,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):

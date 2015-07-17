@@ -219,15 +219,29 @@ int halg_foreach(bool use_hal_mutex,
 }
 
 
-#ifdef RTAPI
-/* EXPORT_SYMBOL(hh_set_namefv); */
-/* EXPORT_SYMBOL(hh_set_namef); */
-/* EXPORT_SYMBOL(hh_init_hdrfv); */
-/* EXPORT_SYMBOL(hh_init_hdrf); */
-/* EXPORT_SYMBOL(hh_clear_hdr); */
-/* EXPORT_SYMBOL(hh_get_typestr); */
-/* EXPORT_SYMBOL(hh_snprintf); */
-/* EXPORT_SYMBOL(halg_add_object); */
-/* EXPORT_SYMBOL(halg_free_object); */
-EXPORT_SYMBOL(halg_foreach);
-#endif
+// specialisations for common tasks
+hal_object_ptr halg_find_object_by_name(const int use_hal_mutex,
+					const int type,
+					const char *name)
+{
+    foreach_args_t args =  {
+	.type = type,
+	.name = (char *)name,
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match))
+	return (hal_object_ptr) args.user_ptr1;
+    return HO_NULL;
+}
+
+hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
+				      const int type,
+				      const int id)
+{
+    foreach_args_t args =  {
+	.type = type,
+	.id = id
+    };
+    if (halg_foreach(use_hal_mutex, &args, yield_match) == 1)
+	return (hal_object_ptr) args.user_ptr1;
+    return HO_NULL;
+}

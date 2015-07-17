@@ -7,7 +7,6 @@
 # made usable: Michael Haberler 6/2014
 
 
-
 cimport cython
 cimport hal_const
 cimport ring_const
@@ -17,7 +16,6 @@ from .rtapi cimport *
 from .hal_priv cimport *
 from .hal_rcomp cimport *
 from .hal_ring cimport *
-from .hal_iter cimport *
 from .hal_objectops cimport *
 
 from os import strerror,getpid

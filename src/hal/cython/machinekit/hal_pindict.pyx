@@ -1,7 +1,7 @@
 # Pins pseudo dictionary
 
 
-# hal_iter callback: add pin names into list
+# add pin names into list
 cdef int _collect_pin_names(hal_pin_t *pin,  void *userdata):
     arg =  <object>userdata
     if  isinstance(arg, list):

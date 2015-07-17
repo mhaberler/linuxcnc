@@ -288,7 +288,7 @@ cdef class MultiframeRing:
     def ready(self):
         return record_next_size(self._rb.ring) > -1
 
-# hal_iter callback: add ring names into list
+# add ring names into list
 cdef int _collect_ring_names(hal_ring_t *ring,  void *userdata):
     arg =  <object>userdata
     arg.append(ring.name)
