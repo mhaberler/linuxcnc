@@ -19,7 +19,7 @@ int halg_signal_new(const int use_hal_mutex,
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(name, HAL_NAME_LEN);
-    HALDBG("creating signal '%s' lock=%d", name, use_hal_mutex);
+    HALDBG("creating signal '%s'", name);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
@@ -94,7 +94,7 @@ int halg_signal_delete(const int use_hal_mutex, const char *name)
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(name, HAL_NAME_LEN);
-    HALDBG("deleting signal '%s' lock=%d", name, use_hal_mutex);
+    HALDBG("deleting signal '%s'", name);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
@@ -124,10 +124,9 @@ int halg_link(const int use_hal_mutex,
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(pin_name, HAL_NAME_LEN);
     CHECK_STRLEN(sig_name, HAL_NAME_LEN);
-    HALDBG("linking pin '%s' to '%s' lock=%d",
+    HALDBG("linking pin '%s' to '%s'",
 	   pin_name,
-	   sig_name,
-	   use_hal_mutex);
+	   sig_name);
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_pin_t *pin;
@@ -235,8 +234,7 @@ int halg_unlink(const int use_hal_mutex,
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
     CHECK_STRLEN(pin_name, HAL_NAME_LEN);
-    HALDBG("unlinking pin '%s' lock=%d",
-	   pin_name, use_hal_mutex);
+    HALDBG("unlinking pin '%s'", pin_name);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);

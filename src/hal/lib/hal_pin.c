@@ -136,7 +136,7 @@ int halg_pin_new(const int use_hal_mutex,
 	return -EINVAL;
     }
 
-    HALDBG("creating pin '%s' lock=%d", name, use_hal_mutex);
+    HALDBG("creating pin '%s'", name);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
