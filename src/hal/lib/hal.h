@@ -146,53 +146,7 @@ RTAPI_BEGIN_DECLS
 #define HAL_LOCK_ALL      255   /* locks every action */
 
 
-/***********************************************************************
-*           opaque forward typedefs for HAL object pointers            *
-************************************************************************/
-struct halhdr;
-struct hal_comp;
-struct hal_inst;
-struct hal_pin;
-struct hal_param;
-struct hal_sig;
-struct hal_group;
-struct hal_member;
-struct hal_funct;
-struct hal_thread;
-struct hal_vtable;
-struct hal_ring;
 
-typedef struct halhdr halhdr_t, *halhdr_ptr;
-typedef struct hal_comp hal_comp_t, *hal_comp_ptr;
-typedef struct hal_inst hal_inst_t, *hal_inst_ptr;
-typedef struct hal_pin hal_pin_t, *hal_pin_ptr;
-typedef struct hal_param hal_param_t, *hal_param_ptr;
-typedef struct hal_sig hal_sig_t, *hal_sig_ptr;
-//typedef struct hal_oldname hal_oldname_t, *hal_oldname_ptr;
-typedef struct hal_group hal_group_t, *hal_group_ptr;
-typedef struct hal_member hal_member_t, *hal_member_ptr;
-typedef struct hal_funct hal_funct_t, *hal_funct_ptr;
-typedef struct hal_thread hal_thread_t, *hal_thread_ptr;
-typedef struct hal_vtable hal_vtable_t, *hal_vtable_ptr;
-typedef struct hal_ring hal_ring_t, *hal_ring_ptr;
-
-typedef union {
-    halhdr_t     *hdr;
-    hal_comp_t   *comp;
-    hal_inst_t   *inst;
-    hal_pin_t    *pin;
-    hal_param_t  *param;
-    hal_sig_t    *sig;
-    hal_group_t  *group;
-    hal_member_t *member;
-    hal_funct_t  *funct;
-    hal_thread_t *thread;
-    hal_vtable_t *vtable;
-    hal_ring_t   *ring;
-    void         *any;
-} hal_object_ptr;
-
-#define HO_NULL ((hal_object_ptr)NULL)
 
 /***********************************************************************
 *                   GENERAL PURPOSE FUNCTIONS                          *
@@ -514,22 +468,6 @@ typedef union {
     hal_float_t f;
 } hal_data_u;
 
-// type tags of HAL objects. See also protobuf/proto/types.proto/enum ObjectType
-// which must match:
-typedef enum {
-    HAL_OBJECT_INVALID = 0,
-    HAL_PIN           = 1,
-    HAL_SIGNAL        = 2,
-    HAL_PARAM         = 3,
-    HAL_THREAD        = 4,
-    HAL_FUNCT         = 5,
-    HAL_COMPONENT     = 6,
-    HAL_VTABLE        = 7,
-    HAL_INST          = 8,
-    HAL_RING          = 9,
-    HAL_GROUP         = 10,
-    HAL_MEMBER        = 11,
-} hal_object_type;
 /***********************************************************************
 *                      "LOCKING" FUNCTIONS                             *
 ************************************************************************/

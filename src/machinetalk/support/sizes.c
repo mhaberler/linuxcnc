@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <hal.h>
+#include <hal_priv.h>
 #include <emc/motion/motion.h>
 #include <emc/motion/motion_debug.h>
 
@@ -11,6 +13,7 @@
 
 int main()
 {
+    printf("halhdr_t = %zu\n", sizeof(halhdr_t));
     printf("emcmot_joint_t = %zu\n", sizeof(emcmot_joint_t));
     printf("emcmot_joint_status_t = %zu\n", sizeof(emcmot_joint_status_t));
     printf("emcmot_command_t = %zu\n", sizeof(emcmot_command_t));

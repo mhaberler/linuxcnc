@@ -155,12 +155,62 @@ extern char *hal_shmem_base;
 // avoid pulling in math.h
 #define HAL_FABS(a) ((a) > 0.0 ? (a) : -(a))	/* floating absolute value */
 
+/***********************************************************************
+*           opaque forward typedefs for HAL object pointers            *
+************************************************************************/
+struct halhdr;
+struct hal_comp;
+struct hal_inst;
+struct hal_pin;
+struct hal_param;
+struct hal_sig;
+struct hal_group;
+struct hal_member;
+struct hal_funct;
+struct hal_thread;
+struct hal_vtable;
+struct hal_ring;
+
+typedef struct halhdr halhdr_t;
+typedef struct hal_comp hal_comp_t;
+typedef struct hal_inst hal_inst_t;
+typedef struct hal_pin hal_pin_t;
+typedef struct hal_param hal_param_t;
+typedef struct hal_sig hal_sig_t;
+typedef struct hal_group hal_group_t;
+typedef struct hal_member hal_member_t;
+typedef struct hal_funct hal_funct_t;
+typedef struct hal_thread hal_thread_t;
+typedef struct hal_vtable hal_vtable_t;
+typedef struct hal_ring hal_ring_t;
+
+typedef union {
+    halhdr_t     *hdr;
+    hal_comp_t   *comp;
+    hal_inst_t   *inst;
+    hal_pin_t    *pin;
+    hal_param_t  *param;
+    hal_sig_t    *sig;
+    hal_group_t  *group;
+    hal_member_t *member;
+    hal_funct_t  *funct;
+    hal_thread_t *thread;
+    hal_vtable_t *vtable;
+    hal_ring_t   *ring;
+    void         *any;
+} hal_object_ptr;
+
+#define HO_NULL ((hal_object_ptr)NULL)
+
 #include "hal_list.h"    // needs SHMPTR/SHMOFF
 #include "hal_object.h"  // needs hal_list_t
 
 /***********************************************************************
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
+
+
+
 
 /* Master HAL data structure
    There is a single instance of this structure in the machine.
@@ -380,7 +430,7 @@ typedef struct hal_export_xfunct_args {
 
 int hal_export_xfunctf( const hal_export_xfunct_args_t *xf, const char *fmt, ...);
 
-typedef struct hal_funct {
+ typedef struct hal_funct {
     halhdr_t hdr;
     hal_funct_signature_t type; // drives call signature, addf
     int uses_fp;		/* floating point flag */
@@ -612,6 +662,21 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id);
 hal_pin_t *halpr_find_pin_by_owner_id(const int owner_id, hal_pin_t * start);
 // hal_param_t *halpr_find_param_by_owner_id(const int owner_id, hal_param_t * start);
 hal_funct_t *halpr_find_funct_by_owner_id(const int owner_id, hal_funct_t * start);
+
+
+// callback return value convention applies
+typedef int (*hal_pin_signal_callback_t)(hal_pin_t *pin,
+					 hal_sig_t *sig,
+					 void *user);
+
+// 'halg_foreach_pin_by_signal' finds pin(s) that are linked to a specific signal.
+// the callback is executed for each pin linked to sig.
+// any user-specific argumens can be passed via 'user'
+int halg_foreach_pin_by_signal(const int use_hal_mutex,
+			       hal_sig_t *sig,
+			       hal_pin_signal_callback_t cb,
+			       void *user);
+
 
 // automatically release the local hal_data->mutex on scope exit.
 // if a local variable is declared like so:

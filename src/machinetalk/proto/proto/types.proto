@@ -41,6 +41,12 @@ enum HalParamDirection {
     HAL_RW = 192;
 }
 
+enum HalFunctType {
+    FS_LEGACY_THREADFUNC = 0;  // legacy API
+    FS_XTHREADFUNC = 1;        // extended API
+    FS_USERLAND = 2;           // userland-callable, with argc/arv vector
+}
+
 enum ObjectType {
     //  the following tags correspond to hal.h:hal_object_type
     HAL_OBJECT_INVALID = 0;

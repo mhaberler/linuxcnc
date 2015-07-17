@@ -4,7 +4,6 @@
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
-#include "hal_iter.h"
 #include "hal_group.h"
 #include "hal_internal.h"
 
@@ -280,6 +279,33 @@ int halg_unlink(const int use_hal_mutex,
 
 	return 0;
     }
+}
+
+static int pin_by_signal_callback(hal_object_ptr o, foreach_args_t *args)
+{
+    hal_sig_t *sig = args->user_ptr1;
+    hal_pin_signal_callback_t cb = args->user_ptr2;
+
+    if (o.pin->signal == SHMOFF(sig)) {
+	if (cb) return cb(o.pin, sig, args->user_ptr3);
+    }
+    return 0;
+}
+
+int halg_foreach_pin_by_signal(const int use_hal_mutex,
+			       hal_sig_t *sig,
+			       hal_pin_signal_callback_t cb,
+			       void *user)
+{
+    foreach_args_t args =  {
+	.type = HAL_PIN,
+	.user_ptr1 = sig,
+	.user_ptr2 = cb,
+	.user_ptr3 = user
+    };
+    return halg_foreach(use_hal_mutex,
+			&args,
+			pin_by_signal_callback);
 }
 
 static int unlink_pin_callback(hal_pin_t *pin, hal_sig_t *sig, void *user)
