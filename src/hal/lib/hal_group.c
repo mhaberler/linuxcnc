@@ -27,10 +27,11 @@ int hal_group_new(const char *name, int arg1, int arg2)
 	    HALERR("group '%s' already defined", name);
 	    return -EINVAL;
 	}
-	if ((group = shmalloc_desc(sizeof(hal_group_t))) == NULL)
-	    NOMEM("group '%s'",  name);
 
-	hh_init_hdrf(&group->hdr, HAL_GROUP, 0, "%s", name);
+	if ((group = halg_create_object(0, sizeof(hal_group_t),
+					HAL_GROUP, 0, name)) == NULL)
+	    return -ENOMEM;
+
 	group->userarg1 = arg1;
 	group->userarg2 = arg2;
 
@@ -120,13 +121,13 @@ int hal_member_new(const char *group, const char *member,
 	}
 	HALDBG("adding signal '%s' to group '%s'",  member, group);
 
-	ho_incref(sig); // prevent deletion
 
 	// TBD: detect duplicate insertion
+	if ((new = halg_create_object(0, sizeof(hal_member_t),
+				      HAL_MEMBER, ho_id(grp), member)) == NULL)
+	    return -ENOMEM;
 
-	if ((new = shmalloc_desc(sizeof(hal_member_t))) == NULL)
-	    NOMEM("member '%s'",  member);
-	hh_init_hdrf(&new->hdr, HAL_MEMBER, ho_id(grp), "%s", member);
+	ho_incref(sig); // prevent deletion
 
 	new->sig_ptr = SHMOFF(sig);
 	new->userarg1 = arg1;

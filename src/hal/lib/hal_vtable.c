@@ -36,9 +36,10 @@ int halg_export_vtable(const int use_hal_mutex,
 	    return -EEXIST;
 	}
 
-	// allocate a new vtable descriptor in the HAL shm segment
-	if ((vt = shmalloc_desc(sizeof(hal_vtable_t))) == NULL)
-	    NOMEM("vtable '%s'",  name);
+	// allocate vtable descriptor
+	if ((vt = halg_create_object(0, sizeof(hal_vtable_t),
+				     HAL_VTABLE, 0, name)) == NULL)
+	    return -ENOMEM;
 
 	hh_init_hdrf(&vt->hdr, HAL_VTABLE, comp_id, "%s", name);
 	vt->vtable  =  vtref;

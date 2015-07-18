@@ -67,9 +67,9 @@ int hh_clear_hdr(halhdr_t *hh)
     return ret;
 }
 
-const char *hh_get_typestr(const halhdr_t *hh)
+const char *hal_strtype(const unsigned type)
 {
-    switch (hh_get_type(hh)) {
+    switch (type) {
     case HAL_PIN           : return "PIN"; break;
     case HAL_SIGNAL        : return "SIGNAL"; break;
     case HAL_PARAM         : return "PARAM"; break;
@@ -96,6 +96,37 @@ int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 			  hh_get_refcnt(hh),
 			  hh_is_valid(hh));
 }
+
+void *halg_create_object(const bool use_hal_mutex,
+			 const size_t size,
+			 const int type,
+			 const int owner_id,
+			 const char *fmt,
+			 ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+
+    halhdr_t *new = shmalloc_desc(size);
+    if (new == NULL) {
+	char name[HAL_NAME_LEN+1];
+
+	rtapi_vsnprintf(name, sizeof(name), fmt, ap);
+	va_end(ap);
+
+	HALERR("insufficient memory for %s %s size=%zu", hal_strtype(type), name, size);
+	return NULL;
+    }
+
+    int ret =  hh_init_hdrfv(new, type, owner_id, fmt, ap);
+    va_end(ap);
+    if (ret) {
+	shmfree_desc(new);
+	return NULL;
+    }
+    return new;
+}
+
 
 // iterator callback for halg_add_object()
 // determines insertion point
