@@ -159,10 +159,10 @@ int hal_param_new(const char *name,
 	    return -EINVAL;
 	}
 
-	// allocate new parameter descriptor
-	if ((new = shmalloc_desc(sizeof(hal_param_t))) == NULL)
-	    NOMEM("param '%s'",  name);
-	hh_init_hdrf(&new->hdr, HAL_PARAM, owner_id, "%s", name);
+	// allocate parameter descriptor
+	if ((new = halg_create_object(0, sizeof(hal_param_t),
+				      HAL_PARAM, owner_id, name)) == NULL)
+	    return -ENOMEM;
 
 	new->data_ptr = SHMOFF(data_addr);
 	new->type = type;

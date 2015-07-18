@@ -31,20 +31,20 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	    return -EEXIST;
 	}
 
+	// allocate instance descriptor
+	if ((inst = halg_create_object(0, sizeof(hal_inst_t),
+				       HAL_INST, ho_id(comp), name)) == NULL)
+	    return -ENOMEM;
+
 	if (size > 0) {
 	    // the instance data is likely to contain pins so
 	    // allocate in 'rt' memory for cache friendliness
 	    m = shmalloc_rt(size);
 	    if (m == NULL)
 		NOMEM(" instance %s: cant allocate %d bytes", name, size);
+	    memset(m, 0, size);
 	}
-	memset(m, 0, size);
 
-	// allocate instance descriptor
-	if ((inst = shmalloc_desc(sizeof(hal_inst_t))) == NULL)
-	    NOMEM("instance '%s'",  name);
-
-	hh_init_hdrf(&inst->hdr, HAL_INST, comp_id, "%s", name);
 	inst->inst_data_ptr = SHMOFF(m);
 	inst->inst_size = size;
 

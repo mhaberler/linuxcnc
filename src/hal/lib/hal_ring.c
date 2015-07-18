@@ -51,10 +51,10 @@ int hal_ring_new(const char *name,
 	    return -EEXIST;
 	}
 
-	// allocate a new ring descriptor
-	if ((rbdesc = shmalloc_desc(sizeof(hal_ring_t))) == NULL)
-	    NOMEM("ring '%s'",  name);
-	hh_init_hdrf(&rbdesc->hdr, HAL_RING, 0, "%s", name);
+	// allocate ring descriptor
+	if ((rbdesc = halg_create_object(0, sizeof(hal_ring_t),
+				       HAL_RING, 0, name)) == NULL)
+	    return -ENOMEM;
 
 	// allocate a new ring id - needed since we dont track ring shm
 	// segments in RTAPI

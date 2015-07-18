@@ -179,9 +179,9 @@ int halg_pin_new(const int use_hal_mutex,
 	}
 
 	// allocate pin descriptor
-	if ((new = shmalloc_desc(sizeof(hal_pin_t))) == NULL)
-	    NOMEM("pin '%s'",  name);
-	hh_init_hdrf(&new->hdr, HAL_PIN, owner_id, "%s", name);
+	if ((new = halg_create_object(0, sizeof(hal_pin_t),
+				      HAL_PIN, owner_id, name)) == NULL)
+	    return -ENOMEM;
 
 	/* initialize the structure */
 	new->data_ptr_addr = SHMOFF(data_ptr_addr);
