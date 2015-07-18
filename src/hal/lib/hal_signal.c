@@ -51,9 +51,9 @@ int halg_signal_new(const int use_hal_mutex,
 	}
 
 	// allocate signal descriptor
-	if ((new = shmalloc_desc(sizeof(hal_sig_t))) == NULL)
-	    NOMEM("signal '%s'",  name);
-	hh_init_hdrf(&new->hdr, HAL_SIGNAL, 0, "%s", name);
+	if ((new = halg_create_object(0, sizeof(hal_sig_t),
+				       HAL_SIGNAL, 0, name)) == NULL)
+	    return -ENOMEM;
 
 	/* initialize the signal value */
 	switch (type) {
