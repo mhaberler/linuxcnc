@@ -326,9 +326,9 @@ static inline int hal_exit(int comp_id) {
     all components completely clears memory and you start
     fresh.
 */
-void *halg_malloc(const int use_hal_mutex, long int size);
+void *halg_malloc(const int use_hal_mutex, size_t size);
 
-static inline void *hal_malloc(long int size) {
+static inline void *hal_malloc(size_t size) {
     return halg_malloc(1, size);
 }
 
