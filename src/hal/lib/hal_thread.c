@@ -109,8 +109,9 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
 	}
 
 	// allocate thread descriptor
-	if ((new = shmalloc_desc(sizeof(hal_thread_t))) == NULL)
-	    NOMEM("thread '%s'",  name);
+	if ((new = halg_create_object(0, sizeof(hal_thread_t),
+				       HAL_THREAD, 0, name)) == NULL)
+	    return -ENOMEM;
 
 	hh_init_hdrf(&new->hdr, HAL_THREAD, 0, "%s", name);
 	dlist_init_entry(&(new->funct_list));

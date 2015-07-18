@@ -172,22 +172,16 @@ int halg_xinit(const int use_hal_mutex,
 	    return -EINVAL;
 	}
 
-	// allocate component descriptor
-	if ((comp = shmalloc_desc(sizeof(hal_comp_t))) == NULL) {
-	    HALERR("insufficient memory for component '%s'", hal_name);
+	comp = halg_create_object(0, sizeof(hal_comp_t),
+				  HAL_COMPONENT, 0, hal_name);
+	if (comp == NULL) {
 	    rtapi_exit(comp_id);
 	    return -ENOMEM;
 	}
-	// initialize common HAL header fields
-	// cant use hh_init_hdrf() because the comp_id comes from
-	// rtapi_init(), not rtapi_next_handle(); no point
-	// in making this a single-case function
-	dlist_init_entry(&comp->hdr.list);
-	hh_set_type(&comp->hdr, HAL_COMPONENT);
+
+	// fixup comp_id which comes from
+	// rtapi_init(), not rtapi_next_handle()
 	hh_set_id(&comp->hdr, comp_id);
-	hh_set_owner_id(&comp->hdr, 0);
-	hh_set_valid(&comp->hdr);
-	hh_set_namef(&comp->hdr, hal_name);
 
 	/* initialize the comp structure */
 	comp->userarg1 = userarg1;

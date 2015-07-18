@@ -65,7 +65,10 @@ static inline void  hh_set_owner_id(halhdr_t *o, int owner) { o->_owner_id = own
 
 static inline __u32 hh_get_type(const halhdr_t *o)    { return o->_type; }
 static inline void  hh_set_type(halhdr_t *o, __u32 type){ o->_type = type; }
-const char *hh_get_typestr(const halhdr_t *hh);
+
+const char *hal_strtype(const unsigned type);
+static inline const char *hh_get_typestr(const halhdr_t *hh) { return hal_strtype(hh->_type); }
+
 
 // determine if an object is first-class or dependent on some other object
 static inline bool hh_is_toplevel(__u32 type) {
@@ -108,6 +111,15 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 // print common HAL object header to a sized buffer.
 // returns number of chars used or -1 for 'too small buffer'
 int hh_snprintf(char *buf, size_t size, const halhdr_t *hh);
+
+
+// create a HAL object of given size, type, owner_id and name.
+void *halg_create_object(const bool use_hal_mutex,
+			 const size_t size,
+			 const int type,
+			 const int owner_id,
+			 const char *fmt,
+			 ...) __attribute__((format(printf,5,6)));
 
 // adds a HAL object into the object list with partial ordering:
 // all objects of the same type will be kept sorted by name.

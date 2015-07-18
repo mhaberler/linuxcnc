@@ -220,7 +220,7 @@ typedef union {
 
 #else
 
-#define HAL_HEAP_INITIAL     (HAL_SIZE/4)  // 64k descriptors
+#define HAL_HEAP_INITIAL     (HAL_SIZE/4)
 #define HAL_HEAP_INCREMENT   (hal_freemem() / 2)
 #endif
 
