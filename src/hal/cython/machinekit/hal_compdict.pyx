@@ -1,31 +1,31 @@
 # Components pseudo dictionary
 
-# callback: add comp names into list
-cdef int _collect_comp_names(hal_comp_t *comp,  void *userdata):
-    arg =  <object>userdata
-    if  isinstance(arg, list):
-        arg.append(hh_get_name(&comp.hdr))
-        return 0
-    else:
-        return -1
+# # callback: add comp names into list
+# cdef int _collect_comp_names(hal_comp_t *comp,  void *userdata):
+#     arg =  <object>userdata
+#     if  isinstance(arg, list):
+#         arg.append(hh_get_name(&comp.hdr))
+#         return 0
+#     else:
+#         return -1
 
-cdef list comp_names():
-    names = []
+# cdef list comp_names():
+#     names = []
 
-    with HALMutex():
-        rc = halpr_foreach_comp(NULL,  _collect_comp_names, <void *>names);
-        if rc < 0:
-            raise RuntimeError("comp_names: halpr_foreach_comp failed %d: %s" %
-                               (rc, hal_lasterror()))
-    return names
+#     with HALMutex():
+#         rc = halpr_foreach_comp(NULL,  _collect_comp_names, <void *>names);
+#         if rc < 0:
+#             raise RuntimeError("comp_names: halpr_foreach_comp failed %d: %s" %
+#                                (rc, hal_lasterror()))
+#     return names
 
-cdef int comp_count():
-    with HALMutex():
-        rc = halpr_foreach_comp(NULL, NULL, NULL);
-        if rc < 0:
-            raise RuntimeError("comp_count: halpr_foreach_comp failed %d: %s" %
-                               (rc, hal_lasterror()))
-    return rc
+# cdef int comp_count():
+#     with HALMutex():
+#         rc = halpr_foreach_comp(NULL, NULL, NULL);
+#         if rc < 0:
+#             raise RuntimeError("comp_count: halpr_foreach_comp failed %d: %s" %
+#                                (rc, hal_lasterror()))
+#     return rc
 
 
 cdef class Components:
@@ -38,17 +38,15 @@ cdef class Components:
         hal_required()
 
         if isinstance(name, int):
-            return comp_names()[name]
+            return object_names(1, hal_const.HAL_COMPONENT)[name]
 
         if name in self.comps:
             return self.comps[name]
+
         cdef hal_comp_t *comp
-
-        with HALMutex():
-            comp = halpr_find_comp_by_name(name)
-
+        comp = halg_find_object_by_name(1, hal_const.HAL_COMPONENT, name).comp
         if comp == NULL:
-            raise NameError, name
+            raise NameError, "no such component: %s" % (name)
 
         c = Component(name, wrap=True)
         self.comps[name] = c
@@ -65,19 +63,16 @@ cdef class Components:
 
     def __len__(self):
         hal_required()
-        rc = comp_count()
-        if rc < 0:
-            raise RuntimeError("halpr_foreach_comp failed %d" % rc)
-        return rc
+        return object_count(1, hal_const.HAL_COMPONENT)
 
     def __call__(self):
         hal_required()
-        return comp_names()
+        return object_names(1, hal_const.HAL_COMPONENT)
 
     def __repr__(self):
         hal_required()
         compdict = {}
-        for name in comp_names():
+        for name in object_names(1, hal_const.HAL_COMPONENT):
             compdict[name] = self[name]
         return str(compdict)
 

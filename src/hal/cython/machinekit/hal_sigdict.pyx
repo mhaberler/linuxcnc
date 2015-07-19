@@ -1,26 +1,26 @@
 # Signals pseudo dictionary
 
 # add signal names into list
-cdef int _collect_sig_names(hal_sig_t *sig,  void *userdata):
-    arg =  <object>userdata
-    if  isinstance(arg, list):
-        arg.append(hh_get_name(&sig.hdr))
-        return 0
-    else:
-        return -1
+# cdef int _collect_sig_names(hal_sig_t *sig,  void *userdata):
+#     arg =  <object>userdata
+#     if  isinstance(arg, list):
+#         arg.append(hh_get_name(&sig.hdr))
+#         return 0
+#     else:
+#         return -1
 
-cdef list sig_names():
-    names = []
-    with HALMutex():
-        rc = halpr_foreach_sig(NULL, _collect_sig_names, <void *>names);
-        if rc < 0:
-            raise RuntimeError("halpr_foreach_sig failed %d" % rc)
-    return names
+# cdef list sig_names():
+#     names = []
+#     with HALMutex():
+#         rc = halpr_foreach_sig(NULL, _collect_sig_names, <void *>names);
+#         if rc < 0:
+#             raise RuntimeError("halpr_foreach_sig failed %d" % rc)
+#     return names
 
-cdef int sig_count():
-    with HALMutex():
-        rc = halpr_foreach_sig(NULL, NULL, NULL);
-    return rc
+# cdef int sig_count():
+#     with HALMutex():
+#         rc = halpr_foreach_sig(NULL, NULL, NULL);
+#     return rc
 
 cdef class Signals:
     cdef dict sigs
@@ -31,19 +31,21 @@ cdef class Signals:
     def __getitem__(self, char *name):
         hal_required()
 
+        # index by integer
         if isinstance(name, int):
-            return pin_names()[name]
+            return object_names(1, hal_const.HAL_SIGNAL)[name]
 
+        # index by name
         if name in self.sigs:
             return self.sigs[name]
 
+        # if not found in dict, search hal layer and add
         cdef hal_sig_t *s
+        s = halg_find_object_by_name(1, hal_const.HAL_SIGNAL, name).sig
+        if s == NULL:
+            raise NameError, "no such signal: %s" % (name)
 
-        with HALMutex():
-            s = halpr_find_sig_by_name(name)
-            if s == NULL:
-                raise NameError, name
-
+        # wrap it
         sig =  Signal(name)
         self.sigs[name] = sig
         return sig
@@ -59,23 +61,25 @@ cdef class Signals:
 
     def __len__(self):
         hal_required()
-        return sig_count()
+        return object_count(1, hal_const.HAL_SIGNAL)
 
     def __delitem__(self, char *name):
         hal_required()
-        del self.sigs[name]
         r = hal_signal_delete(name)
         if r:
             raise RuntimeError("hal_signal_delete %s failed: %d %s" % (name, r, hal_lasterror()))
 
+        # delete from dict as well
+        del self.sigs[name]
+
     def __call__(self):
         hal_required()
-        return sig_names()
+        return object_names(1, hal_const.HAL_SIGNAL)
 
     def __repr__(self):
         hal_required()
         sigdict = {}
-        for name in sig_names():
+        for name in object_names(1, hal_const.HAL_SIGNAL):
             sigdict[name] = self[name]
         return str(sigdict)
 

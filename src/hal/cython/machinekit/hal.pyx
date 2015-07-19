@@ -84,21 +84,23 @@ ALLOC_HALMEM = ring_const.ALLOC_HALMEM
 # allow out pin reads
 relaxed = True
 
+include "hal_object.pyx"
+include "hal_find.pyx"
 include "hal_pin.pyx"
 include "hal_pindict.pyx"
 include "hal_signal.pyx"
 include "hal_component.pyx"
 include "hal_compdict.pyx"
-# include "hal_inst.pyx"
-# include "hal_instdict.pyx"
-# include "hal_threads.pyx"
-# include "hal_funct.pyx"
+include "hal_inst.pyx"
+include "hal_instdict.pyx"
+include "hal_threads.pyx"
+include "hal_funct.pyx"
 include "hal_sigdict.pyx"
-# include "hal_epsilon.pyx"
+include "hal_epsilon.pyx"
 include "hal_net.pyx"
-# include "hal_ring.pyx"
-# include "hal_group.pyx"
-# include "hal_loadusr.pyx"
+include "hal_ring.pyx"
+#include "hal_group.pyx"
+#include "hal_loadusr.pyx"
 # include "hal_rcomp.pyx"
 
 # list of component ID's to hal_exit() on unloading the module
@@ -133,7 +135,7 @@ atexit.register(_atexit)
 (lambda s=__import__('signal'):
      s.signal(s.SIGTERM, s.default_int_handler))()
 
-
+# scoped lock decorator
 @cython.final
 cdef class HALMutex(object):
 
@@ -143,4 +145,23 @@ cdef class HALMutex(object):
 
     def __exit__(self,exc_type, exc_value, exc_tb):
         rtapi_mutex_give(&hal_data.mutex)
+        return 0
+
+# conditional version - usage:
+# with HALMutexIf(use-lock):
+#    ...stuff under conditional lock...
+@cython.final
+cdef class HALMutexIf(object):
+    cdef bool cond
+    def __init__(self, cond=True):
+        self.cond = cond
+
+    def  __enter__(self):
+        if self.cond:
+            rtapi_mutex_get(&hal_data.mutex)
+        return hal_data.mutex
+
+    def __exit__(self,exc_type, exc_value, exc_tb):
+        if self.cond:
+            rtapi_mutex_give(&hal_data.mutex)
         return 0

@@ -1,29 +1,5 @@
 # Instances pseudo dictionary
 
-# callback: add inst names into list
-cdef int _collect_inst_names(hal_inst_t *inst,  void *userdata):
-    arg =  <object>userdata
-    if  isinstance(arg, list):
-        arg.append(hh_get_name(&inst.hdr))
-        return 0
-    else:
-        return -1
-
-cdef list inst_names():
-    names = []
-    with HALMutex():
-        rc = halpr_foreach_inst(NULL,  _collect_inst_names, <void *>names);
-        if rc < 0:
-            raise RuntimeError("inst_names: halpr_foreach_inst failed %d: %s" % (rc,hal_lasterror()))
-    return names
-
-cdef int inst_count():
-    with HALMutex():
-        rc = halpr_foreach_inst(NULL, NULL, NULL);
-        if rc < 0:
-            raise RuntimeError("inst_count: halpr_foreach_inst failed %d: %s" % (rc,hal_lasterror()))
-    return rc
-
 
 cdef class Instances:
     cdef dict insts
@@ -35,13 +11,13 @@ cdef class Instances:
         hal_required()
 
         if isinstance(name, int):
-            return inst_names()[name]
+            return object_names(1, hal_const.HAL_INST)[name]
 
         if name in self.insts:
             return self.insts[name]
+
         cdef hal_inst_t *p
-        with HALMutex():
-            p = halpr_find_inst_by_name(name)
+        p = halg_find_object_by_name(1, hal_const.HAL_INST, name).inst
         if p == NULL:
             raise NameError, "no such inst: %s" % (name)
         inst =  Instance(name)
@@ -59,16 +35,16 @@ cdef class Instances:
 
     def __len__(self):
         hal_required()
-        return inst_count()
+        return object_count(1, hal_const.HAL_INST)
 
     def __call__(self):
         hal_required()
-        return inst_names()
+        return object_names(1, hal_const.HAL_INST)
 
     def __repr__(self):
         hal_required()
         instdict = {}
-        for name in inst_names():
+        for name in object_names(1, hal_const.HAL_INST):
             instdict[name] = self[name]
         return str(instdict)
 

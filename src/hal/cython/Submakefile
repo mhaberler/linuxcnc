@@ -44,7 +44,7 @@ TARGETS += ../lib/python/machinekit/test.so
 	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
 endif
 
-ifeq (1,0)
+ifeq (1,1)
 
 TARGETS += ../lib/python/machinekit/hal.so
 ../lib/python/machinekit/hal.so:	../lib/liblinuxcnchal.so.0 \

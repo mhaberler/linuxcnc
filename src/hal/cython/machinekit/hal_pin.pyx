@@ -29,12 +29,12 @@ cdef class _Pin:
     cdef hal_data_u **_storage
     cdef hal_pin_t *_pin
 
-    def __cinit__(self, *args,  init=None, eps=0):
+    def __cinit__(self, *args,  init=None, eps=0,lock=True):
         hal_required()
         self._storage = NULL
         if len(args) == 1:
             #  wrapping existing pin, args[0] = name
-            with HALMutex():
+            with HALMutexIf(lock):
                 self._pin = halpr_find_pin_by_name(args[0])
                 if self._pin == NULL:
                     raise RuntimeError("no such pin %s" % args[0])
@@ -55,7 +55,7 @@ cdef class _Pin:
             r = hal_pin_new(name, t, dir, <void **>(self._storage), (<Component>comp).ho_id(comp))
             if r:
                 raise RuntimeError("Fail to create pin %s: %d %s" % (name, r, hal_lasterror()))
-            with HALMutex():
+            with HALMutexIf(lock):
                 self._pin = halpr_find_pin_by_name(name)
                 self._pin.eps_index = eps
 
@@ -147,7 +147,7 @@ cdef class _Pin:
 
 
 class Pin(_Pin):
-    def __init__(self, *args, init=None,eps=0):
+    def __init__(self, *args, init=None,eps=0,lock=True):
         if len(args) == 1: # wrapped existing pin
             t = self.type
             dir = self.dir

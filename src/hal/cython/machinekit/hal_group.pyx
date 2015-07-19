@@ -4,7 +4,7 @@ from .hal_group cimport *
 from .rtapi cimport  RTAPI_BIT_TEST
 
 
-cdef class Group:
+cdef class Group(HALObject):
     cdef hal_group_t *_grp
     cdef hal_compiled_group_t *_cg
 
@@ -35,23 +35,24 @@ cdef class Group:
                 if self._grp.userarg2 != arg2:
                     raise RuntimeError("userarg2 does not match for existing group %s: %d, was %d" %
                                        (name, arg2, self._grp.userarg2))
+        self.__super__.sethdr(<uintptr_t>self._cg)
 
-    def signal_members(self):  # member groups resolved into signals
-        result = []
-        rc = halpr_foreach_member(self._grp.name, _list_signal_members_cb,
-                                  <void*>result, RESOLVE_NESTED_GROUPS);
-        if rc < 0:
-            raise RuntimeError("signal_members: halpr_foreach_member(%s) failed %d" %
-                               (self._grp.name,rc))
-        return result
+    # def signal_members(self):
+    #     result = []
+    #     rc = halpr_foreach_member(self.name, _list_signal_members_cb,
+    #                               <void*>result, RESOLVE_NESTED_GROUPS);
+    #     if rc < 0:
+    #         raise RuntimeError("signal_members: halpr_foreach_member(%s) failed %d" %
+    #                            (self.name,rc))
+    #     return result
 
-    def members(self):  # unresolved - result may contain groups and signals
+    def members(self):  # members resolved into signals
         result = []
-        rc = halpr_foreach_member(self._grp.name, _list_members_cb,
+        rc = halpr_foreach_member(self.name, _list_members_cb,
                                   <void*>result, 0);
         if rc < 0:
             raise RuntimeError("members: halpr_foreach_member(%s) failed %d" %
-                               (self._grp.name,rc))
+                               (self.name,rc))
         return result
 
     def changed(self):
@@ -65,40 +66,44 @@ cdef class Group:
         result = []
         for i in range(self._cg.n_members):
             if RTAPI_BIT_TEST(self._cg.changed, i):
-                s = <hal_sig_t *>shmptr(self._cg.member[i].sig_member_ptr)
-                result.append(signals[s.name])
+                s = <hal_sig_t *>shmptr(self._cg.member[i].sig_ptr)
+                result.append(signals[hh_get_name(&s.hdr)])
         return result
 
     def compile(self):
         with HALMutex():
             hal_cgroup_free(self._cg)
-            rc =  halpr_group_compile(self._grp.name, &self._cg)
+            rc =  halpr_group_compile(self.name, &self._cg)
             if rc < 0:
                 raise RuntimeError("hal_group_compile(%s) failed: %s" %
-                                   (self._grp.name, hal_lasterror()))
+                                   (self.name, hal_lasterror()))
 
     def add(self, member, int arg1=0, int eps_index=0):
         if isinstance(member, Signal) or isinstance(member, Group):
             member = member.name
-        rc = hal_member_new(self._grp.name, member, arg1, eps_index)
+        rc = hal_member_new(self.name, member, arg1, eps_index)
         if rc:
             raise RuntimeError("Failed to add member '%s' to  group '%s': %s" %
-                               (member, self._grp.name, hal_lasterror()))
+                               (member, self.name, hal_lasterror()))
 
     def delete(self, member):
         if isinstance(member, Signal) or isinstance(member, Group):
             member = member.name
-        rc = hal_member_delete(self._grp.name, member)
+        rc = hal_member_delete(self.name, member)
         if rc:
             raise RuntimeError("Failed to delete member '%s' from  group '%s': %s" %
-                               (member, self._grp.name, hal_lasterror()))
+                               (member, self.name, hal_lasterror()))
 
-    property name:
-        def __get__(self): return self._grp.name
+    # XXX std HALobject inherited ops now.
+    # property name:
+    #     def __get__(self): return hh_get_name(&self._grp.hdr)
 
-    property refcount:
-        def __get__(self): return self._grp.refcount
-        def __set__(self, int r): self._grp.refcount = r
+    # # property refcount:
+    # #     def __get__(self): return self._grp.refcount
+    # #     def __set__(self, int r): self._grp.refcount = r
+
+    # property handle:
+    #     def __get__(self): return self._grp.handle
 
     property userarg1:
         def __get__(self): return self._grp.userarg1
@@ -108,8 +113,6 @@ cdef class Group:
         def __get__(self): return self._grp.userarg2
         def __set__(self, int r): self._grp.userarg2 = r
 
-    property handle:
-        def __get__(self): return self._grp.handle
 
 
 # see last answer why this is required:
@@ -120,23 +123,21 @@ cdef Member_Init(hal_member_t *m):
       result._m = m
       return result
 
-cdef class Member:
+cdef class Member(HALObject):
     cdef hal_member_t *_m
     cdef hal_sig_t *s
     cdef hal_group_t *g
 
     def __cinit__(self):
         hal_required()
+        self.__super__.sethdr(<uintptr_t>self._cg)
 
     def _name(self):
         if self._m == NULL:
             raise InternalError("BUG member: _m == NULL")
-        if self._m.sig_member_ptr:
-            s = <hal_sig_t *>shmptr(self._m.sig_member_ptr)
+        if self._m.sig_ptr:
+            s = <hal_sig_t *>shmptr(self._m.sig_ptr)
             return s.name
-        if self._m.group_member_ptr:
-            g = <hal_group_t *>shmptr(self._m.group_member_ptr)
-            return g.name
         raise InternalError("BUG: member: both group_member_ptr and sig_member_ptr zero")
 
     property item:

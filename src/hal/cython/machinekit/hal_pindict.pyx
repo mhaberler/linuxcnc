@@ -1,53 +1,34 @@
 # Pins pseudo dictionary
 
 
-# add pin names into list
-cdef int _collect_pin_names(hal_pin_t *pin,  void *userdata):
-    arg =  <object>userdata
-    if  isinstance(arg, list):
-        arg.append(hh_get_name(&pin.hdr))
-        return 0
-    else:
-        return -1
-
-cdef list pin_names():
-    names = []
-    with HALMutex():
-        rc = halpr_foreach_pin(NULL,  _collect_pin_names, <void *>names);
-        if rc < 0:
-            raise RuntimeError("pin_names: halpr_foreach_pin failed %d: %s" % (rc,hal_lasterror()))
-    return names
-
-cdef int pin_count():
-    with HALMutex():
-        rc = halpr_foreach_pin(NULL, NULL, NULL);
-        if rc < 0:
-            raise RuntimeError("pin_count: halpr_foreach_pin failed %d: %s" % (rc,hal_lasterror()))
-    return rc
-
-
 cdef class Pins:
     cdef dict pins
 
     def __cinit__(self):
         self.pins = dict()
 
-    def __getitem__(self, name):
+    # supposed to be 'private' - must be called
+    # with HAL mutex held (!)
+    # see hal_signal.pyx for a use case
+    def __getitem_unlocked__(self, name):
         hal_required()
 
         if isinstance(name, int):
-            return pin_names()[name]
+            return object_names(0, hal_const.HAL_PIN)[name]
 
         if name in self.pins:
             return self.pins[name]
         cdef hal_pin_t *p
-        with HALMutex():
-            p = halpr_find_pin_by_name(name)
+        p = halg_find_object_by_name(0, hal_const.HAL_PIN, name).pin
         if p == NULL:
             raise NameError, "no such pin: %s" % (name)
-        pin =  Pin(name)
+        pin =  Pin(name, lock=False)
         self.pins[name] = pin
         return pin
+
+    def __getitem__(self, name):
+        with HALMutex():
+            return self.__getitem_unlocked__(name)
 
     def __contains__(self, arg):
         if isinstance(arg, Pin):
@@ -60,16 +41,16 @@ cdef class Pins:
 
     def __len__(self):
         hal_required()
-        return pin_count()
+        return object_count(1, hal_const.HAL_PIN)
 
     def __call__(self):
         hal_required()
-        return pin_names()
+        return object_names(1, hal_const.HAL_PIN)
 
     def __repr__(self):
         hal_required()
         pindict = {}
-        for name in pin_names():
+        for name in object_names(1, hal_const.HAL_PIN):
             pindict[name] = self[name]
         return str(pindict)
 
