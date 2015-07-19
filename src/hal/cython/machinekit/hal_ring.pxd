@@ -5,14 +5,12 @@ from .ring cimport ringbuffer_t
 
 cdef extern from "hal_ring.h":
     ctypedef struct hal_ring_t:
-        char *name
-        int next_ptr
+        halhdr_t hdr
         int ring_id
         int ring_shmkey
         int total_size
         unsigned ring_offset
         unsigned flags
-        int handle
 
 
     int hal_ring_new(const char *name, int size, int spsize, int mode)

@@ -2,7 +2,7 @@ from .hal_priv cimport *
 from .hal_group cimport *
 from .hal_ring cimport *
 from cpython.bool  cimport bool
-
+from libc.stdint cimport uint8_t,uint32_t
 
 
 cdef extern from "hal_object.h":
@@ -32,20 +32,38 @@ cdef extern from "hal_object.h":
         int user_arg2
         void *user_ptr1
         void *user_ptr2
+        void *user_ptr3
 
     ctypedef int (*hal_object_callback_t) (hal_object_ptr object,  foreach_args_t *args)
     int halg_foreach(int use_hal_mutex,
                      foreach_args_t *args,
                      const hal_object_callback_t callback)
-
+    hal_object_ptr halg_find_object_by_name(const int use_hal_mutex,
+                                            const int type,
+                                            const char *name)
+    hal_object_ptr halg_find_object_by_id(const int use_hal_mutex,
+                                          const int type,
+                                          const int id)
     int hh_get_id(halhdr_t *h)
     int hh_get_owner_id(halhdr_t *h)
     int hh_get_type(halhdr_t *h)
     char *hh_get_name(halhdr_t *h)
-
-    int ho_id(hal_object_ptr h)
-    int ho_owner_id(hal_object_ptr h)
-    int ho_type(hal_object_ptr h)
-    char *ho_name(hal_object_ptr h)
-    char *ho_typestr(hal_object_ptr h)
+    int hh_get_refcnt(const halhdr_t *o)
+    int hh_incr_refcnt(halhdr_t *o)
+    int hh_decr_refcnt(halhdr_t *o)
     int hh_snprintf(char *buf, size_t size, halhdr_t *hh)
+    bool hh_is_valid(const halhdr_t *o)
+    uint32_t hh_valid(const halhdr_t *o)
+
+    # int ho_id(hal_object_ptr h)
+    # int ho_owner_id(hal_object_ptr h)
+    # int ho_type(hal_object_ptr h)
+    # bool ho_valid(hal_object_ptr h)
+    # char *ho_name(hal_object_ptr h)
+    # char *ho_typestr(hal_object_ptr h)
+
+    # int ho_refcnt(hal_object_ptr h)
+    # bool ho_referenced(hal_object_ptr h)
+    # int ho_refcnt(hal_object_ptr h)
+    # int ho_incref(hal_object_ptr h)
+    # int ho_decref(hal_object_ptr h)
