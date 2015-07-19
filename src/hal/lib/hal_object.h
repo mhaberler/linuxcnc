@@ -92,7 +92,7 @@ int hh_set_namef(halhdr_t *hh, const char *fmt, ...);
 
 static inline void hh_clear_name(halhdr_t *o)         { o->_name[0] = '\0'; }
 static inline __u32 hh_valid(const halhdr_t *o)       { return (o->_valid); }
-static inline bool hh_is_valid(const halhdr_t *o)     { return (hh_valid(o) == 0); }
+static inline bool hh_is_valid(const halhdr_t *o)     { return (hh_valid(o) == 1); }
 static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
 static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 
