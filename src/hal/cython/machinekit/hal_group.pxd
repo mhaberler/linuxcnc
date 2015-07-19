@@ -1,5 +1,6 @@
-from .hal_priv cimport hal_shmem_base, hal_data_u, hal_data, hal_sig_t
+from .hal_priv cimport hal_shmem_base, hal_data_u, hal_data, hal_sig_t,halhdr_t
 from .rtapi cimport rtapi_atomic_type
+from libc.stdint cimport uint8_t
 
 cdef extern from "hal_group.h" :
 
@@ -11,23 +12,16 @@ cdef extern from "hal_group.h" :
 
     int GROUP_REPORT_ON_CHANGE
 
-
     ctypedef struct hal_member_t:
-        int next_ptr
+        halhdr_t hdr
         int sig_ptr
-        int group_member_ptr
         int userarg1
-        unsigned char eps_index
-        int handle
+        uint8_t eps_index
 
     ctypedef struct  hal_group_t:
-        int next_ptr
-        int refcount
+        halhdr_t hdr
         int userarg1
         int userarg2
-        int handle
-        char *name
-        int member_ptr
 
     ctypedef struct hal_compiled_group_t:
         int magic
@@ -62,7 +56,6 @@ cdef extern from "hal_group.h" :
     int hal_ref_group(const char *group)
     int hal_unref_group(const char *group)
 
-    hal_group_t *halpr_find_group_of_member(const char *name)
     hal_group_t *halpr_find_group_by_name(const char *name)
 
     int halpr_foreach_group(const char *groupname,
