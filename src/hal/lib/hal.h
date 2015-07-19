@@ -666,9 +666,9 @@ static inline int hal_signal_delete(const char *name) {
     On success, hal_link() returns 0, on failure it returns a
     negative error code.
 */
-extern int halg_link(const int use_hal_mutex,
-		     const char *pin_name,
-		     const char *sig_name);
+int halg_link(const int use_hal_mutex,
+	      const char *pin_name,
+	      const char *sig_name);
 static inline int hal_link(const char *pin_name,
 			   const char *sig_name){
     return halg_link(1, pin_name, sig_name);
@@ -679,7 +679,7 @@ static inline int hal_link(const char *pin_name,
     On success, hal_unlink() returns 0, on failure it
     returns a negative error code.
 */
-extern int halg_unlink(const int use_hal_mutex, const char *pin_name);
+int halg_unlink(const int use_hal_mutex, const char *pin_name);
 static inline int hal_unlink(const char *pin_name) {
     return halg_unlink(1, pin_name);
 }
