@@ -53,7 +53,7 @@ cdef list comp_owned_names(int lock, int type, int comp_id):
 cdef class HALObject:
     cdef hal_object_ptr _o
 
-    cdef _alive_check(self):
+    cdef _object_check(self):
         if self._o.any == NULL:
             raise RuntimeError("NULL object header")
         if hh_valid(self._o.hdr) == 0:
@@ -61,12 +61,12 @@ cdef class HALObject:
 
     property name:
         def __get__(self):
-            self._alive_check()
+            self._object_check()
             return hh_get_name(self._o.hdr)
 
     property id:
         def __get__(self):
-            self._alive_check()
+            self._object_check()
             return hh_get_id(self._o.hdr)
 
     property handle:  # deprecated name
@@ -75,17 +75,17 @@ cdef class HALObject:
 
     property owner_id:
         def __get__(self):
-            self._alive_check()
+            self._object_check()
             return hh_get_owner_id(self._o.hdr)
 
     property type:
         def __get__(self):
-            self._alive_check()
+            self._object_check()
             return hh_get_type(self._o.hdr)
 
     property refcnt:
         def __get__(self):
-            self._alive_check()
+            self._object_check()
             return hh_get_refcnt(self._o.hdr)
 
     property valid:
@@ -93,9 +93,10 @@ cdef class HALObject:
             return hh_valid(self._o.hdr) == 1
 
     cdef incref(self):
-        self._alive_check()
+        self._object_check()
         return hh_incr_refcnt(self._o.hdr)
 
     cdef decref(self):
-        self._alive_check()
+        self._object_check()
         return hh_decr_refcnt(self._o.hdr)
+
