@@ -1,6 +1,14 @@
 from .hal_priv cimport hal_data_u
 from .hal_util cimport hal2py, py2hal, shmptr, valid_dir, valid_type
 
+cdef int _pin_by_signal_cb(hal_pin_t *pin,
+                           hal_sig_t *sig,
+                           void *user):
+    arg =  <object>user
+    arg.append(hh_get_name(&pin.hdr))
+    return 0
+
+
 cdef class Signal:
     cdef hal_sig_t *_sig
     cdef int _handle
@@ -98,28 +106,19 @@ cdef class Signal:
         self._alive_check()
         return hal2py(self._sig.type, self._storage)
 
-
     def pins(self):
         ''' return a list of Pin objects linked to this signal '''
-        cdef hal_pin_t *p = NULL
-
         self._alive_check()
-        # need to do this two-step due to HALmutex
-        # pins.__get_item__ will aquire the lock, and if we do so again
-        # by calling  pins.__get_item_ we'll produce a deadlock
-        # solution: collect the names under mutex, then collect wrappers from names
         pinnames = []
         with HALMutex():
-            p = halpr_find_pin_by_sig(self._sig,p)
-            while p != NULL:
-                pinnames.append(hh_get_name(&p.hdr))
-                p = halpr_find_pin_by_sig(self._sig, p)
-
-        pinlist = []
-        for n in pinnames:
-            pinlist.append(pins[n])
-        return pinlist
-
+            # collect pin names
+            halg_foreach_pin_by_signal(0,self._sig, _pin_by_signal_cb,
+                                       <void *>pinnames)
+            # now the wrapped objects, all under the HAL mutex held:
+            pinlist = []
+            for n in pinnames:
+                pinlist.append(pins.__getitem_unlocked__(n))
+            return pinlist
 
     property name:
         def __get__(self):

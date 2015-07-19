@@ -51,22 +51,34 @@ cdef class Component:
             raise KeyError("component %s: nonexistent pin %s" %
                            (hh_get_name(&self._comp.hdr), name))
 
+    # def pins(self):
+    #     ''' return list of Pin objects
+    #     cdef hal_pin_t *p
+    #     p = NULL
+
+    #     pinnames = []
+    #     with HALMutex():
+    #         p = halpr_find_pin_by_owner_id(hh_get_id(&self._comp.hdr), p)
+    #         while p != NULL:
+    #             pinnames.append(hh_get_name(&p.hdr))
+    #             p = halpr_find_pin_by_owner_id(hh_get_id(&self._comp.hdr), p)
+
+    #     pinlist = []
+    #     for n in pinnames:
+    #         pinlist.append(pins[n])
+    #     return pinlist
+
     def pins(self):
-        ''' return list of Pin objects owned by this component, which includes all instance pins'''
-        cdef hal_pin_t *p
-        p = NULL
-
-        pinnames = []
+        ''' return a list of Pin objects owned by this component, which includes all instance pins'''
+        self._alive_check()
         with HALMutex():
-            p = halpr_find_pin_by_owner_id(hh_get_id(&self._comp.hdr), p)
-            while p != NULL:
-                pinnames.append(hh_get_name(&p.hdr))
-                p = halpr_find_pin_by_owner_id(hh_get_id(&self._comp.hdr), p)
-
-        pinlist = []
-        for n in pinnames:
-            pinlist.append(pins[n])
-        return pinlist
+            # collect pin names
+            pinnames = comp_owned_names(0, hal_const.HAL_PIN, hh_get_id(&self._comp.hdr))
+            # now the wrapped objects, all under the HAL mutex held:
+            pinlist = []
+            for n in pinnames:
+                pinlist.append(pins.__getitem_unlocked__(n))
+            return pinlist
 
     def pin(self, name, base=None):
         ''' return component Pin object, base does not need to be supplied if pin name matches component name '''
@@ -160,7 +172,7 @@ cdef class Component:
 
     def changed(self,  userdata=None, report_all=False):
         if self._cc == NULL:
-            rc = hal_compile_comp(hh_get_name(&self._comp.hdr), &self._cc)
+            rc = halg_compile_comp(1, hh_get_name(&self._comp.hdr), &self._cc)
             if rc < 0:
                 raise RuntimeError("Failed to compile component '%s' - %d : %d - %s" %
                                    (hh_get_name(&self._comp.hdr),

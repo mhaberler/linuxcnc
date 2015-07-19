@@ -59,22 +59,24 @@ cdef class Ring:
             if self._hr == NULL:
                 raise RuntimeError("halpr_find_ring_by_name(%s) failed: %s" %
                                    (name, hal_lasterror()))
+
+
     def __dealloc__(self):
         if self._hr != NULL:
-            name = self._hr.name
-            r = hal_ring_detach(self._hr.name, &self._rb)
+            name = self.name
+            r = hal_ring_detach(self.name, &self._rb)
             if r:
-                raise RuntimeError("hal_ring_detach() failed: %d %s" %
-                                       (r, hal_lasterror()))
+                raise RuntimeError("hal_ring_detach(%s) failed: %d %s" %
+                                       (name, r, hal_lasterror()))
 
     def write(self, s):
-        cdef void * ptr
+        cdef void *ptr
         cdef size_t size = PyBytes_Size(s)
         cdef int r = record_write_begin(&self._rb, &ptr, size)
         if r:
             if r != EAGAIN:
-                raise IOError("Ring %s write failed: %d %s" %
-                                   (r,self._hr.name))
+                raise IOError("Ring %s write failed: %d - %s" %
+                              (self.name, r, strerror(r)))
             return False
         memcpy(ptr, PyBytes_AsString(s), size)
         record_write_end(&self._rb, ptr, size)
@@ -87,8 +89,8 @@ cdef class Ring:
         cdef int r = record_read(&self._rb, &ptr, &size)
         if r:
             if r != EAGAIN:
-                raise IOError("Ring %s read failed: %d %s" %
-                                   (r,self._hr.name))
+                raise IOError("Ring %s read failed: %d - %s" %
+                              (self.name, r, strerror(r)))
             return None
         return memoryview(mview(<long>ptr, size))
 
@@ -126,7 +128,7 @@ cdef class Ring:
         def __get__(self): return (ring_use_wmutex(&self._rb) != 0)
 
     property name:
-        def __get__(self): return self._hr.name
+        def __get__(self): return hh_get_name(&self._hr.hdr)
 
     property scratchpad_size:
         def __get__(self): return ring_scratchpad_size(&self._rb)
@@ -197,7 +199,7 @@ cdef class StreamRing:
         self._hr = (<Ring>ring)._hr
         if self._rb.header.type != RINGTYPE_STREAM:
             raise RuntimeError("ring '%s' not a stream ring: type=%d" %
-                               (self._hr.name,self._rb.header.type))
+                               (self.name,self._rb.header.type))
 
     def spaceleft(self):
         '''return number of bytes available to write.'''
@@ -288,18 +290,7 @@ cdef class MultiframeRing:
     def ready(self):
         return record_next_size(self._rb.ring) > -1
 
-# add ring names into list
-cdef int _collect_ring_names(hal_ring_t *ring,  void *userdata):
-    arg =  <object>userdata
-    arg.append(ring.name)
-    return 0
-
 def rings():
     ''' return list of ring names'''
     hal_required()
-    names = []
-    with HALMutex():
-        rc = halpr_foreach_ring(NULL, _collect_ring_names, <void *>names);
-        if rc < 0:
-            raise RuntimeError("halpr_foreach_ring failed %d" % rc)
-    return names
+    return object_names(1, hal_const.HAL_RING)
