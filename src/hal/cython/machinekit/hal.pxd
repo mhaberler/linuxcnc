@@ -32,11 +32,26 @@ cdef extern from "hal.h":
     ctypedef unsigned hal_u32_t
 
     int hal_signal_new(const char *sig, hal_const.hal_type_t)
+    int halg_signal_new(const int use_hal_mutex,
+                       const char *sig,
+                       hal_const.hal_type_t)
+    int halg_signal_delete(const int use_hal_mutex,
+                           const char *sig)
     int hal_signal_delete(const char *sig)
 
+    int halg_link(const int use_hal_mutex,
+                  const char *pin_name,
+                  const char *sig_name)
     int hal_link(const char *pin, const char *sig)
-    int hal_unlink(const char *pin)
+    int halg_unlink(const int use_hal_mutex, const char *pin_name)
 
+    int hal_unlink(const char *pin)
+    int halg_pin_new(const int use_hal_mutex,
+                     const char *name,
+                     const int type,
+                     const int dir,
+                     void **data_ptr_addr,
+                     const int owner_id)
     int hal_pin_new(const char *name, int type, int dir,
         void **data_ptr_addr, int comp_id)
 
