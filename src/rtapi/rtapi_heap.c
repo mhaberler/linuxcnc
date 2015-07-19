@@ -83,7 +83,7 @@ void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
 	    return (void *)(p+1);
 	}
 	if (p == freep)	{	/* wrapped around free list */
-	    heap_print(h, RTAPI_MSG_INFO, "rtapi_malloc: out of memory"
+	    heap_print(h, RTAPI_MSG_DBG, "rtapi_malloc: out of memory"
 		       " (size=%zu arena=%zu)\n", nbytes, h->arena_size);
 	    //if ((p = morecore(nunits)) == NULL)
 	    return NULL;	/* none left */
