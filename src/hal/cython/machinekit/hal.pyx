@@ -83,9 +83,8 @@ ALLOC_HALMEM = ring_const.ALLOC_HALMEM
 
 # allow out pin reads
 relaxed = True
-
 include "hal_object.pyx"
-include "hal_find.pyx"
+
 include "hal_pin.pyx"
 include "hal_pindict.pyx"
 include "hal_signal.pyx"
@@ -102,6 +101,7 @@ include "hal_ring.pyx"
 #include "hal_group.pyx"
 #include "hal_loadusr.pyx"
 # include "hal_rcomp.pyx"
+include "hal_objectdict.pyx"
 
 # list of component ID's to hal_exit() on unloading the module
 cdef list _comps = []
