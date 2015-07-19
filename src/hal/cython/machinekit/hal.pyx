@@ -85,31 +85,23 @@ ALLOC_HALMEM = ring_const.ALLOC_HALMEM
 relaxed = True
 
 # maps type id to wrapper class
+# used in hal_objectdict.pyx
 _wrapdict = dict()
-# wrapdict[hal_const.HAL_PIN] = Pin
-# wrapdict[hal_const.HAL_SIGNAL] = Signal
-# wrapdict[hal_const.HAL_COMPONENT] = Component
-# wrapdict[hal_const.HAL_INST] = Instance
-# wrapdict[hal_const.HAL_PIN] = Pin
 
 include "hal_object.pyx"
 
 include "hal_pin.pyx"
-#include "hal_pindict.pyx"
 include "hal_signal.pyx"
 include "hal_component.pyx"
-include "hal_compdict.pyx"
 include "hal_inst.pyx"
-#include "hal_instdict.pyx"
 include "hal_threads.pyx"
 include "hal_funct.pyx"
-#include "hal_sigdict.pyx"
 include "hal_epsilon.pyx"
 include "hal_net.pyx"
 include "hal_ring.pyx"
 #include "hal_group.pyx"
-#include "hal_loadusr.pyx"
-# include "hal_rcomp.pyx"
+include "hal_loadusr.pyx"
+include "hal_rcomp.pyx"
 include "hal_objectdict.pyx"
 
 # list of component ID's to hal_exit() on unloading the module
