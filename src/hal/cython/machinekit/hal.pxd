@@ -13,7 +13,8 @@ cdef extern from "hal.h":
     const char * hal_lasterror()
     hal_print_msg(int level, const char *msg)
 
-    void * hal_malloc(long size)
+    void *hal_malloc(long size)
+    void *halg_malloc(const int use_hal_mutex,long size)
     int hal_start_threads()
     int hal_stop_threads()
 
