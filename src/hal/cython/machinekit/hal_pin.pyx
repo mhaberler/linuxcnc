@@ -168,3 +168,6 @@ class Pin(_Pin):
                                           describe_hal_type(self.type),
                                           describe_hal_dir(self.dir),
                                           self.get())
+# instantiate the pins dict
+_wrapdict[hal_const.HAL_PIN] = Pin
+pins = HALObjectDict(hal_const.HAL_PIN)
