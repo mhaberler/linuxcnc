@@ -39,6 +39,8 @@
 
 #include "halcmd_completion.h"
 #include "config.h"
+#include "linux/limits.h"
+#include "stdlib.h"
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"	/* private HAL decls */
@@ -911,7 +913,24 @@ static char **rlcompleter(const char *text, int start, int end) {
     return halcmd_completer(text, start, end, rl_completion_matches, rl_line_buffer);
 }
 
-void halcmd_init_readline() {
+void halcmd_save_history()
+{
+    char path[PATH_MAX];
+    snprintf(path,sizeof(path),"%s/%s", getenv("HOME"), HALCMD_HISTORY);
+    if ((write_history (path)))
+	perror(path);
+    history_truncate_file (path, MAX_HISTORY);
+}
+
+void halcmd_init_readline()
+{
+    char path[PATH_MAX];
+    snprintf(path,sizeof(path),"%s/%s", getenv("HOME"), HALCMD_HISTORY);
+    if ((read_history (path))){
+	perror(path);
+    } else {
+	// printf("%d history lines read from %s\n", history_length, path);
+    }
     rl_readline_name = "halcmd";
     rl_attempted_completion_function = rlcompleter;
 }
