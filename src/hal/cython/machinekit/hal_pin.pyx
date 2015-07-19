@@ -29,15 +29,16 @@ cdef class _Pin:
     cdef hal_data_u **_storage
     cdef hal_pin_t *_pin
 
-    def __cinit__(self, *args,  init=None, eps=0,lock=True):
+    def __cinit__(self, *args,  init=None, eps=0, lock=True):
         hal_required()
         self._storage = NULL
         if len(args) == 1:
             #  wrapping existing pin, args[0] = name
-            with HALMutexIf(lock):
-                self._pin = halpr_find_pin_by_name(args[0])
-                if self._pin == NULL:
-                    raise RuntimeError("no such pin %s" % args[0])
+            self._pin = halg_find_object_by_name(lock,
+                                                 hal_const.HAL_PIN,
+                                                 args[0]).pin
+            if self._pin == NULL:
+                raise RuntimeError("no such pin %s" % args[0])
         else:
             # create a new pin and wrap it
             comp = args[0]
@@ -45,19 +46,25 @@ cdef class _Pin:
             t = args[2]
             dir = args[3]
             if (eps < 0) or (eps > MAX_EPSILON-1):
-                raise RuntimeError("pin %s : epsilon index out of range" % (name, eps))
+                raise RuntimeError("pin %s : epsilon"
+                                   " index out of range" % (name, eps))
 
             self._storage = <hal_data_u **>hal_malloc(sizeof(hal_data_u *))
             if self._storage == NULL:
-                raise RuntimeError("Fail to allocate HAL memory for pin %s" % name)
+                raise RuntimeError("Fail to allocate"
+                                   " HAL memory for pin %s" % name)
 
             name = "{}.{}".format(comp.name, name)
-            r = hal_pin_new(name, t, dir, <void **>(self._storage), (<Component>comp).ho_id(comp))
+            r = halg_pin_new(lock, name, t, dir,
+                             <void **>(self._storage),
+                             (<Component>comp).ho_id(comp))
             if r:
-                raise RuntimeError("Fail to create pin %s: %d %s" % (name, r, hal_lasterror()))
-            with HALMutexIf(lock):
-                self._pin = halpr_find_pin_by_name(name)
-                self._pin.eps_index = eps
+                raise RuntimeError("Fail to create pin %s:"
+                                   " %d %s" % (name, r, hal_lasterror()))
+            self._pin = halg_find_object_by_name(lock,
+                                                 hal_const.HAL_PIN,
+                                                 args[0]).pin
+            self._pin.eps_index = eps
 
     property linked:
         def __get__(self): return pin_linked(self._pin)
