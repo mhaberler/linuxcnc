@@ -52,3 +52,4 @@ cdef class Instance(HALObject):
 
 
     # TODO: add a bufferview of the shm area
+instances = Instances(hal_const.HAL_INST)

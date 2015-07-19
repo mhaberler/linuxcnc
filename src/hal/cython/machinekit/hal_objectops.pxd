@@ -48,6 +48,8 @@ cdef extern from "hal_object.h":
     int hh_get_owner_id(halhdr_t *h)
     int hh_get_type(halhdr_t *h)
     char *hh_get_name(halhdr_t *h)
+    char *hh_get_typestr(halhdr_t *h)
+    char *hal_strtype(const unsigned type)
     int hh_get_refcnt(const halhdr_t *o)
     int hh_incr_refcnt(halhdr_t *o)
     int hh_decr_refcnt(halhdr_t *o)
