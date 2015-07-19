@@ -1,8 +1,7 @@
 
 
 cdef class Instance(HALObject):
-    #cdef hal_inst_t *_inst
-    cdef hal_comp_t *_comp
+    cdef hal_comp_t *_comp # owning comp
 
     def __cinit__(self, name, lock=True):
         hal_required()
