@@ -25,19 +25,18 @@ def describe_hal_dir(haldir):
         return 'unknown'
 
 
-cdef class _Pin:
+cdef class _Pin(HALObject):
     cdef hal_data_u **_storage
-    cdef hal_pin_t *_pin
 
     def __cinit__(self, *args,  init=None, eps=0, lock=True):
         hal_required()
         self._storage = NULL
         if len(args) == 1:
             #  wrapping existing pin, args[0] = name
-            self._pin = halg_find_object_by_name(lock,
-                                                 hal_const.HAL_PIN,
-                                                 args[0]).pin
-            if self._pin == NULL:
+            self._o.pin = halg_find_object_by_name(lock,
+                                                   hal_const.HAL_PIN,
+                                                   args[0]).pin
+            if self._o.pin == NULL:
                 raise RuntimeError("no such pin %s" % args[0])
         else:
             # create a new pin and wrap it
@@ -49,7 +48,7 @@ cdef class _Pin:
                 raise RuntimeError("pin %s : epsilon"
                                    " index out of range" % (name, eps))
 
-            self._storage = <hal_data_u **>hal_malloc(sizeof(hal_data_u *))
+            self._storage = <hal_data_u **>halg_malloc(lock, sizeof(hal_data_u *))
             if self._storage == NULL:
                 raise RuntimeError("Fail to allocate"
                                    " HAL memory for pin %s" % name)
@@ -61,46 +60,37 @@ cdef class _Pin:
             if r:
                 raise RuntimeError("Fail to create pin %s:"
                                    " %d %s" % (name, r, hal_lasterror()))
-            self._pin = halg_find_object_by_name(lock,
+            self._o.pin = halg_find_object_by_name(lock,
                                                  hal_const.HAL_PIN,
                                                  args[0]).pin
-            self._pin.eps_index = eps
+            self._o.pin.eps_index = eps
 
     property linked:
-        def __get__(self): return pin_linked(self._pin)
+        def __get__(self): return pin_linked(self._o.pin)
 
     property signame:
         def __get__(self):
-            if not  pin_linked(self._pin): return None  # raise exception?
-            return hh_get_name(&linked_signal(self._pin).hdr)
+            if not  pin_linked(self._o.pin): return None  # raise exception?
+            return hh_get_name(&linked_signal(self._o.pin).hdr)
 
     property signal:
         def __get__(self):
-            if not  pin_linked(self._pin): return None  # raise exception?
+            if not  pin_linked(self._o.pin): return None  # raise exception?
             return signals[self.signame]
 
-    property type:
-        def __get__(self): return self._pin.type
-
     property epsilon:
-        def __get__(self): return hal_data.epsilon[self._pin.eps_index]
+        def __get__(self): return hal_data.epsilon[self._o.pin.eps_index]
 
     property eps:
-        def __get__(self): return self._pin.eps_index
+        def __get__(self): return self._o.pin.eps_index
         def __set__(self, int eps):
             if (eps < 0) or (eps > MAX_EPSILON-1):
                 raise RuntimeError("pin %s : epsilon index out of range" %
-                                   (hh_get_name(&self._pin.hdr), eps))
-            self._pin.eps_index = eps
-
-    property handle:
-        def __get__(self): return hh_get_id(&self._pin.hdr)
-
-    property name:
-        def __get__(self): return hh_get_name(&self._pin.hdr)
+                                   (hh_get_name(&self._o.pin.hdr), eps))
+            self._o.pin.eps_index = eps
 
     property dir:
-        def __get__(self): return self._pin.dir
+        def __get__(self): return self._o.pin.dir
 
     def link(self, arg):
         # check if we have a pin or a list of pins
@@ -116,41 +106,41 @@ cdef class _Pin:
         return self.link(pins)
 
     def unlink(self):
-        r = hal_unlink(hh_get_name(&self._pin.hdr))
+        r = hal_unlink(hh_get_name(&self._o.pin.hdr))
         if r:
             raise RuntimeError("Failed to unlink pin %s: %d - %s" %
-                               (hh_get_name(&self._pin.hdr), r, hal_lasterror()))
+                               (hh_get_name(&self._o.pin.hdr), r, hal_lasterror()))
 
     def _set(self, v):
         cdef hal_data_u *_dptr
         if self._storage == NULL: # an existing pin, wrapped
 
-            if pin_linked(self._pin):
+            if pin_linked(self._o.pin):
                 raise RuntimeError("cannot set value of linked pin %s:" %
-                                   hh_get_name(&self._pin.hdr))
+                                   hh_get_name(&self._o.pin.hdr))
 
             # retrieve address of dummy signal
-            _dptr = <hal_data_u *>&self._pin.dummysig
-            return py2hal(self._pin.type, _dptr, v)
+            _dptr = <hal_data_u *>&self._o.pin.dummysig
+            return py2hal(self._o.pin.type, _dptr, v)
         else:
             # a pin we created
-            return py2hal(self._pin.type, self._storage[0], v)
+            return py2hal(self._o.pin.type, self._storage[0], v)
 
     def _get(self):
         cdef hal_data_u *_dptr
         cdef hal_sig_t *_sig
         if self._storage == NULL: # an existing pin, wrapped
-            if pin_linked(self._pin):
+            if pin_linked(self._o.pin):
                 # get signal's data address
-                _sig = <hal_sig_t *>shmptr(self._pin.signal);
+                _sig = <hal_sig_t *>shmptr(self._o.pin.signal);
                 _dptr = <hal_data_u *>shmptr(_sig.data_ptr);
             else:
                 # retrieve address of dummy signal
-                _dptr = <hal_data_u *>&self._pin.dummysig
-            return hal2py(self._pin.type, _dptr)
+                _dptr = <hal_data_u *>&self._o.pin.dummysig
+            return hal2py(self._o.pin.type, _dptr)
         else:
             # a pin we allocated storage for
-            return hal2py(self._pin.type, self._storage[0])
+            return hal2py(self._o.pin.type, self._storage[0])
 
 
 class Pin(_Pin):
