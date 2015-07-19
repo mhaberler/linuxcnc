@@ -1,24 +1,27 @@
-# per-type wrapper classes
-_wrapdict = {
-    hal_const.HAL_PIN : Pin,
-    hal_const.HAL_SIGNAL        : Signal,
+
+
+
+
+#= {
+#    hal_const.HAL_PIN : Pin,
+#    hal_const.HAL_SIGNAL        : Signal,
 #    hal_const.HAL_PARAM         : Param,
 #    hal_const.HAL_THREAD        : Thread,
 #    hal_const.HAL_FUNCT         : 5,
-    hal_const.HAL_COMPONENT     : Component,
+#    hal_const.HAL_COMPONENT     : Component,
 #    hal_const.HAL_VTABLE        : 7,
-    hal_const.HAL_INST          : Instance,
+#    hal_const.HAL_INST          : Instance,
 #    hal_const.HAL_RING          : 9,
 #    hal_const.HAL_GROUP         : 10,
 #    hal_const.HAL_MEMBER        : 11,
-
-}
+#}
 
 
 # generic dictionary of HAL objects.
 # instantiated with object type.
 
 cdef class HALObjectDict:
+
     cdef int  _type
     cdef dict _objects
 
@@ -48,7 +51,6 @@ cdef class HALObjectDict:
         ptr = halg_find_object_by_name(0, self._type, name)
         if ptr.any == NULL:
             raise NameError, "no such %s: %s" % (hal_strtype(self._type), name)
-
         method = _wrapdict[self._type]
         w = method(name, lock=False)
         # add new wrapper
@@ -84,4 +86,4 @@ cdef class HALObjectDict:
         return str(d)
 
 # example instantiation:
-# instances = Instances(hal_const.HAL_INST)
+# instances = HALObjectDict(hal_const.HAL_INST)

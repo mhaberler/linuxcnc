@@ -83,18 +83,27 @@ ALLOC_HALMEM = ring_const.ALLOC_HALMEM
 
 # allow out pin reads
 relaxed = True
+
+# maps type id to wrapper class
+_wrapdict = dict()
+# wrapdict[hal_const.HAL_PIN] = Pin
+# wrapdict[hal_const.HAL_SIGNAL] = Signal
+# wrapdict[hal_const.HAL_COMPONENT] = Component
+# wrapdict[hal_const.HAL_INST] = Instance
+# wrapdict[hal_const.HAL_PIN] = Pin
+
 include "hal_object.pyx"
 
 include "hal_pin.pyx"
-include "hal_pindict.pyx"
+#include "hal_pindict.pyx"
 include "hal_signal.pyx"
 include "hal_component.pyx"
 include "hal_compdict.pyx"
 include "hal_inst.pyx"
-include "hal_instdict.pyx"
+#include "hal_instdict.pyx"
 include "hal_threads.pyx"
 include "hal_funct.pyx"
-include "hal_sigdict.pyx"
+#include "hal_sigdict.pyx"
 include "hal_epsilon.pyx"
 include "hal_net.pyx"
 include "hal_ring.pyx"
@@ -118,15 +127,14 @@ cdef hal_required():
         hal_ready(id)
         _comps.append(id)
 
+import atexit
+
 def _atexit():
     # remove all usercomps created herein, including dummy
     global _comps
     for c in _comps:
         hal_exit(c)
     _comps = []
-
-
-import atexit
 
 atexit.register(_atexit)
 
