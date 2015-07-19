@@ -4,13 +4,14 @@ cdef class Instance(HALObject):
     #cdef hal_inst_t *_inst
     cdef hal_comp_t *_comp
 
-    def __cinit__(self, name):
+    def __cinit__(self, name, lock=True):
         hal_required()
-        with HALMutex():
-            # NB: self._o lives in the HALObject
-            self._o.inst = halpr_find_inst_by_name(name)
-            if self._o.inst == NULL:
-                raise RuntimeError("instance %s does not exist" % name)
+        # NB: self._o lives in the HALObject
+        self._o.inst = halg_find_object_by_name(lock,
+                                                hal_const.HAL_INST,
+                                                name).inst
+        if self._o.inst == NULL:
+            raise RuntimeError("instance %s does not exist" % name)
 
     # def delete(self):
     #     r = hal_inst_delete(self._inst.name)
@@ -52,4 +53,6 @@ cdef class Instance(HALObject):
 
 
     # TODO: add a bufferview of the shm area
-instances = Instances(hal_const.HAL_INST)
+
+_wrapdict[hal_const.HAL_INST] = Instance
+instances = HALObjectDict(hal_const.HAL_INST)
