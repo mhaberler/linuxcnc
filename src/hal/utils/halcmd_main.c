@@ -316,6 +316,9 @@ int main(int argc, char **argv)
 	}
     }
     /* all done */
+    if (!scriptmode && srcfile == stdin && isatty(0)) {
+	halcmd_save_history();
+    }
     halcmd_shutdown();
     if ( errorcount > 0 ) {
 	return 1;
