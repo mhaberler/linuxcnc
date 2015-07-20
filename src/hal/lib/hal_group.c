@@ -11,7 +11,7 @@
 #include <assert.h>
 #endif
 
-int hal_group_new(const char *name, int arg1, int arg2)
+int halg_group_new(const int use_hal_mutex,const char *name, int arg1, int arg2)
 {
     CHECK_HALDATA();
     CHECK_STRLEN(name, HAL_NAME_LEN);
@@ -20,7 +20,7 @@ int hal_group_new(const char *name, int arg1, int arg2)
     HALDBG("creating group '%s' arg1=%d arg2=%d/0x%x",
 	   name, arg1, arg2, arg2);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_group_t *group = halpr_find_group_by_name(name);
 	if (group != 0) {
@@ -40,7 +40,7 @@ int hal_group_new(const char *name, int arg1, int arg2)
     }
 }
 
-int hal_group_delete(const char *name)
+int halg_group_delete(const int use_hal_mutex,const char *name)
 {
     CHECK_HALDATA();
     CHECK_STR(name);
@@ -48,7 +48,7 @@ int hal_group_delete(const char *name)
 
     HALDBG("deleting group '%s'", name);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_group_t *group = halpr_find_group_by_name(name);
 	if (group == NULL) {
@@ -86,7 +86,7 @@ int hal_unref_group(const char *name)
     return 0;
 }
 
-int hal_member_new(const char *group, const char *member,
+int halg_member_new(const int use_hal_mutex,const char *group, const char *member,
 		   int arg1, int eps_index)
 {
     CHECK_HALDATA();
@@ -97,7 +97,7 @@ int hal_member_new(const char *group, const char *member,
     HALDBG("creating member '%s' arg1=%d epsilon[%d]=%f",
 	   member, arg1, eps_index, hal_data->epsilon[eps_index]);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_member_t *new;
 	hal_sig_t *sig;
@@ -138,7 +138,7 @@ int hal_member_new(const char *group, const char *member,
     }
 }
 
-int hal_member_delete(const char *group, const char *member)
+int halg_member_delete(const int use_hal_mutex,const char *group, const char *member)
 {
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_LOAD);
@@ -146,7 +146,7 @@ int hal_member_delete(const char *group, const char *member)
     CHECK_STRLEN(member, HAL_NAME_LEN);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_group_t *grp;
 	hal_member_t  *mptr;
