@@ -46,12 +46,11 @@ typedef int (*group_report_callback_t)(int,  hal_compiled_group_t *,
 
 typedef int (*hal_group_callback_t)(hal_group_t *group,  void *cb_data);
 
-// the following functions lock the hal mutex:
-extern int hal_group_new(const char *group, int arg1, int arg2);
-extern int hal_group_delete(const char *group);
+extern int halg_group_new(const int use_hal_mutex, const char *group, int arg1, int arg2);
+extern int halg_group_delete(const int use_hal_mutex, const char *group);
 
-extern int hal_member_new(const char *group, const char *member, int arg1, int eps_index);
-extern int hal_member_delete(const char *group, const char *member);
+extern int halg_member_new(const int use_hal_mutex, const char *group, const char *member, int arg1, int eps_index);
+extern int halg_member_delete(const int use_hal_mutex, const char *group, const char *member);
 
 extern int hal_cgroup_report(hal_compiled_group_t *cgroup,
 			     group_report_callback_t report_cb,

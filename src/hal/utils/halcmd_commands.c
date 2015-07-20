@@ -93,7 +93,6 @@ static void print_inst_names(char **patterns);
 static void print_eps_info(char **patterns);
 
 static void print_lock_status();
-static int count_list(int list_root);
 static void print_mem_status();
 static const char *data_type(int type);
 static const char *data_type2(int type);
@@ -2571,43 +2570,6 @@ static void print_lock_status()
 	halcmd_output("  HAL_LOCK_RUN     - running/stopping HAL is locked\n");
 }
 
-/* static int count_list(int list_root) */
-/* { */
-/*     int n, next; */
-
-/*     rtapi_mutex_get(&(hal_data->mutex)); */
-/*     next = list_root; */
-/*     n = 0; */
-/*     while (next != 0) { */
-/* 	n++; */
-/* 	next = *((int *) SHMPTR(next)); */
-/*     } */
-/*     rtapi_mutex_give(&(hal_data->mutex)); */
-/*     return n; */
-/* } */
-
-/* static int count_members() */
-/* { */
-/*     int n, nextg, nextm; */
-/*     hal_group_t *group; */
-/*     hal_member_t *member; */
-/*     rtapi_mutex_get(&(hal_data->mutex)); */
-/*     nextg = hal_data->group_list_ptr; */
-/*     n = 0; */
-/*     while (nextg != 0) { */
-/* 	group = SHMPTR(nextg); */
-/* 	nextm = group->member_ptr; */
-/* 	while (nextm != 0) { */
-/* 	    member = SHMPTR(nextm); */
-/* 	    n++; */
-/* 	    nextm = member->next_ptr; */
-/* 	} */
-/* 	nextg = group->next_ptr; */
-/*     } */
-/*     rtapi_mutex_give(&(hal_data->mutex)); */
-/*     return n; */
-/* } */
-
 static void print_mem_status()
 {
     int active, recycled, next;
@@ -3006,12 +2968,12 @@ int do_newg_cmd(char *group,char **opt)
 	    }
 	}
     }
-    return hal_group_new(group, arg1, arg2);
+    return halg_group_new(1, group, arg1, arg2);
 }
 
 int do_delg_cmd(char *group)
 {
-    return hal_group_delete(group);
+    return halg_group_delete(1, group);
 }
 
 
@@ -3023,10 +2985,9 @@ int do_newm_cmd(char *group, char *member, char **opt)
     hal_sig_t *sig;
     hal_group_t *grp;
 
-    rtapi_mutex_get(&(hal_data->mutex));
+    WITH_HAL_MUTEX();
     sig = halpr_find_sig_by_name(member);
     grp = halpr_find_group_by_name(member);
-    rtapi_mutex_give(&(hal_data->mutex));
 
     if ((sig == NULL) && (grp == NULL)) {
 	halcmd_error("member '%s':  no group or signal by that name\n", member);
@@ -3079,7 +3040,7 @@ int do_newm_cmd(char *group, char *member, char **opt)
 	    }
 	}
     }
-    retval = hal_member_new(group, member, arg1, eps_index);
+    retval = halg_member_new(0,group, member, arg1, eps_index);
     if (retval)
 	halcmd_error("'newm %s %s' failed\n", group, member);
     return retval;
@@ -3087,7 +3048,7 @@ int do_newm_cmd(char *group, char *member, char **opt)
 
 int do_delm_cmd(char *group, char *member)
 {
-    return hal_member_delete(group, member);
+    return halg_member_delete(1, group, member);
 }
 
 static void print_group_names(char **patterns)
