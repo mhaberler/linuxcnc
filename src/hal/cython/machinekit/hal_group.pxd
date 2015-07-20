@@ -43,11 +43,11 @@ cdef extern from "hal_group.h" :
 
     ctypedef int (*hal_member_callback_t)(int level, hal_group_t **groups,
                                           hal_member_t *member, void *cb_data)
-    int hal_group_new(const char *group, int arg1, int arg2)
-    int hal_group_delete(const char *group)
+    int halg_group_new(const int use_hal_mutex, const char *group, int arg1, int arg2)
+    int halg_group_delete(const int use_hal_mutex, const char *group)
 
-    int hal_member_new(const char *group, const char *member, int arg1, int eps_index)
-    int hal_member_delete(const char *group, const char *member)
+    int halg_member_new(const int use_hal_mutex, const char *group, const char *member, int arg1, int eps_index)
+    int halg_member_delete(const int use_hal_mutex, const char *group, const char *member)
 
     int hal_cgroup_report(hal_compiled_group_t *cgroup,
                           group_report_callback_t report_cb,

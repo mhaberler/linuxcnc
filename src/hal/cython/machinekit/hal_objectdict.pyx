@@ -86,4 +86,5 @@ cdef class HALObjectDict:
         return str(d)
 
 # example instantiation:
+# _wrapdict[hal_const.HAL_INST] = Instance
 # instances = HALObjectDict(hal_const.HAL_INST)
