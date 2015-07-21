@@ -14,8 +14,8 @@ l = Log(level=rtapi.MSG_INFO,tag="nosetest")
 
 
 def test_component_creation():
+    global c1, c2
     l.log()
-    global c1,c2
     c1 = hal.Component("c1")
     c1.newpin("s32out", hal.HAL_S32, hal.HAL_OUT, init=42)
     c1.newpin("s32in", hal.HAL_S32, hal.HAL_IN)
