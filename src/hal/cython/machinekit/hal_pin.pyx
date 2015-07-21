@@ -28,42 +28,56 @@ def describe_hal_dir(haldir):
 cdef class _Pin(HALObject):
     cdef hal_data_u **_storage
 
-    def __cinit__(self, *args,  init=None, eps=0, lock=True):
+    def __cinit__(self, *args,  init=None, eps=0, wrap=True, lock=True):
         hal_required()
+        # storage will be nonzero only if the pin was created
+        # by this class:
         self._storage = NULL
-        if len(args) == 1:
-            #  wrapping existing pin, args[0] = name
-            self._o.pin = halg_find_object_by_name(lock,
-                                                   hal_const.HAL_PIN,
-                                                   args[0]).pin
-            if self._o.pin == NULL:
-                raise RuntimeError("no such pin %s" % args[0])
-        else:
-            # create a new pin and wrap it
-            comp = args[0]
-            name = args[1]
-            t = args[2]
-            dir = args[3]
-            if (eps < 0) or (eps > MAX_EPSILON-1):
-                raise RuntimeError("pin %s : epsilon"
-                                   " index out of range" % (name, eps))
 
-            self._storage = <hal_data_u **>halg_malloc(lock, sizeof(hal_data_u *))
-            if self._storage == NULL:
-                raise RuntimeError("Fail to allocate"
-                                   " HAL memory for pin %s" % name)
+        # _Pin() has slightly different calling conventions due to
+        # reasons lost in history, so fudge the wrap attribute
+        # _Pin(<string>,**kw) will wrap an existing pin
+        wrap = (len(args) == 1)
+        with HALMutexIf(lock):
+            if wrap:
+                name = args[0] # string - wrapping existing pin
+                self._o.pin = halg_find_object_by_name(0,
+                                                       hal_const.HAL_PIN,
+                                                       name).pin
+                if self._o.pin == NULL:
+                    raise RuntimeError("no such pin %s" % name)
+            else:
+                # create a new pin and wrap it
+                comp = args[0]  # a Component instance
+                name = args[1]  # pin name, string
+                t = args[2]     # type, int
+                dir = args[3]   # direction, int
 
-            name = "{}.{}".format(comp.name, name)
-            r = halg_pin_new(lock, name, t, dir,
-                             <void **>(self._storage),
-                             (<Component>comp).ho_id(comp))
-            if r:
-                raise RuntimeError("Fail to create pin %s:"
-                                   " %d %s" % (name, r, hal_lasterror()))
-            self._o.pin = halg_find_object_by_name(lock,
-                                                 hal_const.HAL_PIN,
-                                                 args[0]).pin
-            self._o.pin.eps_index = eps
+                # prepend comp name and "."
+                name = "{}.{}".format(comp.name, name)
+
+                if (eps < 0) or (eps > MAX_EPSILON-1):
+                    raise RuntimeError("pin %s : epsilon"
+                                       " index out of range" % (name, eps))
+
+                self._storage = <hal_data_u **>halg_malloc(0, sizeof(hal_data_u *))
+                if self._storage == NULL:
+                    raise RuntimeError("Fail to allocate"
+                                       " HAL memory for pin %s" % name)
+
+                r = halg_pin_new(0, name, t, dir,
+                                 <void **>(self._storage),
+                                 (<Component>comp).id)
+                if r:
+                    raise RuntimeError("Fail to create pin %s:"
+                                       " %d %s" % (name, r, hal_lasterror()))
+                self._o.pin = halg_find_object_by_name(0,
+                                                       hal_const.HAL_PIN,
+                                                       name).pin
+                self._o.pin.eps_index = eps
+                if self._o.pin == NULL:
+                    raise RuntimeError("failed to lookup newly created pin %s" % name)
+            # handle initial value assignment!!
 
     property linked:
         def __get__(self): return pin_linked(self._o.pin)
@@ -144,7 +158,7 @@ cdef class _Pin(HALObject):
 
 
 class Pin(_Pin):
-    def __init__(self, *args, init=None,eps=0,lock=True):
+    def __init__(self, *args, init=None,eps=0,wrap=True,lock=True):
         if len(args) == 1: # wrapped existing pin
             t = self.type
             dir = self.dir

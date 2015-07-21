@@ -8,26 +8,26 @@ cdef class Component(HALObject):
     cdef dict _itemdict
     cdef int _handle
 
-    def __cinit__(self, name, mode=TYPE_USER, userarg1=0, int userarg2=0,
+    def __cinit__(self, name, mode=TYPE_USER, int userarg1=0, int userarg2=0,
                   wrap=False, noexit=False, lock=True):
         global _comps
+        hal_required()
         self._itemdict = dict()
-        if not wrap:
-            # if name in components:
-            #     raise RuntimeError("component with name '%s' already exists" % name)
-            id = hal_xinit(mode, userarg1, userarg2, NULL, NULL, name)
-            if id < 0:
-                raise RuntimeError("Failed to create component '%s': %d - %s" % (name,id, hal_lasterror()))
-            if not noexit:
-                _comps.append(id)  # to exit list
+        with HALMutexIf(lock):
+            if not wrap:
+                # if name in components:
+                #     raise RuntimeError("component with name '%s' already exists" % name)
+                id = halg_xinit(0, mode, userarg1, userarg2, NULL, NULL, name)
+                if id < 0:
+                    raise RuntimeError("Failed to create component '%s': %d - %s" % (name,id, hal_lasterror()))
+                if not noexit:
+                    _comps.append(id)  # to exit list
 
-        self._cc = NULL
-
-        with HALMutex():
-            self._o.comp = halpr_find_comp_by_name(name)
-
-        if self._o.comp == NULL:
-            raise RuntimeError("halpr_find_comp_by_name(%s) failed" % name)
+            self._cc = NULL
+            self._o.comp = halg_find_object_by_name(0, hal_const.HAL_COMPONENT,
+                                                    name).comp
+            if self._o.comp == NULL:
+                raise RuntimeError("halpr_find_comp_by_name(%s) failed" % name)
 
     def newpin(self, *a, **kw):
         if self._o.comp.state != COMP_INITIALIZING:
@@ -67,10 +67,9 @@ cdef class Component(HALObject):
     #         pinlist.append(pins[n])
     #     return pinlist
 
-    def pins(self):
+    def pins(self, lock=True):
         ''' return a list of Pin objects owned by this component, which includes all instance pins'''
-        self._alive_check()
-        with HALMutex():
+        with HALMutexIf(lock):
             # collect pin names
             pinnames = comp_owned_names(0, hal_const.HAL_PIN, hh_get_id(&self._o.comp.hdr))
             # now the wrapped objects, all under the HAL mutex held:

@@ -17,8 +17,8 @@ cdef int object_count(int lock,int type):
     args.type = type
     return halg_foreach(lock, &args, NULL)
 
-# returns the names of owned objects of a give type
-# owner id might be id of a comp or an inst
+# returns the names of directly owned objects of a given type
+# owner_id may be id of a comp or an inst
 cdef list owned_names(int lock, int type, int owner_id):
     names = []
     cdef foreach_args_t args = nullargs
@@ -28,6 +28,9 @@ cdef list owned_names(int lock, int type, int owner_id):
     halg_foreach(lock, &args, _append_name_cb)
     return names
 
+# returns the names of all directly or indirectly owned objects
+# of a given type
+# comp_id MUST be id of a comp
 cdef list comp_owned_names(int lock, int type, int comp_id):
     names = []
     cdef foreach_args_t args = nullargs
@@ -38,17 +41,20 @@ cdef list comp_owned_names(int lock, int type, int comp_id):
     return names
 
 
+# expose a memory range as a python Buffer
+cdef class mview:
+    cdef void *base
+    cdef int size
 
-# methods and properties to expose the
-# common HAL object header.
+    def __cinit__(self, long base, size):
+        self.base = <void *>base
+        self.size = size
 
-# see answer by ldav1s in
-# http://stackoverflow.com/questions/12204441/passing-c-pointer-as-argument-into-cython-function
-# why this is required:
-# cdef HALObject_Init(hal_object_ptr o):
-#       result = HALObject()
-#       result._o = o
-#       return result
+    def __getbuffer__(self, Py_buffer *view, int flags):
+        r = PyBuffer_FillInfo(view, self, self.base, self.size, 0, flags)
+        view.obj = self
+
+# methods and properties to exposing the common HAL object header.
 
 cdef class HALObject:
     cdef hal_object_ptr _o
@@ -82,6 +88,18 @@ cdef class HALObject:
         def __get__(self):
             self._object_check()
             return hh_get_type(self._o.hdr)
+
+    property strtype:
+        def __get__(self):
+            self._object_check()
+            return hal_strtype(hh_get_type(self._o.hdr))
+
+    property strhdr:
+        def __get__(self):
+            self._object_check()
+            cdef char buf[100]
+            hh_snprintf(buf, sizeof(buf), self._o.hdr)
+            return buf
 
     property refcnt:
         def __get__(self):

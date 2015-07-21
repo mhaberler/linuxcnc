@@ -24,7 +24,7 @@ cdef extern from "hal.h":
 
 
     # superset of hal_init()
-    int hal_xinit(int mode, int userarg1, int userarg2,
+    int halg_xinit(const int use_hal_mutex, int mode, int userarg1, int userarg2,
                   hal_constructor_t ctor, hal_destructor_t dtor, char *name)
 
     ctypedef int hal_bit_t
