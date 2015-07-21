@@ -1055,17 +1055,28 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *
 // comp_id) is now called owner_id, and can either originate from
 // a hal_init/hal_xinit call, or a hal_inst_create call.
 // returns < 0 on error.
-int hal_inst_create(const char *name,
+int halg_inst_create(const int use_hal_mutex,
+		    const char *name,
 		    const int comp_id,
 		    const int size,
 		    void **inst_data);
+static inline int hal_inst_create(const char *name,
+				  const int comp_id,
+				  const int size,
+				  void **inst_data) {
+    return halg_inst_create(1, name, comp_id, size, inst_data);
+}
 
 // delete a named instance.
 // unlinks & deletes all pins owned by this instance
 // deletes params owned by this instance
 // delf's and deletes functs expored by this instance
 // returns < 0 on error.
-int hal_inst_delete(const char *name);
+int halg_inst_delete(const int use_hal_mutex, const char *name);
+static inline int hal_inst_delete(const char *name) {
+    return halg_inst_delete(1, name);
+}
+
 
 // HAL-specific capabilities. Extend as needed.
 // capabilities are intended to be added to a binary (a.out, .so, .ko)

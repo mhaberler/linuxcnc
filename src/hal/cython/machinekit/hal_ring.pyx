@@ -15,17 +15,6 @@ from cpython cimport bool
 
 from .ring cimport *
 
-cdef class mview:
-    cdef void *base
-    cdef int size
-
-    def __cinit__(self, long base, size):
-        self.base = <void *>base
-        self.size = size
-
-    def __getbuffer__(self, Py_buffer *view, int flags):
-        r = PyBuffer_FillInfo(view, self, self.base, self.size, 0, flags)
-        view.obj = self
 
 cdef class Ring:
     cdef ringbuffer_t _rb
