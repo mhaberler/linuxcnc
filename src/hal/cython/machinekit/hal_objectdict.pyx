@@ -52,7 +52,7 @@ cdef class HALObjectDict:
         if ptr.any == NULL:
             raise NameError, "no such %s: %s" % (hal_strtype(self._type), name)
         method = _wrapdict[self._type]
-        w = method(name, lock=False)
+        w = method(name, lock=False, wrap=True)
         # add new wrapper
         self._objects[name] = w
         return w

@@ -36,17 +36,11 @@ cdef class Group(HALObject):
                     raise RuntimeError("userarg2 does not match for existing group %s: %d, was %d" %
                                        (name, arg2, self.userarg2))
 
-    # def signal_members(self):  
-    #     result = []
-    #     rc = halpr_foreach_member(self.name, _list_signal_members_cb,
-    #                               <void*>result, RESOLVE_NESTED_GROUPS);
-    #     if rc < 0:
-    #         raise RuntimeError("signal_members: halpr_foreach_member(%s) failed %d" %
-    #                            (self.name,rc))
-    #     return result
+    def members(self):  # member wrappers
+        return [members[n] for n in owned_names(1, hal_const.HAL_MEMBER, self.id)]
 
-    def members(self):  # members resolved into signals
-        return owned_names(1, hal_const.HAL_GROUP, self.id)
+    def signals(self):  # members resolved into signal names
+        return [signals[n] for n in owned_names(1, hal_const.HAL_MEMBER, self.id)]
 
     def changed(self):
         cdef hal_sig_t *s
@@ -95,23 +89,32 @@ cdef class Group(HALObject):
         def __set__(self, int r): self._o.group.userarg2 = r
 
 
-
-# see last answer why this is required:
-# http://stackoverflow.com/questions/12204441/passing-c-pointer-as-argument-into-cython-function
-
-# cdef Member_Init(hal_member_t *m):
-#       result = Member()
-#       result._m = m
-#       return result
-
 cdef class Member(HALObject):
     cdef hal_sig_t *s
     cdef hal_group_t *g
 
-    def __cinit__(self):
+    def __cinit__(self, *args,  init=None, int userarg1=0, eps=0,
+                  wrap=True, lock=True):
         hal_required()
+        if not wrap:
+            # create a new member and wrap it
+            group = args[0]
+            member = args[1]
+            r = halg_member_new(lock, group, member,
+                                userarg1, eps)
+            if r:
+                raise RuntimeError("Fail to create group %s member %s:"
+                                   " %d %s" % (group, member, r, hal_lasterror()))
+        else:
+            member = args[0]
+        #  member now must exist, look it up
+        self._o.member = halg_find_object_by_name(lock,
+                                                  hal_const.HAL_MEMBER,
+                                                  args[0]).member
+        if self._o.member == NULL:
+            raise RuntimeError("no such member %s" %member)
 
-    property item:
+    property sig:
         def __get__(self):
             if self._o.member.sig_ptr == 0:
                 raise InternalError("BUG: __call__: sig_ptr zero")
@@ -134,3 +137,7 @@ cdef class Member(HALObject):
 
 _wrapdict[hal_const.HAL_GROUP] = Group
 groups = HALObjectDict(hal_const.HAL_GROUP)
+
+_wrapdict[hal_const.HAL_MEMBER] = Member
+members = HALObjectDict(hal_const.HAL_MEMBER)
+

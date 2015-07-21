@@ -382,8 +382,8 @@ EXPORT_SYMBOL(hal_start_threads);
 EXPORT_SYMBOL(hal_stop_threads);
 
 // hal_inst.c:
-EXPORT_SYMBOL(hal_inst_create);
-EXPORT_SYMBOL(hal_inst_delete);
+EXPORT_SYMBOL(halg_inst_create);
+EXPORT_SYMBOL(halg_inst_delete);
 
 // hal_lib.c:
 EXPORT_SYMBOL(hal_print_msg);

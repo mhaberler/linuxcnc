@@ -6,27 +6,30 @@
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
 
-int hal_inst_create(const char *name, const int comp_id, const int size,
+int halg_inst_create(const int use_hal_mutex,
+		    const char *name,
+		    const int comp_id,
+		    const int size,
 		    void **inst_data)
 {
     CHECK_HALDATA();
     CHECK_STR(name);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_inst_t *inst;
 	hal_comp_t *comp;
 	void *m = NULL;
 
 	// comp must exist
-	if ((comp = halpr_find_comp_by_id(comp_id)) == 0) {
+	if ((comp = halg_find_object_by_id(0, HAL_COMPONENT, comp_id).comp) == 0) {
 	    HALERR("comp %d not found", comp_id);
 	    return -ENOENT;
 	}
 
 	// inst may not exist
-	if ((inst = halpr_find_inst_by_name(name)) != NULL) {
+	if ((inst = halg_find_object_by_name(0, HAL_INST, name).inst) != NULL) {
 	    HALERR("instance '%s' already exists", name);
 	    return -EEXIST;
 	}
@@ -61,19 +64,18 @@ int hal_inst_create(const char *name, const int comp_id, const int size,
 	    *(inst_data) = m;
 
 	// make it visible
-	halg_add_object(false, (hal_object_ptr)inst);
+	halg_add_object(0, (hal_object_ptr)inst);
 	return ho_id(inst);
     }
 }
 
-int hal_inst_delete(const char *name)
+int halg_inst_delete(const int use_hal_mutex, const char *name)
 {
     CHECK_HALDATA();
     CHECK_STR(name);
 
     {
-	WITH_HAL_MUTEX();
-
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_inst_t *inst;
 
 	// inst must exist
