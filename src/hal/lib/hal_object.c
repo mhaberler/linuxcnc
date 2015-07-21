@@ -93,8 +93,8 @@ int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 			  hh_get_name(hh),
 			  hh_get_id(hh),
 			  hh_get_owner_id(hh),
-			  hh_get_refcnt(hh),
-			  hh_is_valid(hh));
+			  hh_is_valid(hh),
+			  hh_get_refcnt(hh));
 }
 
 void *halg_create_object(const bool use_hal_mutex,

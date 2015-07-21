@@ -102,7 +102,7 @@ int halg_member_new(const int use_hal_mutex,const char *group, const char *membe
 	hal_member_t *new;
 	hal_sig_t *sig;
 
-	hal_group_t *grp = halpr_find_group_by_name(group);
+	hal_group_t *grp = halg_find_object_by_name(0, HAL_GROUP, group).group;
 	if (!grp) {
 	    HALERR("no such group '%s'", group);
 	    return -ENOENT;
@@ -115,14 +115,19 @@ int halg_member_new(const int use_hal_mutex,const char *group, const char *membe
 	    return -EBUSY;
 	}
 
-	if ((sig = halpr_find_sig_by_name(member)) == NULL) {
+	if ((sig = halg_find_object_by_name(0, HAL_SIGNAL, member).sig) == NULL) {
 	    HALERR("no such signal '%s'", member);
 	    return -ENOENT;
 	}
+
+	// detect duplicate insertion
+	new = halg_find_object_by_name(0, HAL_MEMBER, member).member;
+	if (new != NULL) {
+	    HALERR("group '%s' already has signal '%s' as member", group, member);
+	    return -EBUSY;
+	}
+
 	HALDBG("adding signal '%s' to group '%s'",  member, group);
-
-
-	// TBD: detect duplicate insertion
 	if ((new = halg_create_object(0, sizeof(hal_member_t),
 				      HAL_MEMBER, ho_id(grp), member)) == NULL)
 	    return -ENOMEM;
@@ -228,10 +233,8 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
     }
 
     // a compiled group is a userland memory object
-    if ((tc = malloc(sizeof(hal_compiled_group_t))) == NULL)
+    if ((tc = calloc(sizeof(hal_compiled_group_t), 1)) == NULL)
 	NOMEM("hal_compiled_group");
-
-    memset(tc, 0, sizeof(hal_compiled_group_t));
 
     // first pass: determine sizes
     // this fills sets the n_members and n_monitored fields

@@ -61,7 +61,7 @@ cdef extern from "hal_priv.h":
 
     ctypedef struct hal_inst_t:
         halhdr_t hdr
-        int inst_data_dtr
+        int inst_data_ptr
         int inst_size
 
     ctypedef struct hal_funct_args_t:
@@ -161,3 +161,11 @@ cdef extern from "hal_priv.h":
                                    hal_sig_t *sig,
                                    hal_pin_signal_callback_t cb,
                                    void *user)
+
+    int halg_inst_create(const int use_hal_mutex,
+                         const char *name,
+                         const int comp_id,
+                         const int size,
+                         void **inst_data)
+
+    int halg_inst_delete(const int use_hal_mutex, const char *name)
