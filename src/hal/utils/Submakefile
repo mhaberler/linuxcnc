@@ -42,7 +42,7 @@ TARGETS += ../bin/halcmd
 # 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ -lpthread
 # TARGETS += ../bin/halrmt
 
-ifeq (1,0)
+#ifeq (1,0)
 ifneq ($(GTK_VERSION),)
 HALMETERSRCS := \
      hal/utils/meter.c \
@@ -55,6 +55,7 @@ USERSRCS += $(HALMETERSRCS)
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^  $(GTK_LIBS)
 TARGETS += ../bin/halmeter
 
+#ifeq (1,0)
 HALSCOPESRCS := \
 	hal/utils/scope.c \
 	hal/utils/scope_horiz.c \
@@ -84,7 +85,8 @@ HALGTKSRCS := \
      hal/utils/miscgtk.c
 $(call TOOBJSDEPS, $(HALGTKSRCS)) : EXTRAFLAGS = $(GTK_CFLAGS)
 $(call TOOBJS, $(HALGTKSRCS)): Makefile.inc
-endif
+
+#endif
 endif
 
 ifeq ($(BUILD_DRIVERS),yes)
