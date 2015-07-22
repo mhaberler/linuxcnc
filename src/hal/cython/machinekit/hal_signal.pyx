@@ -143,6 +143,11 @@ cdef class Signal(HALObject):
              self._alive_check()
              return self._o.sig.writers
 
+    property type:
+        def __get__(self):
+             self._alive_check()
+             return self._o.sig.type
+
     property bidirs:
         def __get__(self):
             self._alive_check()
@@ -194,11 +199,15 @@ cdef modifier_name(hal_sig_t *sig, int dir):
 cdef _newsig(char *name, int type, init=None):
     if not valid_type(type):
         raise TypeError("newsig: %s - invalid type %d " % (name, type))
-    return Signal(name, type, init=init, wrap=False)
+    return Signal(name, type=type, init=init, wrap=False)
 
 def newsig(name, type, init=None):
     _newsig(name, type, init)
     return signals[name] # add to sigdict
+
+def delsig(name):
+    signals[name].delete() # deletes HAL descriptor
+    del signals[name]      # deletes wrapper
 
 
 _wrapdict[hal_const.HAL_SIGNAL] = Signal
