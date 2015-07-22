@@ -102,6 +102,7 @@ include "hal_group.pyx"
 include "hal_loadusr.pyx"
 include "hal_rcomp.pyx"
 include "hal_objectdict.pyx"
+include "hal_data.pyx"
 
 # list of component ID's to hal_exit() on unloading the module
 cdef list _comps = []
