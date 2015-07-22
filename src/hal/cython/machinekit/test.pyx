@@ -34,7 +34,7 @@ def testiter():
     cdef foreach_args_t args = nullargs
     args.type = hal_const.HAL_PIN
     args.user_ptr1 = <void *>names
-
+    # run iterator with HAL mutex held:
     rc = halg_foreach(1, &args, _testme)
     if rc < 0:
         raise RuntimeError("colossal failure!")
@@ -54,7 +54,7 @@ cdef hal_required():
     if not _comps:
         # dummy comp for connecting to HAL
         p = "machinekit::hal%d" % getpid()
-        id = hal_xinit(TYPE_USER, 0, 0, NULL, NULL, p)
+        id = halg_xinit(0, TYPE_USER, 0, 0, NULL, NULL, p)
         if hal_data == NULL:
             raise RuntimeError("cant connect to HAL - realtime not running?")
         hal_ready(id)

@@ -73,3 +73,4 @@ cdef extern from "rtapi_heap.h":
         size_t largest
 
     int rtapi_heap_setflags(rtapi_heap *h, int flags)
+    int rtapi_heap_status(rtapi_heap *h, rtapi_heap_stat *hs)
