@@ -157,7 +157,9 @@ int halg_link(const int use_hal_mutex,
 	}
 	/* check types */
 	if (pin->type != sig->type) {
-	    HALERR("type mismatch '%s' <- '%s'", pin_name, sig_name);
+	    HALERR("type mismatch '%s':%d <- '%s':%d",
+		   pin_name, pin->type,
+		   sig_name, sig->type);
 	    return -EINVAL;
 	}
 	/* linking output pin to sig that already has output or I/O pins? */

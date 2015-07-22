@@ -71,7 +71,7 @@ int hal_ring_new(const char *name,
 	rbdesc->total_size = ring_memsize( rbdesc->flags, size, sp_size);
 
 	if (rbdesc->flags & ALLOC_HALMEM) {
-	    void *ringmem = shmalloc_rt(rbdesc->total_size);
+	    void *ringmem = shmalloc_desc(rbdesc->total_size);
 	    if (ringmem == NULL)
 		NOMEM("ring '%s' size %d - insufficient HAL memory for ring",
 		      name,rbdesc->total_size);
@@ -157,7 +157,7 @@ int free_ring_struct(hal_ring_t *hrptr)
 
     HALDBG("deleting ring '%s'", ho_name(hrptr));
     if (hrptr->flags & ALLOC_HALMEM) {
-	; // if there were a HAL memory free function, call it here
+	shmfree_desc(rhptr);
     } else {
 	if ((retval = rtapi_shmem_delete(shmid, lib_module_id)) < 0)  {
 	    HALERR("ring '%s': rtapi_shmem_delete(%d,%d) failed: %d",

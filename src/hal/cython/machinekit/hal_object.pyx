@@ -84,7 +84,7 @@ cdef class HALObject:
             self._object_check()
             return hh_get_owner_id(self._o.hdr)
 
-    property type:
+    property otype:
         def __get__(self):
             self._object_check()
             return hh_get_type(self._o.hdr)
