@@ -2581,7 +2581,7 @@ static void print_mem_status()
     int active, recycled, next;
 
     halcmd_output("HAL memory status\n");
-    halcmd_output("  malloc arena size: %d\n",
+    halcmd_output("  malloc arena size: %ld\n",
 		  hal_data->shmem_bot - SHMOFF(hal_data->arena));
 
     struct rtapi_heap_stat hs = {};
