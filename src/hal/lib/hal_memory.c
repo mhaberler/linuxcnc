@@ -91,6 +91,5 @@ void *shmalloc_rt(size_t size)
     /* memory is available, allocate it */
     retval = SHMPTR(tmp_top);
     hal_data->shmem_top = tmp_top;
-    hal_data->shmem_avail = hal_data->shmem_top - hal_data->shmem_bot;
     return retval;
 }

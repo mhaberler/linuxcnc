@@ -2594,9 +2594,19 @@ static void print_mem_status()
     int active, recycled, next;
 
     halcmd_output("HAL memory status\n");
-    halcmd_output("  used/total shared memory:   %ld/%d\n",
-		  (long)(global_data->hal_size - hal_data->shmem_avail),
-		  global_data->hal_size);
+    halcmd_output("  malloc arena size: %d\n",
+		  hal_data->shmem_bot - SHMOFF(hal_data->arena));
+
+    struct rtapi_heap_stat hs = {};
+    rtapi_heap_status(&hal_data->heap, &hs);
+    halcmd_output("  heap: totail_avail=%zu fragments=%zu largest=%zu\n",
+		  hs.total_avail, hs.fragments, hs.largest);
+    halcmd_output("  RT objects: %ld\n",
+		  (long)(global_data->hal_size - hal_data->shmem_top));
+
+    halcmd_output("  unused:   %ld\n",
+		  (long)( hal_data->shmem_top - hal_data->shmem_bot));
+
 #if 0
     // count components
     active = count_list(hal_data->comp_list_ptr);
@@ -3152,37 +3162,6 @@ static void print_ring_names(char **patterns)
     halcmd_output("\n");
 }
 
-#ifdef RINGDEBUG
-void dump_rings(const char *where, int attach, int detach)
-{
-    int next,retval;
-    hal_ring_t *rptr;
-    ringbuffer_t ringbuffer;
-
-    printf("place: %s attach=%d detach=%d\n", where, attach, detach);
-    next =  hal_data->ring_list_ptr;
-    while (next) {
-	rptr = SHMPTR(next);
-	printf("name=%s next=%d ring_id=%d owner=%d\n",
-	       rptr->name, rptr->next_ptr, rptr->ring_id, rptr->owner);
-	if (attach) {
-	    if ((retval = rtapi_ring_attach(rptr->ring_id, &ringbuffer, comp_id))) {
-		halcmd_error("%s: rtapi_ring_attach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-	    }
-	}
-	if (detach) {
-
-	    if ((retval = rtapi_ring_detach(rptr->ring_id, comp_id))) {
-		halcmd_error("%s: rtapi_ring_detach(%d) failed ",
-			     rptr->name, rptr->ring_id);
-	    }
-	}
-	next = rptr->next_ptr;
-    }
-}
-#endif
-
 static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 {
     hal_ring_t *rptr = o.ring;
@@ -3192,7 +3171,7 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 
     if ( match(args->user_ptr1, ho_name(rptr))) {
 	unsigned flags;
-	if ((retval = hal_ring_attach(ho_name(rptr), &ringbuffer, &flags))) {
+	if ((retval = halg_ring_attach(0, ho_name(rptr), &ringbuffer, &flags))) {
 	    halcmd_error("%s: hal_ring_attach(%d) failed ",
 			 ho_name(rptr), rptr->ring_id);
 	    goto done;
@@ -3226,7 +3205,7 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	if (ring_scratchpad_size(&ringbuffer))
 	    halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
 	halcmd_output("\n");
-	if ((retval = hal_ring_detach(ho_name(rptr),  &ringbuffer)) < 0) {
+	if ((retval = halg_ring_detach(0, ho_name(rptr),  &ringbuffer)) < 0) {
 	    halcmd_error("%s: rtapi_ring_detach(%d) failed ",
 			 ho_name(rptr), rptr->ring_id);
 	}

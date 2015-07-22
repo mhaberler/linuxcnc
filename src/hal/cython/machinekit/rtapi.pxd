@@ -1,4 +1,5 @@
 # vim: sts=4 sw=4 et
+from libc.stddef cimport size_t
 
 cdef extern from "stdarg.h":
     ctypedef struct va_list:
@@ -57,3 +58,18 @@ cdef extern from "rtapi.h":
     int rtapi_set_logtag(const char *fmt, ...)
     const char *rtapi_get_logtag()
     void rtapi_print_msg(int level, const char *fmt, ...)
+
+
+cdef extern from "rtapi_heap.h":
+    int RTAPIHEAP_TRACE_MALLOC
+    int RTAPIHEAP_TRACE_FREE
+
+    cdef struct rtapi_heap:
+        pass
+
+    cdef struct rtapi_heap_stat:
+        size_t total_avail
+        size_t fragments
+        size_t largest
+
+    int rtapi_heap_setflags(rtapi_heap *h, int flags)
