@@ -122,7 +122,6 @@ cdef extern from "hal_priv.h":
     ctypedef struct hal_data_t:
         int version
         unsigned long mutex
-        hal_s32_t shmem_avail
         int shmem_bot
         int shmem_top
 

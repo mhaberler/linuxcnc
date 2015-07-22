@@ -1,22 +1,3 @@
-
-
-
-
-#= {
-#    hal_const.HAL_PIN : Pin,
-#    hal_const.HAL_SIGNAL        : Signal,
-#    hal_const.HAL_PARAM         : Param,
-#    hal_const.HAL_THREAD        : Thread,
-#    hal_const.HAL_FUNCT         : 5,
-#    hal_const.HAL_COMPONENT     : Component,
-#    hal_const.HAL_VTABLE        : 7,
-#    hal_const.HAL_INST          : Instance,
-#    hal_const.HAL_RING          : 9,
-#    hal_const.HAL_GROUP         : 10,
-#    hal_const.HAL_MEMBER        : 11,
-#}
-
-
 # generic dictionary of HAL objects.
 # instantiated with object type.
 
@@ -26,6 +7,7 @@ cdef class HALObjectDict:
     cdef dict _objects
 
     def __cinit__(self, int type):
+        #hal_required()
         if not type in _wrapdict:
             raise RuntimeError("unsupported type %d" % type)
         self._type = type
@@ -58,10 +40,12 @@ cdef class HALObjectDict:
         return w
 
     def __getitem__(self, name):
+        hal_required()
         with HALMutex():
             return self.__getitem_unlocked__(name)
 
     def __contains__(self, arg):
+        hal_required()
         if isinstance(arg, HALObject):
             arg = arg.name
         try:

@@ -53,7 +53,19 @@ typedef struct hal_ring {
 // components do not make sense as owners since their lifetime
 // might be shorter than the ring
 
-int hal_ring_new(const char *name, int size, int sp_size, int mode);
+int halg_ring_new(const int use_hal_mutex,
+		  const char *name,
+		  int size,
+		  int sp_size,
+		  int mode);
+
+static inline int hal_ring_new(const char *name,
+			       int size,
+			       int sp_size,
+			       int mode)  {
+    return halg_ring_new(1, name, size, sp_size, mode);
+}
+
 
 // printf-style version of the above
 int hal_ring_newf(int size, int sp_size, int mode, const char *fmt, ...)
@@ -61,7 +73,11 @@ int hal_ring_newf(int size, int sp_size, int mode, const char *fmt, ...)
 
 // delete a ring buffer.
 // will fail if the refcount is > 0 (meaning the ring is still attached somewhere).
-int hal_ring_delete(const char *name);
+int halg_ring_delete(const int use_hal_mutex, const char *name);
+
+static inline int hal_ring_delete(const char *name) {
+    return halg_ring_delete(1, name);
+}
 
 // printf-style version of the above
 int hal_ring_deletef(const char *fmt, ...)
@@ -82,14 +98,28 @@ int hal_ring_deletef(const char *fmt, ...)
 //     hal_ring_attach(name, NULL, &f) - if the ring exists, returns 0
 //     and the ring's flags are returned in f
 //
-int hal_ring_attach(const char *name, ringbuffer_t *rb, unsigned *flags);
+int halg_ring_attach(const int use_hal_mutex,
+		     const char *name,
+		     ringbuffer_t *rbptr,
+		     unsigned *flags);
+static inline int hal_ring_attach(const char *name,
+				  ringbuffer_t *rb,
+				  unsigned *flags) {
+    return halg_ring_attach(1, name, rb, flags);
+}
 
 // printf-style version of the above
 int hal_ring_attachf(ringbuffer_t *rb, unsigned *flags, const char *fmt, ...)
     __attribute__((format(printf,3,4)));
 
 // detach a ringbuffer. Decreases the reference count.
-int hal_ring_detach(const char *name, ringbuffer_t *rb);
+int halg_ring_detach(const int use_hal_mutex,
+		     const char *name,
+		     ringbuffer_t *rbptr);
+
+static inline  int hal_ring_detach(const char *name, ringbuffer_t *rb) {
+    return halg_ring_detach(1, name, rb);
+}
 
 // printf-style version of the above
 int hal_ring_detachf(ringbuffer_t *rb, const char *fmt, ...)

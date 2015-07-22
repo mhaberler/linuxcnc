@@ -216,6 +216,9 @@ void *_rtapi_heap_setloghdlr(struct rtapi_heap *heap, void  *p)
 
 size_t _rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs)
 {
+    unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
+    rtapi_mutex_get(m);
+
     hs->total_avail = 0;
     hs->fragments = 0;
     hs->largest = 0;

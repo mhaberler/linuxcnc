@@ -125,13 +125,20 @@ cdef class Signal(HALObject):
         def __get__(self):
             cdef char *name
             self._alive_check()
-            return modifier_name(self._o.sig, HAL_OUT)
+            # [] or ['writer']
+            s = modifier_name(self._o.sig, HAL_OUT)
+            if s:
+                return s[0]
+            return None
 
     property bidirname:
         def __get__(self):
             cdef char *name
             self._alive_check()
-            return modifier_name(self._o.sig, HAL_IO)
+            s =  modifier_name(self._o.sig, HAL_IO)
+            if s:
+                return s
+            return None
 
     property readers:
         def __get__(self):
