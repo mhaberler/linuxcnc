@@ -44,11 +44,11 @@ def test_net_existing_signal_with_bad_type():
         raise "should not happen"
     except TypeError:
         pass
-    del hal.signals["f"]
+    hal.delsig("f")
     assert 'f' not in hal.signals
 
 
-def test_net_match_nonexistant_signals():
+def test_net_match_nonexistent_signals():
     l.log()
     try:
         hal.net("nosuchsig", "c1.s32out", "c2.s32out")
@@ -67,9 +67,11 @@ def test_net_pin2pin():
 
     # cleanup
     hal.pins["c1.s32out"].unlink()
+    assert hal.pins["c1.s32out"].linked is False
     hal.pins["c2.s32in"].unlink()
-    del hal.signals['c1-s32out']
-    assert 'c1-s32out' not in hal.signals
+    assert hal.pins["c2.s32in"].linked is False
+    hal.delsig('c1-s32out')
+    assert 'c1-s32out' not in hal.signals()
 
     try:
         hal.net("c2.s32out", "c1.s32out")
@@ -79,9 +81,8 @@ def test_net_pin2pin():
 
     # cleanup
     hal.pins["c2.s32out"].unlink()
-    del hal.signals['c2-s32out']
+    hal.delsig('c2-s32out')
     assert 'c2-s32out' not in hal.signals
-
 
 def test_net_existing_signal():
     l.log()
@@ -98,8 +99,14 @@ def test_net_existing_signal():
     except RuntimeError:
         pass
 
+<<<<<<< HEAD
     del hal.signals["s32"]
     assert 's32' not in hal.signals
+||||||| merged common ancestors
+    del hal.signals["s32"]
+=======
+    hal.delsig("s32")
+>>>>>>> wip
 
 
 def test_newsig():
@@ -144,16 +151,32 @@ def test_check_net_args():
     except TypeError:
         pass
 
+<<<<<<< HEAD
     assert 'c1-s32out' not in hal.signals
 
     # single pin argument
     assert hal.pins["c1.s32out"].linked is False
 
+||||||| merged common ancestors
+    # single pin argument
+=======
+    assert hal.pins["c1.s32out"].linked is False
+    assert 'c1-s32out' not in hal.signals
+
+    # single pin argument. Must fail,
+    # pin not linked, and no signal autocreated.
+>>>>>>> wip
     try:
         hal.net("c1.s32out")
         # RuntimeError: net: at least one pin name expected
     except RuntimeError:
         pass
+    assert 'c1-s32out' not in hal.signals
+    assert hal.pins["c1.s32out"].linked is False
+
+
+    # hal.delsig('c1-s32out')
+    # assert hal.pins["c1.s32out"].linked is False
 
     # XXX die beiden gehen daneben:
     # der pin wird trotz runtime error gelinkt und das signal erzeugt:

@@ -92,6 +92,10 @@ cdef class _Pin(HALObject):
             if not  pin_linked(self._o.pin): return None  # raise exception?
             return signals[self.signame]
 
+    property type:
+        def __get__(self):
+             return self._o.pin.type
+
     property epsilon:
         def __get__(self): return hal_data.epsilon[self._o.pin.eps_index]
 
