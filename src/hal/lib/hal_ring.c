@@ -27,10 +27,11 @@ int hal_ring_newf(int size, int sp_size, int mode, const char *fmt, ...)
     return ret;
 }
 
-int hal_ring_new(const char *name,
-		 int size,
-		 int sp_size,
-		 int mode)
+int halg_ring_new(const int use_hal_mutex,
+		  const char *name,
+		  int size,
+		  int sp_size,
+		  int mode)
 {
     hal_ring_t *rbdesc;
     int retval;
@@ -42,7 +43,7 @@ int hal_ring_new(const char *name,
     CHECK_LOCK(HAL_LOCK_LOAD);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_ring_t *ptr;
 
 	// make sure no such ring name already exists
@@ -170,7 +171,8 @@ int free_ring_struct(hal_ring_t *hrptr)
 }
 
 
-int hal_ring_delete(const char *name)
+int halg_ring_delete(const int use_hal_mutex,
+		    const char *name)
 {
 
     CHECK_HALDATA();
@@ -178,7 +180,7 @@ int hal_ring_delete(const char *name)
     CHECK_LOCK(HAL_LOCK_LOAD);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	hal_ring_t *hrptr;
 
 	// ring must exist
@@ -201,7 +203,10 @@ int hal_ring_attachf(ringbuffer_t *rb, unsigned *flags, const char *fmt, ...)
     return ret;
 }
 
-int hal_ring_attach(const char *name, ringbuffer_t *rbptr,unsigned *flags)
+int halg_ring_attach(const int use_hal_mutex,
+		    const char *name,
+		    ringbuffer_t *rbptr,
+		    unsigned *flags)
 {
     hal_ring_t *rbdesc;
     ringheader_t *rhptr;
@@ -211,7 +216,7 @@ int hal_ring_attach(const char *name, ringbuffer_t *rbptr,unsigned *flags)
 
     // no mutex(es) held up to here
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	int retval;
 
 	if ((rbdesc = halpr_find_ring_by_name(name)) == NULL) {
@@ -277,7 +282,9 @@ int hal_ring_detachf(ringbuffer_t *rb, const char *fmt, ...)
     return ret;
 }
 
-int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
+int halg_ring_detach(const int use_hal_mutex,
+		     const char *name,
+		     ringbuffer_t *rbptr)
 {
 
     CHECK_HALDATA();
@@ -291,7 +298,7 @@ int hal_ring_detach(const char *name, ringbuffer_t *rbptr)
 
     // no mutex(es) held up to here
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	ringheader_t *rhptr = rbptr->header;
 	rhptr->refcount--;
@@ -334,7 +341,7 @@ static int hal_ring_newfv(int size, int sp_size, int flags,
 	       sz, name);
         return -ENOMEM;
     }
-    return hal_ring_new(name, size, sp_size, flags);
+    return halg_ring_new(1, name, size, sp_size, flags);
 }
 
 
@@ -348,7 +355,7 @@ static int hal_ring_deletefv(const char *fmt, va_list ap)
 	       sz, name);
         return -ENOMEM;
     }
-    return hal_ring_delete(name);
+    return halg_ring_delete(1, name);
 }
 
 static int hal_ring_attachfv(ringbuffer_t *rb, unsigned *flags,
@@ -362,7 +369,7 @@ static int hal_ring_attachfv(ringbuffer_t *rb, unsigned *flags,
 	       sz, name);
         return -ENOMEM;
     }
-    return hal_ring_attach(name, rb, flags);
+    return halg_ring_attach(1, name, rb, flags);
 }
 
 static int hal_ring_detachfv(ringbuffer_t *rb, const char *fmt, va_list ap)
@@ -375,18 +382,18 @@ static int hal_ring_detachfv(ringbuffer_t *rb, const char *fmt, va_list ap)
 	       sz, name);
         return -ENOMEM;
     }
-    return hal_ring_detach(name, rb);
+    return halg_ring_detach(1,name, rb);
 }
 
 #ifdef RTAPI
 
-EXPORT_SYMBOL(hal_ring_new);
+EXPORT_SYMBOL(halg_ring_new);
 EXPORT_SYMBOL(hal_ring_newf);
-EXPORT_SYMBOL(hal_ring_delete);
+EXPORT_SYMBOL(halg_ring_delete);
 EXPORT_SYMBOL(hal_ring_deletef);
-EXPORT_SYMBOL(hal_ring_attach);
+EXPORT_SYMBOL(halg_ring_attach);
 EXPORT_SYMBOL(hal_ring_attachf);
-EXPORT_SYMBOL(hal_ring_detach);
+EXPORT_SYMBOL(halg_ring_detach);
 EXPORT_SYMBOL(hal_ring_detachf);
 
 #endif

@@ -127,6 +127,9 @@ cdef class Component(HALObject):
     property pid:
         def __get__(self): return self._o.comp.pid
 
+    property type:
+        def __get__(self): return self._o.comp.type
+
     property state:
         def __get__(self): return self._o.comp.state
 
