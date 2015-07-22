@@ -228,6 +228,8 @@ typedef struct foreach_args {
     // (either int or void *)
     int user_arg1;          // opaque int arguments
     int user_arg2;
+    int user_arg3;
+    int user_arg4;
     void *user_ptr1;        // opaque user pointer arguments
     void *user_ptr2;
     void *user_ptr3;

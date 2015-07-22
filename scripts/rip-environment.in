@@ -35,12 +35,6 @@ if ! test "xyes" = "x@RUN_IN_PLACE@"; then
     return
 fi
 
-case "$PATH" in
-    @EMC2_BIN_DIR@:*|*:@EMC2_BIN_DIR@:*)
-	echo "This script only needs to be run once per shell session."
-	return ;;
-esac
-
 EMC2_HOME=@EMC2_HOME@; export EMC2_HOME
 EMC2VERSION="@EMC2VERSION@"; export EMC2VERSION
 LINUXCNC_EMCSH=@WISH@; export LINUXCNC_EMCSH

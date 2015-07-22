@@ -785,7 +785,7 @@ int main(int argc, char **argv)
 
     if (trap_signals && (getenv("NOSIGHDLR") != NULL))
 	trap_signals = false;
-
+/*
     // sanity
     if (getuid() == 0) {
 	fprintf(stderr, "%s: FATAL - will not run as root\n", progname);
@@ -795,7 +795,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "%s: FATAL - will not run as setuid root\n", progname);
 	exit(EXIT_FAILURE);
     }
-
+*/
     if (flavor == NULL)
 	flavor = default_flavor();
 
