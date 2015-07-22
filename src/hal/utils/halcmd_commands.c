@@ -1453,9 +1453,15 @@ static int unload_rt_cb(hal_object_ptr o, foreach_args_t *args)
 	halg_count_exported_vtables(0, ho_id(comp)))
 	return 0; // but continue iterating
 
+    // dont directly work with the name from hal_comp_t
+    // as halg_free_object() will zero the name,
+    // making print error messages return a zero-length
+    // string in unloadrt_comp()
+    char *name = strdup(ho_name(comp));
     rtapi_mutex_give(&(hal_data->mutex));
-    int retval = unloadrt_comp(ho_name(comp));
+    int retval = unloadrt_comp(name);
     rtapi_mutex_get(&(hal_data->mutex));
+    free(name);
 
     args->user_arg2 = retval; // pass it back
     // check for fatal error
@@ -1471,7 +1477,7 @@ int do_unloadrt_cmd(char *name)
 
     foreach_args_t args =  {
 	.type = HAL_COMPONENT,
-	.name = strcmp(name, "all") ? NULL : name,
+	.name = (strcmp(name, "all") == 0) ? NULL : name,
 	.user_arg1 = 1, // signifiy 'skip if vtable exported'
     };
     ret = halg_foreach(1, &args, unload_rt_cb);
