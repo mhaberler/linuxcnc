@@ -12,7 +12,6 @@ cimport hal_const
 cimport ring_const
 from .hal cimport *
 from .rtapi cimport *
-#from .hal_object cimport *
 from .hal_priv cimport *
 from .hal_rcomp cimport *
 from .hal_ring cimport *

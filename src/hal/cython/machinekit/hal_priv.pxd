@@ -2,6 +2,7 @@
 
 from .hal cimport *
 from hal_const cimport hal_type_t, hal_pin_dir_t, hal_param_dir_t
+from rtapi cimport rtapi_heap
 
 cdef extern from "hal_object.h":
 
@@ -124,15 +125,14 @@ cdef extern from "hal_priv.h":
         unsigned long mutex
         int shmem_bot
         int shmem_top
-
-
         long base_period
-        int threads_running
         int exact_base_period
+        int threads_running
         unsigned char lock
         # RTAPI_DECLARE_BITMAP(rings, HAL_MAX_RINGS);
         double *epsilon #[MAX_EPSILON]
-
+        rtapi_heap heap
+        char *arena
 
     hal_data_t *hal_data
     char *hal_shmem_base
