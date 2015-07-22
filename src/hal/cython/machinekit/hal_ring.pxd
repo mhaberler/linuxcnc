@@ -1,6 +1,7 @@
 # hal_ring.h definitions
 
 from .hal cimport *
+from .hal_priv cimport halhdr_t
 from .ring cimport ringbuffer_t
 
 cdef extern from "hal_ring.h":
