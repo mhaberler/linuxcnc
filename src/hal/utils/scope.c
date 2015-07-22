@@ -256,11 +256,11 @@ static int heartbeat(gpointer data)
 
 void start_capture(void)
 {
-    int n;
-    scope_chan_t *chan;
-    hal_pin_t *pin;
-    hal_sig_t *sig;
-    hal_param_t *param;
+int n;
+scope_chan_t *chan;
+hal_pin_t *pin;
+hal_sig_t *sig;
+hal_param_t *param;
 
     if (ctrl_shm->state != IDLE) {
 	/* already running! */
@@ -274,7 +274,8 @@ void start_capture(void)
 	    /* channel source is a pin, point at it */
 	    pin = SHMPTR(chan->data_source);
 	    /* make sure it's still valid */
-	    if ( pin->name[0] == '\0' ) {
+	    if(! ho_valid(pin))
+	    {
 		/* pin has been deleted */
 		chan->data_source_type = -1;
 		chan->data_len = 0;
@@ -293,7 +294,8 @@ void start_capture(void)
 	    /* channel source is a signal, point at it */
 	    sig = SHMPTR(chan->data_source);
 	    /* make sure it's still valid */
-	    if ( sig->name[0] == '\0' ) {
+	    if(! ho_valid(pin))
+	    {
 		/* signal has been deleted */
 		chan->data_source_type = -1;
 		chan->data_len = 0;
@@ -304,7 +306,8 @@ void start_capture(void)
 	    /* channel source is a parameter, point at it */
 	    param = SHMPTR(chan->data_source);
 	    /* make sure it's still valid */
-	    if ( param->name[0] == '\0' ) {
+	    if(! ho_valid(param))
+	    {
 		/* param has been deleted */
 		chan->data_source_type = -1;
 		chan->data_len = 0;
