@@ -24,6 +24,7 @@
 #ifdef ULAPI
 #include <stdio.h>
 #endif
+
 // this is straight from the malloc code in:
 // K&R The C Programming Language, Edition 2, pages 185-189
 // adapted to use offsets relative to the heap descriptor
@@ -91,11 +92,8 @@ void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
     }
 }
 
-void _rtapi_free(struct rtapi_heap *h,void *ap)
+static void _rtapi_unlocked_free(struct rtapi_heap *h,void *ap)
 {
-    unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
-    rtapi_mutex_get(m);
-
     rtapi_malloc_hdr_t *bp, *p;
     rtapi_malloc_hdr_t *freep =  heap_ptr(h,h->free_p);
 
@@ -130,7 +128,15 @@ void _rtapi_free(struct rtapi_heap *h,void *ap)
     h->free_p = heap_off(h,p);
 }
 
-// returns number of bytes available for use
+void _rtapi_free(struct rtapi_heap *h,void *ap) {
+    unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
+    rtapi_mutex_get(m);
+    _rtapi_unlocked_free(h, ap);
+}
+
+// given a pointer returned by _rtapi_malloc(),
+// returns number of bytes actually available for use (which
+// might be a bit larger than requested) due to chunk alignent)
 size_t _rtapi_allocsize(void *ap)
 {
     rtapi_malloc_hdr_t *p = (rtapi_malloc_hdr_t *) ap - 1;
@@ -157,20 +163,22 @@ void *_rtapi_realloc(struct rtapi_heap *h, void *ptr, size_t size)
     return p;
 }
 
-size_t _rtapi_heap_print_freelist(struct rtapi_heap *h)
+size_t _rtapi_heap_walk_freelist(struct rtapi_heap *h, chunk_t callback, void *user)
 {
+    unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
+    rtapi_mutex_get(m);
+
     size_t free = 0;
     rtapi_malloc_hdr_t *p, *prevp, *freep = heap_ptr(h,h->free_p);
     prevp = freep;
     for (p = heap_ptr(h,prevp->s.next); ; prevp = p, p = heap_ptr(h,p->s.next)) {
-	if (p->s.size) {
-	    heap_print(h, RTAPI_MSG_DBG, "%d at %p\n",
-		       p->s.size * sizeof(rtapi_malloc_hdr_t),
-		       (void *)(p + 1));
+	if (p->s.size && callback != NULL) {
+	    callback(p->s.size * sizeof(rtapi_malloc_hdr_t),
+		     (void *)(p + 1),
+		     user);
 	    free += p->s.size;
 	}
 	if (p == freep) {
-	    heap_print(h, RTAPI_MSG_DBG, "end of free list %p, free=%zu\n", p, free);
 	    return free;
 	}
     }
@@ -178,18 +186,22 @@ size_t _rtapi_heap_print_freelist(struct rtapi_heap *h)
 
 int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size)
 {
+    unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
+    rtapi_mutex_get(m);
+
     if (space < (void*) h) return -EINVAL;
     //    if (size < RTAPI_HEAP_MIN_ALLOC) return -EINVAL;
     rtapi_malloc_hdr_t *arena = space;
     arena->s.size = size / sizeof(rtapi_malloc_hdr_t);
-    _rtapi_free(h, (void *) (arena + 1));
+    _rtapi_unlocked_free(h, (void *) (arena + 1));
     return 0;
 }
 
-//msg_handler_t __attribute__((weak)) default_rtapi_msg_handler;
-
 int _rtapi_heap_init(struct rtapi_heap *heap)
 {
+    unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &heap->mutex;
+    rtapi_mutex_get(m);
+
     heap->base.s.next = 0; // because the first element in the heap ist the header
     heap->free_p = 0;      // and free list sentinel
     heap->base.s.size = 0;
@@ -214,7 +226,8 @@ void *_rtapi_heap_setloghdlr(struct rtapi_heap *heap, void  *p)
     return h;
 }
 
-size_t _rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs)
+size_t _rtapi_heap_status(struct rtapi_heap *h,
+			  struct rtapi_heap_stat *hs)
 {
     unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &h->mutex;
     rtapi_mutex_get(m);
