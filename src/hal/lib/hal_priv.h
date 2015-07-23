@@ -287,16 +287,18 @@ static inline size_t hal_freemem(void) {
 */
 typedef struct hal_comp {
     halhdr_t hdr;		// common HAL object header
-    int type;			/* subtype, one of: TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE */
-    int state;                  /* one of: COMP_INITIALIZING, COMP_UNBOUND, */
+    int type  : 8;              // subtype, one of:
+                                // TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE
+    int state : 8;              /* one of: COMP_INITIALIZING, COMP_UNBOUND, */
                                 /* COMP_BOUND, COMP_READY */
+    void *shmem_base;           /* base of shmem for this component */
+
     // the next two should be time_t, but kernel wont like them
     // so fudge it as long int
     long int last_update;            /* timestamp of last remote update */
     long int last_bound;             /* timestamp of last bind operation */
     long int last_unbound;           /* timestamp of last unbind operation */
     int pid;			     /* PID of component (user components only) */
-    void *shmem_base;           /* base of shmem for this component */
 
     hal_constructor_t ctor;     // NULL for non-instatiable legacy comps
     hal_destructor_t dtor;      // may be NULL for a default destructor
@@ -453,22 +455,25 @@ int hal_export_xfunctf( const hal_export_xfunct_args_t *xf, const char *fmt, ...
 
  typedef struct hal_funct {
     halhdr_t hdr;
-    hal_funct_signature_t type; // drives call signature, addf
-    int uses_fp;		/* floating point flag */
-    int reentrant;		/* non-zero if function is re-entrant */
-    int users;			/* number of threads using function */
     void *arg;			/* argument for function */
     hal_funct_u funct;          // ptr to function code
+    hal_funct_signature_t type; // drives call signature, addf
     hal_s32_t* runtime;	        /* (pin) duration of last run, in nsec */
     hal_s32_t maxtime;		/* duration of longest run, in nsec */
     hal_bit_t maxtime_increased;	/* on last call, maxtime increased */
+    int uses_fp;		/* floating point flag */
+    int reentrant;		/* non-zero if function is re-entrant */
+    int users;			/* number of threads using function */
 } hal_funct_t;
 
 typedef struct hal_funct_entry {
     hal_list_t links;		/* linked list data */
-    hal_funct_signature_t type;
+    __u8 rmb;                   // issue a read barrier before calling this funct
+    __u8 wmb;                   // issue a write barrier after calling this funct
+    __u8 type;
+    __u8 spare;
     void *arg;			/* argument for function */
-    hal_funct_u funct;     // ptr to function code
+    hal_funct_u funct;          // ptr to function code
     int funct_ptr;		/* pointer to function */
 } hal_funct_entry_t;
 
@@ -548,7 +553,7 @@ typedef struct hal_vtable {
    meaningfull error messages in case of a mismatch.
 */
 #include "rtapi_shmkeys.h"
-#define HAL_VER   0x0000000C	/* version code */
+#define HAL_VER   13	/* version code */
 
 
 /***********************************************************************
