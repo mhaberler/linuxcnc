@@ -500,7 +500,6 @@ HEADERS := \
     hal/lib/hal_logging.h \
     hal/lib/hal_parport.h \
     hal/lib/hal_priv.h \
-    hal/lib/hal_object.h \
     hal/lib/hal_rcomp.h \
     hal/lib/hal_ring.h \
     hal/lib/vtable.h \
