@@ -162,9 +162,8 @@ handle_group_timer(zloop_t *loop, int timer_id, void *arg)
 int
 scan_groups(htself_t *self)
 {
-    foreach_args_t args =  {
-	.type = HAL_GROUP,
-    };
+    foreach_args_t args = {};
+    args.type = HAL_GROUP;
     args.user_ptr1 = (void *)self;
 
     // run this under HAL mutex locked in a single transaction:
@@ -232,9 +231,8 @@ scan_group_cb(hal_object_ptr o, foreach_args_t *args)
 
     // walk the signals of a group, and add them to the items dict
     // for lookup-by-handle if not yet present - idempotent
-    foreach_args_t margs =  {
-	.type = HAL_MEMBER
-    };
+    foreach_args_t margs = {};
+    margs.type = HAL_MEMBER;
     margs.owner_id = ho_id(g); // select members owned by group
     margs.user_ptr1 = (void *) self;
     halg_foreach(0, &margs, add_sig_to_items);

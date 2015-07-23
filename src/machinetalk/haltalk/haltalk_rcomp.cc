@@ -202,9 +202,8 @@ static int scan_component(hal_object_ptr o, foreach_args_t *args)
 int
 scan_comps(htself_t *self)
 {
-    foreach_args_t args =  {
-	.type = HAL_COMPONENT,
-    };
+    foreach_args_t args = {};
+    args.type = HAL_COMPONENT;
     args.user_ptr1 = (void *)self;
 
     // run this under HAL mutex locked in a single transaction:
