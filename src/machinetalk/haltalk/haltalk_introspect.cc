@@ -109,12 +109,12 @@ int describe_parameters(htself_t *self)
 static int describe_toplevel_object_cb(hal_object_ptr o,
 				       foreach_args_t *args)
 {
-    if (!hh_is_toplevel(hh_get_type(o.hdr)))
+    if (!hh_is_toplevel(hh_get_object_type(o.hdr)))
 	return 0;
 
     pb::Container *msg = (pb::Container *) args->user_ptr1;
 
-    switch (hh_get_type(o.hdr)) {
+    switch (hh_get_object_type(o.hdr)) {
 
     case HAL_SIGNAL:
 	return halpr_describe_signal(o.sig, msg->add_signal());
@@ -142,7 +142,7 @@ static int describe_toplevel_object_cb(hal_object_ptr o,
 
     default:
 	HALBUG("%s object %s  not supported",
-	       hh_get_typestr(o.hdr),
+	       hh_get_object_typestr(o.hdr),
 	       hh_get_name(o.hdr));
     }
     return 0; // continue
