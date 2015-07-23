@@ -1,5 +1,5 @@
 # vim: sts=4 sw=4 et
-
+cimport libcpp
 cimport hal_const
 # Copyright Pavel Shramov, 4/2014
 # see http://psha.org.ru/cgit/psha/emc2.git/commit/?h=wip-cython
@@ -27,7 +27,7 @@ cdef extern from "hal.h":
     int halg_xinit(const int use_hal_mutex, int mode, int userarg1, int userarg2,
                   hal_constructor_t ctor, hal_destructor_t dtor, char *name)
 
-    ctypedef int hal_bit_t
+    ctypedef libcpp.bool hal_bit_t
     ctypedef float hal_float_t
     ctypedef int hal_s32_t
     ctypedef unsigned hal_u32_t
@@ -57,7 +57,8 @@ cdef extern from "hal.h":
         void **data_ptr_addr, int comp_id)
 
     int hal_add_funct_to_thread(const char *funct_name,
-                                const char *thread_name, int position)
+                                const char *thread_name,
+                                int position, int rmb, int wmb)
 
     int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 
