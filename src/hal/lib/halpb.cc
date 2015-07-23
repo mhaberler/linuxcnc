@@ -164,10 +164,9 @@ int halpr_describe_group(hal_group_t *g, pb::Group *pbgroup)
     pbgroup->set_userarg1(g->userarg1);
     pbgroup->set_userarg2(g->userarg2);
 
-    foreach_args_t args =  {
-	.type = HAL_MEMBER,
-    };
-    // gcc doesnt grok this in an initializer:
+    // gcc doesnt grok complex initializers:
+    foreach_args_t args =  {};
+    args.type = HAL_MEMBER;
     args.owner_id = ho_id(g);
     args.user_ptr1 = (void *) pbgroup;
 
