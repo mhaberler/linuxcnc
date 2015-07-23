@@ -13,11 +13,6 @@
 // the offsets used in the rtapi_heap and rtapi_malloc_header structure
 // are offsets from the rtapi_heap structure.
 
-// #define RTAPI_HEAP_MIN_ALLOC 1024 // with alignment 8 == 8k arena
-
-// same signature as rtapi_msg_handler_t but avoid reference on RTAPI
-typedef void(*heap_print_t)(int level, const char *fmt, va_list ap);
-
 typedef double rtapi_malloc_align;
 
 union rtapi_malloc_header {
