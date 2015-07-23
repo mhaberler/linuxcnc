@@ -221,7 +221,7 @@ int set_channel_source(int chan_num, int type, char *name)
 	chan->data_source_type = 0;
 	chan->data_source = SHMOFF(pin);
 	chan->data_type = pin->type;
-	chan->name = ho_name(pin);
+	chan->name = (char *)ho_name(pin);
     } else if (type == 1) {
 	/* search the signal list */
 	sig = halpr_find_sig_by_name(name);
@@ -232,7 +232,7 @@ int set_channel_source(int chan_num, int type, char *name)
 	chan->data_source_type = 1;
 	chan->data_source = SHMOFF(sig);
 	chan->data_type = sig->type;
-	chan->name = ho_name(sig);
+	chan->name = (char *)ho_name(sig);
     } else if (type == 2) {
 	/* search the parameter list */
 	param = halpr_find_param_by_name(name);
@@ -243,7 +243,7 @@ int set_channel_source(int chan_num, int type, char *name)
 	chan->data_source_type = 2;
 	chan->data_source = SHMOFF(param);
 	chan->data_type = param->type;
-	chan->name = ho_name(param);
+	chan->name = (char *)ho_name(param);
     }
     switch (chan->data_type) {
     case HAL_BIT:
@@ -1022,19 +1022,19 @@ scope_chan_t *chan;
 	if(args->type == HAL_PIN)
 		{
 		hal_pin_t *pin = o.pin;
-		name = ho_name(pin);
+		name =(char *) ho_name(pin);
 		row = gtk_clist_append(GTK_CLIST(vert->lists[0]), &name);
 		}
 	else if(args->type == HAL_SIGNAL)
 		{
 		hal_sig_t *signal = o.sig;
-		name = ho_name(signal);
+		name = (char *)ho_name(signal);
 		row = gtk_clist_append(GTK_CLIST(vert->lists[1]), &name);
 		}
 	else if(args->type == HAL_PARAM)
 		{
 		hal_param_t *param = o.param;
-		name = ho_name(param);
+		name = (char *)ho_name(param);
 		row = gtk_clist_append(GTK_CLIST(vert->lists[2]), &name);
 		}
 
