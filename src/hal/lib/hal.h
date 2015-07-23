@@ -963,8 +963,11 @@ extern int hal_thread_delete(const char *name);
     only from within user space or init code, not from
     realtime code.
 */
-extern int hal_add_funct_to_thread(const char *funct_name, const char *thread_name,
-    int position);
+extern int hal_add_funct_to_thread(const char *funct_name,
+				   const char *thread_name,
+				   const int position,
+				   const int read_barrier,
+				   const int write_barrier);
 
 /** hal_del_funct_from_thread() removes a function from a thread.
     'funct_name' is the name of the function, as specified in

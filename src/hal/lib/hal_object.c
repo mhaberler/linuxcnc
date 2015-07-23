@@ -26,7 +26,7 @@ int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
         return -ENOMEM;
     }
     strcpy(s, buf);
-    hh->_name_offset = SHMOFF(s);
+    hh->_name_ptr = SHMOFF(s);
     return 0;
 }
 
@@ -71,9 +71,9 @@ int hh_clear_hdr(halhdr_t *hh)
     int ret = hh_is_valid(hh);
     hh_set_id(hh, 0);
     hh_set_owner_id(hh, 0);
-    if (hh->_name_offset) {
-	shmfree_desc(SHMPTR(hh->_name_offset));
-	hh->_name_offset = 0;
+    if (hh->_name_ptr) {
+	shmfree_desc(SHMPTR(hh->_name_ptr));
+	hh->_name_ptr = 0;
     }
     hh_set_invalid(hh);
     hh->_refcnt = 0;

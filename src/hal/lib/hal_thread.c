@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "rtapi.h"		/* RTAPI realtime OS API */
+#include "rtapi_mbarrier.h"	// memory barrier primitives
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
@@ -41,6 +42,12 @@ static void thread_task(void *arg)
 		/* point to function structure */
 		fa.funct = SHMPTR(funct_entry->funct_ptr);
 
+		// issue a read barrier if set in funct_entry or
+		// funct object header
+		if (funct_entry->rmb || ho_rmb(fa.funct)) {
+		    rtapi_smp_rmb();
+		}
+
 		/* call the function */
 		switch (funct_entry->type) {
 		case FS_LEGACY_THREADFUNC:
@@ -63,6 +70,13 @@ static void thread_task(void *arg)
 		} else {
 		    fa.funct->maxtime_increased = 0;
 		}
+
+		// issue a write barrier if set in funct_entry or
+		// funct object header
+		if (funct_entry->wmb || ho_wmb(fa.funct)) {
+		    rtapi_smp_wmb();
+		}
+
 		/* point to next next entry in list */
 		funct_entry = SHMPTR(funct_entry->links.next);
 		/* prepare to measure time for next funct */

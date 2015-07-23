@@ -331,17 +331,31 @@ int do_unecho_cmd(void) {
     printf("Echo off\n");
     return 0;
 }
-int do_addf_cmd(char *func, char *thread, char **opt) {
-    char *position_str = opt ? opt[0] : NULL;
-    int position = -1;
+int do_addf_cmd(char *func, char *thread, char **opt)
+{
+    int i, position = -1;
     int retval;
+    int rmb = 0, wmb = 0;
+    char *cp, *s;
 
-    if(position_str && *position_str) position = atoi(position_str);
-
-    retval = hal_add_funct_to_thread(func, thread, position);
+    for (i = 0; ((s = opt[i]) != NULL) && strlen(s); i++) {
+	if  (!strcasecmp(s,"rmb")) {
+	    rmb = 1;
+	}  else if  (!strcasecmp(s,"wmb")) {
+	    wmb = 1;
+	} else {
+	    position = strtol(s, &cp, 0);
+	    if ((*cp != '\0') && (!isspace(*cp))) {
+		/* invalid chars in string */
+		halcmd_error("string '%s' invalid for thread position\n", s);
+		retval = -EINVAL;
+	    }
+	}
+    }
+    retval = hal_add_funct_to_thread(func, thread, position, rmb, wmb);
     if(retval == 0) {
-        halcmd_info("Function '%s' added to thread '%s'\n",
-                    func, thread);
+        halcmd_info("Function '%s' added to thread '%s', rmb=%d wmb=%d\n",
+                    func, thread, rmb, wmb);
     } else {
         halcmd_error("addf failed: %s\n", hal_lasterror());
     }
@@ -2581,8 +2595,8 @@ static void print_mem_status()
     int active, recycled, next;
 
     halcmd_output("HAL memory status\n");
-    halcmd_output("  malloc arena size: %ld\n",
-		  hal_data->shmem_bot - SHMOFF(hal_data->arena));
+    halcmd_output("  malloc arena size: %d\n",
+		  (int) (hal_data->shmem_bot - SHMOFF(hal_data->arena)));
 
     struct rtapi_heap_stat hs = {};
     rtapi_heap_status(&hal_data->heap, &hs);

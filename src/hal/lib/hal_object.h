@@ -33,11 +33,19 @@ typedef struct halhdr {
     hal_list_t list;                   // NB: leave as first member
     __s16    _id;                      // immutable object id
     __s16    _owner_id;                // id of owning object, 0 for toplevel objects
-    __s8     _refcnt;                  // generic reference count
-    __u32    _type :  5;               // enum hal_object_type
-    __u32    _valid : 1;               // marks as active/unreferenced object
-    __u32    _spare : 2;               //
-    __u32    _name_offset;             // object name ptr
+    __u32    _name_ptr;                // object name ptr
+    __s32    _refcnt : 8;              // generic reference count
+    __u32    _type   : 5;              // enum hal_object_type
+    __u32    _valid  : 1;              // marks as active/unreferenced object
+
+    // per-object memory barrier flags
+    // these apply to pins, signals and params as 'values'
+    // however, for thread functions these could be used to issue an
+    // appropriate barrier before and after execution of the thread function
+    __u32    _rmb    : 1;              // issue a read barrier before
+                                       // operating on this object
+    __u32    _wmb    : 1;              // issue a writer barrier after
+                                       // operating on this object
 } halhdr_t;
 
 #define OBJECTLIST (&hal_data->halobjects)  // head of all named HAL objects
@@ -53,6 +61,12 @@ static inline void  hh_set_next(halhdr_t *o, void *next)   { dlist_add_after(&o-
 
 static inline int   hh_get_id(const halhdr_t *o)  { return o->_id; }
 static inline void  hh_set_id(halhdr_t *o, int id)    { o->_id = id; }
+
+static inline int   hh_get_rmb(const halhdr_t *o)  { return o->_rmb; }
+static inline void  hh_set_rmb(halhdr_t *o, int id)    { o->_rmb = 1; }
+
+static inline int   hh_get_wmb(const halhdr_t *o)  { return o->_wmb; }
+static inline void  hh_set_wmb(halhdr_t *o, int id)    { o->_wmb = 1; }
 
 static inline int hh_get_refcnt(const halhdr_t *o)  { return o->_refcnt; }
 
@@ -87,10 +101,10 @@ static inline bool hh_is_toplevel(__u32 type) {
 // and move to a string table
 static inline const char *hh_get_name(const halhdr_t *o) {
 #ifdef CHECK_NULL_NAMES
-    if (o->_name_offset == 0)
+    if (o->_name_ptr == 0)
 	return "*** NULL ***";
 #endif
-    return (const char *)SHMPTR(o->_name_offset);
+    return (const char *)SHMPTR(o->_name_ptr);
 }
 
 int hh_set_namefv(halhdr_t *o, const char *fmt, va_list ap);
@@ -113,6 +127,8 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 #define ho_refcnt(h)  hh_get_refcnt(&(h)->hdr)
 #define ho_incref(h)  hh_incr_refcnt(&(h)->hdr)
 #define ho_decref(h)  hh_decr_refcnt(&(h)->hdr)
+#define ho_rmb(h)     hh_get_rmb(&(h)->hdr)
+#define ho_wmb(h)     hh_get_wmb(&(h)->hdr)
 
 // print common HAL object header to a sized buffer.
 // returns number of chars used or -1 for 'too small buffer'
