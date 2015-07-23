@@ -2596,13 +2596,15 @@ static void print_mem_status()
     int active, recycled, next;
 
     halcmd_output("HAL memory status\n");
-    halcmd_output("  malloc arena size: %d\n",
-		  (int) (hal_data->shmem_bot - SHMOFF(hal_data->arena)));
 
     struct rtapi_heap_stat hs = {};
     rtapi_heap_status(&hal_data->heap, &hs);
-    halcmd_output("  heap: totail_avail=%zu fragments=%zu largest=%zu\n",
-		  hs.total_avail, hs.fragments, hs.largest);
+    halcmd_output("  heap: arena size=%zu totail_avail=%zu"
+		  " fragments=%zu largest=%zu\n",
+		  hs.arena_size, hs.total_avail, hs.fragments, hs.largest);
+    halcmd_output("  heap: requested=%zu allocated=%zu freed=%zu waste=%d\n",
+		  hs.requested, hs.allocated, hs.freed,
+		  (hs.allocated - hs.requested)*100/hs.allocated);
     halcmd_output("  RT objects: %ld\n",
 		  (long)(global_data->hal_size - hal_data->shmem_top));
 
