@@ -129,6 +129,4 @@ int hal_systemv(char *const argv[]);
 
 extern int scriptmode, comp_id;
 
-// bool autoloading;
-
 #endif

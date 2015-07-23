@@ -1251,7 +1251,7 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	return -EPERM;
     }
 
-    // determine module properties (loaded or not)
+
     retval = rtapi_get_tags(mod_name);
     if(retval == -1) {
 	halcmd_error("Error in module tags search");
@@ -1394,6 +1394,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 {
     return loadrt_cmd(true, mod_name, args);
 }
+
 
 int do_delsig_cmd(char *sig_name)
 {
