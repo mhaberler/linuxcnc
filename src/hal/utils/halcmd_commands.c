@@ -1364,7 +1364,6 @@ static int loadrt_cmd(const bool instantiate,
 	    return retval;
 	}
     }
-    // autoloading = false;
     return 0;
 }
 
@@ -3633,10 +3632,7 @@ int do_newinst_cmd(char *comp, char *inst, char *args[])
     switch (status) {
     case CS_NOT_LOADED:
 	if (autoload) {
-	    /* // flag to prevent do_loadrt_cmd() trying to create an instance too */
-	    /* autoloading = true; */
 	    retval = loadrt_cmd(false, comp, argv);
-	    /* autoloading = false; */
 	    if (retval)
 		return retval;
 	    return do_newinst_cmd(comp, inst,  args);
