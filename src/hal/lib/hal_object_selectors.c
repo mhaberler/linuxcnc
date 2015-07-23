@@ -46,7 +46,7 @@ int yield_free(hal_object_ptr o, foreach_args_t *args)
     /* 	   hh_get_name(o.hdr), */
     /* 	   hh_get_id(o.hdr), */
     /* 	   hh_get_owner_id(o.hdr), */
-    /* 	   hh_get_type(o.hdr), */
+    /* 	   hh_get_object_type(o.hdr), */
     /* 	   args->type, */
     /* 	   args->id, */
     /* 	   args->owner_id); */
@@ -101,7 +101,7 @@ int yield_free(hal_object_ptr o, foreach_args_t *args)
 
     default:
 	HALBUG("type %d not supported (object type=%d)",
-	       args->type, hh_get_type(o.hdr));
+	       args->type, hh_get_object_type(o.hdr));
 	return -1;
     }
     return 0; // continue visiting
@@ -115,7 +115,7 @@ int unlocked_delete_halobject(hal_object_ptr o, foreach_args_t *args)
     /* 	   hh_get_name(o.hdr), */
     /* 	   hh_get_id(o.hdr), */
     /* 	   hh_get_owner_id(o.hdr), */
-    /* 	   hh_get_type(o.hdr), */
+    /* 	   hh_get_object_type(o.hdr), */
     /* 	   args->type, */
     /* 	   args->id, */
     /* 	   args->owner_id, */
@@ -129,7 +129,7 @@ int unlocked_delete_halobject(hal_object_ptr o, foreach_args_t *args)
 
     default:
 	HALBUG("type %d not supported (object type=%d)",
-	       args->type, hh_get_type(o.hdr));
+	       args->type, hh_get_object_type(o.hdr));
 	return -1;
     }
     return 0; // continue visiting

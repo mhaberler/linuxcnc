@@ -26,7 +26,7 @@ int halpr_describe_param(hal_param_t *param, pb::Param *pbparam)
 
 int pbadd_owned(hal_object_ptr o, foreach_args_t *args)
 {
-    int type = hh_get_type(o.hdr);
+    int type = hh_get_object_type(o.hdr);
     pb::Component *pbcomp = (pb::Component *)args->user_ptr1;
     switch (type) {
     case HAL_PARAM:

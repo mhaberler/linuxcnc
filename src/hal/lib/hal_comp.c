@@ -355,7 +355,7 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
 	return NULL;
     }
 
-    HAL_ASSERT(ho_type(inst) == HAL_INST);
+    HAL_ASSERT(ho_object_type(inst) == HAL_INST);
 
     // found the instance. Retrieve its owning comp:
     comp =  halpr_find_comp_by_id(ho_owner_id(inst));
@@ -365,7 +365,7 @@ hal_comp_t *halpr_find_owning_comp(const int owner_id)
 	       ho_name(inst), ho_id(inst), ho_owner_id(inst));
     }
 
-    HAL_ASSERT(ho_type(comp) == HAL_COMPONENT);
+    HAL_ASSERT(ho_object_type(comp) == HAL_COMPONENT);
 
     return comp;
 }

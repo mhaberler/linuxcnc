@@ -10,7 +10,7 @@ for name in hal.instances():
 
     # HAL common object header fields
     print "hdr=", i.strhdr
-    print i.name, i.otype, i.strtype, i.id, i.owner_id,  i.refcnt , i.valid
+    print i.name, i.object_type, i.strtype, i.id, i.owner_id,  i.refcnt , i.valid
 
     # instance-specific fields
     print "size=",i.size,

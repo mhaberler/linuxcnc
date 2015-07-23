@@ -35,7 +35,9 @@ typedef struct halhdr {
     __s16    _owner_id;                // id of owning object, 0 for toplevel objects
     __u32    _name_ptr;                // object name ptr
     __s32    _refcnt : 8;              // generic reference count
-    __u32    _type   : 5;              // enum hal_object_type
+    // BIG FAT WARNING:
+    // this is the HAL Object type, not the data type of a pin/signal!!
+    __u32    _object_type   : 5;       // enum hal_object_type from above
     __u32    _valid  : 1;              // marks as active/unreferenced object
 
     // per-object memory barrier flags
@@ -77,11 +79,11 @@ static inline int hh_decr_refcnt(halhdr_t *o)  { o->_refcnt--; return o->_refcnt
 static inline int   hh_get_owner_id(const halhdr_t *o){ return o->_owner_id; }
 static inline void  hh_set_owner_id(halhdr_t *o, int owner) { o->_owner_id = owner; }
 
-static inline __u32 hh_get_type(const halhdr_t *o)    { return o->_type; }
-static inline void  hh_set_type(halhdr_t *o, __u32 type){ o->_type = type; }
+static inline __u32 hh_get_object_type(const halhdr_t *o)    { return o->_object_type; }
+static inline void  hh_set_object_type(halhdr_t *o, __u32 type){ o->_object_type = type; }
 
-const char *hal_strtype(const unsigned type);
-static inline const char *hh_get_typestr(const halhdr_t *hh) { return hal_strtype(hh->_type); }
+const char *hal_object_typestr(const unsigned type);
+static inline const char *hh_get_object_typestr(const halhdr_t *hh) { return hal_object_typestr(hh->_object_type); }
 
 
 // determine if an object is first-class or dependent on some other object
@@ -120,8 +122,8 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 #define ho_owner_id(h)  hh_get_owner_id(&(h)->hdr)
 #define ho_name(h)  hh_get_name(&(h)->hdr)
 #define ho_valid(h)   hh_is_valid(&(h)->hdr)
-#define ho_type(h)  hh_get_type(&(h)->hdr)
-#define ho_typestr(h)  hh_get_typestr(&(h)->hdr)
+#define ho_object_type(h)  hh_get_object_type(&(h)->hdr)
+#define ho_object_typestr(h)  hh_get_object_typestr(&(h)->hdr)
 
 #define ho_referenced(h)  (hh_get_refcnt(&(h)->hdr) != 0)
 #define ho_refcnt(h)  hh_get_refcnt(&(h)->hdr)
