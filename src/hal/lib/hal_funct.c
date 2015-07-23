@@ -204,9 +204,11 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *
 	*ureturn = retval;
     return 0;
 }
-
 int hal_add_funct_to_thread(const char *funct_name,
-			    const char *thread_name, int position)
+				   const char *thread_name,
+				   const int position,
+				   const int read_barrier,
+				   const int write_barrier)
 {
     hal_funct_t *funct;
     hal_list_t *list_root, *list_entry;
@@ -310,7 +312,10 @@ int hal_add_funct_to_thread(const char *funct_name,
 	funct_entry->funct_ptr = SHMOFF(funct);
 	funct_entry->arg = funct->arg;
 	funct_entry->funct.l = funct->funct.l;
+	funct_entry->rmb = read_barrier;
+	funct_entry->wmb = write_barrier;
 	funct_entry->type = funct->type;
+
 	/* add the entry to the list */
 	dlist_add_after((hal_list_t *) funct_entry, list_entry);
 	/* update the function usage count */
