@@ -553,11 +553,11 @@ static int first = 1;
 		name_str = ho_name(probe->pin);
 		if (probe->pin->signal == 0)
 			/* pin is unlinked, get data from dummysig */
-			value_str = data_value(ho_type(probe->pin), &(probe->pin->dummysig));
+			value_str = data_value(probe->pin->type, &(probe->pin->dummysig));
 		else {
 			/* pin is linked to a signal */
 			sig = SHMPTR(probe->pin->signal);
-			value_str = data_value(ho_type(probe->pin), SHMPTR(sig->data_ptr));
+			value_str = data_value(probe->pin->type, SHMPTR(sig->data_ptr));
 			}
 		}
 	else if (probe->sig != NULL) {
@@ -568,7 +568,7 @@ static int first = 1;
 	    return 1;
 		}
 		name_str = ho_name(probe->sig);
-		value_str = data_value(ho_type(probe->sig), SHMPTR(probe->sig->data_ptr));
+		value_str = data_value(probe->sig->type, SHMPTR(probe->sig->data_ptr));
 		}
 	else if (probe->param != NULL) {
 		if(! ho_valid(probe->param))
@@ -578,7 +578,7 @@ static int first = 1;
 	        return 1;
 		}
 		name_str = ho_name(probe->param);
-		value_str = data_value(ho_type(probe->param), SHMPTR(probe->param->data_ptr));
+		value_str = data_value(probe->param->type, SHMPTR(probe->param->data_ptr));
 		}
 	else {
 		name_str = "-----";
