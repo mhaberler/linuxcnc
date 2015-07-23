@@ -394,7 +394,7 @@ probe_t *probe = (probe_t *) args->user_ptr1;
 	if(args->type == HAL_PIN)
 		{
 		hal_pin_t *pin = o.pin;
-		name = ho_name(pin);
+		name = (char *)ho_name(pin);
 		gtk_clist_append(GTK_CLIST(probe->lists[0]), &name);
 		// if we have a pin selected, and it matches the current one
 		// mark this row
@@ -409,7 +409,7 @@ probe_t *probe = (probe_t *) args->user_ptr1;
 	else if(args->type == HAL_SIGNAL)
 		{
 		hal_sig_t *sig = o.sig;
-		name = ho_name(sig);
+		name = (char *)ho_name(sig);
 		gtk_clist_append(GTK_CLIST(probe->lists[1]), &name);
 		// if we have a signal selected, and it matches the current
 		// one, mark this row
@@ -424,7 +424,7 @@ probe_t *probe = (probe_t *) args->user_ptr1;
 	else if(args->type == HAL_PARAM)
 		{
 		hal_param_t *param = o.param;
-		name =  ho_name(param);
+		name =  (char *)ho_name(param);
 		gtk_clist_append(GTK_CLIST(probe->lists[2]), &name);
 		
 		// if we have a param selected, and it matches the current
@@ -530,7 +530,7 @@ static int refresh_value(gpointer data)
 {
 meter_t *meter;
 probe_t *probe;
-char *value_str, *name_str;
+const char *value_str, *name_str;
 hal_sig_t *sig;
 static int first = 1;
 

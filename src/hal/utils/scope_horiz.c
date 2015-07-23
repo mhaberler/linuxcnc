@@ -217,7 +217,7 @@ hal_thread_t *thread = o.thread;
 	    fentry = (hal_funct_entry_t *) list_entry;
 	    if (funct == SHMPTR(fentry->funct_ptr)) {
 			/* found a match, update structure members */
-			horiz->thread_name = ho_name(thread);
+		horiz->thread_name = (char *)ho_name(thread);
 			horiz->thread_period_ns = thread->period;
 			/* reset watchdog to give RT code some time */
 			ctrl_shm->watchdog = 1;
@@ -496,7 +496,7 @@ hal_thread_t *thread = o.thread;
 	    format_time_value(buf, BUFLEN, period);
 	    strs[1] = buf;
 	    // get thread name 
-	    strs[0] = ho_name(thread);
+	    strs[0] = (char *) ho_name(thread);
 	    // add to list 
 	    gtk_clist_append(GTK_CLIST(horiz->thread_list), strs);
 	    if ((horiz->thread_name != NULL) && (strcmp(horiz->thread_name, ho_name(thread)) == 0)) 
@@ -886,7 +886,7 @@ static int set_sample_thread_name(char *name)
     /* shut down any prior thread */
     deactivate_sample_thread();
     /* save info about the thread */ 
-    horiz->thread_name = ho_name(thread);
+    horiz->thread_name = (char *)ho_name(thread);
     horiz->thread_period_ns = thread->period;
     /* calc max possible mult (to keep sample period <= 1 sec */
     max_mult = (1000000000 / horiz->thread_period_ns);
@@ -927,7 +927,7 @@ static int activate_sample_thread(void)
     /* (probably already sone, but just making sure */
     deactivate_sample_thread();
     /* hook sampling function to thread */
-    rv = hal_add_funct_to_thread("scope.sample", horiz->thread_name, -1);
+    rv = hal_add_funct_to_thread("scope.sample", horiz->thread_name, -1, 0, 0);
     if ( rv < 0 ) {
 	return rv;
     }
