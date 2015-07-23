@@ -37,7 +37,7 @@ typedef struct halhdr {
     __u32    _type :  5;               // enum hal_object_type
     __u32    _valid : 1;               // marks as active/unreferenced object
     __u32    _spare : 2;               //
-    char   _name[HAL_NAME_LEN + 1];    // component name
+    __u32    _name_offset;             // object name ptr
 } halhdr_t;
 
 #define OBJECTLIST (&hal_data->halobjects)  // head of all named HAL objects
@@ -85,12 +85,17 @@ static inline bool hh_is_toplevel(__u32 type) {
 
 // this enables us to eventually drop the name from the header
 // and move to a string table
-static inline const char *hh_get_name(const halhdr_t *o)    { return o->_name; }
+static inline const char *hh_get_name(const halhdr_t *o) {
+#ifdef CHECK_NULL_NAMES
+    if (o->_name_offset == 0)
+	return "*** NULL ***";
+#endif
+    return (const char *)SHMPTR(o->_name_offset);
+}
 
 int hh_set_namefv(halhdr_t *o, const char *fmt, va_list ap);
 int hh_set_namef(halhdr_t *hh, const char *fmt, ...);
 
-static inline void hh_clear_name(halhdr_t *o)         { o->_name[0] = '\0'; }
 static inline __u32 hh_valid(const halhdr_t *o)       { return (o->_valid); }
 static inline bool hh_is_valid(const halhdr_t *o)     { return (hh_valid(o) == 1); }
 static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
