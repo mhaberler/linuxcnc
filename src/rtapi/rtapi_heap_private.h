@@ -31,6 +31,9 @@ struct rtapi_heap {
     size_t arena_size;
     rtapi_atomic_type mutex;
     int flags; // debugging, tracing etc
+    size_t requested;
+    size_t allocated;
+    size_t freed;
     heap_print_t msg_handler;
 };
 
