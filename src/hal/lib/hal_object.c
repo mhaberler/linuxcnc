@@ -46,7 +46,7 @@ int  hh_init_hdrfv(halhdr_t *hh,
 		   const char *fmt, va_list ap)
 {
     dlist_init_entry(&hh->list);
-    hh_set_type(hh, type);
+    hh_set_object_type(hh, type);
     hh_set_id(hh, rtapi_next_handle());
     hh_set_owner_id(hh, owner_id);
     hh_set_valid(hh);
@@ -80,7 +80,7 @@ int hh_clear_hdr(halhdr_t *hh)
     return ret;
 }
 
-const char *hal_strtype(const unsigned type)
+const char *hal_object_typestr(const unsigned type)
 {
     switch (type) {
     case HAL_PIN           : return "PIN"; break;
@@ -102,7 +102,7 @@ int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 {
     return rtapi_snprintf(buf, size,
 			  "%s %s id=%d owner=%d valid=%d refcnt=%d",
-			  hh_get_typestr(hh),
+			  hh_get_object_typestr(hh),
 			  hh_get_name(hh),
 			  hh_get_id(hh),
 			  hh_get_owner_id(hh),
@@ -127,7 +127,7 @@ void *halg_create_object(const bool use_hal_mutex,
 	rtapi_vsnprintf(name, sizeof(name), fmt, ap);
 	va_end(ap);
 
-	HALERR("insufficient memory for %s %s size=%zu", hal_strtype(type), name, size);
+	HALERR("insufficient memory for %s %s size=%zu", hal_object_typestr(type), name, size);
 	return NULL;
     }
 
@@ -166,7 +166,7 @@ void halg_add_object(const bool use_hal_mutex,
     // start at head, and iterate over objects of the same type.
     foreach_args_t args =  {
 	// visit objects of the same type as the one to be inserted:
-	.type = hh_get_type(o.hdr),
+	.type = hh_get_object_type(o.hdr),
 	// object to be inserted
 	.user_ptr1 = o.any,
 	// current head
@@ -185,7 +185,7 @@ int halg_free_object(const bool use_hal_mutex,
 
     if (hh_get_refcnt(o.hdr)) {
 	HALERR("not deleting %s %s - still referenced (refcount=%d)",
-	       hh_get_typestr(o.hdr),
+	       hh_get_object_typestr(o.hdr),
 	       hh_get_name(o.hdr),
 	       hh_get_refcnt(o.hdr));
 	return -EBUSY;
@@ -219,7 +219,7 @@ int halg_foreach(bool use_hal_mutex,
 		break;
 
 	    // 1. select by type if given
-	    if (args->type && (hh_get_type(hh) != args->type))
+	    if (args->type && (hh_get_object_type(hh) != args->type))
 		continue;
 
 	    // 2. by id if nonzero
