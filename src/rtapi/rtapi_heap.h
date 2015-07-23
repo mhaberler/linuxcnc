@@ -22,9 +22,13 @@ RTAPI_BEGIN_DECLS
 
 struct rtapi_heap;
 struct rtapi_heap_stat {
+    size_t arena_size;
     size_t total_avail;
     size_t fragments;
     size_t largest;
+    size_t requested;
+    size_t allocated;
+    size_t freed;
 };
 
 void  *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes);
