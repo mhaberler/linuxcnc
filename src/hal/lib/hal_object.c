@@ -8,15 +8,25 @@
 #include "hal_list.h"
 #include "hal_internal.h"
 
+#define MAX_OBJECT_NAME_LEN 127
 
 int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
 {
-    int sz = rtapi_vsnprintf(hh->_name, sizeof(hh->_name), fmt, ap);
-    if(sz == -1 || sz > sizeof(hh->_name)) {
+    char buf[MAX_OBJECT_NAME_LEN];
+    int sz = rtapi_vsnprintf(buf, sizeof(buf), fmt, ap);
+    if(sz == -1 || sz > sizeof(buf)) {
         HALERR("length %d invalid for name starting with '%s'",
-	       sz, hh->_name);
+	       sz, buf);
         return -ENOMEM;
     }
+    char *s = shmalloc_desc(sz + 1); // include trailing zero
+    if (s == NULL) {
+        HALERR("out of memory allocating %d bytes for '%s'",
+	       sz+1, buf);
+        return -ENOMEM;
+    }
+    strcpy(s, buf);
+    hh->_name_offset = SHMOFF(s);
     return 0;
 }
 
@@ -61,7 +71,10 @@ int hh_clear_hdr(halhdr_t *hh)
     int ret = hh_is_valid(hh);
     hh_set_id(hh, 0);
     hh_set_owner_id(hh, 0);
-    hh_clear_name(hh);
+    if (hh->_name_offset) {
+	shmfree_desc(SHMPTR(hh->_name_offset));
+	hh->_name_offset = 0;
+    }
     hh_set_invalid(hh);
     hh->_refcnt = 0;
     return ret;
