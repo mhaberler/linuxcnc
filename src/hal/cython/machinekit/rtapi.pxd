@@ -72,5 +72,10 @@ cdef extern from "rtapi_heap.h":
         size_t fragments
         size_t largest
 
+    ctypedef void (*chunk_t)(size_t size,  void *chunk, void *user)
+
     int rtapi_heap_setflags(rtapi_heap *h, int flags)
     int rtapi_heap_status(rtapi_heap *h, rtapi_heap_stat *hs)
+    size_t rtapi_heap_walk_freelist(rtapi_heap *h,
+                                    chunk_t callback,
+                                    void *user)
