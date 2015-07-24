@@ -173,10 +173,14 @@ int halg_link(const int use_hal_mutex,
 	    return -EINVAL;
 	}
         /* everything is OK, make the new link */
-        data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-	comp = halpr_find_owning_comp(ho_owner_id(pin));
-	data_addr = comp->shmem_base + sig->data_ptr;
-	*data_ptr_addr = data_addr;
+	if (hh_get_legacy(&pin->hdr)) {
+	    data_ptr_addr = SHMPTR(pin->data_ptr_addr);
+	    comp = halpr_find_owning_comp(ho_owner_id(pin));
+	    data_addr = comp->shmem_base + sig->data_ptr;
+	    *data_ptr_addr = data_addr;
+	} else {
+	    pin->data_ptr = sig->data_ptr;
+	}
 
 	if (( sig->readers == 0 ) && ( sig->writers == 0 ) &&
 	    ( sig->bidirs == 0 )) {

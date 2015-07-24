@@ -40,8 +40,8 @@ static char *compname = "lutn";
 struct inst_data {
     int inputs;
     hal_u32_t function;
-    hal_bit_t *out;
-    hal_bit_t *in[0];
+    hal_pin_t *out;
+    hal_pin_t *in[0];
 };
 
 static int function = 0;
@@ -106,12 +106,21 @@ static int instantiate_lutn(const char *name,
     ip->inputs = inputs;
     ip->function = function;
 
+    char oname[100];
     // export per-instance HAL objects
-    for (i = 0; i < ip->inputs; i++)
-	if (hal_pin_bit_newf(HAL_IN, &(ip->in[i]), inst_id, "%s.in%d", name, i))
+    for (i = 0; i < ip->inputs; i++) {
+	rtapi_snprintf(oname, sizeof(oname), "%s.in", name);
+	hal_pin_t *p = halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
+	if (p == NULL)
 	    return -1;
-    if (hal_pin_bit_newf(HAL_OUT, &(ip->out), inst_id, "%s.out", name))
+	ip->in[i] = p;
+    }
+    rtapi_snprintf(oname, sizeof(oname), "%s.out", name);
+
+    ip->out = halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
+    if (p == NULL)
 	return -1;
+
 
     // exporting 'lutn' as an extended thread function
     // this has the advantage of better context exposure in the thread function

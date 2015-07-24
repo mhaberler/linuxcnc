@@ -34,7 +34,9 @@ typedef struct halhdr {
     __s16    _id;                      // immutable object id
     __s16    _owner_id;                // id of owning object, 0 for toplevel objects
     __u32    _name_ptr;                // object name ptr
-    __s32    _refcnt : 8;              // generic reference count
+    __s32    _refcnt : 7;              // generic reference count
+    __u32    _legacy : 1;              // treat as HALv1 object (in particual pin)
+
     // BIG FAT WARNING:
     // this is the HAL Object type, not the data type of a pin/signal!!
     __u32    _object_type   : 5;       // enum hal_object_type from above
@@ -117,6 +119,9 @@ static inline bool hh_is_valid(const halhdr_t *o)     { return (hh_valid(o) == 1
 static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
 static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 
+static inline bool hh_get_legacy(const halhdr_t *o)     { return ( o->_legacy == 1); }
+static inline void hh_set_legacy(halhdr_t *o)          { o->_legacy = 1; }
+
 // shorthands macros assuming a hal_object_ptr argument
 #define ho_id(h)  hh_get_id(&(h)->hdr)
 #define ho_owner_id(h)  hh_get_owner_id(&(h)->hdr)
@@ -131,6 +136,7 @@ static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
 #define ho_decref(h)  hh_decr_refcnt(&(h)->hdr)
 #define ho_rmb(h)     hh_get_rmb(&(h)->hdr)
 #define ho_wmb(h)     hh_get_wmb(&(h)->hdr)
+#define ho_legacy(h)  hh_get_legacy(&(h)->hdr)
 
 // print common HAL object header to a sized buffer.
 // returns number of chars used or -1 for 'too small buffer'

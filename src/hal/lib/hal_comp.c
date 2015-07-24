@@ -293,6 +293,14 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	HALDBG("  heap: requested=%zu allocated=%zu freed=%zu waste=%zu%%\n",
 	       hs.requested, hs.allocated, hs.freed,
 	       (hs.allocated - hs.requested)*100/hs.allocated);
+	HALDBG("  strings on heap: alloc=%zu freed=%zu balance=%zu\n",
+	       hal_data->str_alloc,
+	       hal_data->str_freed,
+	       hal_data->str_alloc - hal_data->str_freed);
+	HALDBG("  RT objects: %ld\n",
+	       (long)(global_data->hal_size - hal_data->shmem_top));
+	HALDBG("  unused:   %ld\n",
+	       (long)( hal_data->shmem_top - hal_data->shmem_bot));
 #endif
 	/* release RTAPI resources */
 	retval = rtapi_shmem_delete(lib_mem_id, comp_id);
@@ -531,6 +539,11 @@ int init_hal_data(void)
     hal_data->exact_base_period = 0;
 
     hal_data->threads_running = 0;
+
+    hal_data->dead_beef = HAL_VALUE_POISON;
+    hal_data->str_alloc = 0;
+    hal_data->str_freed = 0;
+
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
     RTAPI_BIT_SET(hal_data->rings,0);

@@ -1468,8 +1468,8 @@ obj-m += icomp.o
 icomp-objs := hal/icomp-example/icomp.o
 
 # clashes with component in i_components
-#obj-m += lutn.o
-#lutn-objs := hal/icomp-example/lutn.o
+obj-m += lutnv2.o
+lutnv2-objs := hal/icomp-example/lutnv2.o
 
 obj-m += ufdemo.o
 ufdemo-objs := hal/userfunct-example/ufdemo.o
@@ -1653,6 +1653,7 @@ $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
 $(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
+$(RTLIBDIR)/lutnv2$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutnv2-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
 READ_RTDEPS = $(wildcard $(RTDEPS))
