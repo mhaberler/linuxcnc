@@ -27,7 +27,7 @@ int halg_pin_newfv(const int use_hal_mutex,
 	       sz, name);
         return -ENOMEM;
     }
-    return halg_pin_new(use_hal_mutex, name, type, dir, data_ptr_addr, owner_id);
+    return (halg_pin_new(use_hal_mutex, name, type, dir, data_ptr_addr, owner_id) == NULL) ? _halerrno: 0;
 }
 
 int hal_pin_bit_newf(hal_pin_dir_t dir,
@@ -107,33 +107,33 @@ int halg_pin_newf(const int use_hal_mutex,
 
 /* this is a generic function that does the majority of the work. */
 
-int halg_pin_new(const int use_hal_mutex,
-		 const char *name,
-		 hal_type_t type,
-		 hal_pin_dir_t dir,
-		 void **data_ptr_addr,
-		 int owner_id)
+hal_pin_t *halg_pin_new(const int use_hal_mutex,
+			const char *name,
+			hal_type_t type,
+			hal_pin_dir_t dir,
+			void **data_ptr_addr,
+			int owner_id)
 {
     hal_pin_t *new;
+    bool is_legacy = false;
 
-    CHECK_HALDATA();
-    CHECK_LOCK(HAL_LOCK_LOAD);
-    CHECK_STRLEN(name, HAL_NAME_LEN);
+    PCHECK_HALDATA();
+    PCHECK_LOCK(HAL_LOCK_LOAD);
+    PCHECK_STRLEN(name, HAL_NAME_LEN);
 
-    if(*data_ptr_addr)
-    {
-	HALERR("pin '%s': called with already-initialized memory", name);
-    }
+
     if (type != HAL_BIT && type != HAL_FLOAT && type != HAL_S32 && type != HAL_U32) {
 	HALERR("pin '%s': pin type not one of HAL_BIT, HAL_FLOAT, HAL_S32 or HAL_U32 (%d)",
 	       name, type);
-	return -EINVAL;
+	_halerrno = -EINVAL;
+	return NULL;
     }
 
-    if(dir != HAL_IN && dir != HAL_OUT && dir != HAL_IO) {
+    if (dir != HAL_IN && dir != HAL_OUT && dir != HAL_IO) {
 	HALERR("pin '%s': pin direction not one of HAL_IN, HAL_OUT, or HAL_IO (%d)",
 	       name, dir);
-	return -EINVAL;
+	_halerrno = -EINVAL;
+	return NULL;
     }
 
     HALDBG("creating pin '%s'", name);
@@ -145,7 +145,8 @@ int halg_pin_new(const int use_hal_mutex,
 
 	if (halpr_find_pin_by_name(name) != NULL) {
 	    HALERR("duplicate pin '%s'", name);
-	    return -EEXIST;
+	    _halerrno = -EEXIST;
+	    return NULL;
 	}
 
 	/* validate comp_id */
@@ -154,16 +155,24 @@ int halg_pin_new(const int use_hal_mutex,
 	    /* bad comp_id */
 	    HALERR("pin '%s': owning component %d not found",
 		   name, owner_id);
-	    return -EINVAL;
+	    _halerrno = -EINVAL;
+	    return NULL;
 	}
 
 	/* validate passed in pointer - must point to HAL shmem */
-	if (! SHMCHK(data_ptr_addr)) {
-	    /* bad pointer */
-	    HALERR("pin '%s': data_ptr_addr not in shared memory", name);
-	    return -EINVAL;
+	if (data_ptr_addr != 0) {
+	    if(*data_ptr_addr) {
+		HALERR("pin '%s': called with already-initialized memory", name);
+	    }
+	    // the v2 pins dont use data_ptr_addr
+	    is_legacy = true;
+	    if (! SHMCHK(data_ptr_addr)) {
+		/* bad pointer */
+		HALERR("pin '%s': data_ptr_addr not in shared memory", name);
+		_halerrno = -EINVAL;
+		return NULL;
+	    }
 	}
-
 	// this will be 0 for legacy comps which use comp_id to
 	// refer to a comp - pins owned by an instance will refer
 	// to an instance:
@@ -175,26 +184,38 @@ int halg_pin_new(const int use_hal_mutex,
 	    // legacy error message. Never made sense.. why?
 	    HALERR("pin '%s': hal_pin_new called after hal_ready (%d)",
 		   name, comp->state);
-	    return -EINVAL;
+	    _halerrno = -EINVAL;
+	    return NULL;
 	}
 
 	// allocate pin descriptor
 	if ((new = halg_create_object(0, sizeof(hal_pin_t),
-				      HAL_PIN, owner_id, name)) == NULL)
-	    return -ENOMEM;
+				      HAL_PIN, owner_id, name)) == NULL) {
+	    _halerrno = -EINVAL;
+	    return NULL;
+	}
 
 	/* initialize the structure */
-	new->data_ptr_addr = SHMOFF(data_ptr_addr);
 	new->type = type;
 	new->dir = dir;
 	new->signal = 0;
 	memset(&new->dummysig, 0, sizeof(hal_data_u));
-	/* make 'data_ptr' point to dummy signal */
-	*data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
+	if (is_legacy) {
+	    hh_set_legacy(&new->hdr);
+	    new->data_ptr_addr = SHMOFF(data_ptr_addr);
+	    /* make 'data_ptr' point to dummy signal */
+	    *data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
+	} else {
+	    // since in v2 this is just a value *, not a value**
+	    // just make it point to the dummy signal
+	    new->data_ptr = SHMOFF(&new->dummysig);
 
-	// make it visible
+	    // poison the old value** to ease debugging
+	    new->data_ptr_addr =  SHMOFF(&(hal_data->dead_beef));
+	}
+	// make object visible
 	halg_add_object(false, (hal_object_ptr)new);
-	return 0;
+	return new;
     }
 }
 
@@ -209,15 +230,22 @@ void unlink_pin(hal_pin_t * pin)
     if (pin->signal != 0) {
 	/* yes, need to unlink it */
 	sig = SHMPTR(pin->signal);
-	/* make pin's 'data_ptr' point to its dummy signal */
-	data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-	comp = halpr_find_owning_comp(ho_owner_id(pin));
-	dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
-	*data_ptr_addr = dummy_addr;
 
+	if (hh_get_legacy(&pin->hdr)) {
+
+	    /* make pin's 'data_ptr' point to its dummy signal */
+	    data_ptr_addr = SHMPTR(pin->data_ptr_addr);
+	    comp = halpr_find_owning_comp(ho_owner_id(pin));
+	    dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
+	    *data_ptr_addr = dummy_addr;
+
+	    dummy_addr = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig))); // XXX use SHMPTR
+	} else {
+	    pin->data_ptr = SHMOFF(&(pin->dummysig));
+	    dummy_addr = (hal_data_u *) &pin->dummysig;
+	}
 	/* copy current signal value to dummy */
-	sig_data_addr = (hal_data_u *)(hal_shmem_base + sig->data_ptr);
-	dummy_addr = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
+	sig_data_addr = (hal_data_u *)(hal_shmem_base + sig->data_ptr);  //XXX use SHMPTR
 
 	switch (pin->type) {
 	case HAL_BIT:

@@ -155,34 +155,9 @@ extern char *hal_shmem_base;
 // avoid pulling in math.h
 #define HAL_FABS(a) ((a) > 0.0 ? (a) : -(a))	/* floating absolute value */
 
-/***********************************************************************
-*           opaque forward typedefs for HAL object pointers            *
-************************************************************************/
-struct halhdr;
-struct hal_comp;
-struct hal_inst;
-struct hal_pin;
-struct hal_param;
-struct hal_sig;
-struct hal_group;
-struct hal_member;
-struct hal_funct;
-struct hal_thread;
-struct hal_vtable;
-struct hal_ring;
+
 
 typedef struct halhdr halhdr_t;
-typedef struct hal_comp hal_comp_t;
-typedef struct hal_inst hal_inst_t;
-typedef struct hal_pin hal_pin_t;
-typedef struct hal_param hal_param_t;
-typedef struct hal_sig hal_sig_t;
-typedef struct hal_group hal_group_t;
-typedef struct hal_member hal_member_t;
-typedef struct hal_funct hal_funct_t;
-typedef struct hal_thread hal_thread_t;
-typedef struct hal_vtable hal_vtable_t;
-typedef struct hal_ring hal_ring_t;
 
 typedef union {
     halhdr_t     *hdr;
@@ -253,11 +228,17 @@ typedef struct {
 
     unsigned char lock;         /* hal locking, can be one of the HAL_LOCK_* types */
 
+    unsigned long long dead_beef; // value poison for legacy pin data_ptr_addr use
+
     // since rings are realy just glorified named shm segments, allocate by map
     // this gets around the unexposed rtapi_data segment in userland flavors
     RTAPI_DECLARE_BITMAP(rings, HAL_MAX_RINGS);
 
     double epsilon[MAX_EPSILON];
+
+    // running count of HAL names memory usage
+    size_t str_alloc;
+    size_t str_freed;
 
     // HAL heap for shmalloc_desc()
     struct rtapi_heap heap;
@@ -266,6 +247,7 @@ typedef struct {
 
 } hal_data_t;
 
+#define  HAL_VALUE_POISON 0xDEADBEEFBADF00D // hal_data_u poison value for legacy pins
 
 /* This pointer is set by hal_init() to point to the  master data structure.
    All access should use these
@@ -326,6 +308,7 @@ typedef struct hal_inst {
 typedef struct hal_pin {
     halhdr_t hdr;		// common HAL object header
     int data_ptr_addr;		/* address of pin data pointer */
+    int data_ptr;		// v2: just the signal offset
     int signal;			/* signal to which pin is linked */
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
     hal_type_t type;		/* data type */

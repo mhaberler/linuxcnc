@@ -491,6 +491,33 @@ extern int hal_set_lock(unsigned char lock_type);
 extern unsigned char hal_get_lock(void);
 
 /***********************************************************************
+*           opaque forward typedefs for HAL object pointers            *
+************************************************************************/
+struct halhdr;
+struct hal_comp;
+struct hal_inst;
+struct hal_pin;
+struct hal_param;
+struct hal_sig;
+struct hal_group;
+struct hal_member;
+struct hal_funct;
+struct hal_thread;
+struct hal_vtable;
+struct hal_ring;
+
+typedef struct hal_comp hal_comp_t;
+typedef struct hal_inst hal_inst_t;
+typedef struct hal_pin hal_pin_t;
+typedef struct hal_param hal_param_t;
+typedef struct hal_sig hal_sig_t;
+typedef struct hal_group hal_group_t;
+typedef struct hal_member hal_member_t;
+typedef struct hal_funct hal_funct_t;
+typedef struct hal_thread hal_thread_t;
+typedef struct hal_vtable hal_vtable_t;
+typedef struct hal_ring hal_ring_t;
+/***********************************************************************
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
 
@@ -523,12 +550,12 @@ extern unsigned char hal_get_lock(void);
     On failure they return a negative error code.
 */
 // generic call
-int halg_pin_new(const int use_hal_mutex,
-		 const char *name,
-		 const hal_type_t type,
-		 const hal_pin_dir_t dir,
-		 void **data_ptr_addr,
-		 const int owner_id);
+hal_pin_t *halg_pin_new(const int use_hal_mutex,
+			const char *name,
+			const hal_type_t type,
+			const hal_pin_dir_t dir,
+			void **data_ptr_addr,
+			const int owner_id);
 
 static inline int hal_pin_new(const char *name,
 			      const hal_type_t type,
@@ -536,7 +563,7 @@ static inline int hal_pin_new(const char *name,
 			      void **data_ptr_addr,
 			      const int owner_id) {
     return halg_pin_new(1, name, type,  dir,
-			data_ptr_addr, owner_id);
+			data_ptr_addr, owner_id) == NULL ? _halerrno : 0;
 }
 
 // printf-style version of hal_pin_new()
@@ -605,8 +632,8 @@ extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     the functions above.
     'type' is the hal type of the new pin - the type of data that
     will be passed in/out of the component through the new pin.
-    If successful, halg_pin_new() returns 0.  On failure
-    it returns a negative error code.
+    If successful, halg_pin_new() returns a pin descriptor reference (hal_pin_t *).
+    On failure   it returns NULL, and _halerrno is set to a negative value.
 */
 
 

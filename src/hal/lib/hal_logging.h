@@ -51,6 +51,18 @@ void hal_print_loc(const int level,
 	}						\
     } while (0)
 
+#define PCHECK_HALDATA()					\
+    do {						\
+	if (hal_data == 0) {				\
+	    hal_print_loc(RTAPI_MSG_ERR,		\
+			    __FUNCTION__,__LINE__,	\
+			    "HAL error:",		\
+			    "called before init");	\
+	    _halerrno = -EINVAL;			\
+	    return NULL;				\
+	}						\
+    } while (0)
+
 #define CHECK_NULL(p)						\
     do {							\
 	if (p == NULL) {					\
@@ -72,6 +84,18 @@ void hal_print_loc(const int level,
 	}								\
     } while(0)
 
+#define PCHECK_LOCK(ll)							\
+    do {								\
+	if (hal_data->lock & ll) {					\
+	    hal_print_loc(RTAPI_MSG_ERR,				\
+			    __FUNCTION__, __LINE__,"HAL error:",	\
+			    "called while HAL is locked (%d)",		\
+			    ll);					\
+	    _halerrno = -EPERM;						\
+	    return NULL;						\
+	}								\
+    } while(0)
+
 
 #define CHECK_STR(name)							\
     do {								\
@@ -79,6 +103,16 @@ void hal_print_loc(const int level,
 	    hal_print_loc(RTAPI_MSG_ERR,__FUNCTION__, __LINE__,"HAL error:", \
 			    "argument '" # name  "' is NULL");		\
 	    return -EINVAL;						\
+	}								\
+    } while(0)
+
+#define PCHECK_STR(name)							\
+    do {								\
+	if ((name) == NULL) {						\
+	    hal_print_loc(RTAPI_MSG_ERR,__FUNCTION__, __LINE__,"HAL error:", \
+			    "argument '" # name  "' is NULL");		\
+	    _halerrno = -EINVAL;					\
+	    return NULL;						\
 	}								\
     } while(0)
 
@@ -91,6 +125,18 @@ void hal_print_loc(const int level,
 			    "argument '%s' too long (%zu/%d)",		\
 			    name, strlen(name), len);			\
 	    return -EINVAL;						\
+	}								\
+    } while(0)
+
+#define PCHECK_STRLEN(name, len)						\
+    do {								\
+	PCHECK_STR(name);						\
+	if (strlen(name) > len) {					\
+	    hal_print_loc(RTAPI_MSG_ERR,__FUNCTION__, __LINE__,"HAL error:", \
+			    "argument '%s' too long (%zu/%d)",		\
+			    name, strlen(name), len);			\
+	    _halerrno = -EINVAL;					\
+	    return NULL;						\
 	}								\
     } while(0)
 
