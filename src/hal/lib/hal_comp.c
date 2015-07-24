@@ -285,7 +285,7 @@ int halg_exit(const int use_hal_mutex, int comp_id)
     // for other processes
     if (comptype == TYPE_HALLIB) {
 	int retval;
-
+#ifdef RTAPI
 	struct rtapi_heap_stat hs = {};
 	rtapi_heap_status(&hal_data->heap, &hs);
 	HALDBG("  heap: arena=%zu totail_avail=%zu fragments=%zu largest=%zu\n",
@@ -293,7 +293,7 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	HALDBG("  heap: requested=%zu allocated=%zu freed=%zu waste=%zu%%\n",
 	       hs.requested, hs.allocated, hs.freed,
 	       (hs.allocated - hs.requested)*100/hs.allocated);
-
+#endif
 	/* release RTAPI resources */
 	retval = rtapi_shmem_delete(lib_mem_id, comp_id);
 	if (retval) {
