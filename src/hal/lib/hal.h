@@ -370,6 +370,8 @@ extern int hal_rtapi_attach();
 // not guaranteed to be related to last HAL API call if threads are running.
 const char *hal_lasterror(void);
 
+extern int _halerrno; // set by methods not returning an int
+
 // same signature as rtapi_print_msg, but records last error message for hal_lasterror():
 void hal_print_msg(int level, const char *fmt, ...)
     __attribute__((format(printf,2,3)));

@@ -304,6 +304,7 @@ void hal_print_loc(const int level,
     va_end(args);
 }
 
+int _halerrno;
 
 const char *hal_lasterror(void)
 {
@@ -390,6 +391,7 @@ EXPORT_SYMBOL(hal_print_msg);
 EXPORT_SYMBOL(hal_print_error);
 EXPORT_SYMBOL(hal_print_loc);
 EXPORT_SYMBOL(hal_lasterror);
+EXPORT_SYMBOL(_halerrno);
 EXPORT_SYMBOL(hal_shmem_base);
 
 // ------------ private API:  ------------
