@@ -28,6 +28,8 @@
 #include "rtapi_app.h"
 #include "hal.h"
 #include "hal_priv.h"
+#include "hal_accessor.h"
+
 
 MODULE_AUTHOR("Michael Haberler");
 MODULE_DESCRIPTION("instantiable lookup table component with configurable number of pins");
@@ -35,13 +37,13 @@ MODULE_LICENSE("GPL");
 RTAPI_TAG(HAL,HC_INSTANTIABLE);
 
 static int comp_id;
-static char *compname = "lutn";
+static char *compname = "lutnv2";
 
 struct inst_data {
     int inputs;
     hal_u32_t function;
-    hal_pin_t *out;
-    hal_pin_t *in[0];
+    bit_pin_t *out;
+    bit_pin_t *in[0];
 };
 
 static int function = 0;
@@ -65,14 +67,14 @@ static void lutn(void *arg, const hal_funct_args_t *fa)
 
     // pointer to the instance data blob, as allocated by hal_inst_create()
     struct inst_data *ip = arg;
-
     int shift = 0, i;
 
     for (i = 0; i < ip->inputs; i++)
-	if (*(ip->in[i])) shift += (1 << i);
+	if (get_bit_pin(ip->in[i])) shift += (1 << i);
 
-    *(ip->out) = (ip->function & (1 << shift)) != 0;
+    set_bit_pin(ip->out, (ip->function & (1 << shift)) != 0);
 }
+
 
 static int instantiate_lutn(const char *name,
 			    const int argc,
@@ -109,16 +111,16 @@ static int instantiate_lutn(const char *name,
     char oname[100];
     // export per-instance HAL objects
     for (i = 0; i < ip->inputs; i++) {
-	rtapi_snprintf(oname, sizeof(oname), "%s.in", name);
-	hal_pin_t *p = halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
+	rtapi_snprintf(oname, sizeof(oname), "%s.in%d", name,i);
+	bit_pin_t *p = (bit_pin_t *) halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
 	if (p == NULL)
 	    return -1;
 	ip->in[i] = p;
     }
     rtapi_snprintf(oname, sizeof(oname), "%s.out", name);
 
-    ip->out = halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
-    if (p == NULL)
+    ip->out =  (bit_pin_t *) halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
+    if (ip->out == NULL)
 	return -1;
 
 
@@ -152,3 +154,4 @@ void rtapi_app_exit(void)
 {
     hal_exit(comp_id);
 }
+
