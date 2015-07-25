@@ -23,7 +23,8 @@ cdef extern from "hal_priv.h":
 
     ctypedef struct hal_pin_t:
         halhdr_t hdr
-        int data_ptr_addr
+        int data_ptr_addr # legacy
+        int data_ptr  # v2
         int signal
         hal_data_u dummysig
         hal_type_t type
@@ -136,6 +137,7 @@ cdef extern from "hal_priv.h":
 
     hal_data_t *hal_data
     char *hal_shmem_base
+    int _halerrno
 
     hal_comp_t *halpr_find_comp_by_name(const char *name)
     hal_pin_t *halpr_find_pin_by_name(const char *name)
@@ -168,3 +170,9 @@ cdef extern from "hal_priv.h":
                          void **inst_data)
 
     int halg_inst_delete(const int use_hal_mutex, const char *name)
+    hal_pin_t *halg_pin_new(const int use_hal_mutex,
+                     const char *name,
+                     const int type,
+                     const int dir,
+                     void **data_ptr_addr,
+                     const int owner_id)

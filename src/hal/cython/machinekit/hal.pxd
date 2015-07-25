@@ -1,6 +1,7 @@
 # vim: sts=4 sw=4 et
 cimport libcpp
 cimport hal_const
+
 # Copyright Pavel Shramov, 4/2014
 # see http://psha.org.ru/cgit/psha/emc2.git/commit/?h=wip-cython
 # License: MIT
@@ -47,12 +48,7 @@ cdef extern from "hal.h":
     int halg_unlink(const int use_hal_mutex, const char *pin_name)
 
     int hal_unlink(const char *pin)
-    int halg_pin_new(const int use_hal_mutex,
-                     const char *name,
-                     const int type,
-                     const int dir,
-                     void **data_ptr_addr,
-                     const int owner_id)
+
     int hal_pin_new(const char *name, int type, int dir,
         void **data_ptr_addr, int comp_id)
 
