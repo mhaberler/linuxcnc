@@ -325,11 +325,15 @@ add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
     itemmap_iterator it = self->items.find(ho_id(pin));
 
     if (it == self->items.end()) { // not in handle map
-	halitem_t *hi = new halitem_t();
-	hi->type = HAL_PIN;
-	hi->o.pin = pin;
-	hi->ptr = SHMPTR(pin->data_ptr_addr);
-	self->items[ho_id(pin)] = hi;
+	hal_object_ptr o;
+	o.pin = pin;
+	self->items[ho_id(pin)] = o;
+
+	// halitem_t *hi = new halitem_t();
+	// hi->type = HAL_PIN;
+	// hi->o.pin = pin;
+	// // 	hi->ptr = SHMPTR(pin->data_ptr_addr);
+	// self->items[ho_id(pin)] = hi;
     }
     return 0;
 }

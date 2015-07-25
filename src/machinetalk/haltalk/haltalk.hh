@@ -100,7 +100,7 @@ typedef std::unordered_map<std::string, rcomp_t *> compmap_t;
 typedef compmap_t::iterator compmap_iterator;
 
 // HAL items indexed by handle
-typedef std::unordered_map<int, halitem_t *> itemmap_t;
+typedef std::unordered_map<int, hal_object_ptr> itemmap_t;
 typedef itemmap_t::iterator itemmap_iterator;
 
 #define NSVCS  3
