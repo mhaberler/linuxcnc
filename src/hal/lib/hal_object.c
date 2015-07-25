@@ -104,13 +104,17 @@ const char *hal_object_typestr(const unsigned type)
 int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 {
     return rtapi_snprintf(buf, size,
-			  "%s %s id=%d owner=%d valid=%d refcnt=%d",
+			  "%s %s id=%d owner=%d valid=%d refcnt=%d "
+			  "legacy=%d rmb=%d wmb=%d",
 			  hh_get_object_typestr(hh),
 			  hh_get_name(hh),
 			  hh_get_id(hh),
 			  hh_get_owner_id(hh),
 			  hh_is_valid(hh),
-			  hh_get_refcnt(hh));
+			  hh_get_refcnt(hh),
+			  hh_get_legacy(hh),
+			  hh_get_rmb(hh),
+			  hh_get_wmb(hh));
 }
 
 void *halg_create_object(const bool use_hal_mutex,
