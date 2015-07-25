@@ -18,6 +18,7 @@
 
 #include "haltalk.hh"
 #include "halpb.hh"
+#include "hal_object.h"
 #include "pbutil.hh"
 #include "rtapi_hexdump.h"
 
@@ -206,7 +207,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
     int arg1 = 0, arg2 = 0, retval;
     rcomp_t *rc = new rcomp_t();
     int comp_id = 0;
-    halitem_t *hi = NULL;
+    // halitem_t *hi = NULL;
     const char *cname = pbcomp->name().c_str();
 
     rc->self = self;
@@ -235,35 +236,56 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
     // create the pins
     for (int i = 0; i < pbcomp->pin_size(); i++) {
 	const pb::Pin &p = pbcomp->pin(i);
+#if 0
 	hi = new halitem_t();
 	if (hi == NULL) {
 	    note_printf(self->tx, "new halitem_t() failed");
 	    goto EXIT_COMP;
 	}
+
 	// storage for the pin
 	hi->ptr = hal_malloc(sizeof(void *));
 	if (hi->ptr == NULL) {
 	    note_printf(self->tx,"hal_malloc() failed");
 	    goto EXIT_COMP;
 	}
-	hi->type = HAL_PIN;
-	retval = hal_pin_new(p.name().c_str(),
+#else
+#endif
+	hal_object_ptr o;
+	//	o.pin = pin;
+
+	// hi->type = HAL_PIN;
+	o.pin =halg_pin_new(1,p.name().c_str(),
 			     (hal_type_t) p.type(),
 			     (hal_pin_dir_t) p.dir(),
-			     (void **) hi->ptr,
-			     comp_id);
-	if (retval < 0) {
-	    note_printf(self->tx, "hal_pin_new() failed");
+			    NULL, // v2
+			    comp_id);
+
+	// 		void **data_ptr_addr,
+	// 		int owner_id)
+
+
+
+	// retval = hal_pin_new(p.name().c_str(),
+	// 		     (hal_type_t) p.type(),
+	// 		     (hal_pin_dir_t) p.dir(),
+	// 		     NULL, // (void **) hi->ptr, //v2
+	// 		     comp_id);
+	if (o.pin == NULL) {
+	    note_printf(self->tx, "halg_pin_new() failed: %d - %s ",
+			_halerrno, hal_lasterror());
 	    goto EXIT_COMP;
 	}
-	hi->o.pin = hal_find_pin_by_name(p.name().c_str());
-	if (hi->o.pin == NULL) {
-	    note_printf(self->tx, "hal_find_pin_by_name() failed");
-	    goto EXIT_COMP;
-	}
+	// o.pin = hal_find_pin_by_name(p.name().c_str());
+	// if (o.pin == NULL) {
+	//     note_printf(self->tx, "hal_find_pin_by_name() failed");
+	//     goto EXIT_COMP;
+	// }
 	// add to items sparse array - needed for quick
 	// lookup when updates by handle are received
-	self->items[ho_id(hi->o.pin)] = hi;
+	self->items[ho_id(o.pin)] = o;
+
+		//	self->items[ho_id(hi->o.pin)] = hi;
     }
     hal_ready(comp_id); // XXX check return value
 
@@ -292,7 +314,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
     return rc;
 
  EXIT_COMP:
-    if (hi) delete hi;
+    //    if (hi) delete hi;
     if (rc->cc)
 	hal_ccomp_free(cc);
     if (rc) delete rc;
@@ -520,41 +542,41 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 
 	    if (it != self->items.end()) {
 		// handle present and found
-		halitem_t *hi = it->second;
-		if (hi->type != HAL_PIN) {
+		hal_object_ptr o = it->second;
+		if (hh_get_object_type(o.hdr) != HAL_PIN) {
 		    note_printf(self->tx,
-				"handle type mismatch - not a pin: handle=%d type=%d",
-				handle, hi->type);
+				"handle type mismatch - not a pin: handle=%d type=%s",
+				handle,  hh_get_object_typestr(o.hdr));
 		    continue;
 		}
-		hal_pin_t *hp = hi->o.pin;
-		assert(hp != NULL);
+		// hal_pin_t *hp = hi->o.pin;
+		// assert(hp != NULL);
 		if (halrcomp) {
-		    if (hp->dir == HAL_IN) {
+		    if (o.pin->dir == HAL_IN) {
 			note_printf(self->tx,
 				    "HALrcomp cant write a HAL_IN pin: handle=%d name=%s",
-				    handle, ho_name(hp));
+				    handle, ho_name(o.pin));
 			continue;
 		    }
 		} else {
-		    if (hp->dir == HAL_OUT) {
+		    if (o.pin->dir == HAL_OUT) {
 			note_printf(self->tx,
 				    "HALrcommand: cant set an HAL_OUT pin: handle=%d name=%s",
-				    handle, ho_name(hp));
+				    handle, ho_name(o.pin));
 			continue;
 		    }
 		}
-		if (hp->type != (hal_type_t) p.type()) {
+		if (o.pin->type != (hal_type_t) p.type()) {
 		    note_printf(self->tx,
 				"pin type mismatch: pb=%d/hal=%d, handle=%d name=%s",
-				p.type(), hp->type, handle, ho_name(hp));
+				p.type(), o.pin->type, handle, ho_name(o.pin));
 		    continue;
 		}
 		// set value
-		hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
+		hal_data_u *vp = (hal_data_u *) hal_pin2u(o.pin);
 		assert(vp != NULL);
 		if (hal_pbpin2u(&p, vp)) {
-		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), ho_name(hp));
+		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), ho_name(o.pin));
 		    continue;
 		}
 	    } else {
@@ -599,33 +621,33 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 
 	    if (it != self->items.end()) {
 		// handle present and found
-		halitem_t *hi = it->second;
-		if (hi->type != HAL_SIGNAL) {
+		hal_object_ptr o = it->second;
+		if (hh_get_object_type(o.hdr) != HAL_SIGNAL) {
 		    note_printf(self->tx,
-				"handle type mismatch - not a signal: handle=%d type=%d",
-				handle, hi->type);
+				"handle type mismatch - not a signal: handle=%d type=%s",
+				handle, hh_get_object_typestr(o.hdr));
 		    continue;
 		}
-		hal_sig_t *hs = hi->o.signal;
-		assert(hs != NULL);
-		if (hs->type != (hal_type_t) s.type()) {
+		// hal_sig_t *hs = hi->o.signal;
+		// assert(hs != NULL);
+		if (o.sig->type != (hal_type_t) s.type()) {
 		    note_printf(self->tx,
 				"signal type mismatch: pb=%d/hal=%d, handle=%d name=%s",
-				s.type(), hs->type, handle, ho_name(hs));
+				s.type(), o.sig->type, handle, ho_name(o.sig));
 		    continue;
 		}
-		if (hs->writers > 0) {
+		if (o.sig->writers > 0) {
 		    note_printf(self->tx,
 				"cannot update signal '%s'  - %d output pin(s) linked",
-				ho_name(hs), hs->writers);
+				ho_name(o.sig), o.sig->writers);
 		    continue;
 		}
 		// set value
-		hal_data_u *vp = (hal_data_u *) hal_sig2u(hs);
+		hal_data_u *vp = (hal_data_u *) hal_sig2u(o.sig);
 		assert(vp != NULL);
 		if (hal_pbsig2u(&s, vp)) {
 		    note_printf(self->tx, "bad signal type %d name=%s",
-				s.type(), ho_name(hs));
+				s.type(), ho_name(o.sig));
 		    continue;
 		}
 	    } else {
@@ -671,19 +693,19 @@ process_get(htself_t *self, const std::string &from,  void *socket)
 	    int handle = p.handle();
 	    it = self->items.find(handle);
 	    if (it != self->items.end()) {
-		halitem_t *hi = it->second;
-		if (hi->type != HAL_PIN) {
+		hal_object_ptr o = it->second;
+		if (hh_get_object_type(o.hdr) != HAL_PIN) {
 		    note_printf(self->tx,
-				"get pin: handle type mismatch - not a pin: handle=%d type=%d",
-				handle, hi->type);
+				"get pin: handle type mismatch - not a pin: handle=%d type=%s",
+				handle,  hh_get_object_typestr(o.hdr));
 		    continue;
 		}
-		hal_pin_t *hp = hi->o.pin;
-		assert(hp != NULL);
+		// hal_pin_t *hp = hi->o.pin;
+		// assert(hp != NULL);
 		pb::Pin *pbpin = self->tx.add_pin();
 		// reply with just value and handle
-		pbpin->set_handle(ho_id(hp));
-		hal_pin2pb(hp, pbpin);
+		pbpin->set_handle(ho_id(o.pin));
+		hal_pin2pb(o.pin, pbpin);
 	    }
 	} else {
 	    if (!p.has_name()) {
@@ -701,19 +723,19 @@ process_get(htself_t *self, const std::string &from,  void *socket)
 	    int handle = s.handle();
 	    it = self->items.find(handle);
 	    if (it != self->items.end()) {
-		halitem_t *hi = it->second;
-		if (hi->type != HAL_SIGNAL) {
+		hal_object_ptr o = it->second;
+		if (hh_get_object_type(o.hdr) != HAL_SIGNAL) {
 		    note_printf(self->tx,
-				"get signal: handle type mismatch - not a signal: handle=%d type=%d",
-				handle, hi->type);
+				"get signal: handle type mismatch - not a signal: handle=%d type=%s",
+				handle, hh_get_object_typestr(o.hdr));
 		    continue;
 		}
-		hal_sig_t *hs = hi->o.signal;
-		assert(hs != NULL);
+		// hal_sig_t *hs = hi->o.signal;
+		// assert(hs != NULL);
 		pb::Signal *pbsignal = self->tx.add_signal();
 		// reply with just value and handle
-		pbsignal->set_handle(ho_id(hs));
-		hal_sig2pb(hs, pbsignal);
+		pbsignal->set_handle(ho_id(o.sig));
+		hal_sig2pb(o.sig, pbsignal);
 	    }
 	} else {
 	    if (!s.has_name()) {
@@ -750,11 +772,17 @@ int describe_pin_by_name(htself_t *self, const char *name)
     it = self->items.find(ho_id(hp));
     if (it == self->items.end()) {
 	// pin not found. add to items
-	halitem_t *hi = new halitem_t();
-	hi->type = HAL_PIN;
-	hi->o.pin = hp;
-	hi->ptr = SHMPTR(hp->data_ptr_addr);
-	self->items[ho_id(hp)] = hi;
+	hal_object_ptr o;
+	o.pin = hp;
+	// halitem_t *hi = new halitem_t();
+	// hi->type = HAL_PIN;
+	// hi->o.pin = hp;
+	// if (hh_get_legacy(&hp->hdr)) {
+	//     hi->ptr = SHMPTR(hp->data_ptr_addr);
+	// } else {
+	//     //	    hi->ptr =
+	// }
+	self->items[ho_id(hp)] = o;
 	// printf("add pin %s to items\n", hp->name);
     }
     // add binding in reply - includes handle
@@ -779,12 +807,14 @@ int describe_signal_by_name(htself_t *self, const char *name)
     // add to items if not yet present
     it = self->items.find(ho_id(hs));
     if (it == self->items.end()) {
-	// pin not found. add to items
-	halitem_t *hi = new halitem_t();
-	hi->type = HAL_SIGNAL;
-	hi->o.signal = hs;
-	hi->ptr = SHMPTR(hs->data_ptr);
-	self->items[ho_id(hs)] = hi;
+	// signale not found. add to items
+	hal_object_ptr o;
+	o.sig = hs;
+	// halitem_t *hi = new halitem_t();
+	// hi->type = HAL_SIGNAL;
+	// hi->o.signal = hs;
+	// hi->ptr = SHMPTR(hs->data_ptr);
+	self->items[ho_id(hs)] = o;
 	// printf("add signal %s to items\n", hs->name);
     }
     // add binding in reply - includes handle

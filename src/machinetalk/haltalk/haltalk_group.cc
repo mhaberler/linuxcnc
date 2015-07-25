@@ -193,11 +193,14 @@ static int add_sig_to_items(hal_object_ptr o, foreach_args_t *args)
     itemmap_iterator it = self->items.find(ho_id(sig));
 
     if (it == self->items.end()) { // not in handle map
-	halitem_t *hi = new halitem_t();
-	hi->type = HAL_SIGNAL;
-	hi->o.signal = sig;
-	hi->ptr = SHMPTR(sig->data_ptr);
-	self->items[ho_id(sig)] = hi;
+	// halitem_t *hi = new halitem_t();
+	// hi->type = HAL_SIGNAL;
+	// hi->o.signal = sig;
+	// hi->ptr = SHMPTR(sig->data_ptr);
+	// self->items[ho_id(sig)] = hi;
+	hal_object_ptr o;
+	o.sig = sig;
+	self->items[ho_id(sig)] = o;
     }
     return 0;
 }
