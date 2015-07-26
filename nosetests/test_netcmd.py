@@ -99,15 +99,8 @@ def test_net_existing_signal():
     except RuntimeError:
         pass
 
-<<<<<<< HEAD
-    del hal.signals["s32"]
-    assert 's32' not in hal.signals
-||||||| merged common ancestors
-    del hal.signals["s32"]
-=======
     hal.delsig("s32")
->>>>>>> wip
-
+    assert 's32' not in hal.signals
 
 def test_newsig():
     l.log()
@@ -145,27 +138,17 @@ def test_check_net_args():
         pass
 
     assert 'c1-s32out' not in hal.signals
+    assert hal.pins["c1.s32out"].linked is False
 
     try:
         hal.net(None, "c1.s32out")
     except TypeError:
         pass
-
-<<<<<<< HEAD
-    assert 'c1-s32out' not in hal.signals
-
-    # single pin argument
-    assert hal.pins["c1.s32out"].linked is False
-
-||||||| merged common ancestors
-    # single pin argument
-=======
     assert hal.pins["c1.s32out"].linked is False
     assert 'c1-s32out' not in hal.signals
 
     # single pin argument. Must fail,
     # pin not linked, and no signal autocreated.
->>>>>>> wip
     try:
         hal.net("c1.s32out")
         # RuntimeError: net: at least one pin name expected
