@@ -1307,7 +1307,7 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	// now instantiate with this name
 	retval = do_newinst_cmd(mod_name, buff, argv);
 	if ( retval != 0 ) {
-	    halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+	    halcmd_error("rc=%d  %s\n", retval, rtapi_rpcerror());
 	}
 	return retval;
     }
@@ -1607,8 +1607,8 @@ static int unloadrt_comp(const char *mod_name)
 
     retval = rtapi_unloadrt(rtapi_instance, mod_name);
     if (retval < 0) {
-	halcmd_error("error unloading realtime module '%s': rc=%d\n",mod_name, retval);
-	halcmd_error("%s\n",rtapi_rpcerror());
+	halcmd_error("error unloading realtime module '%s': rc=%d %s\n",
+		     mod_name, retval,rtapi_rpcerror());
     } else {
 	halcmd_info("Realtime module '%s' unloaded\n",
 		    mod_name);
@@ -3519,21 +3519,15 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 	memset(p, 0, sizeof(void *));
 
 	// same here - use unlocked pin_new
-	retval = halg_pin_new(0, pin_name, type, dir, p, ho_id(comp));
-	if (retval < 0) {
+	pin  = halg_pin_new(0, pin_name, type, dir, p, ho_id(comp));
+	if (pin == NULL) {
 	    halcmd_error("cant create pin '%s':  %s\n",
 			 pin_name, strerror(-retval));
 	    return -EINVAL;
 	}
-
-	pin = halpr_find_pin_by_name(pin_name);
 	if (pin) {
 	    pin->eps_index = eps_index;
 	    pin->flags = flags;
-	} else {
-	    halcmd_error("FATAL: cant find new pin '%s':  %s\n",
-			 pin_name, strerror(-retval));
-	    return -EINVAL;
 	}
     } // unlocks HAL mutex
     return 0;
@@ -3617,7 +3611,7 @@ int do_callfunc_cmd(char *func, char *args[])
 {
     int retval = rtapi_callfunc(rtapi_instance, func, (const char **)args);
     if ( retval < 0 ) {
-	halcmd_error("function call %s returned %d\n%s", func, retval, rtapi_rpcerror());
+	halcmd_error("function call %s returned %d: %s\n", func, retval, rtapi_rpcerror());
 	return retval;
     }
     halcmd_info("function '%s' returned %d\n", func, retval);
@@ -3710,7 +3704,7 @@ int do_newinst_cmd(char *comp, char *inst, char *args[])
 
     retval = rtapi_newinst(rtapi_instance, comp, inst, (const char **)args);
     if (retval) {
-	halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+	halcmd_error("rc=%d: %s\n", retval, rtapi_rpcerror());
 	return retval;
     }
     return 0;
@@ -3733,7 +3727,7 @@ int do_delinst_cmd(char *inst)
     }
     int retval = rtapi_delinst(rtapi_instance, inst);
     if ( retval != 0 ) {
-	halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+	halcmd_error("rc=%d: %s\n", retval, rtapi_rpcerror());
 	return retval;
     }
     return 0;
@@ -4053,7 +4047,7 @@ int do_newthread_cmd(char *name, char *period, char *args[])
     }
     retval = rtapi_newthread(rtapi_instance, name, per, cpu, (int)use_fp);
     if (retval)
-	halcmd_error("%s\n",rtapi_rpcerror());
+	halcmd_error("rc=%d: %s\n",retval,rtapi_rpcerror());
 
     return retval;
 }
@@ -4064,7 +4058,7 @@ int do_delthread_cmd(char *name)
 {
     int retval =  rtapi_delthread(rtapi_instance, name);
     if (retval)
-	halcmd_error("%s\n",rtapi_rpcerror());
+	halcmd_error("rc=%d: %s\n",retval, rtapi_rpcerror());
     return retval;
 }
 
