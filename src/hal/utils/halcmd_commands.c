@@ -2591,6 +2591,14 @@ static void print_lock_status()
 	halcmd_output("  HAL_LOCK_RUN     - running/stopping HAL is locked\n");
 }
 
+static int count_objects(const int type)
+{
+    foreach_args_t args = {
+	.type = type,
+    };
+    return halg_foreach(true, &args, yield_count);
+}
+
 static void print_mem_status()
 {
     int active, recycled, next;
@@ -2607,76 +2615,23 @@ static void print_mem_status()
 		  (hs.allocated - hs.requested)*100/hs.allocated);
     halcmd_output("  RT objects: %ld\n",
 		  (long)(global_data->hal_size - hal_data->shmem_top));
-
+    halcmd_output("  strings on heap: alloc=%zu freed=%zu balance=%zu\n",
+		  hal_data->str_alloc,
+		  hal_data->str_freed,
+		  hal_data->str_alloc - hal_data->str_freed);
     halcmd_output("  unused:   %ld\n",
 		  (long)( hal_data->shmem_top - hal_data->shmem_bot));
 
-#if 0
-    // count components
-    active = count_list(hal_data->comp_list_ptr);
-    recycled = count_list(hal_data->comp_free_ptr);
-    halcmd_output("  active/recycled components: %d/%d\n", active, recycled);
+    halcmd_output("HAL objects\n");
 
-    // count pins
-    active = count_list(hal_data->pin_list_ptr);
-    recycled = count_list(hal_data->pin_free_ptr);
-    halcmd_output("  active/recycled pins:       %d/%d\n", active, recycled);
-
-    // count parameters
-    active = count_list(hal_data->param_list_ptr);
-    recycled = count_list(hal_data->param_free_ptr);
-    halcmd_output("  active/recycled parameters: %d/%d\n", active, recycled);
-
-    // count aliases
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->pin_list_ptr;
-    active = 0;
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if ( pin->oldname != 0 ) active++;
-	next = pin->next_ptr;
-    }
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if ( param->oldname != 0 ) active++;
-	next = param->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    recycled = count_list(hal_data->oldname_free_ptr);
-    halcmd_output("  active/recycled aliases:    %d/%d\n", active, recycled);
-
-    // count signals
-    active = count_list(hal_data->sig_list_ptr);
-    recycled = count_list(hal_data->sig_free_ptr);
-    halcmd_output("  active/recycled signals:    %d/%d\n", active, recycled);
-
-
-    // count threads
-    active = count_list(hal_data->thread_list_ptr);
-    recycled = count_list(hal_data->thread_free_ptr);
-
-    halcmd_output("  active/recycled threads:    %d/%d\n", active, recycled);
-
-    // count rings
-    active = count_list(hal_data->ring_list_ptr);
-    recycled = count_list(hal_data->ring_free_ptr);
-    halcmd_output("  active/deleted rings:       %d/%d\n", active, recycled);
-    halcmd_output("RTAPI message level:  RT:%d User:%d\n",
-		  global_data->rt_msg_level, global_data->user_msg_level);
-
-    // count groups
-    active = count_list(hal_data->group_list_ptr);
-    recycled = count_list(hal_data->group_free_ptr);
-    halcmd_output("  active/recycled groups:     %d/%d\n", active, recycled);
-    // count members
-    active = count_members();
-    recycled = count_list(hal_data->member_free_ptr);
-    halcmd_output("  active/recycled member:     %d/%d\n", active, recycled);
-
-#endif
-
-
+    halcmd_output("  components:\t%d\n",count_objects(HAL_COMPONENT));
+    halcmd_output("  pins:\t\t%d\n",count_objects(HAL_PIN));
+    halcmd_output("  params:\t%d\n",count_objects(HAL_PARAM));
+    halcmd_output("  signals:\t%d\n",count_objects(HAL_SIGNAL));
+    halcmd_output("  threads:\t%d\n",count_objects(HAL_THREAD));
+    halcmd_output("  groups:\t%d\n",count_objects(HAL_GROUP));
+    halcmd_output("  members:\t%d\n",count_objects(HAL_MEMBER));
+    halcmd_output("  rings:\t%d\n",count_objects(HAL_RING));
 }
 
 /* Switch function for pin/sig/param type for the print_*_list functions */
