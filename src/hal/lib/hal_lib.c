@@ -299,7 +299,7 @@ void hal_print_loc(const int level,
 		   topic == NULL ? "" : topic);
     int n = strlen(_hal_errmsg);
 
-    vsnprintf(_hal_errmsg + n, HALPRINTBUFFERLEN - n, fmt, args);
+    rtapi_vsnprintf(_hal_errmsg + n, HALPRINTBUFFERLEN - n, fmt, args);
     rtapi_print_msg(level, _hal_errmsg);
     va_end(args);
 }
