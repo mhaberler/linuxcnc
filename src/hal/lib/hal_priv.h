@@ -239,6 +239,9 @@ typedef struct {
     // running count of HAL names memory usage
     size_t str_alloc;
     size_t str_freed;
+    // alignment loss in shmalloc_rt()
+    size_t rt_alignment_loss;
+
 
     // HAL heap for shmalloc_desc()
     struct rtapi_heap heap;

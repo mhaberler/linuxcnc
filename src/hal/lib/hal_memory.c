@@ -88,6 +88,9 @@ void *shmalloc_rt(size_t size)
 	/* no */
 	return 0;
     }
+    size_t waste = hal_data->shmem_top - tmp_top - size;
+    hal_data->rt_alignment_loss += waste;
+
     /* memory is available, allocate it */
     retval = SHMPTR(tmp_top);
     hal_data->shmem_top = tmp_top;

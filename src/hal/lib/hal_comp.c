@@ -32,6 +32,7 @@ int hal_xinitf(const int type,
     CHECK_NULL(fmt);
     va_start(ap, fmt);
     int sz = rtapi_vsnprintf(hal_name, sizeof(hal_name), fmt, ap);
+    va_end(ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
         HALERR("invalid length %d for name starting with '%s'",
 	       sz, hal_name);
@@ -297,8 +298,11 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	       hal_data->str_alloc,
 	       hal_data->str_freed,
 	       hal_data->str_alloc - hal_data->str_freed);
-	HALDBG("  RT objects: %ld\n",
-	       (long)(global_data->hal_size - hal_data->shmem_top));
+	size_t rtalloc = (size_t)(global_data->hal_size - hal_data->shmem_top);
+	HALDBG("  RT objects: %zu  alignment loss: %zu  (%zu%%)\n",
+	       rtalloc,
+	       hal_data->rt_alignment_loss,
+	       hal_data->rt_alignment_loss * 100/rtalloc);
 	HALDBG("  unused:   %ld\n",
 	       (long)( hal_data->shmem_top - hal_data->shmem_bot));
 #endif
@@ -543,7 +547,7 @@ int init_hal_data(void)
     hal_data->dead_beef = HAL_VALUE_POISON;
     hal_data->str_alloc = 0;
     hal_data->str_freed = 0;
-
+    hal_data->rt_alignment_loss = 0;
 
     RTAPI_ZERO_BITMAP(&hal_data->rings, HAL_MAX_RINGS);
     RTAPI_BIT_SET(hal_data->rings,0);
