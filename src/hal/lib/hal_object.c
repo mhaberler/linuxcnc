@@ -136,6 +136,7 @@ void *halg_create_object(const bool use_hal_mutex,
 	va_end(ap);
 
 	HALERR("insufficient memory for %s %s size=%zu", hal_object_typestr(type), name, size);
+	_halerrno = -ENOMEM;
 	return NULL;
     }
 

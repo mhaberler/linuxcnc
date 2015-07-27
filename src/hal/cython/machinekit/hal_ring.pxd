@@ -13,11 +13,16 @@ cdef extern from "hal_ring.h":
         unsigned ring_offset
         unsigned flags
 
-
-    int hal_ring_new(const char *name, int size, int spsize, int mode)
-    int hal_ring_delete(const char *name)
-    int hal_ring_attach(const char *name, ringbuffer_t *rb, unsigned *flags)
-    int hal_ring_detach(const char *name, ringbuffer_t *rb)
-
+    hal_ring_t *halg_ring_newf(const int use_hal_mutex,
+                               const int size,
+                               const int sp_size,
+                               const int mode,
+                               const char *fmt)
+    int halg_ring_deletef(const int use_hal_mutex,const char *fmt)
+    int halg_ring_attachf(const int use_hal_mutex,
+                          ringbuffer_t *rb,
+                          unsigned *flags,
+                          const char *fmt)
+    int halg_ring_detachf(const int use_hal_mutex, ringbuffer_t *rb, const char *fmt)
     # not part of public API. Use with HAL lock engaged.
     hal_ring_t *halpr_find_ring_by_name(const char *name)

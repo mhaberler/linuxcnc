@@ -36,10 +36,10 @@ cdef class Ring:
 
         hal_required()
         if size:
-            if hal_ring_new(name, size, scratchpad_size, self.flags):
+            if halg_ring_newf(1, size, scratchpad_size, self.flags, name) == NULL:
                 raise RuntimeError("hal_ring_new(%s) failed: %s" %
                                    (name, hal_lasterror()))
-        if hal_ring_attach(name, &self._rb, &self.aflags):
+        if halg_ring_attachf(1, &self._rb, &self.aflags, name):
                 raise NameError("hal_ring_attach(%s) failed: %s" %
                                    (name, hal_lasterror()))
 
@@ -53,7 +53,7 @@ cdef class Ring:
     def __dealloc__(self):
         if self._hr != NULL:
             name = self.name
-            r = hal_ring_detach(self.name, &self._rb)
+            r = halg_ring_detachf(1, &self._rb, self.name)
             if r:
                 raise RuntimeError("hal_ring_detach(%s) failed: %d %s" %
                                        (name, r, hal_lasterror()))

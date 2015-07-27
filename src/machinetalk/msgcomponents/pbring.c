@@ -255,13 +255,13 @@ static int instantiate(const char *name, const int argc, const char**argv)
     *(p->decodefail) = 0;
 
     unsigned flags;
-    if ((retval = hal_ring_attachf(&(p->to_rt_rb), &flags,  "%s.in", name)) < 0)
+    if ((retval = halg_ring_attachf(1, &(p->to_rt_rb), &flags,  "%s.in", name)) < 0)
 	return retval;
     if ((flags & RINGTYPE_MASK) != RINGTYPE_RECORD) {
 	HALERR("ring %s.in not a record mode ring: mode=%d",name, flags & RINGTYPE_MASK);
 	return -EINVAL;
     }
-    if ((retval = hal_ring_attachf(&(p->from_rt_rb), &flags,  "%s.out", name)) < 0)
+    if ((retval = halg_ring_attachf(1, &(p->from_rt_rb), &flags,  "%s.out", name)) < 0)
 	return retval;
     if ((flags & RINGTYPE_MASK) != RINGTYPE_RECORD) {
 	HALERR("ring %s.out not a record mode ring: mode=%d",name, flags & RINGTYPE_MASK);
@@ -286,21 +286,18 @@ static int delete(const char *name, void *inst, const int inst_size)
 {
     pbring_inst_t *p = (pbring_inst_t *)inst;
     int retval;
-    char ringname[HAL_NAME_LEN + 1];
 
-    rtapi_snprintf(ringname, sizeof(ringname), "%s.in", name);
     p->to_rt_rb.header->reader = 0;
-    if ((retval = hal_ring_detach(ringname, &p->to_rt_rb)) < 0) {
+    if ((retval = halg_ring_detachf(1, &p->to_rt_rb,"%s.in", name )) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: hal_ring_detach(%s) failed: %d\n",
-			name, ringname, retval);
+			"%s: hal_ring_detach(%s.in) failed: %d\n",
+			name, name, retval);
     }
     p->from_rt_rb.header->writer = 0;
-    rtapi_snprintf(ringname, sizeof(ringname), "%s.out", name);
-    if ((retval = hal_ring_detach(ringname, &p->from_rt_rb)) < 0)
+    if ((retval = halg_ring_detachf(1, &p->from_rt_rb, "%s.out", name)) < 0)
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"%s: hal_ring_detach(%s) failed: %d\n",
-			name, ringname, retval);
+			"%s: hal_ring_detach(%s.out) failed: %d\n",
+			name, name, retval);
     return retval;
 }
 

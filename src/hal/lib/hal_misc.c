@@ -11,6 +11,21 @@
 *                     utility functions, mostly used by haltalk        *
 *                                                                      *
 ************************************************************************/
+char *fmt_ap(char *buffer,
+	     size_t size,
+	     const char *fmt,
+	     const va_list ap)
+{
+    int sz;
+    sz = rtapi_vsnprintf(buffer, size, fmt, ap);
+    if(sz == -1 || sz > size) {
+	HALERR("length %d too long for name starting with '%s'",
+	       sz, buffer);
+	_halerrno = -E2BIG;
+	return NULL;
+    }
+    return buffer;
+}
 
 // return number of pins in a component, legacy or all-insts
 int halpr_pin_count(const char *name)

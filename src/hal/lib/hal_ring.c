@@ -7,121 +7,117 @@
 #include "hal_ring.h"		/* HAL ringbuffer decls */
 
 static int next_ring_id(void);
-static int hal_ring_newfv(int size, int sp_size, int flags,
-			  const char *fmt, va_list ap);
-static int hal_ring_deletefv(const char *fmt, va_list ap);
-static int hal_ring_attachfv(ringbuffer_t *rb, unsigned *flags,
-			     const char *fmt, va_list ap);
-static int hal_ring_detachfv(ringbuffer_t *rb, const char *fmt, va_list ap);
+/* static int hal_ring_newfv(int size, int sp_size, int flags, */
+/* 			  const char *fmt, va_list ap); */
+/* static int hal_ring_deletefv(const char *fmt, va_list ap); */
+/* static int hal_ring_attachfv(ringbuffer_t *rb, unsigned *flags, */
+/* 			     const char *fmt, va_list ap); */
+/* static int hal_ring_detachfv(ringbuffer_t *rb, const char *fmt, va_list ap); */
 
 /***********************************************************************
 *                     Public HAL ring functions                        *
 ************************************************************************/
-int hal_ring_newf(int size, int sp_size, int mode, const char *fmt, ...)
+hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
+			    const int size,
+			    const int sp_size,
+			    const int mode,
+			    const char *fmt,
+			    const va_list ap)
 {
-    va_list ap;
-    int ret;
-    va_start(ap, fmt);
-    ret = hal_ring_newfv(size, sp_size, mode, fmt, ap);
-    va_end(ap);
-    return ret;
-}
-
-int halg_ring_new(const int use_hal_mutex,
-		  const char *name,
-		  int size,
-		  int sp_size,
-		  int mode)
-{
-    hal_ring_t *rbdesc;
     int retval;
     int ring_id;
     ringheader_t *rhptr;
 
-    CHECK_HALDATA();
-    CHECK_STRLEN(name, HAL_NAME_LEN);
-    CHECK_LOCK(HAL_LOCK_LOAD);
+    PCHECK_HALDATA();
+    PCHECK_STR(fmt);
+    PCHECK_LOCK(HAL_LOCK_LOAD);
+
+    char *name, buf[HAL_MAX_NAME_LEN + 1];
+    name = fmt_ap(buf, sizeof(buf), fmt, ap);
+    if (name == NULL)
+	return NULL;
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
-	hal_ring_t *ptr;
 
 	// make sure no such ring name already exists
-	if ((ptr = halpr_find_ring_by_name(name)) != 0) {
+	hal_ring_t *rptr = halg_find_object_by_name(0, HAL_RING, name).ring;
+	if (rptr != NULL) {
 	    HALERR("ring '%s' already exists", name);
-	    return -EEXIST;
+	    _halerrno = -EEXIST;
+	    return NULL;
 	}
 
 	// allocate ring descriptor
-	if ((rbdesc = halg_create_object(0, sizeof(hal_ring_t),
-				       HAL_RING, 0, name)) == NULL)
-	    return -ENOMEM;
-
+	if ((rptr = halg_create_object(0, sizeof(hal_ring_t),
+					 HAL_RING, 0, name)) == NULL) {
+	    return NULL; // _halerrno set in halg_create_object
+	}
 	// allocate a new ring id - needed since we dont track ring shm
 	// segments in RTAPI
 	if ((ring_id = next_ring_id()) < 0) {
-	    HALERR("cant allocate new ring id for '%s'", name);
-	    shmfree_desc(rbdesc);
-	    return -ENOMEM;
+	    goto FAIL; // _halerrno set in next_ring_id
 	}
 
-	rbdesc->flags = mode;
-	rbdesc->ring_id = ring_id;
+	rptr->flags = mode;
+	rptr->ring_id = ring_id;
 
 	// make total allocation fit ringheader, ringbuffer and scratchpad
-	rbdesc->total_size = ring_memsize( rbdesc->flags, size, sp_size);
+	rptr->total_size = ring_memsize( rptr->flags, size, sp_size);
 
-	if (rbdesc->flags & ALLOC_HALMEM) {
-	    void *ringmem = shmalloc_desc(rbdesc->total_size);
-	    if (ringmem == NULL)
-		NOMEM("ring '%s' size %d - insufficient HAL memory for ring",
-		      name,rbdesc->total_size);
-
-	    rbdesc->ring_offset = SHMOFF(ringmem);
+	if (rptr->flags & ALLOC_HALMEM) {
+	    void *ringmem = shmalloc_desc(rptr->total_size);
+	    if (ringmem == NULL) {
+		HALERR("ring '%s' size %d - insufficient HAL memory for ring",
+		      name,rptr->total_size);
+		_halerrno = -ENOMEM;
+		goto FAIL;
+	    }
+	    rptr->ring_offset = SHMOFF(ringmem);
 	    rhptr = ringmem;
 	} else {
 	    // allocate shared memory segment for ring and init
-	    rbdesc->ring_shmkey = OS_KEY((RTAPI_RING_SHM_KEY + ring_id), rtapi_instance);
+	    rptr->ring_shmkey = OS_KEY((RTAPI_RING_SHM_KEY + ring_id), rtapi_instance);
 
 	    int shmid;
 
 	    // allocate an RTAPI shm segment owned by HAL_LIB_xxx
-	    if ((shmid = rtapi_shmem_new(rbdesc->ring_shmkey, lib_module_id,
-					 rbdesc->total_size)) < 0)
-		NOMEM("rtapi_shmem_new(0x%8.8x,%d) failed: %d",
-		       rbdesc->ring_shmkey, lib_module_id,
-		       rbdesc->total_size);
-
+	    if ((shmid = rtapi_shmem_new(rptr->ring_shmkey, lib_module_id,
+					 rptr->total_size)) < 0) {
+		HALERR("rtapi_shmem_new(0x%8.8x,%d) failed: %d",
+		       rptr->ring_shmkey, lib_module_id,
+		       rptr->total_size);
+		_halerrno = shmid;
+		goto FAIL;
+	    }
 	    // map the segment now so we can fill in the ringheader details
 	    if ((retval = rtapi_shmem_getptr(shmid,
-					     (void **)&rhptr, 0)) < 0)
-		NOMEM("rtapi_shmem_getptr for %d failed %d",
+					     (void **)&rhptr, 0)) < 0) {
+		HALERR("rtapi_shmem_getptr for %d failed %d",
 		       shmid, retval);
+		_halerrno = retval;
+		goto FAIL;
+	    }
 	}
 
 	HALDBG("created ring '%s' in %s, total_size=%d",
-	       name, (rbdesc->flags & ALLOC_HALMEM) ? "halmem" : "shm",
-	       rbdesc->total_size);
+	       name, (rptr->flags & ALLOC_HALMEM) ? "halmem" : "shm",
+	       rptr->total_size);
 
-	ringheader_init(rhptr, rbdesc->flags, size, sp_size);
+	ringheader_init(rhptr, rptr->flags, size, sp_size);
 	rhptr->refcount = 0; // on hal_ring_attach: increase; on hal_ring_detach: decrease
 
 	// make it visible
-	halg_add_object(false, (hal_object_ptr)rbdesc);
+	halg_add_object(false, (hal_object_ptr)rptr);
+	return rptr;
 
+    FAIL:
+	if (rptr)
+	    shmfree_desc(rptr);
+	return NULL;
     } // automatic unlock by scope exit
-    return 0;
 }
 
-int hal_ring_deletef(const char *fmt, ...)
-{
-    va_list ap;
-    int ret;
-    va_start(ap, fmt);
-    ret = hal_ring_deletefv(fmt, ap);
-    va_end(ap);
-    return ret;
-}
 
 int free_ring_struct(hal_ring_t *hrptr)
 {
@@ -171,55 +167,73 @@ int free_ring_struct(hal_ring_t *hrptr)
 }
 
 
-int halg_ring_delete(const int use_hal_mutex,
-		    const char *name)
+/* int hal_ring_deletef(const char *fmt, ...) */
+/* { */
+/*     va_list ap; */
+/*     int ret; */
+/*     va_start(ap, fmt); */
+/*     ret = hal_ring_deletefv(fmt, ap); */
+/*     va_end(ap); */
+/*     return ret; */
+/* } */
+
+
+int halg_ring_deletefv(const int use_hal_mutex,
+		       const char *fmt,
+		       const va_list ap)
 {
 
     CHECK_HALDATA();
-    CHECK_STRLEN(name, HAL_NAME_LEN);
-    CHECK_LOCK(HAL_LOCK_LOAD);
+    CHECK_STR(fmt);
+    char *name, buf[HAL_MAX_NAME_LEN + 1];
+    name = fmt_ap(buf, sizeof(buf), fmt, ap);
+    if (name == NULL)
+	return _halerrno;
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
-	hal_ring_t *hrptr;
 
 	// ring must exist
-	if ((hrptr = halpr_find_ring_by_name(name)) == NULL) {
+	hal_ring_t *rptr = halg_find_object_by_name(0, HAL_RING, name).ring;
+	if (rptr  == NULL) {
 	    HALERR("ring '%s' not found", name);
 	    return -ENOENT;
 	}
-	free_ring_struct(hrptr);
+	free_ring_struct(rptr);
     }
     return 0;
 }
 
-int hal_ring_attachf(ringbuffer_t *rb, unsigned *flags, const char *fmt, ...)
-{
-    va_list ap;
-    int ret;
-    va_start(ap, fmt);
-    ret = hal_ring_attachfv(rb, flags, fmt, ap);
-    va_end(ap);
-    return ret;
-}
+/* int hal_ring_attachf(ringbuffer_t *rb, unsigned *flags, const char *fmt, ...) */
+/* { */
+/*     va_list ap; */
+/*     int ret; */
+/*     va_start(ap, fmt); */
+/*     ret = hal_ring_attachfv(rb, flags, fmt, ap); */
+/*     va_end(ap); */
+/*     return ret; */
+/* } */
 
-int halg_ring_attach(const int use_hal_mutex,
-		    const char *name,
-		    ringbuffer_t *rbptr,
-		    unsigned *flags)
+int halg_ring_attachfv(const int use_hal_mutex,
+		       ringbuffer_t *rbptr,
+		       unsigned *flags,
+		       const char *fmt,
+		       const va_list ap)
 {
-    hal_ring_t *rbdesc;
-    ringheader_t *rhptr;
-
     CHECK_HALDATA();
-    CHECK_STRLEN(name, HAL_NAME_LEN);
+    CHECK_STR(fmt);
 
-    // no mutex(es) held up to here
+    char *name, buf[HAL_MAX_NAME_LEN + 1];
+    name = fmt_ap(buf, sizeof(buf), fmt, ap);
+    if (name == NULL)
+	return _halerrno;
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 	int retval;
+	ringheader_t *rhptr;
 
-	if ((rbdesc = halpr_find_ring_by_name(name)) == NULL) {
+	hal_ring_t *rptr = halg_find_object_by_name(0, HAL_RING, name).ring;
+	if (rptr == NULL) {
 	    HALERR("no such ring '%s'", name);
 	    return -ENOENT;
 	}
@@ -228,19 +242,19 @@ int halg_ring_attach(const int use_hal_mutex,
 	// if a given ring exists.
 	// hal_ring_attach(name, NULL, &flags) is a way to inspect the flags
 	// of an existing ring without actually attaching it.
-	if (rbptr == NULL) {
+	if (rptr == NULL) {
 	    if (flags)
-		*flags = rbdesc->flags;
+		*flags = rptr->flags;
 	    return 0;
 	}
 
-	if (rbdesc->flags & ALLOC_HALMEM) {
-	    rhptr = SHMPTR(rbdesc->ring_offset);
+	if (rptr->flags & ALLOC_HALMEM) {
+	    rhptr = SHMPTR(rptr->ring_offset);
 	} else {
 	    int shmid;
 
 	    // map in the shm segment - size 0 means 'must exist'
-	    if ((retval = rtapi_shmem_new_inst(rbdesc->ring_shmkey,
+	    if ((retval = rtapi_shmem_new_inst(rptr->ring_shmkey,
 					       rtapi_instance, lib_module_id,
 					   0 )) < 0) {
 		if (retval != -EEXIST)  {
@@ -266,30 +280,27 @@ int halg_ring_attach(const int use_hal_mutex,
 	ringbuffer_init(rhptr, rbptr);
 
 	if (flags)
-	    *flags = rbdesc->flags;
+	    *flags = rptr->flags;
 	// hal mutex unlock happens automatically on scope exit
     }
     return 0;
 }
 
-int hal_ring_detachf(ringbuffer_t *rb, const char *fmt, ...)
-{
-    va_list ap;
-    int ret;
-    va_start(ap, fmt);
-    ret = hal_ring_detachfv(rb, fmt, ap);
-    va_end(ap);
-    return ret;
-}
 
-int halg_ring_detach(const int use_hal_mutex,
-		     const char *name,
-		     ringbuffer_t *rbptr)
+int halg_ring_detachfv(const int use_hal_mutex,
+		       ringbuffer_t *rbptr,
+		       const char *fmt,
+		       va_list ap)
 {
 
     CHECK_HALDATA();
-    CHECK_STRLEN(name, HAL_NAME_LEN);
+    CHECK_STR(fmt);
     CHECK_LOCK(HAL_LOCK_CONFIG);
+
+    char *name, buf[HAL_MAX_NAME_LEN + 1];
+    name = fmt_ap(buf, sizeof(buf), fmt, ap);
+    if (name == NULL)
+	return _halerrno;
 
     if ((rbptr == NULL) || (rbptr->magic != RINGBUFFER_MAGIC)) {
 	HALERR("ring '%s': invalid ringbuffer", name);
@@ -317,6 +328,7 @@ int halg_ring_detach(const int use_hal_mutex,
 // userland flavors dont have, and simplifies RTAPI.
 // the shared memory key of a given ring id and instance is defined as
 // OS_KEY(RTAPI_RING_SHM_KEY+id, instance).
+
 static int next_ring_id(void)
 {
     int i;
@@ -326,74 +338,74 @@ static int next_ring_id(void)
 	    return i;
 	}
     }
-    return -EBUSY; // no more slots available
+    HALERR("out of ring id's, HAL_MAX_RINGS = %d",HAL_MAX_RINGS);
+    _halerrno = -ENOENT;
+    return -ENOENT; // no more slots available
 }
 
-// varargs helpers
-static int hal_ring_newfv(int size, int sp_size, int flags,
-			  const char *fmt, va_list ap)
-{
-    char name[HAL_NAME_LEN + 1];
-    int sz;
-    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
-	HALERR("length %d too long for name starting '%s'",
-	       sz, name);
-        return -ENOMEM;
-    }
-    return halg_ring_new(1, name, size, sp_size, flags);
-}
+/* // varargs helpers */
+/* static int hal_ring_newfv(int size, int sp_size, int flags, */
+/* 			  const char *fmt, va_list ap) */
+/* { */
+/*     char name[HAL_NAME_LEN + 1]; */
+/*     int sz; */
+/*     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap); */
+/*     if(sz == -1 || sz > HAL_NAME_LEN) { */
+/* 	HALERR("length %d too long for name starting '%s'", */
+/* 	       sz, name); */
+/*         return -ENOMEM; */
+/*     } */
+/*     return halg_ring_new(1, name, size, sp_size, flags); */
+/* } */
 
 
-static int hal_ring_deletefv(const char *fmt, va_list ap)
-{
-    char name[HAL_NAME_LEN + 1];
-    int sz;
-    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
-	HALERR("length %d too long for name starting '%s'",
-	       sz, name);
-        return -ENOMEM;
-    }
-    return halg_ring_delete(1, name);
-}
+/* static int hal_ring_deletefv(const char *fmt, va_list ap) */
+/* { */
+/*     char name[HAL_NAME_LEN + 1]; */
+/*     int sz; */
+/*     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap); */
+/*     if(sz == -1 || sz > HAL_NAME_LEN) { */
+/* 	HALERR("length %d too long for name starting '%s'", */
+/* 	       sz, name); */
+/*         return -ENOMEM; */
+/*     } */
+/*     return halg_ring_delete(1, name); */
+/* } */
 
-static int hal_ring_attachfv(ringbuffer_t *rb, unsigned *flags,
-			     const char *fmt, va_list ap)
-{
-    char name[HAL_NAME_LEN + 1];
-    int sz;
-    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
-	HALERR("length %d too long for name starting '%s'",
-	       sz, name);
-        return -ENOMEM;
-    }
-    return halg_ring_attach(1, name, rb, flags);
-}
+/* static int hal_ring_attachfv(ringbuffer_t *rb, */
+/* 			     unsigned *flags, */
+/* 			     const char *fmt, */
+/* 			     va_list ap) */
+/* { */
+/*     char name[HAL_NAME_LEN + 1]; */
+/*     int sz; */
+/*     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap); */
+/*     if(sz == -1 || sz > HAL_NAME_LEN) { */
+/* 	HALERR("length %d too long for name starting '%s'", */
+/* 	       sz, name); */
+/*         return -ENOMEM; */
+/*     } */
+/*     return halg_ring_attach(1, name, rb, flags); */
+/* } */
 
-static int hal_ring_detachfv(ringbuffer_t *rb, const char *fmt, va_list ap)
-{
-    char name[HAL_NAME_LEN + 1];
-    int sz;
-    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
-	HALERR("length %d too long for name starting '%s'",
-	       sz, name);
-        return -ENOMEM;
-    }
-    return halg_ring_detach(1,name, rb);
-}
+/* static int hal_ring_detachfv(ringbuffer_t *rb, const char *fmt, va_list ap) */
+/* { */
+/*     char name[HAL_NAME_LEN + 1]; */
+/*     int sz; */
+/*     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap); */
+/*     if(sz == -1 || sz > HAL_NAME_LEN) { */
+/* 	HALERR("length %d too long for name starting '%s'", */
+/* 	       sz, name); */
+/*         return -ENOMEM; */
+/*     } */
+/*     return halg_ring_detach(1,name, rb); */
+/* } */
 
 #ifdef RTAPI
 
-EXPORT_SYMBOL(halg_ring_new);
-EXPORT_SYMBOL(hal_ring_newf);
-EXPORT_SYMBOL(halg_ring_delete);
-EXPORT_SYMBOL(hal_ring_deletef);
-EXPORT_SYMBOL(halg_ring_attach);
-EXPORT_SYMBOL(hal_ring_attachf);
-EXPORT_SYMBOL(halg_ring_detach);
-EXPORT_SYMBOL(hal_ring_detachf);
+EXPORT_SYMBOL(halg_ring_newfv);
+EXPORT_SYMBOL(halg_ring_deletefv);
+EXPORT_SYMBOL(halg_ring_attachfv);
+EXPORT_SYMBOL(halg_ring_detachfv);
 
 #endif

@@ -73,6 +73,17 @@ void hal_print_loc(const int level,
 	}							\
     } while (0)
 
+#define PCHECK_NULL(p)						\
+    do {							\
+	if (p == NULL) {					\
+	    hal_print_loc(RTAPI_MSG_ERR,			\
+			    __FUNCTION__,__LINE__,"HAL error:",	\
+			    #p  " is NULL");			\
+	    _halerrno = -EINVAL;				\
+	    return NULL;					\
+	}							\
+    } while (0)
+
 #define CHECK_LOCK(ll)							\
     do {								\
 	if (hal_data->lock & ll) {					\

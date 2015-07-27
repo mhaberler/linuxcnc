@@ -3130,8 +3130,8 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 
     if ( match(args->user_ptr1, ho_name(rptr))) {
 	unsigned flags;
-	if ((retval = halg_ring_attach(0, ho_name(rptr), &ringbuffer, &flags))) {
-	    halcmd_error("%s: hal_ring_attach(%d) failed ",
+	if ((retval = halg_ring_attachf(0, &ringbuffer, &flags, ho_name(rptr)))) {
+	    halcmd_error("%s: hal_ring_attachf(%d) failed ",
 			 ho_name(rptr), rptr->ring_id);
 	    goto done;
 	}
@@ -3164,7 +3164,7 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	if (ring_scratchpad_size(&ringbuffer))
 	    halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
 	halcmd_output("\n");
-	if ((retval = halg_ring_detach(0, ho_name(rptr),  &ringbuffer)) < 0) {
+	if ((retval = halg_ring_detachf(0,  &ringbuffer, ho_name(rptr))) < 0) {
 	    halcmd_error("%s: rtapi_ring_detach(%d) failed ",
 			 ho_name(rptr), rptr->ring_id);
 	}
@@ -3238,12 +3238,12 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	}
     }
     // this will happen under hal_data->mutex locked
-    if ((retval = hal_ring_new(ring, size, spsize, mode))) {
+    if (halg_ring_newf(1, size, spsize, mode, ring) == NULL) {
 	halcmd_error("newring: failed to create new ring %s: %s\n",
-		     ring, strerror(-retval));
-	return -EINVAL;
+		     ring, hal_lasterror());
+	retval =  _halerrno;
     }
-    return 0;
+    return retval;
 }
 
 int do_delring_cmd(char *ring)

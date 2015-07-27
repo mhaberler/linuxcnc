@@ -14,27 +14,57 @@
 /***********************************************************************
 *                     Public HAL reader/writer functions               *
 ************************************************************************/
+#if 0
 struct XXX_args {
-    role
+    role READ, WRITE, INSPECTOR
     name
     type selector record/stream/multi
-    create flag if not existe
+    create ring flag if not existe
     creation size, if not use global default
     spsize if create
     owner id
 };
 
-int halg_new_vtable(const int use_hal_mutex,
-		       int owner_id,
-		       const char *fmt,
-		       ...)
-{
-    CHECK_HALDATA();
-    CHECK_STRLEN(name, HAL_NAME_LEN);
-    CHECK_NULL(vtref);
-    CHECK_LOCK(HAL_LOCK_LOAD);
 
-    HALDBG("exporting vtable '%s' version=%d owner=%d at %p",
+// represents a HAL vtable object
+typedef struct hal_plug {
+    halhdr_t hdr;		   // common HAL object header
+    ringbuffer_t rb;               // per-process attach object, meaning only in owner
+    mode
+
+} hal_plug_t;
+
+#endif
+
+static inline hal_plug_t *hal_plug_newf(int owner_id,
+					const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    hal_plug_t *p = halg_plug_newfv(true, use_hal_mutex,owner_id, fmt, ap);
+    va_end(ap);
+    return p;
+}
+
+static inline hal_plug_t *halg_plug_newf(const int use_hal_mutex,
+					 int owner_id,
+					 const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    hal_plug_t *p = halg_plug_newfv(use_hal_mutex,owner_id, fmt, ap);
+    va_end(ap);
+    return p;
+}
+
+hal_plug_t *halg_plug_newfv(const int use_hal_mutex,
+			  int owner_id,
+			  const char *fmt,
+			  va_list ap)
+{
+    PCHECK_HALDATA();
+    PCHECK_STRLEN(name, HAL_NAME_LEN);
+    PCHECK_LOCK(HAL_LOCK_LOAD);
+
+    HALDBG("exporting plug '%s' version=%d owner=%d at %p",
 	   name, version, comp_id, vtref);
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);

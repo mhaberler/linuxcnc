@@ -132,7 +132,8 @@ RTAPI_BEGIN_DECLS
 
 #include <rtapi_errno.h>
 
-#define HAL_NAME_LEN     41	/* length for pin, signal, etc, names */
+#define HAL_NAME_LEN     41	// legacy length limit
+#define HAL_MAX_NAME_LEN 127	// actual limit at HAL layer (new-style halg_* methods)
 
 /** These locking codes define the state of HAL locking, are used by most functions */
 /** The functions locked will return a -EPERM error message **/
@@ -1118,6 +1119,11 @@ static inline int hal_inst_delete(const char *name) {
 #define HC_SINGLETON 2
 #define HC_SOMEFEATURE  3
 
+// misc
+char *fmt_ap(char *buffer,
+	     size_t size,
+	     const char *fmt,
+	     const va_list ap);
 
 RTAPI_END_DECLS
 
