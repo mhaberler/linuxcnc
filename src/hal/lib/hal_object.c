@@ -97,6 +97,8 @@ const char *hal_object_typestr(const unsigned type)
     case HAL_RING          : return "RING"; break;
     case HAL_GROUP         : return "GROUP"; break;
     case HAL_MEMBER        : return "MEMBER"; break;
+    case HAL_READER        : return "READER"; break;
+    case HAL_WRITER        : return "WRITER"; break;
     default:  return "**invalid**"; break;
     }
 }

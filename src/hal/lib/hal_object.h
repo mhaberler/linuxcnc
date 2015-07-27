@@ -21,6 +21,8 @@ typedef enum {
     HAL_RING          = 9,
     HAL_GROUP         = 10,
     HAL_MEMBER        = 11,
+    HAL_READER        = 12,
+    HAL_WRITER        = 13,
 } hal_object_type;
 
 // common header for all HAL objects
@@ -96,6 +98,8 @@ static inline bool hh_is_toplevel(__u32 type) {
     case HAL_FUNCT:
     case HAL_INST:
     case HAL_MEMBER:
+    case HAL_READER:
+    case HAL_WRITER:
 	return false;
     }
     return true;

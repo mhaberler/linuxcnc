@@ -61,7 +61,8 @@ enum ObjectType {
     HAL_RING          = 9;
     HAL_GROUP         = 10;
     HAL_MEMBER        = 11;
-
+    HAL_READER        = 12;
+    HAL_WRITER        = 13;
 
     // used at all?
     // VALUE             = 120;
