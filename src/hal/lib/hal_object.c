@@ -276,6 +276,12 @@ int halg_foreach(bool use_hal_mutex,
 
 
 // specialisations for common tasks
+
+// set read and/or write barriers on a HAL object
+// read_barrier, write_barrier values:
+//   0..unset
+//   1..set
+//  -1..leave as is
 int halg_object_setbarriers(const int use_hal_mutex,
 			    hal_object_ptr o,
 			    const int read_barrier,
@@ -293,13 +299,17 @@ int halg_object_setbarriers(const int use_hal_mutex,
 	}
 	bool old_rmb = hh_get_rmb(o.hdr);
 	bool old_wmb = hh_get_wmb(o.hdr);
-	hh_set_rmb(o.hdr, read_barrier);
-	hh_set_wmb(o.hdr, write_barrier);
+	if (read_barrier > -1)
+	    hh_set_rmb(o.hdr, read_barrier);
+	if (write_barrier > -1)
+	    hh_set_wmb(o.hdr, write_barrier);
 	HALDBG("setting barriers on %s '%s': rmb: %d->%d  wmb: %d->%d",
 	       hh_get_object_typestr(o.hdr),
 	       hh_get_name(o.hdr),
 	       old_rmb, hh_get_rmb(o.hdr),
 	       old_wmb, hh_get_wmb(o.hdr));
+
+	// XXX TBD: add signal->pin propagation right here?
     }
     return 0;
 }

@@ -234,6 +234,13 @@ struct halcmd_command halcmd_commands[] = {
     {"newm",    FUNCT(do_newm_cmd),    A_TWO | A_OPTIONAL | A_PLUS},
     {"delm",    FUNCT(do_delm_cmd),    A_TWO },
 
+    {"setrmb", FUNCT(do_setrmb_cmd), A_ONE },
+    {"setwmb", FUNCT(do_setwmb_cmd), A_ONE },
+
+    {"clearrmb", FUNCT(do_clear_rmb_cmd), A_ONE },
+    {"clearwmb", FUNCT(do_clear_wmb_cmd), A_ONE },
+
+
     {"newring", FUNCT(do_newring_cmd), A_TWO |  A_PLUS},
     {"delring", FUNCT(do_delring_cmd), A_ONE },
     {"ringdump", FUNCT(do_ringdump_cmd), A_ONE },

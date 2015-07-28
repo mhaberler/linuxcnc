@@ -157,7 +157,7 @@ static int propagate_barriers_cb(hal_pin_t *pin,
 
     default: ;
     }
-    HALDBG("propagating barriers from signal  %s to pin '%s':"
+    HALDBG("propagating barriers from signal '%s' to pin '%s':"
 	   " rmb: %d->%d  wmb: %d->%d",
 	   ho_name(sig),
 	   ho_name(pin),
@@ -182,6 +182,12 @@ int halg_signal_propagate_barriers(const int use_hal_mutex,
     return 0;
 }
 
+// set read and/or write barriers on a HAL signal,
+// and propagate to linked pins
+// read_barrier, write_barrier values:
+//   0..unset
+//   1..set
+//  -1..leave as is
 int halg_signal_setbarriers(const int use_hal_mutex,
 			    const char *name,
 			    const int read_barrier,

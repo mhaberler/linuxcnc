@@ -600,6 +600,7 @@ int do_newsig_cmd(char *name, char *type)
     return retval;
 }
 
+
 static int set_common(hal_type_t type, void *d_ptr, char *value) {
     // This function assumes that the mutex is held
     int retval = 0;
@@ -2103,11 +2104,13 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
 			      hal_data->epsilon[pin->eps_index],
 			      pin->flags);
 	    } else {
-		halcmd_output(" %5s %-3s  %9s  %-30.30s\t\t\t%d",
+		halcmd_output(" %5s %-3s  %9s  %-30.30s\t\t%s%s\t%d",
 			      data_type((int) pin->type),
 			      pin_data_dir((int) pin->dir),
 			      data_value((int) pin->type, dptr),
 			      ho_name(pin),
+			      ho_rmb(pin) ? "r" : "-",
+			      ho_wmb(pin) ? "w" : "-",
 			      pin->flags);
 	    }
 	} else {
@@ -2121,7 +2124,7 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
 	if (sig == 0) {
 	    halcmd_output("\n");
 	} else {
-	    halcmd_output(" %s %s\n", data_arrow1((int) pin->dir), ho_name(sig));
+	    halcmd_output("\t%s %s\n", data_arrow1((int) pin->dir), ho_name(sig));
 	}
 #ifdef DEBUG
 	halcmd_output("%s %d:%d sig=%p dptr=%p *dptr=%p\n",
@@ -2137,7 +2140,7 @@ static void print_pin_info(int type, char **patterns)
 {
     if (scriptmode == 0) {
 	halcmd_output("Component Pins:\n");
-	halcmd_output("  Comp   Inst Type  Dir         Value  Name                             Epsilon         Flags\n");
+	halcmd_output("  Comp   Inst Type  Dir         Value  Name                             Epsilon MB  Flags   linked to:\n");
     }
     foreach_args_t args =  {
 	.type = HAL_PIN,
@@ -2150,7 +2153,7 @@ static void print_pin_info(int type, char **patterns)
 
 static int linked_pin_callback(hal_pin_t *pin, hal_sig_t *sig, void *user)
 {
-    halcmd_output("                         %s %s\n",
+    halcmd_output("                                 %s %s\n",
 		  data_arrow2((int) pin->dir),
 		  ho_name(pin));
     return 0; // continue iterating
@@ -2161,9 +2164,11 @@ static int print_signal_entry(hal_object_ptr o, foreach_args_t *args)
     hal_sig_t *sig = o.sig;
     if ( match(args->user_ptr1, ho_name(sig)) ) {
 	void *dptr = SHMPTR(sig->data_ptr);
-	halcmd_output("%s  %s  %s\n",
+	halcmd_output("%s  %s  %s%s %s \n",
 		      data_type((int) sig->type),
 		      data_value((int) sig->type, dptr),
+		      ho_rmb(sig) ? "r" : "-",
+		      ho_wmb(sig) ? "w" : "-",
 		      ho_name(sig));
 
 	// look for pin(s) linked to this signal
@@ -2180,7 +2185,7 @@ static void print_sig_info(int type, char **patterns)
 	return;
     }
     halcmd_output("Signals:\n");
-    halcmd_output("Type          Value  Name     (linked to)\n");
+    halcmd_output("Type          Value  MB Name    linked to:\n");
 
     foreach_args_t args =  {
 	.type = HAL_SIGNAL,
@@ -3739,46 +3744,7 @@ int do_sleep_cmd(char *naptime)
     nanosleep(&ts, NULL);
     return 0;
 }
-/*
-static void save_comps(FILE *dst)
-{
-#if 0
-    int next;
-    hal_comp_t *comp;
 
-    fprintf(dst, "# components\n");
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->comp_list_ptr;
-    while (next != 0) {
-	comp = SHMPTR(next);
-	if ( comp->type == TYPE_RT ) {
-
-	    // FIXME XXX MAH - save halcmd defined remote comps!!
-	    // only print realtime components
-	    if ( comp->insmod_args == 0 ) {
-		fprintf(dst, "#loadrt %s  (not loaded by loadrt, no args saved)\n", comp->name);
-	    } else {
-		fprintf(dst, "loadrt %s %s\n", comp->name,
-		    (char *)SHMPTR(comp->insmod_args));
-	    }
-	}
-	next = comp->next_ptr;
-    }
-#if 0  // newinst deferred to version 2.2
-    next = hal_data->comp_list_ptr;
-    while (next != 0) {
-	comp = SHMPTR(next);
-	if ( comp->type == 2 ) {
-            hal_comp_t *comp1 = halpr_find_comp_by_id(comp->comp_id & 0xffff);
-            fprintf(dst, "newinst %s %s\n", comp1->name, comp->name);
-        }
-	next = comp->next_ptr;
-    }
-#endif
-    rtapi_mutex_give(&(hal_data->mutex));
-#endif
-}
-*/
 static int save_comp_line(hal_object_ptr o, foreach_args_t *args)
 {
 FILE *dst = (FILE*) args->user_ptr2;
@@ -3811,42 +3777,54 @@ static void save_comps(FILE *dst)
     fprintf(dst, "\n");
 }
 
-//////////////////////////////////////////////////////////////////////////
-#if 0
-// Think we are doing away with aliases, so left as is
-static void save_aliases(FILE *dst)
+static int yield_objects(hal_object_ptr o, foreach_args_t *args)
 {
-    int next;
-    hal_pin_t *pin;
-    hal_param_t *param;
-    hal_oldname_t *oldname;
-
-    fprintf(dst, "# pin aliases\n");
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->pin_list_ptr;
-    while (next != 0) {
-	pin = SHMPTR(next);
-	if ( pin->oldname != 0 ) {
-	    /* name is an alias */
-	    oldname = SHMPTR(pin->oldname);
-	    fprintf(dst, "alias pin %s %s\n", oldname->name, pin->name);
-	}
-	next = pin->next_ptr;
-    }
-    fprintf(dst, "# param aliases\n");
-    next = hal_data->param_list_ptr;
-    while (next != 0) {
-	param = SHMPTR(next);
-	if ( param->oldname != 0 ) {
-	    /* name is an alias */
-	    oldname = SHMPTR(param->oldname);
-	    fprintf(dst, "alias param %s %s\n", oldname->name, param->name);
-	}
-	next = param->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
+    halg_object_setbarriers(0, o, args->user_arg1, args->user_arg2);
+    return 1;  // continue
 }
-#endif
+
+static int change_barrier(char *object, int read_barrier, int write_barrier)
+{
+    foreach_args_t args =  {
+	.name = (char *)object,
+	.user_arg1 = read_barrier,  // -1 to leave as is /0/1
+	.user_arg2 = write_barrier, // -1 to leave as is /0/1
+    };
+    return halg_foreach(1, &args, yield_objects);
+}
+
+int do_setrmb_cmd(char *object)
+{
+    change_barrier(object, 1, -1);
+    return 0;
+}
+
+int do_setwmb_cmd(char *object)
+{
+    change_barrier(object, -1, 1);
+    return 0;
+
+}
+
+int do_clear_rmb_cmd(char *object)
+{
+    change_barrier(object, 0, -1);
+    return 0;
+
+}
+
+int do_clear_wmb_cmd(char *object)
+{
+    change_barrier(object, -1, 0);
+    return 0;
+}
+
+int do_handshake_cmd(char *signal)
+{
+    halcmd_error("NIY\n");
+    return -ENOSYS;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 

@@ -120,7 +120,7 @@ static int instantiate_lutn(const char *name,
     }
     rtapi_snprintf(oname, sizeof(oname), "%s.out", name);
 
-    ip->out =  (bit_pin_t *) halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
+    ip->out =  (bit_pin_t *) halg_pin_new(0, oname, HAL_BIT, HAL_OUT, NULL, inst_id);
     if (ip->out == NULL)
 	return -1;
 

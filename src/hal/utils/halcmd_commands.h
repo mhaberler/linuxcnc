@@ -100,6 +100,11 @@ extern int do_ringdump_cmd(char *ring);
 extern int do_ringwrite_cmd(char *ring,char *content);
 extern int do_ringread_cmd(char *ring, char *tokens[]);
 
+int do_setrmb_cmd(char *object);
+int do_setwmb_cmd(char *object);
+int do_clear_rmb_cmd(char *object);
+int do_clear_wmb_cmd(char *object);
+
 extern int do_newcomp_cmd(char *comp, char *args[]);
 extern int do_newpin_cmd(char *comp, char *pin, char *type, char *args[]);
 extern int do_ready_cmd(char *comp, char *tokens[]);
