@@ -95,7 +95,7 @@ PROTOCXX_CXX_FLAGS := -fPIC $(PROTOBUF_CFLAGS)
 
 # NANOPB_CFLAGS are also passed to module build through
 # RTFLAGS - see hal/msgcomponents/Submakefile
-NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<'$(MACHINETALK)'/include/pb-linuxcnc.h>'
+NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<'$(MACHINETALK)'/include/pb-machinekit.h>'
 NANOPB_OPTIONS := $(MACHINETALK)/nanopb.options
 
 # any extra flags to C compile nanopb bindings

@@ -29,7 +29,7 @@
 #include <errno.h>
 #include <assert.h>
 
-#include <machinetalk/include/pb-linuxcnc.h>
+#include <machinetalk/include/pb-machinekit.h>
 #include <machinetalk/nanopb/pb_decode.h>
 #include <machinetalk/nanopb/pb_encode.h>
 
