@@ -118,30 +118,22 @@ int hh_snprintf(char *buf, size_t size, const halhdr_t *hh)
 			  hh_get_wmb(hh));
 }
 
-void *halg_create_object(const bool use_hal_mutex,
-			 const size_t size,
-			 const int type,
-			 const int owner_id,
-			 const char *fmt,
-			 ...)
+void *halg_create_objectfv(const bool use_hal_mutex,
+			  const size_t size,
+			  const int type,
+			  const int owner_id,
+			  const char *fmt,
+			  va_list ap)
 {
-    va_list ap;
-    va_start(ap, fmt);
-
     halhdr_t *new = shmalloc_desc(size);
     if (new == NULL) {
-	char name[HAL_NAME_LEN+1];
-
+	char name[HAL_MAX_NAME_LEN+1];
 	rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-	va_end(ap);
-
 	HALERR("insufficient memory for %s %s size=%zu", hal_object_typestr(type), name, size);
 	_halerrno = -ENOMEM;
 	return NULL;
     }
-
     int ret =  hh_init_hdrfv(new, type, owner_id, fmt, ap);
-    va_end(ap);
     if (ret) {
 	shmfree_desc(new);
 	return NULL;

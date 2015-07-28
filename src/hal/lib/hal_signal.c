@@ -51,7 +51,7 @@ int halg_signal_new(const int use_hal_mutex,
 	}
 
 	// allocate signal descriptor
-	if ((new = halg_create_object(0, sizeof(hal_sig_t),
+	if ((new = halg_create_objectf(0, sizeof(hal_sig_t),
 				       HAL_SIGNAL, 0, name)) == NULL)
 	    return -ENOMEM;
 

@@ -173,8 +173,8 @@ int halg_xinit(const int use_hal_mutex,
 	    return -EINVAL;
 	}
 
-	comp = halg_create_object(0, sizeof(hal_comp_t),
-				  HAL_COMPONENT, 0, hal_name);
+	comp = halg_create_objectf(0, sizeof(hal_comp_t),
+				   HAL_COMPONENT, 0, hal_name);
 	if (comp == NULL) {
 	    rtapi_exit(comp_id);
 	    return -ENOMEM;
@@ -543,6 +543,7 @@ int init_hal_data(void)
     hal_data->exact_base_period = 0;
 
     hal_data->threads_running = 0;
+    hal_data->default_ringsize = HAL_DEFAULT_RINGSIZE;
 
     hal_data->dead_beef = HAL_VALUE_POISON;
     hal_data->str_alloc = 0;

@@ -37,11 +37,10 @@ int halg_export_vtable(const int use_hal_mutex,
 	}
 
 	// allocate vtable descriptor
-	if ((vt = halg_create_object(0, sizeof(hal_vtable_t),
-				     HAL_VTABLE, 0, name)) == NULL)
+	if ((vt = halg_create_objectf(0, sizeof(hal_vtable_t),
+				      HAL_VTABLE, comp_id, name)) == NULL)
 	    return -ENOMEM;
 
-	hh_init_hdrf(&vt->hdr, HAL_VTABLE, comp_id, "%s", name);
 	vt->vtable  =  vtref;
 	vt->version =  version;
 #ifdef RTAPI

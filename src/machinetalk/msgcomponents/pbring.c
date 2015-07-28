@@ -287,14 +287,16 @@ static int delete(const char *name, void *inst, const int inst_size)
     pbring_inst_t *p = (pbring_inst_t *)inst;
     int retval;
 
-    p->to_rt_rb.header->reader = 0;
-    if ((retval = halg_ring_detachf(1, &p->to_rt_rb,"%s.in", name )) < 0) {
+    if (p->to_rt_rb.header)
+	p->to_rt_rb.header->reader = 0;
+    if ((retval = halg_ring_detachf(0, &p->to_rt_rb,"%s.in", name )) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: hal_ring_detach(%s.in) failed: %d\n",
 			name, name, retval);
     }
-    p->from_rt_rb.header->writer = 0;
-    if ((retval = halg_ring_detachf(1, &p->from_rt_rb, "%s.out", name)) < 0)
+    if (p->from_rt_rb.header)
+	p->from_rt_rb.header->writer = 0;
+    if ((retval = halg_ring_detachf(0, &p->from_rt_rb, "%s.out", name)) < 0)
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"%s: hal_ring_detach(%s.out) failed: %d\n",
 			name, name, retval);

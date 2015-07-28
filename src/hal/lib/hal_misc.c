@@ -27,6 +27,19 @@ char *fmt_ap(char *buffer,
     return buffer;
 }
 
+char *fmt_args(char *buffer,
+	       size_t size,
+	       const char *fmt,
+	       ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    char *s = fmt_ap(buffer, size, fmt, ap);
+    va_end(ap);
+    return s;
+}
+
+
 // return number of pins in a component, legacy or all-insts
 int halpr_pin_count(const char *name)
 {

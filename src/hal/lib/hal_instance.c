@@ -35,8 +35,8 @@ int halg_inst_create(const int use_hal_mutex,
 	}
 
 	// allocate instance descriptor
-	if ((inst = halg_create_object(0, sizeof(hal_inst_t),
-				       HAL_INST, ho_id(comp), name)) == NULL)
+	if ((inst = halg_create_objectf(0, sizeof(hal_inst_t),
+					HAL_INST, ho_id(comp), name)) == NULL)
 	    return -ENOMEM;
 
 	if (size > 0) {
@@ -122,6 +122,8 @@ void free_inst_struct(hal_inst_t * inst)
     // get owning comp
 
     hal_comp_t *comp = halpr_find_owning_comp(ho_id(inst));
+
+    // NB: a custom dtor will be called with the HAL mutex held
     if (comp->dtor) {
 	// NB - pins, params etc still intact
 	// this instance is owned by this comp, call destructor

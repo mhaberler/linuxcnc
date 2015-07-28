@@ -160,8 +160,8 @@ int hal_param_new(const char *name,
 	}
 
 	// allocate parameter descriptor
-	if ((new = halg_create_object(0, sizeof(hal_param_t),
-				      HAL_PARAM, owner_id, name)) == NULL)
+	if ((new = halg_create_objectf(0, sizeof(hal_param_t),
+				       HAL_PARAM, owner_id, name)) == NULL)
 	    return -ENOMEM;
 
 	new->data_ptr = SHMOFF(data_addr);

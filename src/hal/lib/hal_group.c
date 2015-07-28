@@ -28,8 +28,8 @@ int halg_group_new(const int use_hal_mutex,const char *name, int arg1, int arg2)
 	    return -EINVAL;
 	}
 
-	if ((group = halg_create_object(0, sizeof(hal_group_t),
-					HAL_GROUP, 0, name)) == NULL)
+	if ((group = halg_create_objectf(0, sizeof(hal_group_t),
+					 HAL_GROUP, 0, name)) == NULL)
 	    return -ENOMEM;
 
 	group->userarg1 = arg1;
@@ -128,8 +128,8 @@ int halg_member_new(const int use_hal_mutex,const char *group, const char *membe
 	}
 
 	HALDBG("adding signal '%s' to group '%s'",  member, group);
-	if ((new = halg_create_object(0, sizeof(hal_member_t),
-				      HAL_MEMBER, ho_id(grp), member)) == NULL)
+	if ((new = halg_create_objectf(0, sizeof(hal_member_t),
+				       HAL_MEMBER, ho_id(grp), member)) == NULL)
 	    return -ENOMEM;
 
 	ho_incref(sig); // prevent deletion

@@ -172,6 +172,7 @@ typedef union {
     hal_thread_t *thread;
     hal_vtable_t *vtable;
     hal_ring_t   *ring;
+    hal_plug_t   *plug;
     void         *any;
 } hal_object_ptr;
 
@@ -229,6 +230,7 @@ typedef struct {
     unsigned char lock;         /* hal locking, can be one of the HAL_LOCK_* types */
 
     unsigned long long dead_beef; // value poison for legacy pin data_ptr_addr use
+    size_t default_ringsize;    // if no exlicit size given
 
     // since rings are realy just glorified named shm segments, allocate by map
     // this gets around the unexposed rtapi_data segment in userland flavors

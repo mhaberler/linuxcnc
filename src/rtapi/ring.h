@@ -96,7 +96,8 @@ typedef enum {
 typedef enum {
     USE_RMUTEX = RTAPI_BIT(2),
     USE_WMUTEX = RTAPI_BIT(3),
-    ALLOC_HALMEM = RTAPI_BIT(4)
+    ALLOC_HALMEM = RTAPI_BIT(4),
+    CREATE_RING  = RTAPI_BIT(5),
 } ring_mode_flags_t;
 
 typedef struct {

@@ -144,14 +144,26 @@ static inline void hh_set_legacy(halhdr_t *o)          { o->_legacy = 1; }
 // returns number of chars used or -1 for 'too small buffer'
 int hh_snprintf(char *buf, size_t size, const halhdr_t *hh);
 
-
 // create a HAL object of given size, type, owner_id and name.
-void *halg_create_object(const bool use_hal_mutex,
-			 const size_t size,
-			 const int type,
-			 const int owner_id,
-			 const char *fmt,
-			 ...) __attribute__((format(printf,5,6)));
+// varargs-style base function.
+void *halg_create_objectfv(const bool use_hal_mutex,
+			   const size_t size,
+			   const int type,
+			   const int owner_id,
+			   const char *fmt,
+			   va_list ap);
+// printf-style wrapper
+static inline void *halg_create_objectf(const bool use_hal_mutex,
+					const size_t size,
+					const int type,
+					const int owner_id,
+					const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    void *p = halg_create_objectfv(use_hal_mutex, size, type, owner_id, fmt, ap);
+    va_end(ap);
+    return p;
+}
 
 // adds a HAL object into the object list with partial ordering:
 // all objects of the same type will be kept sorted by name.

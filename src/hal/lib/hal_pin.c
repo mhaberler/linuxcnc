@@ -189,8 +189,8 @@ hal_pin_t *halg_pin_new(const int use_hal_mutex,
 	}
 
 	// allocate pin descriptor
-	if ((new = halg_create_object(0, sizeof(hal_pin_t),
-				      HAL_PIN, owner_id, name)) == NULL) {
+	if ((new = halg_create_objectf(0, sizeof(hal_pin_t),
+				       HAL_PIN, owner_id, name)) == NULL) {
 	    _halerrno = -EINVAL;
 	    return NULL;
 	}

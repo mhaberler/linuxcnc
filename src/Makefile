@@ -1471,6 +1471,9 @@ icomp-objs := hal/icomp-example/icomp.o
 obj-m += lutnv2.o
 lutnv2-objs := hal/icomp-example/lutnv2.o
 
+obj-m += plug.o
+plug-objs := hal/icomp-example/plug.o
+
 obj-m += ufdemo.o
 ufdemo-objs := hal/userfunct-example/ufdemo.o
 
@@ -1652,6 +1655,7 @@ $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
+$(RTLIBDIR)/plug$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(plug-objs))
 $(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
 $(RTLIBDIR)/lutnv2$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutnv2-objs))
 

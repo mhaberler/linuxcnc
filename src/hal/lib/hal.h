@@ -134,6 +134,7 @@ RTAPI_BEGIN_DECLS
 
 #define HAL_NAME_LEN     41	// legacy length limit
 #define HAL_MAX_NAME_LEN 127	// actual limit at HAL layer (new-style halg_* methods)
+#define HAL_DEFAULT_RINGSIZE    1024
 
 /** These locking codes define the state of HAL locking, are used by most functions */
 /** The functions locked will return a -EPERM error message **/
@@ -506,6 +507,7 @@ struct hal_funct;
 struct hal_thread;
 struct hal_vtable;
 struct hal_ring;
+struct hal_plug;
 
 typedef struct hal_comp hal_comp_t;
 typedef struct hal_inst hal_inst_t;
@@ -518,6 +520,7 @@ typedef struct hal_funct hal_funct_t;
 typedef struct hal_thread hal_thread_t;
 typedef struct hal_vtable hal_vtable_t;
 typedef struct hal_ring hal_ring_t;
+typedef struct hal_plug hal_plug_t;
 /***********************************************************************
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
@@ -1119,12 +1122,16 @@ static inline int hal_inst_delete(const char *name) {
 #define HC_SINGLETON 2
 #define HC_SOMEFEATURE  3
 
-// misc
+// misc, XXX - move to rtapi_common.c?
 char *fmt_ap(char *buffer,
 	     size_t size,
 	     const char *fmt,
 	     const va_list ap);
 
+char *fmt_args(char *buffer,
+	       size_t size,
+	       const char *fmt,
+	       ...);
 RTAPI_END_DECLS
 
 #endif /* HAL_H */

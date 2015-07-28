@@ -100,8 +100,8 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 	}
 
 	// allocate a new function structure
-	nf = halg_create_object(0, sizeof(hal_funct_t),
-				HAL_FUNCT, xf->owner_id, name);
+	nf = halg_create_objectf(0, sizeof(hal_funct_t),
+				 HAL_FUNCT, xf->owner_id, name);
 	if (nf == NULL)
 	    return -ENOMEM;
 

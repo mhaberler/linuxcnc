@@ -27,6 +27,10 @@ int main()
     printf("hal_vtable_t = %zu\n", sizeof(hal_vtable_t));
     printf("hal_ring_t = %zu\n", sizeof(hal_ring_t));
 
+    printf("ringheader_t = %zu (without storage)\n", sizeof(ringheader_t));
+    printf("ringbuffer_t = %zu\n", sizeof(ringbuffer_t));
+    printf("msgbuffer_t = %zu\n", sizeof(msgbuffer_t));
+
     printf("emcmot_joint_t = %zu\n", sizeof(emcmot_joint_t));
     printf("emcmot_joint_status_t = %zu\n", sizeof(emcmot_joint_status_t));
     printf("emcmot_command_t = %zu\n", sizeof(emcmot_command_t));
