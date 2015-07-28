@@ -688,6 +688,17 @@ static inline int hal_signal_delete(const char *name) {
     return halg_signal_delete(1, name);
 }
 
+int halg_signal_setbarriers(const int use_hal_mutex,
+			    const char *name,
+			    const int read_barrier,
+			    const int write_barrier);
+
+static inline int hal_signal_setbarriers(const char *name,
+					 const int read_barrier,
+					 const int write_barrier) {
+    return halg_signal_setbarriers(1, name, read_barrier, write_barrier);
+}
+
 /** 'hal_link()' links a pin to a signal.  'pin_name' and 'sig_name' are
     strings containing the pin and signal names.  If the pin is already
     linked to the desired signal, the command succeeds.  If the pin is

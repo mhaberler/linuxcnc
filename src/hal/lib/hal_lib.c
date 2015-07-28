@@ -347,6 +347,7 @@ EXPORT_SYMBOL(halg_signal_delete);
 EXPORT_SYMBOL(halg_link);
 EXPORT_SYMBOL(halg_unlink);
 EXPORT_SYMBOL(halg_foreach_pin_by_signal);
+EXPORT_SYMBOL(halg_signal_setbarriers);
 
 // hal_param.c:
 EXPORT_SYMBOL(hal_param_new);
@@ -412,6 +413,7 @@ EXPORT_SYMBOL(halpr_find_owning_comp);
 EXPORT_SYMBOL(halg_find_object_by_name);
 EXPORT_SYMBOL(halg_find_object_by_id);
 EXPORT_SYMBOL(halg_foreach);
+EXPORT_SYMBOL(halg_object_setbarriers);
 
 //EXPORT_SYMBOL();
 //EXPORT_SYMBOL();

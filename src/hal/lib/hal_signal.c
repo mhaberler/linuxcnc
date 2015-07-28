@@ -12,7 +12,7 @@
 ************************************************************************/
 
 int halg_signal_new(const int use_hal_mutex,
-		   const char *name, hal_type_t type)
+		    const char *name, hal_type_t type)
 {
     hal_sig_t *new;
 
@@ -110,6 +110,106 @@ int halg_signal_delete(const int use_hal_mutex, const char *name)
 	return free_sig_struct(sig);
     }
 }
+
+// this implements Charles' 'handshake signal' idea.
+// (barrier inheritance on linking)
+static int propagate_barriers_cb(hal_pin_t *pin,
+				 hal_sig_t *sig,
+				 void *user)
+{
+    bool rmb = hh_get_rmb(&sig->hdr);
+    bool wmb = hh_get_wmb(&sig->hdr);
+    bool pin_rmb = hh_get_rmb(&pin->hdr);
+    bool pin_wmb = hh_get_wmb(&pin->hdr);
+
+    switch (pin->dir) {
+    case HAL_IN:
+
+	// Carles - please fill in here:
+
+	// mah guess:
+	if (rmb)
+	    // only set, but do not clear by inheritance
+	    hh_set_rmb(&pin->hdr, rmb);
+
+	// mah guess: no significance
+	//if (wmb)
+	//	hh_set_wmb(&pin->hdr, WHAT);
+	break;
+
+    case  HAL_OUT:
+	// mah guess: no significance
+	// if (rmb)
+	//    hh_set_rmb(&pin->hdr, rmb);
+
+	// mah guess:
+	if (wmb)
+	    hh_set_wmb(&pin->hdr, rmb);
+	break;
+
+    case HAL_IO:
+	// and here:
+	if (rmb)
+	    hh_set_rmb(&pin->hdr, rmb);
+	if (wmb)
+	    hh_set_wmb(&pin->hdr, rmb);
+	break;
+
+    default: ;
+    }
+    HALDBG("propagating barriers from signal  %s to pin '%s':"
+	   " rmb: %d->%d  wmb: %d->%d",
+	   ho_name(sig),
+	   ho_name(pin),
+	   pin_rmb, hh_get_rmb(&pin->hdr),
+	   pin_wmb, hh_get_wmb(&pin->hdr));
+    return 0;
+}
+
+int halg_signal_propagate_barriers(const int use_hal_mutex,
+				   const hal_sig_t *sig)
+{
+    CHECK_HALDATA();
+    CHECK_NULL(sig);
+
+    //a specialized form of halg_foreach_pin_by_signal()
+    foreach_args_t args =  {
+	.type = HAL_PIN,
+	.user_ptr1 = (hal_sig_t *) sig,
+	.user_ptr2 = propagate_barriers_cb,
+    };
+    halg_foreach(use_hal_mutex, &args, pin_by_signal_callback);
+    return 0;
+}
+
+int halg_signal_setbarriers(const int use_hal_mutex,
+			    const char *name,
+			    const int read_barrier,
+			    const int write_barrier)
+{
+    CHECK_HALDATA();
+    CHECK_LOCK(HAL_LOCK_CONFIG);
+    CHECK_STRLEN(name, HAL_MAX_NAME_LEN);
+
+    {
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+	hal_sig_t *sig = halpr_find_sig_by_name(name);
+
+	if (sig == NULL) {
+	    HALERR("signal '%s' not found",  name);
+	    _halerrno = -ENOENT;
+	    return -ENOENT;
+	}
+	halg_object_setbarriers(0,(hal_object_ptr) sig,
+				read_barrier,
+				write_barrier);
+
+	// now propagate any changes to linked pins
+	halg_signal_propagate_barriers(0, sig);
+    }
+    return 0;
+}
+
 
 
 int halg_link(const int use_hal_mutex,
@@ -215,20 +315,26 @@ int halg_link(const int use_hal_mutex,
 		       ho_name(pin), pin->type);
 		return -EINVAL;
 	    }
-	}
 
-	/* update the signal's reader/writer/bidir counts */
-	if ((pin->dir & HAL_IN) != 0) {
-	    sig->readers++;
+	    /* update the signal's reader/writer/bidir counts */
+	    if ((pin->dir & HAL_IN) != 0) {
+		sig->readers++;
+	    }
+	    if (pin->dir == HAL_OUT) {
+		sig->writers++;
+	    }
+	    if (pin->dir == HAL_IO) {
+		sig->bidirs++;
+	    }
+	    /* and update the pin */
+	    pin->signal = SHMOFF(sig);
+
+	    // propagate the pin->signal assignment because
+	    // halg_signal_propagate_barriers() triggers on
+	    // pin->signal == SHMOFF(sig)
+	    rtapi_smp_wmb();
+	    halg_signal_propagate_barriers(0, sig);
 	}
-	if (pin->dir == HAL_OUT) {
-	    sig->writers++;
-	}
-	if (pin->dir == HAL_IO) {
-	    sig->bidirs++;
-	}
-	/* and update the pin */
-	pin->signal = SHMOFF(sig);
     }
     return 0;
 }
@@ -262,7 +368,7 @@ int halg_unlink(const int use_hal_mutex,
     }
 }
 
-static int pin_by_signal_callback(hal_object_ptr o, foreach_args_t *args)
+int pin_by_signal_callback(hal_object_ptr o, foreach_args_t *args)
 {
     hal_sig_t *sig = args->user_ptr1;
     hal_pin_signal_callback_t cb = args->user_ptr2;

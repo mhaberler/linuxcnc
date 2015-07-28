@@ -52,6 +52,7 @@ int  free_comp_struct(hal_comp_t * comp);
 int free_sig_struct(hal_sig_t * sig);
 int free_ring_struct(hal_ring_t *hrptr);
 void free_group_struct(hal_group_t * group);
+int pin_by_signal_callback(hal_object_ptr o, foreach_args_t *args);
 
 void hal_proc_clean(void);
 int hal_proc_init(void);
