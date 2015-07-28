@@ -174,6 +174,12 @@ void halg_add_object(const bool use_hal_mutex,  hal_object_ptr o);
 // returns -EBUSY if reference count not zero.
 int halg_free_object(const bool use_hal_mutex, hal_object_ptr o);
 
+// set barriers on an aribtrary HAL object
+int halg_object_setbarriers(const int use_hal_mutex,
+			    hal_object_ptr o,
+			    const int read_barrier,
+			    const int write_barrier);
+
 
 // initialize a HAL object header with unique ID and name,
 // optionally an owner id for dependent objects (e.g. hal_pin_t, hal_inst_t)

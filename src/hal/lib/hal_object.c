@@ -276,6 +276,34 @@ int halg_foreach(bool use_hal_mutex,
 
 
 // specialisations for common tasks
+int halg_object_setbarriers(const int use_hal_mutex,
+			    hal_object_ptr o,
+			    const int read_barrier,
+			    const int write_barrier)
+{
+    CHECK_HALDATA();
+    CHECK_NULL(o.any);
+    {
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+
+	if (!hh_valid(o.hdr)) {
+	    HALERR("object at %p invalid",  o.any);
+	    _halerrno = -EINVAL;
+	    return -EINVAL;
+	}
+	bool old_rmb = hh_get_rmb(o.hdr);
+	bool old_wmb = hh_get_wmb(o.hdr);
+	hh_set_rmb(o.hdr, read_barrier);
+	hh_set_wmb(o.hdr, write_barrier);
+	HALDBG("setting barriers on %s '%s': rmb: %d->%d  wmb: %d->%d",
+	       hh_get_object_typestr(o.hdr),
+	       hh_get_name(o.hdr),
+	       old_rmb, hh_get_rmb(o.hdr),
+	       old_wmb, hh_get_wmb(o.hdr));
+    }
+    return 0;
+}
+
 hal_object_ptr halg_find_object_by_name(const int use_hal_mutex,
 					const int type,
 					const char *name)
