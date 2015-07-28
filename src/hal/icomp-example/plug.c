@@ -109,7 +109,7 @@ static int instantiate(const char *name, const int argc, const char**argv)
 // NB: if a customer destructor is used, it is called
 // - after the instance's functs have been removed from their respective threads
 //   (so a thread funct call cannot interact with the destructor any more)
-// - any pins and params of this instance are still intact when the destructor is
+// - any pins,  params and plugs of this instance are still intact when the destructor is
 //   called, and they are automatically destroyed by the HAL library once the
 //   destructor returns
 static int delete(const char *name, void *inst, const int inst_size)
