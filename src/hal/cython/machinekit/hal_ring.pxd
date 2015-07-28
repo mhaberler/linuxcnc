@@ -23,6 +23,6 @@ cdef extern from "hal_ring.h":
                           ringbuffer_t *rb,
                           unsigned *flags,
                           const char *fmt)
-    int halg_ring_detachf(const int use_hal_mutex, ringbuffer_t *rb, const char *fmt)
+    int halg_ring_detach(const int use_hal_mutex, ringbuffer_t *rb)
     # not part of public API. Use with HAL lock engaged.
     hal_ring_t *halpr_find_ring_by_name(const char *name)

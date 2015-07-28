@@ -12,7 +12,7 @@ static char *ringtypes[] = {
     "record",
     "multi",
     "stream",
-    "**invalid**",
+    "any",
 };
 /***********************************************************************
 *                     Public HAL ring functions                        *
@@ -296,42 +296,33 @@ int halg_ring_attachfv(const int use_hal_mutex,
 }
 
 
-int halg_ring_detachfv(const int use_hal_mutex,
-		       ringbuffer_t *rbptr,
-		       const char *fmt,
-		       va_list ap)
+int halg_ring_detach(const int use_hal_mutex,
+		     ringbuffer_t *rbptr)
 {
 
     CHECK_HALDATA();
-    CHECK_STR(fmt);
     CHECK_LOCK(HAL_LOCK_CONFIG);
 
-    char *name, buf[HAL_MAX_NAME_LEN + 1];
-    name = fmt_ap(buf, sizeof(buf), fmt, ap);
-    if (name == NULL)
-	return _halerrno;
-
     if ((rbptr == NULL) || (rbptr->magic != RINGBUFFER_MAGIC)) {
-	HALERR("ring '%s': invalid ringbuffer", name);
+	HALERR("invalid ringbuffer at %p", rbptr);
+	_halerrno = -EINVAL;
 	return -EINVAL;
     }
-
-    // no mutex(es) held up to here
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	ringheader_t *rhptr = rbptr->header;
 	rhptr->refcount--;
-	rbptr->magic = 0;  // invalidate FIXME
+	rbptr->magic = 0;
     }
     return 0;
 }
 /***********************************************************************
 *                     Public HAL plug functions                        *
 ************************************************************************/
+
 hal_plug_t *halg_plug_new(const int use_hal_mutex,
-			  const plug_args_t *args,
-			  const unsigned int flags)
+			  plug_args_t *args)
 
 {
     PCHECK_HALDATA();
@@ -339,15 +330,7 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
     PCHECK_LOCK(HAL_LOCK_LOAD);
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
-#if 0
 
-	// make sure no such plug name already exists
-	if (halg_find_object_by_name(0, HAL_PLUG, name).plug != NULL) {
-	    HALERR("plug '%s' already exists", name);
-	    _halerrno = -EEXIST;
-	    goto FAIL;
-	}
-#endif
 	// make sure the owner exists, and obtain descriptor
 	hal_object_ptr owner;
 	if (args->owner_name)
@@ -371,33 +354,42 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 	else
 	    ring = halg_find_object_by_id(0, HAL_RING, args->ring_id).ring;
 
-
-#if 0
-	// not found: if CREATE_RING was given, create the ring now:
-	if (ring == NULL) {
-	    if (args->flags & CREATE_RING) {
-		size_t size = (args->size ? args->size : hal_data->default_ringsize);
-		ring = halg_ring_newf(0, size, args->sp_size, mode, args->ring_name);
-	    } else {
-		// ring name or id was passed in, and we did not find it:
-		if (args->ring_name)
-		    HALERR("ring '%s' does not exist", args->ring_name);
-		else
-		    HALERR("ring with id=%d does not exist", args->ring_id);
-		_halerrno = -ENOENT;
-		goto FAIL;
-	    }
+	// construct plug name as '<ring>.<plug owner>.[read|write]'
+	char *tag = (args->type == PLUG_WRITER) ? "write" : "read";
+	char buf[HAL_MAX_NAME_LEN];
+	char *plugname = fmt_args(buf, sizeof(buf), "%s.%s.%s",
+				  hh_get_name(&ring->hdr),
+				  hh_get_name(owner.hdr),
+				  tag);
+	if (plugname == NULL) {
+	    HALERR("name too long");
+	    _halerrno = -EINVAL;
+	    goto FAIL;
 	}
-#endif
-	// XXX check flags compatibility ?
 
-	// at this point the ring must exist - either found by ID or name,
-	// or autocreated
+	// make sure no such plug name already exists
+	hal_plug_t *e = halg_find_object_by_name(0, HAL_PLUG,
+						 plugname).plug;
+	if (e != NULL) {
+	    HALERR("plug '%s' already exists", plugname);
+	    _halerrno = -EEXIST;
+	    goto FAIL;
+	}
+
+	// at this point the ring descriptor must be valid
 	if (ring == NULL)
 		goto FAIL;
 
-	// construct plug name as '<ring>.<plug owner>.[read|write]'
-	char *tag = (args->type == PLUG_WRITER) ? "write" : "read";
+	// check ring type compatibility
+	unsigned wanted = args->flags & RINGTYPE_MASK;
+	unsigned ring_is = ring->flags & RINGTYPE_MASK;
+	if ((wanted != RINGTYPE_ANY) &&
+	    (wanted != ring_is)) {
+	    HALERR("ring types incompatible: plug wants '%s', ring is '%s'",
+		   ringtypes[wanted], ringtypes[ring_is]);
+	    _halerrno = -ENOENT;
+	    goto FAIL;
+	}
 
 	hal_plug_t *plug = NULL;
 	// allocate plug descriptor
@@ -405,21 +397,21 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 					sizeof(hal_plug_t),
 					HAL_PLUG,
 					hh_get_id(owner.hdr),
-					"%s.%s.%s",
-					hh_get_name(&ring->hdr),
-					hh_get_name(owner.hdr),
-					tag)) == NULL) {
+					plugname)) == NULL) {
 	    goto FAIL;
 	}
 
 	// we have the object.
 	plug->ring_id = ho_id(ring);
+	plug->flags = args->flags;
+	plug->role = args->type;
 
 	// Attach the ring.
 	unsigned flags = 0;
 	int retval = halg_ring_attachf(0, &plug->rb, &flags, ho_name(ring));
 	if (retval) {
 	    // TBD: undo damage?
+	    // check flags again? ah.
 	    goto FAIL;
 	}
 	// mark usage in ringheder
@@ -445,6 +437,51 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 	if (plug)
 	    halg_free_object(0, (hal_object_ptr) plug);
 	return NULL;
+    }
+}
+
+int halg_plug_delete(const int use_hal_mutex,
+		     hal_plug_t *plug)
+
+{
+    CHECK_HALDATA();
+    CHECK_NULL(plug);
+    CHECK_LOCK(HAL_LOCK_LOAD);
+    {
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+
+	// make sure it's a valid HAL object:
+	if (!(hh_is_valid(&plug->hdr))) {
+	    HALERR("object at %p not valid", plug);
+	    _halerrno = -EINVAL;
+	    return _halerrno;
+	}
+	// and it actually is a plug:
+	if (hh_get_object_type(&plug->hdr) != HAL_PLUG) {
+	    HALERR("object at %p not a plug but a %s", plug,
+		   hal_object_typestr(hh_get_object_type(&plug->hdr)));
+	    _halerrno = -EINVAL;
+	    return _halerrno;
+	}
+	// do not fail if called after a half-done init:
+	if (plug->rb.header != NULL) {
+	    // looks valid.
+	    // unmark ourselves in ringheder
+	    int self = hh_get_id(&plug->hdr);
+
+	    if (plug->rb.header->writer == self)
+		plug->rb.header->writer = 0;
+	    if (plug->rb.header->reader == self)
+		plug->rb.header->reader = 0;
+
+	    // and detach from the ring.
+	    halg_ring_detach(0, &plug->rb);
+	}
+
+	HALDBG("deleting plug '%s'", hh_get_name(&plug->hdr));
+
+	// delete the plug object. Invalidates *plug.
+	return halg_free_object(false, (hal_object_ptr)plug);
     }
 }
 
@@ -496,7 +533,7 @@ static int free_ring_id(const int id)
 EXPORT_SYMBOL(halg_ring_newfv);
 EXPORT_SYMBOL(halg_ring_deletefv);
 EXPORT_SYMBOL(halg_ring_attachfv);
-EXPORT_SYMBOL(halg_ring_detachfv);
+EXPORT_SYMBOL(halg_ring_detach);
 EXPORT_SYMBOL(halg_plug_new);
 
 #endif

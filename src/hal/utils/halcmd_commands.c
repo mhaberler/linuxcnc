@@ -3121,6 +3121,19 @@ static void print_ring_names(char **patterns)
     halcmd_output("\n");
 }
 
+static int print_plug_entry(hal_object_ptr o, foreach_args_t *args)
+{
+
+    if (o.plug->ring_id == args->user_arg1) {
+	halcmd_output("                                             %s %s id=%d owner=%d\n",
+		      o.plug->role == PLUG_WRITER ? "<==" : "==>",
+		      ho_name(o.plug),
+		      ho_id(o.plug),
+		      ho_owner_id(o.plug));
+    }
+    return 0;
+}
+
 static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 {
     hal_ring_t *rptr = o.ring;
@@ -3164,10 +3177,16 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	if (ring_scratchpad_size(&ringbuffer))
 	    halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
 	halcmd_output("\n");
-	if ((retval = halg_ring_detachf(0,  &ringbuffer, ho_name(rptr))) < 0) {
+	if ((retval = halg_ring_detach(0,  &ringbuffer)) < 0) {
 	    halcmd_error("%s: rtapi_ring_detach(%d) failed ",
 			 ho_name(rptr), rptr->ring_id);
 	}
+	foreach_args_t args =  {
+	    .type = HAL_PLUG,
+	    .user_arg1 = ho_id(rptr),
+	};
+	halg_foreach(false, &args, print_plug_entry);
+	halcmd_output("\n");
     }
  done:
     return 0;
@@ -3220,6 +3239,8 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	    // default
 	}  else if  (!strcasecmp(s,"stream")) {
 	    mode |=  RINGTYPE_STREAM;
+	} else if  (!strcasecmp(s,"multi")) {
+	    mode |=  RINGTYPE_MULTIPART;
 	} else if (!strncasecmp(s, SCRATCHPAD, strlen(SCRATCHPAD))) {
 	    spsize = strtol(strchr(s,'=') + 1, &cp, 0);
 	    if ((*cp != '\0') && (!isspace(*cp))) {

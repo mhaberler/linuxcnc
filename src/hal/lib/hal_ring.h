@@ -49,27 +49,26 @@ typedef struct hal_plug {
     halhdr_t hdr;		   // common HAL object header
     ringbuffer_t rb;               // per-process attach object, meaning only in owner
     msgbuffer_t mb;                // per-process attach object, only if multiframe
-    unsigned flags;
-    int ring_id;                   // object ID of the attached ring
+    unsigned flags;                // as from plug_args.flags
+    int ring_id;                   // object ID of the attached HAL ring
+    __u32 role : 2;                // PLUG_READER/PLUG_WRITER
 } hal_plug_t;
 
 // argument struct passed to halg_plug_new()
 typedef struct plug_args {
-    hal_plugtype_t type;
-    ring_mode_flags_t flags;
-    // matches ring either by name or object ID
-    char *ring_name;
+    hal_plugtype_t type; // PLUG_READER or PLUG_WRITER
+    unsigned flags;      // RINGTYPE_* etc
+    char *ring_name;     // matches ring either by name or object ID
     int  ring_id;
-    // matches owner either by name or object ID
-    char *owner_name;
+    char *owner_name;    // matches owner either by name or object ID
     int   owner_id;
-    size_t size;    // if CREATE_RING in flags
-    size_t sp_size; // meaning only if CREATE_RING in flags
 } plug_args_t;
 
 hal_plug_t *halg_plug_new(const int use_hal_mutex,
-			  const plug_args_t *args,
-			  const unsigned int flags);
+			  plug_args_t *args);
+
+int halg_plug_delete(const int use_hal_mutex,
+		     hal_plug_t *plug);
 
 // some components use a fifo and a scratchpad shared memory area,
 // like sampler.c and streamer.c. ringbuffer_t supports this through
@@ -93,7 +92,6 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 // USE_RMUTEX       RTAPI_BIT(2)
 // USE_WMUTEX       RTAPI_BIT(3)
 // ALLOC_HALMEM     RTAPI_BIT(4)
-// CREATE_RING      RTAPI_BIT(5)
 
 // spsize > 0 will allocate a shm scratchpad buffer
 // accessible through ringbuffer_t.scratchpad/ringheader_t.scratchpad
@@ -175,20 +173,11 @@ static inline int halg_ring_attachf(const int use_hal_mutex,
 }
 
 // detach a ringbuffer. Decreases the reference count.
-int halg_ring_detachfv(const int use_hal_mutex,
-		       ringbuffer_t *rbptr,
-		       const char *fmt,
-		       va_list ap);
+int halg_ring_detach(const int use_hal_mutex, ringbuffer_t *rb);
+
+// accessors
 
 
-static inline int halg_ring_detachf(const int use_hal_mutex, ringbuffer_t *rb, const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    int ret = halg_ring_detachfv(use_hal_mutex, rb, fmt, ap);
-    va_end(ap);
-    return ret;
-}
 
 // not part of public API. Use with HAL lock engaged.
 

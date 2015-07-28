@@ -103,6 +103,7 @@ hal_inst_t *halg_find_inst_by_id(const int use_hal_mutex,
     return NULL;
 }
 
+// assumed to be called with HAL mutex held
 void free_inst_struct(hal_inst_t * inst)
 {
     // can't delete the instance until we delete its "stuff"
@@ -130,9 +131,13 @@ void free_inst_struct(hal_inst_t * inst)
 	HALDBG("calling custom destructor(%s,%s)",
 	       ho_name(comp),
 	       ho_name(inst));
+	// temporarily unlock HAL mutex - for now, until all halg_* methods
+	rtapi_mutex_give(&(hal_data->mutex));
 	comp->dtor(ho_name(inst),
 		   SHMPTR(inst->inst_data_ptr),
 		   inst->inst_size);
+	rtapi_mutex_get(&(hal_data->mutex));
+
     }
 #endif // RTAPI
 
@@ -141,6 +146,9 @@ void free_inst_struct(hal_inst_t * inst)
 
     args.type = HAL_PARAM;
     halg_foreach(0, &args, yield_free);  // free params
+
+    args.type = HAL_PLUG;
+    halg_foreach(0, &args, yield_free);  // free plugs
 
     // now we can delete the instance itself
     halg_free_object(false, (hal_object_ptr) inst);

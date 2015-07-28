@@ -447,6 +447,12 @@ int free_comp_struct(hal_comp_t * comp)
     };
     halg_foreach(0, &paramargs, yield_free);
 
+    foreach_args_t plugargs =  {
+	.type = HAL_PLUG,
+	.owner_id  = ho_id(comp),
+    };
+    halg_foreach(0, &plugargs, yield_free);  // free plugs
+
     //  now we can delete the component itself.
     halg_free_object(false, (hal_object_ptr)comp);
     return 0;
@@ -506,7 +512,7 @@ static int delete_instance(const hal_funct_args_t *fa)
 	HALERR("no instance name given");
 	return -EINVAL;
     }
-    return hal_inst_delete(argv[0]);
+    return halg_inst_delete(1, argv[0]);
 }
 
 

@@ -88,6 +88,7 @@ typedef enum {
     RINGTYPE_RECORD = 0,
     RINGTYPE_MULTIPART = RTAPI_BIT(0),
     RINGTYPE_STREAM = RTAPI_BIT(1),
+    RINGTYPE_ANY  = (RTAPI_BIT(0)|RTAPI_BIT(1)),
     RINGTYPE_MASK = (RTAPI_BIT(0)|RTAPI_BIT(1))
 } ring_type_t;
 
@@ -97,7 +98,6 @@ typedef enum {
     USE_RMUTEX = RTAPI_BIT(2),
     USE_WMUTEX = RTAPI_BIT(3),
     ALLOC_HALMEM = RTAPI_BIT(4),
-    CREATE_RING  = RTAPI_BIT(5),
 } ring_mode_flags_t;
 
 typedef struct {

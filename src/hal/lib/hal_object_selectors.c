@@ -7,6 +7,7 @@
 #include "rtapi.h"
 #include "hal.h"
 #include "hal_priv.h"
+#include "hal_ring.h"
 #include "hal_object.h"
 #include "hal_list.h"
 #include "hal_internal.h"
@@ -97,6 +98,10 @@ int yield_free(hal_object_ptr o, foreach_args_t *args)
 
     case HAL_MEMBER:
 	halg_free_object(false, (hal_object_ptr)o);
+	break;
+
+    case HAL_PLUG:
+	halg_plug_delete(false, o.plug);
 	break;
 
     default:

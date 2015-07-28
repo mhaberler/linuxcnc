@@ -35,13 +35,27 @@ static int funct(void *arg, const hal_funct_args_t *fa)
 static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
 {
     if (rring) {
-	const plug_args_t pargs = {
+	// if given, the ring MUST be a stream type
+	plug_args_t rargs = {
 	    .type = PLUG_READER,
+	    .flags = RINGTYPE_STREAM,
 	    .ring_name = rring,
 	    .owner_name = name
 	};
-	ip->rplug = halg_plug_new(1, &pargs, 0);
+	ip->rplug = halg_plug_new(1, &rargs);
 	if (ip->rplug == NULL)
+	    return _halerrno;
+    }
+    if (wring) {
+	// this plug accepts any ring type
+	plug_args_t wargs = {
+	    .type = PLUG_WRITER,
+	    .flags = RINGTYPE_ANY,
+	    .ring_name = wring,
+	    .owner_name = name
+	};
+	ip->wplug = halg_plug_new(1, &wargs);
+	if (ip->wplug == NULL)
 	    return _halerrno;
     }
 

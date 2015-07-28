@@ -53,7 +53,7 @@ cdef class Ring:
     def __dealloc__(self):
         if self._hr != NULL:
             name = self.name
-            r = halg_ring_detachf(1, &self._rb, self.name)
+            r = halg_ring_detach(1, &self._rb)
             if r:
                 raise RuntimeError("hal_ring_detach(%s) failed: %d %s" %
                                        (name, r, hal_lasterror()))
