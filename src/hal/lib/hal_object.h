@@ -68,10 +68,10 @@ static inline int   hh_get_id(const halhdr_t *o)  { return o->_id; }
 static inline void  hh_set_id(halhdr_t *o, int id)    { o->_id = id; }
 
 static inline int   hh_get_rmb(const halhdr_t *o)  { return o->_rmb; }
-static inline void  hh_set_rmb(halhdr_t *o, int id)    { o->_rmb = 1; }
+static inline void  hh_set_rmb(halhdr_t *o, int b)    { o->_rmb = b ? 1 : 0; }
 
 static inline int   hh_get_wmb(const halhdr_t *o)  { return o->_wmb; }
-static inline void  hh_set_wmb(halhdr_t *o, int id)    { o->_wmb = 1; }
+static inline void  hh_set_wmb(halhdr_t *o, int b)    { o->_wmb = b ? 1 : 0; }
 
 static inline int hh_get_refcnt(const halhdr_t *o)  { return o->_refcnt; }
 
