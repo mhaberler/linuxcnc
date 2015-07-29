@@ -310,7 +310,9 @@ int halg_object_setbarriers(const int use_hal_mutex,
 	       old_rmb, hh_get_rmb(o.hdr),
 	       old_wmb, hh_get_wmb(o.hdr));
 
-	// XXX TBD: add signal->pin propagation right here?
+	// if setting barriers on signal, propagate to pins:
+	if (hh_get_object_type(o.hdr) == HAL_SIGNAL)
+	    halg_signal_propagate_barriers(0, o.sig);
     }
     return 0;
 }

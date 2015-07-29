@@ -705,6 +705,8 @@ int halg_foreach_pin_by_signal(const int use_hal_mutex,
 			       hal_pin_signal_callback_t cb,
 			       void *user);
 
+int halg_signal_propagate_barriers(const int use_hal_mutex,
+				   const hal_sig_t *sig);
 
 // automatically release the local hal_data->mutex on scope exit.
 // if a local variable is declared like so:
