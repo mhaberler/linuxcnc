@@ -553,40 +553,41 @@ typedef struct hal_plug hal_plug_t;
     If successful, the hal_pin_xxx_new() functions return 0.
     On failure they return a negative error code.
 */
-// generic call
-hal_pin_t *halg_pin_new(const int use_hal_mutex,
-			const char *name,
-			const hal_type_t type,
-			const hal_pin_dir_t dir,
-			void **data_ptr_addr,
-			const int owner_id);
+// generic base function, everything else layered ontop.
+// the base functions always return descriptors.
+hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
+			  const hal_type_t type,
+			  const hal_pin_dir_t dir,
+			  void **data_ptr_addr,
+			  const int owner_id,
+			  const char *fmt, va_list ap);
 
+// generic printf-style version of halg_pin_newfv()
+hal_pin_t *halg_pin_newf(const int use_hal_mutex,
+			 hal_type_t type,
+			 hal_pin_dir_t dir,
+			 void ** data_ptr_addr,
+			 int owner_id,
+			 const char *fmt, ...)
+    __attribute__((format(printf,6,7)));
+
+// legacy
 static inline int hal_pin_new(const char *name,
 			      const hal_type_t type,
 			      const hal_pin_dir_t dir,
 			      void **data_ptr_addr,
 			      const int owner_id) {
-    return halg_pin_new(1, name, type,  dir,
-			data_ptr_addr, owner_id) == NULL ? _halerrno : 0;
+    return halg_pin_newf(1, type,  dir,
+			 data_ptr_addr, owner_id, name) == NULL ? _halerrno : 0;
 }
 
-// printf-style version of hal_pin_new()
+// legacy - printf-style version of hal_pin_new()
 int hal_pin_newf(hal_type_t type,
 		 hal_pin_dir_t dir,
 		 void ** data_ptr_addr,
 		 int owner_id,
 		 const char *fmt, ...)
     __attribute__((format(printf,5,6)));
-
-// generic printf-style version of hal_pin_new()
-int halg_pin_newf(const int use_hal_mutex,
-		  hal_type_t type,
-		  hal_pin_dir_t dir,
-		  void ** data_ptr_addr,
-		  int owner_id,
-		  const char *fmt, ...)
-    __attribute__((format(printf,6,7)));
-
 
 static inline int hal_pin_bit_new(const char *name, hal_pin_dir_t dir,
 				  hal_bit_t ** data_ptr_addr, int owner_id) {

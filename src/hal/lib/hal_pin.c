@@ -11,67 +11,48 @@
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
 
-int halg_pin_newfv(const int use_hal_mutex,
-		   hal_type_t type,
-		   hal_pin_dir_t dir,
-		   void ** data_ptr_addr,
-		   int owner_id,
-		   const char *fmt,
-		   va_list ap)
-{
-    char name[HAL_NAME_LEN + 1];
-    int sz;
-    sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-    if(sz == -1 || sz > HAL_NAME_LEN) {
-        HALERR("length %d invalid for name starting '%s'",
-	       sz, name);
-        return -ENOMEM;
-    }
-    return (halg_pin_new(use_hal_mutex, name, type, dir, data_ptr_addr, owner_id) == NULL) ? _halerrno: 0;
-}
-
 int hal_pin_bit_newf(hal_pin_dir_t dir,
     hal_bit_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    void *p;
     va_start(ap, fmt);
-    ret = halg_pin_newfv(1, HAL_BIT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, HAL_BIT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p ? 0 : _halerrno;
 }
 
 int hal_pin_float_newf(hal_pin_dir_t dir,
     hal_float_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    void *p;
     va_start(ap, fmt);
-    ret = halg_pin_newfv(1, HAL_FLOAT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, HAL_FLOAT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p ? 0 : _halerrno;
 }
 
 int hal_pin_u32_newf(hal_pin_dir_t dir,
     hal_u32_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    void *p;
     va_start(ap, fmt);
-    ret = halg_pin_newfv(1, HAL_U32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, HAL_U32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p ? 0 : _halerrno;
 }
 
 int hal_pin_s32_newf(hal_pin_dir_t dir,
     hal_s32_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    void *p;
     va_start(ap, fmt);
-    ret = halg_pin_newfv(1,HAL_S32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1,HAL_S32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p ? 0 : _halerrno;
 }
 
 // printf-style version of hal_pin_new()
@@ -82,81 +63,75 @@ int hal_pin_newf(hal_type_t type,
 		 const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    void *p;
     va_start(ap, fmt);
-    ret = halg_pin_newfv(1, type, dir, data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, type, dir, data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p ? 0 : _halerrno;
 }
 
 // generic printf-style version of hal_pin_new()
-int halg_pin_newf(const int use_hal_mutex,
-		  hal_type_t type,
-		  hal_pin_dir_t dir,
-		  void ** data_ptr_addr,
-		  int owner_id,
-		  const char *fmt, ...)
+hal_pin_t *halg_pin_newf(const int use_hal_mutex,
+			 hal_type_t type,
+			 hal_pin_dir_t dir,
+			 void ** data_ptr_addr,
+			 int owner_id,
+			 const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    hal_pin_t *p;
     va_start(ap, fmt);
-    ret = halg_pin_newfv(use_hal_mutex, type, dir, data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(use_hal_mutex, type, dir, data_ptr_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p;
 }
 
 /* this is a generic function that does the majority of the work. */
-
-hal_pin_t *halg_pin_new(const int use_hal_mutex,
-			const char *name,
-			hal_type_t type,
-			hal_pin_dir_t dir,
-			void **data_ptr_addr,
-			int owner_id)
+hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
+			  const hal_type_t type,
+			  const hal_pin_dir_t dir,
+			  void **data_ptr_addr,
+			  const int owner_id,
+			  const char *fmt, va_list ap)
 {
+    PCHECK_HALDATA();
+    PCHECK_LOCK(HAL_LOCK_LOAD);
+    PCHECK_NULL(fmt);
+
+    char buf[HAL_MAX_NAME_LEN + 1];
+    char *name = fmt_ap(buf, sizeof(buf), fmt, ap);
+    PCHECK_NULL(name);
+
     hal_pin_t *new;
     bool is_legacy = false;
 
-    PCHECK_HALDATA();
-    PCHECK_LOCK(HAL_LOCK_LOAD);
-    PCHECK_STRLEN(name, HAL_NAME_LEN);
-
-
     if (type != HAL_BIT && type != HAL_FLOAT && type != HAL_S32 && type != HAL_U32) {
-	HALERR("pin '%s': pin type not one of HAL_BIT, HAL_FLOAT, HAL_S32 or HAL_U32 (%d)",
-	       name, type);
-	_halerrno = -EINVAL;
-	return NULL;
+	HALFAIL_NULL(EINVAL,
+		     "pin '%s': pin type not one of HAL_BIT, HAL_FLOAT, HAL_S32 or HAL_U32 (%d)",
+		     name, type);
     }
-
     if (dir != HAL_IN && dir != HAL_OUT && dir != HAL_IO) {
-	HALERR("pin '%s': pin direction not one of HAL_IN, HAL_OUT, or HAL_IO (%d)",
-	       name, dir);
-	_halerrno = -EINVAL;
-	return NULL;
+	HALFAIL_NULL(EINVAL,"pin '%s': pin direction not one of HAL_IN, HAL_OUT, or HAL_IO (%d)",
+		     name, dir);
     }
 
     HALDBG("creating pin '%s'", name);
-
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	hal_comp_t *comp;
 
 	if (halpr_find_pin_by_name(name) != NULL) {
-	    HALERR("duplicate pin '%s'", name);
-	    _halerrno = -EEXIST;
-	    return NULL;
+	    HALFAIL_NULL(EEXIST, "duplicate pin '%s'", name);
 	}
 
 	/* validate comp_id */
 	comp = halpr_find_owning_comp(owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    HALERR("pin '%s': owning component %d not found",
-		   name, owner_id);
-	    _halerrno = -EINVAL;
-	    return NULL;
+	    HALFAIL_NULL(EINVAL,
+			 "pin '%s': owning component %d not found",
+			 name, owner_id);
 	}
 
 	/* validate passed in pointer - must point to HAL shmem */
@@ -168,9 +143,7 @@ hal_pin_t *halg_pin_new(const int use_hal_mutex,
 	    is_legacy = true;
 	    if (! SHMCHK(data_ptr_addr)) {
 		/* bad pointer */
-		HALERR("pin '%s': data_ptr_addr not in shared memory", name);
-		_halerrno = -EINVAL;
-		return NULL;
+		HALFAIL_NULL(EINVAL, "pin '%s': data_ptr_addr not in shared memory", name);
 	    }
 	}
 	// this will be 0 for legacy comps which use comp_id to
@@ -182,16 +155,13 @@ hal_pin_t *halg_pin_new(const int use_hal_mutex,
 	// instances may create pins post hal_ready
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
 	    // legacy error message. Never made sense.. why?
-	    HALERR("pin '%s': hal_pin_new called after hal_ready (%d)",
+	    HALFAIL_NULL(EINVAL, "pin '%s': hal_pin_new called after hal_ready (%d)",
 		   name, comp->state);
-	    _halerrno = -EINVAL;
-	    return NULL;
 	}
 
 	// allocate pin descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_pin_t),
 				       HAL_PIN, owner_id, name)) == NULL) {
-	    _halerrno = -EINVAL;
 	    return NULL;
 	}
 
