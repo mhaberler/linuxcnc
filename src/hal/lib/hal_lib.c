@@ -333,6 +333,13 @@ const char *hal_lasterror(void)
 /* only export symbols when we're building a realtime module */
 
 // ------------ public API:  ------------
+
+// hal_accessor.c
+EXPORT_SYMBOL(halx_pin_bit_newf);
+EXPORT_SYMBOL(halx_pin_float_newf);
+EXPORT_SYMBOL(halx_pin_u32_newf);
+EXPORT_SYMBOL(halx_pin_s32_newf);
+
 // hal_comp.c:
 EXPORT_SYMBOL(hal_init);
 EXPORT_SYMBOL(halg_xinit);
@@ -348,6 +355,7 @@ EXPORT_SYMBOL(halg_malloc);
 EXPORT_SYMBOL(halg_pin_new);
 EXPORT_SYMBOL(hal_pin_newf);
 EXPORT_SYMBOL(halg_pin_newf);
+EXPORT_SYMBOL(halg_pin_newfv);
 
 EXPORT_SYMBOL(hal_pin_bit_new);
 EXPORT_SYMBOL(hal_pin_float_new);
