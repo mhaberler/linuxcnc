@@ -321,26 +321,25 @@ int halg_link(const int use_hal_mutex,
 		       ho_name(pin), pin->type);
 		return -EINVAL;
 	    }
-
-	    /* update the signal's reader/writer/bidir counts */
-	    if ((pin->dir & HAL_IN) != 0) {
-		sig->readers++;
-	    }
-	    if (pin->dir == HAL_OUT) {
-		sig->writers++;
-	    }
-	    if (pin->dir == HAL_IO) {
-		sig->bidirs++;
-	    }
-	    /* and update the pin */
-	    pin->signal = SHMOFF(sig);
-
-	    // propagate the pin->signal assignment because
-	    // halg_signal_propagate_barriers() triggers on
-	    // pin->signal == SHMOFF(sig)
-	    rtapi_smp_wmb();
-	    halg_signal_propagate_barriers(0, sig);
 	}
+	/* update the signal's reader/writer/bidir counts */
+	if ((pin->dir & HAL_IN) != 0) {
+	    sig->readers++;
+	}
+	if (pin->dir == HAL_OUT) {
+	    sig->writers++;
+	}
+	if (pin->dir == HAL_IO) {
+	    sig->bidirs++;
+	}
+	/* and update the pin */
+	pin->signal = SHMOFF(sig);
+
+	// propagate the pin->signal assignment because
+	// halg_signal_propagate_barriers() triggers on
+	// pin->signal == SHMOFF(sig)
+	rtapi_smp_wmb();
+	halg_signal_propagate_barriers(0, sig);
     }
     return 0;
 }
