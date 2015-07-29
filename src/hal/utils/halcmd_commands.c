@@ -2596,30 +2596,74 @@ static void print_lock_status()
 	halcmd_output("  HAL_LOCK_RUN     - running/stopping HAL is locked\n");
 }
 
-static int count_objects(const int type)
+
+int yield_ostats(hal_object_ptr o, foreach_args_t *args)
+{
+    if (ho_legacy(o.pin)) args->user_arg1++;   // legacy count
+    args->user_arg2 += rtapi_allocsize(o.any); // descriptor sizes
+
+    switch (ho_object_type(o.pin)) {
+    case HAL_PIN:
+    case HAL_SIGNAL:
+    case HAL_PARAM:
+	args->user_arg3 += sizeof(hal_data_u); // descriptor case
+	break;
+    case HAL_INST:
+	args->user_arg3 += o.inst->inst_size;
+	break;
+    case HAL_RING:
+	if (o.ring->ring_shmkey) // shm seg
+	    args->user_arg4 += o.ring->total_size;
+	else // HAL mem
+	    args->user_arg3 += o.ring->total_size;
+	break;
+    }
+    return 0; // continue visiting
+}
+static int count_objects(const char *tag, const int type)
 {
     foreach_args_t args = {
 	.type = type,
+	.user_arg1 = 0, // # of legacy objects
+	.user_arg2 = 0, // descriptor rtapi_allocsize (heap usage)
+	.user_arg3 = 0, // pins, params, signals - 'RT memory' total
+	.user_arg4 = 0, // shm segments total size
     };
-    return halg_foreach(true, &args, yield_count);
+    int n = halg_foreach(true, &args, yield_ostats);
+    halcmd_output("%s:\t%6d", tag, n);
+    halcmd_output("\tlegacy: %6d descriptor mem: %6d RT mem: %6d shmtotal: %6d\n",
+		  args.user_arg1,
+		  args.user_arg2,
+		  args.user_arg3,
+		  args.user_arg4);
+    return n;
 }
 
 static void print_mem_status()
 {
-    int active, recycled, next;
+    size_t unused = hal_data->shmem_top - hal_data->shmem_bot;
 
     halcmd_output("HAL memory status\n");
-
+    halcmd_output("HAL shm segment size:  %d unused: %zu Usage=%d%%\n",
+		  global_data->hal_size, unused,
+		  100*(global_data->hal_size-unused)/global_data->hal_size);
     struct rtapi_heap_stat hs = {};
     rtapi_heap_status(&hal_data->heap, &hs);
+
     halcmd_output("  heap: arena size=%zu totail_avail=%zu"
 		  " fragments=%zu largest=%zu\n",
 		  hs.arena_size, hs.total_avail, hs.fragments, hs.largest);
-    halcmd_output("  heap: requested=%zu allocated=%zu freed=%zu waste=%d\n",
-		  hs.requested, hs.allocated, hs.freed,
-		  (hs.allocated - hs.requested)*100/hs.allocated);
-    halcmd_output("  RT objects: %ld\n",
-		  (long)(global_data->hal_size - hal_data->shmem_top));
+    if (hs.allocated)
+	halcmd_output("  heap: requested=%zu allocated=%zu freed=%zu waste=%d%%\n",
+		      hs.requested, hs.allocated, hs.freed,
+		      (hs.allocated - hs.requested)*100/hs.allocated);
+
+    halcmd_output("  hal_malloc():   %zu, mostly by comps\n",
+		  hal_data->hal_malloced);
+    halcmd_output("  RT objects: %zu  non-hal_malloc thereof: %zu\n",
+		  (size_t)(global_data->hal_size - hal_data->shmem_top),
+		  (size_t)(global_data->hal_size - hal_data->shmem_top -
+			   hal_data->hal_malloced));
     halcmd_output("  strings on heap: alloc=%zu freed=%zu balance=%zu\n",
 		  hal_data->str_alloc,
 		  hal_data->str_freed,
@@ -2629,14 +2673,17 @@ static void print_mem_status()
 
     halcmd_output("HAL objects\n");
 
-    halcmd_output("  components:\t%d\n",count_objects(HAL_COMPONENT));
-    halcmd_output("  pins:\t\t%d\n",count_objects(HAL_PIN));
-    halcmd_output("  params:\t%d\n",count_objects(HAL_PARAM));
-    halcmd_output("  signals:\t%d\n",count_objects(HAL_SIGNAL));
-    halcmd_output("  threads:\t%d\n",count_objects(HAL_THREAD));
-    halcmd_output("  groups:\t%d\n",count_objects(HAL_GROUP));
-    halcmd_output("  members:\t%d\n",count_objects(HAL_MEMBER));
-    halcmd_output("  rings:\t%d\n",count_objects(HAL_RING));
+    count_objects("components", HAL_COMPONENT);
+    count_objects("pins\t", HAL_PIN);
+    count_objects("params\t", HAL_PARAM);
+    count_objects("signals\t", HAL_SIGNAL);
+    count_objects("threads\t", HAL_THREAD);
+    count_objects("groups\t", HAL_GROUP);
+    count_objects("members\t", HAL_MEMBER);
+    count_objects("functs\t", HAL_FUNCT);
+    count_objects("rings\t", HAL_RING);
+    count_objects("instances", HAL_INST);
+    halcmd_output("(some figures do not fully add up as some usage is unaccounted for)\n");
 }
 
 /* Switch function for pin/sig/param type for the print_*_list functions */
