@@ -15,15 +15,13 @@ int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
     char buf[MAX_OBJECT_NAME_LEN];
     int sz = rtapi_vsnprintf(buf, sizeof(buf), fmt, ap);
     if(sz == -1 || sz > sizeof(buf)) {
-        HALERR("length %d invalid for name starting with '%s'",
-	       sz, buf);
-        return -ENOMEM;
+        HALFAIL_RC(ENOMEM, "length %d invalid for name starting with '%s'",
+		   sz, buf);
     }
     char *s = shmalloc_desc(sz + 1); // include trailing zero
     if (s == NULL) {
-        HALERR("out of memory allocating %d bytes for '%s'",
+        HALFAIL_RC(ENOMEM, "out of memory allocating %d bytes for '%s'",
 	       sz+1, buf);
-        return -ENOMEM;
     }
     strcpy(s, buf);
     hh->_name_ptr = SHMOFF(s);
@@ -129,9 +127,8 @@ void *halg_create_objectfv(const bool use_hal_mutex,
     if (new == NULL) {
 	char name[HAL_MAX_NAME_LEN+1];
 	rtapi_vsnprintf(name, sizeof(name), fmt, ap);
-	HALERR("insufficient memory for %s %s size=%zu", hal_object_typestr(type), name, size);
-	_halerrno = -ENOMEM;
-	return NULL;
+	HALFAIL_NULL(ENOMEM, "insufficient memory for %s %s size=%zu",
+		     hal_object_typestr(type), name, size);
     }
     int ret =  hh_init_hdrfv(new, type, owner_id, fmt, ap);
     if (ret) {
@@ -185,11 +182,10 @@ int halg_free_object(const bool use_hal_mutex,
     WITH_HAL_MUTEX_IF(use_hal_mutex);
 
     if (hh_get_refcnt(o.hdr)) {
-	HALERR("not deleting %s %s - still referenced (refcount=%d)",
-	       hh_get_object_typestr(o.hdr),
-	       hh_get_name(o.hdr),
-	       hh_get_refcnt(o.hdr));
-	return -EBUSY;
+	HALFAIL_RC(EBUSY, "not deleting %s %s - still referenced (refcount=%d)",
+		   hh_get_object_typestr(o.hdr),
+		   hh_get_name(o.hdr),
+		   hh_get_refcnt(o.hdr));
     }
     // unlink from list of active objects
     dlist_remove_entry(&o.hdr->list);
@@ -293,9 +289,7 @@ int halg_object_setbarriers(const int use_hal_mutex,
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	if (!hh_valid(o.hdr)) {
-	    HALERR("object at %p invalid",  o.any);
-	    _halerrno = -EINVAL;
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "object at %p invalid",  o.any);
 	}
 	bool old_rmb = hh_get_rmb(o.hdr);
 	bool old_wmb = hh_get_wmb(o.hdr);
