@@ -304,7 +304,25 @@ void hal_print_loc(const int level,
     va_end(args);
 }
 
+#ifdef NOTYET
+// while not MT-safe, this at least makes
+// _halerrno a per-process variable, see
+//
+// http://stackoverflow.com/questions/1694164/is-errno-thread-safe
+// http://stackoverflow.com/questions/18025995/how-is-thread-safe-errno-initialized-if-define-substitutes-errno-symbol
+
+// move to hal.h
+int *_halerrno_location(void);
+#define _halerrno (*_halerrno_location())
+// end move
+
+static int _halerrno_variable = 0;
+int *_halerrno_location(void){
+    return &_halerrno_variable;
+}
+#else
 int _halerrno;
+#endif
 
 const char *hal_lasterror(void)
 {
