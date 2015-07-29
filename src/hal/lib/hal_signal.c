@@ -27,10 +27,10 @@ int halg_signal_new(const int use_hal_mutex,
 
 	/* check for an existing signal with the same name */
 	if (halpr_find_sig_by_name(name) != 0) {
-	    HALERR("duplicate signal '%s'", name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "duplicate signal '%s'", name);
 	}
 	/* allocate memory for the signal value */
+#ifdef LEGACY_SIGNALS
 	switch (type) {
 	case HAL_BIT:
 	    data_addr = shmalloc_rt(sizeof(hal_bit_t));
@@ -45,16 +45,31 @@ int halg_signal_new(const int use_hal_mutex,
 	    data_addr = shmalloc_rt(sizeof(hal_float_t));
 	    break;
 	default:
-	    HALERR("signal '%s': illegal signal type %d'", name, type);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "signal '%s': illegal signal type %d'", name, type);
 	    break;
 	}
-
+#endif
 	// allocate signal descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_sig_t),
-				       HAL_SIGNAL, 0, name)) == NULL)
-	    return -ENOMEM;
-
+				       HAL_SIGNAL, 0, name)) == NULL) {
+	    return _halerrno;
+	}
+#ifndef LEGACY_SIGNALS
+	switch (type) {
+	case HAL_BIT:
+	case HAL_S32:
+	case HAL_U32:
+	case HAL_FLOAT:
+	    data_addr = &new->value; // store value in descriptor
+	    break;
+	default:
+	    halg_free_object(0, (hal_object_ptr)new);
+	    HALFAIL_RC(EINVAL,"signal '%s': illegal signal type %d'", name, type);
+	    break;
+	}
+#else
+	hh_set_legacy(&new->hdr);
+#endif
 	/* initialize the signal value */
 	switch (type) {
 	case HAL_BIT:
@@ -101,8 +116,7 @@ int halg_signal_delete(const int use_hal_mutex, const char *name)
 	hal_sig_t *sig = halpr_find_sig_by_name(name);
 
 	if (sig == NULL) {
-	    HALERR("signal '%s' not found",  name);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "signal '%s' not found",  name);
 	}
 
 	// free_sig_struct will unlink any linked pins
@@ -202,9 +216,7 @@ int halg_signal_setbarriers(const int use_hal_mutex,
 	hal_sig_t *sig = halpr_find_sig_by_name(name);
 
 	if (sig == NULL) {
-	    HALERR("signal '%s' not found",  name);
-	    _halerrno = -ENOENT;
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "signal '%s' not found",  name);
 	}
 	halg_object_setbarriers(0,(hal_object_ptr) sig,
 				read_barrier,
@@ -240,14 +252,12 @@ int halg_link(const int use_hal_mutex,
 	/* locate the pin */
 	pin = halpr_find_pin_by_name(pin_name);
 	if (pin == 0) {
-	    HALERR("pin '%s' not found", pin_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "pin '%s' not found", pin_name);
 	}
 	/* locate the signal */
 	sig = halpr_find_sig_by_name(sig_name);
 	if (sig == 0) {
-	    HALERR("signal '%s' not found", sig_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "signal '%s' not found", sig_name);
 	}
 	/* found both pin and signal, are they already connected? */
 	if (SHMPTR(pin->signal) == sig) {
@@ -257,26 +267,22 @@ int halg_link(const int use_hal_mutex,
 	/* is the pin connected to something else? */
 	if (pin->signal) {
 	    sig = SHMPTR(pin->signal);
-	    HALERR("pin '%s' is linked to '%s', cannot link to '%s'",
+	    HALFAIL_RC(EINVAL, "pin '%s' is linked to '%s', cannot link to '%s'",
 		   pin_name, ho_name(sig), sig_name);
-	    return -EINVAL;
 	}
 	/* check types */
 	if (pin->type != sig->type) {
-	    HALERR("type mismatch '%s':%d <- '%s':%d",
+	    HALFAIL_RC(EINVAL, "type mismatch '%s':%d <- '%s':%d",
 		   pin_name, pin->type,
 		   sig_name, sig->type);
-	    return -EINVAL;
 	}
 	/* linking output pin to sig that already has output or I/O pins? */
 	if ((pin->dir == HAL_OUT) && ((sig->writers > 0) || (sig->bidirs > 0 ))) {
-	    HALERR("signal '%s' already has output or I/O pin(s)", sig_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "signal '%s' already has output or I/O pin(s)", sig_name);
 	}
 	/* linking bidir pin to sig that already has output pin? */
 	if ((pin->dir == HAL_IO) && (sig->writers > 0)) {
-	    HALERR("signal '%s' already has output pin", sig_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "signal '%s' already has output pin", sig_name);
 	}
         /* everything is OK, make the new link */
 	if (hh_get_legacy(&pin->hdr)) {
@@ -362,13 +368,11 @@ int halg_unlink(const int use_hal_mutex,
 
 	if (pin == 0) {
 	    /* not found */
-	    HALERR("pin '%s' not found", pin_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "pin '%s' not found", pin_name);
 	}
 
 	/* found pin, unlink it */
 	unlink_pin(pin);
-
 	return 0;
     }
 }

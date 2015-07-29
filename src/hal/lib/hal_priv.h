@@ -331,6 +331,8 @@ typedef enum {
 */
 typedef struct hal_sig {
     halhdr_t hdr;		// common HAL object header
+    hal_data_u value;           // v2 - store value in descriptor
+    // data_ptr is legacy - bent to point to value:
     int data_ptr;		/* offset of signal value */
     hal_type_t type;		/* data type */
     int readers;		/* number of input pins linked */
