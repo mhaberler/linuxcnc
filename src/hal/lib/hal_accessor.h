@@ -13,6 +13,19 @@ RTAPI_BEGIN_DECLS
 // instead of the legacy hal_pin_t.data_ptr_addr and hal_malloc()'d
 // <haltype>*
 // this means atomics+barrier support is possible only with V2 pins (!).
+
+// — Built-in Function: type __atomic_add_fetch (type *ptr, type val, int memorder)
+// — Built-in Function: type __atomic_sub_fetch (type *ptr, type val, int memorder)
+// — Built-in Function: type __atomic_and_fetch (type *ptr, type val, int memorder)
+// — Built-in Function: type __atomic_xor_fetch (type *ptr, type val, int memorder)
+// — Built-in Function: type __atomic_or_fetch (type *ptr, type val, int memorder)
+// — Built-in Function: type __atomic_nand_fetch (type *ptr, type val, int memorder)
+// These built-in functions perform the operation suggested by the name, and return the result of the operation. That is,
+//         { *ptr op= val; return *ptr; }
+
+// should setters be lvalues?
+// add increment, and, or, not, xor
+
 #define _PINSET(ptr,member,type,value)			\
     type *vp = SHMPTR(ptr.member->data_ptr);		\
     __atomic_store(vp, &(value), RTAPI_MEMORY_MODEL);	\
@@ -26,6 +39,33 @@ RTAPI_BEGIN_DECLS
     __atomic_load((type *) SHMPTR(ptr.member->data_ptr), \
 		  &value, RTAPI_MEMORY_MODEL);		 \
     return value;
+
+#ifdef NOTYET
+// more generic versions of the above
+#define _PINOP_VOID(aop, ptr, member, type, value)	\
+    type *vp = SHMPTR(ptr.member->data_ptr);		\
+    aop(vp, &(value), RTAPI_MEMORY_MODEL);		\
+    if (unlikely(hh_get_wmb(&ptr.member->hdr)))		\
+	rtapi_smp_wmb();
+
+#define _PINOP_VALUE(aop, ptr, member, type, value)		\
+    type *vp = SHMPTR(ptr.member->data_ptr);			\
+    type result = aop(vp, &(value), RTAPI_MEMORY_MODEL);	\
+    if (unlikely(hh_get_wmb(&ptr.member->hdr)))			\
+	rtapi_smp_wmb();					\
+    return result;
+
+// void
+static inline void incr_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
+    _PINOP_VOID(__atomic_add_fetch, p, _up, hal_u32_t, value);
+}
+
+// returning result
+static inline hal_u32_t incr_u32_pinv(u32_pin_ptr p, const hal_u32_t value) {
+    _PINOP_VALUE(__atomic_add_fetch, p, _up, hal_u32_t, value);
+}
+
+#endif
 
 // typed pin setters
 static inline void set_bit_pin(bit_pin_ptr p, const hal_bit_t value) {
