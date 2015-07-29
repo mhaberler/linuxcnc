@@ -19,6 +19,8 @@ void *halg_malloc(const int use_hal_mutex, size_t size)
     void *retval = shmalloc_rt(size);
     if (retval == NULL)
 	HALERR("out of rt memory - allocating %zu bytes", size);
+
+    hal_data->hal_malloced += size;
     return retval;
 }
 

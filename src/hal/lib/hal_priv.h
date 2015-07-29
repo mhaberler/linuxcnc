@@ -243,6 +243,7 @@ typedef struct {
     size_t str_freed;
     // alignment loss in shmalloc_rt()
     size_t rt_alignment_loss;
+    size_t hal_malloced; // mostly by comps doing hal_malloc()
 
 
     // HAL heap for shmalloc_desc()

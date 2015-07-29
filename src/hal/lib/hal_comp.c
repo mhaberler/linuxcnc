@@ -304,6 +304,9 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 		   rtalloc,
 		   hal_data->rt_alignment_loss,
 		   hal_data->rt_alignment_loss * 100/rtalloc);
+	HALDBG("  hal_malloc():   %zu\n",
+	       hal_data->hal_malloced);
+
 	HALDBG("  unused:   %ld\n",
 	       (long)( hal_data->shmem_top - hal_data->shmem_bot));
 #endif
