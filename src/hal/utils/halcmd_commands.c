@@ -3547,7 +3547,7 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 	memset(p, 0, sizeof(void *));
 
 	// same here - use unlocked pin_new
-	pin  = halg_pin_new(0, pin_name, type, dir, p, ho_id(comp));
+	pin  = halg_pin_newf(0, type, dir, p, ho_id(comp), pin_name);
 	if (pin == NULL) {
 	    halcmd_error("cant create pin '%s':  %s\n",
 			 pin_name, strerror(-retval));

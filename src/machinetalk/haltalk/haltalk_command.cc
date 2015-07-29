@@ -255,11 +255,12 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
 	//	o.pin = pin;
 
 	// hi->type = HAL_PIN;
-	o.pin =halg_pin_new(1,p.name().c_str(),
-			     (hal_type_t) p.type(),
-			     (hal_pin_dir_t) p.dir(),
-			    NULL, // v2
-			    comp_id);
+	o.pin = halg_pin_newf(1,
+			      (hal_type_t) p.type(),
+			      (hal_pin_dir_t) p.dir(),
+			      NULL, // v2
+			      comp_id,
+			      p.name().c_str());
 
 	// 		void **data_ptr_addr,
 	// 		int owner_id)

@@ -170,9 +170,9 @@ cdef extern from "hal_priv.h":
                          void **inst_data)
 
     int halg_inst_delete(const int use_hal_mutex, const char *name)
-    hal_pin_t *halg_pin_new(const int use_hal_mutex,
-                     const char *name,
-                     const int type,
-                     const int dir,
-                     void **data_ptr_addr,
-                     const int owner_id)
+    hal_pin_t *halg_pin_newf(const int use_hal_mutex,
+                             const int type,
+                             const int dir,
+                             void **data_ptr_addr,
+                             const int owner_id,
+                             const char *name)

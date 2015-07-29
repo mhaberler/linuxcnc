@@ -64,9 +64,9 @@ cdef class _Pin(HALObject):
                 # if self._storage == NULL:
                 #     raise RuntimeError("Fail to allocate"
                 #                        " HAL memory for pin %s" % name)
-                self._o.pin = halg_pin_new(0, name, t, dir,
-                                 NULL, #v2 # <void **>(self._storage),
-                                 (<Component>comp).id)
+                self._o.pin = halg_pin_newf(0,  t, dir,
+                                            NULL, #v2 # <void **>(self._storage),
+                                            (<Component>comp).id,name,)
                 if self._o.pin == NULL:
                     raise RuntimeError("Fail to create pin %s:"
                                        " %d %s" % (name, _halerrno, hal_lasterror()))
