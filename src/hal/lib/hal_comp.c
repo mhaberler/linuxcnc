@@ -299,10 +299,11 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	       hal_data->str_freed,
 	       hal_data->str_alloc - hal_data->str_freed);
 	size_t rtalloc = (size_t)(global_data->hal_size - hal_data->shmem_top);
-	HALDBG("  RT objects: %zu  alignment loss: %zu  (%zu%%)\n",
-	       rtalloc,
-	       hal_data->rt_alignment_loss,
-	       hal_data->rt_alignment_loss * 100/rtalloc);
+	if (rtalloc > 0)
+	    HALDBG("  RT objects: %zu  alignment loss: %zu  (%zu%%)\n",
+		   rtalloc,
+		   hal_data->rt_alignment_loss,
+		   hal_data->rt_alignment_loss * 100/rtalloc);
 	HALDBG("  unused:   %ld\n",
 	       (long)( hal_data->shmem_top - hal_data->shmem_bot));
 #endif
