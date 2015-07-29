@@ -231,11 +231,6 @@ static int update_pbring(void *arg, const hal_funct_args_t *fa)
     return 0;
 }
 
-#define ALLOC_PIN(pin, type, dir)					\
-    p->pin = halx_pin_##type##_newf(HAL_IN, inst_id, "%s." #pin, name);	\
-    if (type##_pin_null(p->pin))\
-	return _halerrno;
-
 // constructor - init all HAL pins, params, funct etc here
 static int instantiate(const char *name, const int argc, const char**argv)
 {
@@ -252,6 +247,11 @@ static int instantiate(const char *name, const int argc, const char**argv)
 	return inst_id; // HAL library will log the failure cause
 
     pbring_inst_t *p = (pbring_inst_t *)inst;
+
+#define ALLOC_PIN(pin, type, dir)					\
+    p->pin = halx_pin_##type##_newf(HAL_IN, inst_id, "%s." #pin, name);	\
+    if (type##_pin_null(p->pin))\
+	return _halerrno;
 
     ALLOC_PIN(underrun, u32, HAL_OUT);
     ALLOC_PIN(received, u32, HAL_OUT);
