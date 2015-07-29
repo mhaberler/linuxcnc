@@ -19,10 +19,8 @@ char *fmt_ap(char *buffer,
     int sz;
     sz = rtapi_vsnprintf(buffer, size, fmt, ap);
     if(sz == -1 || sz > size) {
-	HALERR("length %d too long for name starting with '%s'",
+	HALFAIL_NULL(E2BIG, "length %d too long for name starting with '%s'",
 	       sz, buffer);
-	_halerrno = -E2BIG;
-	return NULL;
     }
     return buffer;
 }
