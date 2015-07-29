@@ -174,6 +174,18 @@ typedef union {
     hal_ring_t   *ring;
     hal_plug_t   *plug;
     void         *any;
+
+    // type aliases for pin access
+    bit_pin_ptr  bitpin;
+    s32_pin_ptr  s32pin;
+    u32_pin_ptr  u32pin;
+    float_pin_ptr floatpin;
+
+    // type aliases for signal access
+    bit_sig_ptr    bitsig;
+    s32_sig_ptr    s32sig;
+    u32_sig_ptr    u32sig;
+    float_sig_ptr  floatsig;
 } hal_object_ptr;
 
 #define HO_NULL ((hal_object_ptr)NULL)

@@ -521,6 +521,25 @@ typedef struct hal_thread hal_thread_t;
 typedef struct hal_vtable hal_vtable_t;
 typedef struct hal_ring hal_ring_t;
 typedef struct hal_plug hal_plug_t;
+
+// type aliases for hal_pin_t * - makes compiler
+// detect type mismatch between <type1> and <type2>:
+//
+//   set_<type1>_pin(<type2>pinptr,...) and
+//   get_<type1>_pin(<type2>pinptr)
+
+typedef struct { hal_pin_t *_bp; } bit_pin_ptr;
+typedef struct { hal_pin_t *_sp; } s32_pin_ptr;
+typedef struct { hal_pin_t *_up; } u32_pin_ptr;
+typedef struct { hal_pin_t *_fp; } float_pin_ptr;
+
+// same trick for signals
+typedef struct { hal_sig_t *_bs; } bit_sig_ptr;
+typedef struct { hal_sig_t *_ss; } s32_sig_ptr;
+typedef struct { hal_sig_t *_us; } u32_sig_ptr;
+typedef struct { hal_sig_t *_fs; } float_sig_ptr;
+
+
 /***********************************************************************
 *                        "PIN" FUNCTIONS                               *
 ************************************************************************/
