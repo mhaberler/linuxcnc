@@ -2,6 +2,7 @@
 //  inlined accessors are in hal_object.h
 #include "config.h"
 #include "rtapi.h"
+#include "rtapi_mbarrier.h"
 #include "hal.h"
 #include "hal_priv.h"
 #include "hal_object.h"
@@ -174,6 +175,9 @@ void halg_add_object(const bool use_hal_mutex,
     // insert new object after the new insertion point.
     // if nothing found, insert after head.
     dlist_add_before(&o.hdr->list, args.user_ptr2);
+
+    // make sure all values visible everywhere
+    rtapi_smp_mb();
 }
 
 int halg_free_object(const bool use_hal_mutex,
@@ -193,6 +197,9 @@ int halg_free_object(const bool use_hal_mutex,
     hh_clear_hdr(o.hdr);
     // return descriptor memory to HAL heap
     shmfree_desc(o.hdr);
+
+    // make sure all values visible everywhere
+    rtapi_smp_mb();
     return 0;
 }
 
