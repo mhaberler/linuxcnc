@@ -42,14 +42,14 @@ static char *compname = "lutnv2";
 struct inst_data {
     int inputs;
     hal_u32_t function;
-    bit_pin_t *out;
-    bit_pin_t *in[0];
+    bit_pin_ptr out;
+    bit_pin_ptr in[0];
 };
 
-static int function = 0;
+static int function = 0xff;
 RTAPI_IP_INT(function, "lookup function - see man lut5");
 
-static int inputs = 0;
+static int inputs = 2;
 RTAPI_IP_INT(inputs, "number of input pins, in0..inN");
 
 static int lutn(void *arg, const hal_funct_args_t *fa)
@@ -76,7 +76,6 @@ static int lutn(void *arg, const hal_funct_args_t *fa)
     return 0;
 }
 
-
 static int instantiate_lutn(const char *name,
 			    const int argc,
 			    const char**argv)
@@ -102,27 +101,22 @@ static int instantiate_lutn(const char *name,
 				   (void **)&ip)) < 0)
 	return -1;
 
-    hal_print_msg(RTAPI_MSG_DBG,
-		  "%s: name='%s' inputs=%d function=0x%x ip=%p",
-		  __FUNCTION__, name, inputs, function, ip);
+    HALDBG("name='%s' inputs=%d function=0x%x ip=%p",
+	   name, inputs, function, ip);
+
     // record instance params
     ip->inputs = inputs;
     ip->function = function;
 
-    char oname[100];
     // export per-instance HAL objects
     for (i = 0; i < ip->inputs; i++) {
-	rtapi_snprintf(oname, sizeof(oname), "%s.in%d", name,i);
-	bit_pin_t *p = (bit_pin_t *) halg_pin_new(0, oname, HAL_BIT, HAL_IN, NULL, inst_id);
-	if (p == NULL)
-	    return -1;
-	ip->in[i] = p;
+	ip->in[i] = halx_pin_bit_newf(HAL_IN, inst_id, "%s.in%d", name,i);
+	if (bit_pin_null(ip->in[i]))
+	    return _halerrno;
     }
-    rtapi_snprintf(oname, sizeof(oname), "%s.out", name);
-
-    ip->out =  (bit_pin_t *) halg_pin_new(0, oname, HAL_BIT, HAL_OUT, NULL, inst_id);
-    if (ip->out == NULL)
-	return -1;
+    ip->out = halx_pin_bit_newf(HAL_OUT, inst_id, "%s.out", name);
+    if (bit_pin_null(ip->out))
+	return _halerrno;
 
 
     // exporting 'lutn' as an extended thread function
