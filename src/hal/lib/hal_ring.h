@@ -54,6 +54,17 @@ typedef struct hal_plug {
     __u32 role : 2;                // PLUG_READER/PLUG_WRITER
 } hal_plug_t;
 
+// plug accessors
+static inline ringbuffer_t *plug_rb(hal_plug_t *plug) {
+    return &plug->rb;
+}
+static inline msgbuffer_t *plug_mb(hal_plug_t *plug) {
+    return &plug->mb;
+}
+static inline unsigned plug_role(const hal_plug_t *plug) {
+    return plug->role;
+}
+
 // argument struct passed to halg_plug_new()
 typedef struct plug_args {
     hal_plugtype_t type; // PLUG_READER or PLUG_WRITER
