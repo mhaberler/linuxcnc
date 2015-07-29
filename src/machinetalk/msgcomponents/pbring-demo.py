@@ -26,8 +26,8 @@ timeout = 50.0
 interval = 0.1
 
 try:
-    c = hal.Ring("first.in")
-    r = hal.Ring("first.out")
+    c = hal.Ring("to-rt1")
+    r = hal.Ring("from-rt-1")
 except Exception,e:
     print e
 
