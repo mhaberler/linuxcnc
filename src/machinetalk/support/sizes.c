@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stddef.h>
 #include <hal.h>
 #include <hal_priv.h>
 #include <hal_group.h>
@@ -16,6 +17,11 @@
 int main()
 {
     printf("halhdr_t = %zu\n", sizeof(halhdr_t));
+    printf("halhdr_t details:\n");
+    printf("\tid\t%zu\n", offsetof(halhdr_t,_id));
+    printf("\towner_id\t%zu\n", offsetof(halhdr_t,_owner_id));
+    printf("\tname_ptr\t%zu\n", offsetof(halhdr_t,_name_ptr));
+
     printf("hal_comp_t = %zu\n", sizeof(hal_comp_t));
     printf("hal_inst_t = %zu\n", sizeof(hal_inst_t));
     printf("hal_pin_t = %zu\n", sizeof(hal_pin_t));
@@ -24,8 +30,10 @@ int main()
     printf("hal_group_t = %zu\n", sizeof(hal_group_t));
     printf("hal_member_t = %zu\n", sizeof(hal_member_t));
     printf("hal_funct_t = %zu\n", sizeof(hal_funct_t));
+    printf("hal_thread_t = %zu\n", sizeof(hal_thread_t));
     printf("hal_vtable_t = %zu\n", sizeof(hal_vtable_t));
     printf("hal_ring_t = %zu\n", sizeof(hal_ring_t));
+    printf("hal_plug_t = %zu\n", sizeof(hal_plug_t));
 
     printf("ringheader_t = %zu (without storage)\n", sizeof(ringheader_t));
     printf("ringbuffer_t = %zu\n", sizeof(ringbuffer_t));
