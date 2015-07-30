@@ -51,7 +51,7 @@ cdef class Signal(HALObject):
             if self._o.sig == NULL:
                 raise RuntimeError("BUG: couldnt lookup signal %s" % name)
 
-        self._storage = <hal_data_u *>shmptr(self._o.sig.data_ptr)
+        self._storage = sig_value(self._o.sig)
         self._handle = self.id  # memoize for liveness check
         if init:
             self.set(init)
@@ -182,7 +182,7 @@ cdef class Signal(HALObject):
 cdef int _find_writer(hal_object_ptr o,  foreach_args_t *args):
     cdef hal_pin_t *pin
     pin = o.pin
-    if <hal_sig_t *>shmptr(pin.signal) == args.user_ptr1 and pin.dir == args.user_arg1:
+    if signal_of(pin) == args.user_ptr1 and pin.dir == args.user_arg1:
         result =  <object>args.user_ptr2
         result.append(hh_get_name(o.hdr))
         if pin.dir == HAL_OUT:

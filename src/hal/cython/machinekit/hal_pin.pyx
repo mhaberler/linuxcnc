@@ -1,5 +1,5 @@
-from .hal_priv cimport MAX_EPSILON, hal_data_u
-from .hal_util cimport shmptr, pin_linked, linked_signal,py2hal,hal2py
+from .hal_priv cimport MAX_EPSILON, hal_data_u,pin_is_linked, signal_of
+from .hal_util cimport shmptr, py2hal,hal2py
 
 
 def describe_hal_type(haltype):
@@ -79,16 +79,16 @@ cdef class _Pin(HALObject):
             # handle initial value assignment!!
 
     property linked:
-        def __get__(self): return pin_linked(self._o.pin)
+        def __get__(self): return pin_is_linked(self._o.pin)
 
     property signame:
         def __get__(self):
-            if not  pin_linked(self._o.pin): return None  # raise exception?
-            return hh_get_name(&linked_signal(self._o.pin).hdr)
+            if not  pin_is_linked(self._o.pin): return None  # raise exception?
+            return hh_get_name(&signal_of(self._o.pin).hdr)
 
     property signal:
         def __get__(self):
-            if not  pin_linked(self._o.pin): return None  # raise exception?
+            if not  pin_is_linked(self._o.pin): return None  # raise exception?
             return signals[self.signame]
 
     property type:
@@ -129,10 +129,11 @@ cdef class _Pin(HALObject):
                                (hh_get_name(&self._o.pin.hdr), r, hal_lasterror()))
 
     def _set(self, v):
+
         cdef hal_data_u *_dptr
         #if self._storage == NULL: # an existing pin, wrapped
 
-        if pin_linked(self._o.pin):
+        if pin_is_linked(self._o.pin):
             raise RuntimeError("cannot set value of linked pin %s:" %
                                hh_get_name(&self._o.pin.hdr))
 
@@ -144,20 +145,21 @@ cdef class _Pin(HALObject):
         #     return py2hal(self._o.pin.type, self._storage[0], v)
 
     def _get(self):
-        cdef hal_data_u *_dptr
-        cdef hal_sig_t *_sig
-        #if self._storage == NULL: # an existing pin, wrapped
-        if pin_linked(self._o.pin):
-            # get signal's data address
-            _sig = <hal_sig_t *>shmptr(self._o.pin.signal);
-            _dptr = <hal_data_u *>shmptr(_sig.data_ptr);
-        else:
-            # retrieve address of dummy signal
-            _dptr = <hal_data_u *>&self._o.pin.dummysig
-        return hal2py(self._o.pin.type, _dptr)
+        return pypin_value(self._o.pin)
+        # cdef hal_data_u *_dptr
+        # cdef hal_sig_t *_sig
+        # #if self._storage == NULL: # an existing pin, wrapped
+        # if pin_linked(self._o.pin):
+        #     # get signal's data address
+        #     _sig = <hal_sig_t *>shmptr(self._o.pin.signal);
+        #     _dptr = <hal_data_u *>shmptr(_sig.data_ptr);
         # else:
-        #     # a pin we allocated storage for
-        #     return hal2py(self._o.pin.type, self._storage[0])
+        #     # retrieve address of dummy signal
+        #     _dptr = <hal_data_u *>&self._o.pin.dummysig
+        # return hal2py(self._o.pin.type, _dptr)
+        # # else:
+        # #     # a pin we allocated storage for
+        # #     return hal2py(self._o.pin.type, self._storage[0])
 
 
 class Pin(_Pin):

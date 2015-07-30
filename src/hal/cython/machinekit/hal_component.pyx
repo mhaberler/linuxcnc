@@ -1,4 +1,4 @@
-from .hal_util cimport pin_value
+from .hal_util cimport pypin_value
 
 class ComponentExit(Exception):
     pass
@@ -186,17 +186,17 @@ cdef class Component(HALObject):
 # a callable
 # a list
 # fail changed() if not one of the above
-cdef int comp_callback(int phase,
-                       hal_compiled_comp_t * cc,
-                       hal_pin_t *p,
-                       hal_data_u *value,
+cdef int comp_callback(const int phase,
+                       const hal_compiled_comp_t * cc,
+                       const hal_pin_t *p,
+                       const hal_data_u *value,
                        void *userdata):
     arg =  <object>userdata
     if callable(arg):
         if phase == REPORT_BEGIN:
             (arg)(phase, None, None)
         elif phase == REPORT_PIN:
-            (arg)(phase, hh_get_name(&p.hdr),pin_value(p))
+            (arg)(phase, hh_get_name(&p.hdr),pypin_value(p))
         elif phase == REPORT_END:
             (arg)(phase, None, None)
         else:
@@ -205,7 +205,7 @@ cdef int comp_callback(int phase,
 
     if  isinstance(arg, list):
         if phase == REPORT_PIN:
-            arg.append((hh_get_name(&p.hdr),pin_value(p)))
+            arg.append((hh_get_name(&p.hdr),pypin_value(p)))
         elif phase == REPORT_BEGIN:
             del arg[0:len(arg)]  # clear result list
         return 0
