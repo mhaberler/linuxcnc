@@ -794,7 +794,7 @@ int do_getp_cmd(char *name)
 {
     hal_param_t *param;
     hal_pin_t *pin;
-    hal_sig_t *sig;
+    // hal_sig_t *sig;
     hal_type_t type;
     void *d_ptr;
 
@@ -859,7 +859,7 @@ int do_sets_cmd(char *name, char *value)
     }
     /* no writer, so we can safely set it */
     type = sig->type;
-    d_ptr = SHMPTR(sig->data_ptr);
+    d_ptr = sig_value(sig);
     retval = set_common(type, d_ptr, value);
     rtapi_mutex_give(&(hal_data->mutex));
     if (retval == 0) {
@@ -912,7 +912,7 @@ int do_gets_cmd(char *name)
     }
     /* found it */
     type = sig->type;
-    d_ptr = SHMPTR(sig->data_ptr);
+    d_ptr = sig_value(sig);
     halcmd_output("%s\n", data_value2((int) type, d_ptr));
     rtapi_mutex_give(&(hal_data->mutex));
     return 0;
@@ -2080,13 +2080,10 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
     if ( tmatch(args->user_arg1, pin->type) &&
 	 match(args->user_ptr1, ho_name(pin)) ) {
 	comp = halpr_find_owning_comp(ho_owner_id(pin));
-	if (pin->signal != 0) {
-	    sig = SHMPTR(pin->signal);
-	    dptr = SHMPTR(sig->data_ptr);
-	} else {
-	    sig = 0;
-	    dptr = &(pin->dummysig);
-	}
+
+	sig = signal_of(pin);
+	dptr = pin_value(pin);
+
 	if (scriptmode == 0) {
 
 	    halcmd_output(" %5d  ", ho_id(comp));
@@ -2163,7 +2160,7 @@ static int print_signal_entry(hal_object_ptr o, foreach_args_t *args)
 {
     hal_sig_t *sig = o.sig;
     if ( match(args->user_ptr1, ho_name(sig)) ) {
-	void *dptr = SHMPTR(sig->data_ptr);
+	void *dptr = sig_value(sig);
 	halcmd_output("%s  %s  %s%s %s \n",
 		      data_type((int) sig->type),
 		      data_value((int) sig->type, dptr),
@@ -3104,7 +3101,7 @@ static void print_group_names(char **patterns)
 static int print_member_entry(hal_object_ptr o, foreach_args_t *args)
 {
     hal_sig_t *sig = SHMPTR(o.member->sig_ptr);
-    void *dptr = SHMPTR(sig->data_ptr);
+    void *dptr = sig_value(sig);
 
     halcmd_output("\t%-14.14s  %-6.6s %16.16s 0x%8.8x %f ",
 		  ho_name(sig),

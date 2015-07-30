@@ -265,20 +265,23 @@ int Interp::fetch_hal_param( const char *nameBuf, int *status, double *value)
             if (pin && !pin_is_linked(pin)) {
 		logOword("%s: no signal connected", hal_name);
 	    } 
-	    type = pin->type;
-	    if (pin->signal != 0) {
-		sig = (hal_sig_t *) SHMPTR(pin->signal);
-		ptr = (hal_data_u *) SHMPTR(sig->data_ptr);
-	    } else {
-		ptr = (hal_data_u *) &(pin->dummysig);
-	    }
+	    type = pin_type(pin);
+	    sig = signal_of(pin);
+	    ptr = pin_value(pin);
+	    // if (pin->signal != 0) {
+	    // 	sig = (hal_sig_t *) SHMPTR(pin->signal);
+	    // 	ptr = (hal_data_u *) SHMPTR(sig->data_ptr);
+	    // } else {
+	    // 	ptr = (hal_data_u *) &(pin->dummysig);
+	    // }
 	    goto assign;
 	}
 	if ((sig = halpr_find_sig_by_name(hal_name)) != NULL) {
 	    if (!sig->writers) 
 		logOword("%s: signal has no writer", hal_name);
-	    type = sig->type;
-	    ptr = (hal_data_u *) SHMPTR(sig->data_ptr);
+	    type = sig_type(sig);
+	    ptr = sig_value(sig);
+	    //  ptr = (hal_data_u *) SHMPTR(sig->data_ptr);
 	    goto assign;
 	}
 	if ((param = halpr_find_param_by_name(hal_name)) != NULL) {

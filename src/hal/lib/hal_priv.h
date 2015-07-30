@@ -392,7 +392,7 @@ static inline const hal_pin_dir_t pin_dir(const hal_pin_t *pin) {
     return pin->dir;
 }
 
-static inline const hal_data_u *sig_value(const hal_sig_t *sig) {
+static inline hal_data_u *sig_value(hal_sig_t *sig) {
     return &sig->value;
 }
 
@@ -402,11 +402,11 @@ static inline const hal_data_u *param_value(const hal_param_t *param)
 }
 
 // a pin always has a value - linked or not
-static inline const hal_data_u *pin_value(const hal_pin_t *pin) {
+static inline hal_data_u *pin_value(hal_pin_t *pin) {
     // XXX simplify eventually to SHMPTR(pin->data_ptr)
     // once v1 pins are history
     if (pin->_signal != 0) {
-	const hal_sig_t *s = (hal_sig_t *)SHMPTR(pin->_signal);
+	hal_sig_t *s = (hal_sig_t *)SHMPTR(pin->_signal);
 	return &s->value;
     }
     return &pin->dummysig;

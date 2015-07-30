@@ -574,7 +574,7 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 		    continue;
 		}
 		// set value
-		hal_data_u *vp = (hal_data_u *) hal_pin2u(o.pin);
+		hal_data_u *vp = pin_value(o.pin);
 		assert(vp != NULL);
 		if (hal_pbpin2u(&p, vp)) {
 		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), ho_name(o.pin));
@@ -644,7 +644,7 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 		    continue;
 		}
 		// set value
-		hal_data_u *vp = (hal_data_u *) hal_sig2u(o.sig);
+		hal_data_u *vp = sig_value(o.sig);
 		assert(vp != NULL);
 		if (hal_pbsig2u(&s, vp)) {
 		    note_printf(self->tx, "bad signal type %d name=%s",

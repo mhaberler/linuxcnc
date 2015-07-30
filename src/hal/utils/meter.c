@@ -531,7 +531,7 @@ static int refresh_value(gpointer data)
 meter_t *meter;
 probe_t *probe;
 const char *value_str, *name_str;
-hal_sig_t *sig;
+//hal_sig_t *sig;
 static int first = 1;
 
     meter = (meter_t *) data;
@@ -551,14 +551,15 @@ static int first = 1;
 			return 1;
 			}
 		name_str = ho_name(probe->pin);
-		if (probe->pin->signal == 0)
-			/* pin is unlinked, get data from dummysig */
-			value_str = data_value(probe->pin->type, &(probe->pin->dummysig));
-		else {
-			/* pin is linked to a signal */
-			sig = SHMPTR(probe->pin->signal);
-			value_str = data_value(probe->pin->type, SHMPTR(sig->data_ptr));
-			}
+		value_str = data_value(pin_type(probe->pin), pin_value(probe->pin));
+		/* if (!probe->pin->signal == 0) */
+		/* 	/\* pin is unlinked, get data from dummysig *\/ */
+		/* 	value_str = data_value(probe->pin->type, &(probe->pin->dummysig)); */
+		/* else { */
+		/* 	/\* pin is linked to a signal *\/ */
+		/* 	sig = SHMPTR(probe->pin->signal); */
+		/* 	value_str = data_value(probe->pin->type, SHMPTR(sig->data_ptr)); */
+		/* 	} */
 		}
 	else if (probe->sig != NULL) {
 		if(! ho_valid(probe->sig))
@@ -568,7 +569,7 @@ static int first = 1;
 	    return 1;
 		}
 		name_str = ho_name(probe->sig);
-		value_str = data_value(probe->sig->type, SHMPTR(probe->sig->data_ptr));
+		value_str = data_value(sig_type(probe->sig),sig_value(probe->sig));
 		}
 	else if (probe->param != NULL) {
 		if(! ho_valid(probe->param))
@@ -578,7 +579,9 @@ static int first = 1;
 	        return 1;
 		}
 		name_str = ho_name(probe->param);
-		value_str = data_value(probe->param->type, SHMPTR(probe->param->data_ptr));
+		value_str = data_value(param_type(probe->param),param_value(probe->param));
+
+		//value_str = data_value(probe->param->type, SHMPTR(probe->param->data_ptr));
 		}
 	else {
 		name_str = "-----";
