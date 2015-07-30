@@ -20,9 +20,9 @@
 #include "halpb.hh"
 #include "pbutil.hh"
 
-static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
-			  hal_pin_t *pin,
-			  hal_data_u *vp,
+static int comp_report_cb(int phase, const  hal_compiled_comp_t *cc,
+			  const hal_pin_t *pin,
+			  const hal_data_u *vp,
 			  void *cb_data);
 static int add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 			     hal_pin_t *pin, hal_data_u *vp, void *cb_data);
@@ -314,9 +314,10 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 }
 
 static int
-add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
-		  hal_pin_t *pin,
-		  hal_data_u *vp,
+add_pins_to_items(const int phase,
+		  const hal_compiled_comp_t *cc,
+		  const hal_pin_t *pin,
+		  const hal_data_u *vp,
 		  void *cb_data)
 {
     if (phase != REPORT_PIN) return 0;

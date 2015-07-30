@@ -27,18 +27,18 @@ RTAPI_BEGIN_DECLS
 // add increment, and, or, not, xor
 
 #define _PINSET(ptr,member,type,value)			\
-    type *vp = SHMPTR(ptr.member->data_ptr);		\
-    __atomic_store(vp, &(value), RTAPI_MEMORY_MODEL);	\
+    type *__vp = (type *)SHMPTR(ptr.member->data_ptr);	\
+    __atomic_store(__vp, &(value), RTAPI_MEMORY_MODEL);	\
     if (unlikely(hh_get_wmb(&ptr.member->hdr)))		\
 	rtapi_smp_wmb();
 
 #define _PINGET(ptr,member,type)			 \
     if (unlikely(hh_get_rmb(&ptr.member->hdr)))		 \
 	rtapi_smp_rmb();				 \
-    type value;						 \
+    type __value;						 \
     __atomic_load((type *) SHMPTR(ptr.member->data_ptr), \
-		  &value, RTAPI_MEMORY_MODEL);		 \
-    return value;
+		  &__value, RTAPI_MEMORY_MODEL);		 \
+    return __value;
 
 #ifdef NOTYET
 // more generic versions of the above
@@ -96,46 +96,47 @@ static inline hal_float_t get_float_pin(const float_pin_ptr p) {
 }
 
 // typed signal getters
-// the data_ptr reference should eventually be replaced
-// by directly referencing sig.value, a hal_data_u
-#define _SIGGET(ptr,member,type)			 \
-    if (unlikely(hh_get_rmb(&ptr.member->hdr)))		 \
-	rtapi_smp_rmb();				 \
-    type value;						 \
-    __atomic_load((type *) SHMPTR(ptr.member->data_ptr), \
-		  &value, RTAPI_MEMORY_MODEL);		 \
+// the data_ptr reference is gone - directly reference
+// sig.value, a hal_data_u
+#define _SIGGET(ptr,member,sigtype, hal_data_u_tag)		 \
+    if (unlikely(hh_get_rmb(&ptr.member->hdr)))			 \
+	rtapi_smp_rmb();					 \
+    sigtype value;						 \
+    __atomic_load(&ptr.member->value.hal_data_u_tag,		 \
+		  &value, RTAPI_MEMORY_MODEL);			 \
     return value;
+
 static inline hal_bit_t get_bit_sig(const bit_sig_ptr s) {
-    _SIGGET(s, _bs, hal_bit_t)
+    _SIGGET(s, _bs, hal_bit_t,b)
 }
 static inline hal_s32_t get_s32_sig(const s32_sig_ptr s) {
-    _SIGGET(s, _ss, hal_s32_t)
+    _SIGGET(s, _ss, hal_s32_t, s)
 }
 static inline hal_u32_t get_u32_sig(const u32_sig_ptr s) {
-    _SIGGET(s, _us, hal_u32_t)
+    _SIGGET(s, _us, hal_u32_t, u)
 }
 static inline hal_float_t get_float_sig(const float_sig_ptr s) {
-    _SIGGET(s, _fs, hal_float_t)
+    _SIGGET(s, _fs, hal_float_t, f)
 }
 
 // typed signal setters
-#define _SIGSET(ptr,member,type,value)			\
-    type *vp = SHMPTR(ptr.member->data_ptr);		\
-    __atomic_store(vp, &(value), RTAPI_MEMORY_MODEL);	\
-    if (unlikely(hh_get_wmb(&ptr.member->hdr)))		\
+#define _SIGSET(PTR,MEMBER,SIGTYPE, HDU_TAG, VALUE)		\
+    SIGTYPE *vp = &PTR.MEMBER->value.HDU_TAG;			\
+    __atomic_store(vp, &(VALUE), RTAPI_MEMORY_MODEL);		\
+    if (unlikely(hh_get_wmb(&PTR.MEMBER->hdr)))			\
 	rtapi_smp_wmb();
 
 static inline void set_bit_sig(bit_sig_ptr s, const hal_bit_t value) {
-    _SIGSET(s, _bs, hal_bit_t, value);
+    _SIGSET(s, _bs, hal_bit_t, b, value);
 }
 static inline void set_s32_sig(s32_sig_ptr s, const hal_s32_t value) {
-    _SIGSET(s, _ss, hal_s32_t, value);
+    _SIGSET(s, _ss, hal_s32_t, s, value);
 }
 static inline void set_u32_sig(u32_sig_ptr s, const hal_u32_t value) {
-    _SIGSET(s, _us, hal_u32_t, value);
+    _SIGSET(s, _us, hal_u32_t, u, value);
 }
 static inline void set_float_sig(float_sig_ptr s, const hal_float_t value) {
-    _SIGSET(s, _fs, hal_float_t, value);
+    _SIGSET(s, _fs, hal_float_t, f, value);
 }
 
 
@@ -169,7 +170,12 @@ static inline bool float_sig_null(const float_sig_ptr s) {
 }
 
 
-// pin allocators
+// convert hal type to string
+const char *hals_type(const hal_type_t type);
+// convert pin direction to string
+const char *hals_pindir(const hal_pin_dir_t dir);
+
+// pin allocators, in hal_accessor.c
 bit_pin_ptr halx_pin_bit_newf(const hal_pin_dir_t dir,
 			      const int owner_id,
 			      const char *fmt, ...)

@@ -53,3 +53,34 @@ s32_pin_ptr halx_pin_s32_newf(const hal_pin_dir_t dir,
     va_end(ap);
     return p;
 }
+
+
+const char *hals_pindir(const hal_pin_dir_t dir)
+{
+    switch (dir) {
+    case HAL_IN:
+	return "IN";
+    case HAL_OUT:
+	return "OUT";
+    case HAL_IO:
+	return "I/O";
+    default:
+	return "???";
+    }
+}
+
+const char *hals_type(const hal_type_t type)
+{
+    switch (type) {
+    case HAL_BIT:
+	return "bit";
+    case HAL_FLOAT:
+	return "float";
+    case HAL_S32:
+	return "s32";
+    case HAL_U32:
+	return "u32";
+    default:
+	return "undef";
+    }
+}

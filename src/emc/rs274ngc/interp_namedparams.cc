@@ -262,7 +262,7 @@ int Interp::fetch_hal_param( const char *nameBuf, int *status, double *value)
         // rtapi_mutex_give(&(hal_data->mutex));
 
 	if ((pin = halpr_find_pin_by_name(hal_name)) != NULL) {
-            if (pin && !pin->signal) {
+            if (pin && !pin_is_linked(pin)) {
 		logOword("%s: no signal connected", hal_name);
 	    } 
 	    type = pin->type;

@@ -36,30 +36,9 @@ int halpr_describe_component(hal_comp_t *comp, pb::Component *pbcomp);
 int halpr_describe_group(hal_group_t *g, pb::Group *pbgroup);
 int halpr_describe_member(hal_member_t *member, pb::Member *pbmember);
 
-
-static inline const hal_data_u *hal_sig2u(const hal_sig_t *sig)
-{
-    return (hal_data_u *)SHMPTR(sig->data_ptr);
-}
-
-static inline const hal_data_u *hal_pin2u(const hal_pin_t *pin)
-{
-    const hal_sig_t *sig;
-    if (pin->signal != 0) {
-	sig = (const hal_sig_t *) SHMPTR(pin->signal);
-	return (hal_data_u *)SHMPTR(sig->data_ptr);
-    } else
-	return (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
-}
-
-static inline const hal_data_u *hal_param2u(const hal_param_t *param)
-{
-    return (hal_data_u *)SHMPTR(param->data_ptr);
-}
-
 static inline int hal_pin2pb(const hal_pin_t *hp, pb::Pin *p)
 {
-    const hal_data_u *vp  = hal_pin2u(hp);
+    const hal_data_u *vp  = pin_value(hp);
     switch (hp->type) {
     default:
 	return -1;
@@ -81,7 +60,7 @@ static inline int hal_pin2pb(const hal_pin_t *hp, pb::Pin *p)
 
 static inline int hal_sig2pb(const hal_sig_t *sp, pb::Signal *s)
 {
-    const hal_data_u *vp = hal_sig2u(sp);
+    const hal_data_u *vp = sig_value(sp);
     switch (sp->type) {
     default:
 	return -1;
@@ -103,7 +82,7 @@ static inline int hal_sig2pb(const hal_sig_t *sp, pb::Signal *s)
 
 static inline int hal_param2pb(const hal_param_t *pp, pb::Param *p)
 {
-    const hal_data_u *vp = hal_param2u(pp);
+    const hal_data_u *vp = param_value(pp);
 
     switch (pp->type) {
     default:

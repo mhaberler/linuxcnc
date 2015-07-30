@@ -181,7 +181,7 @@ int do_unlock_cmd(char *command)
 int do_linkpp_cmd(char *first_pin_name, char *second_pin_name)
 {
     int retval;
-    hal_pin_t *first_pin, *second_pin;
+    const hal_pin_t *first_pin, *second_pin;
     static int dep_msg_printed = 0;
 
     if ( dep_msg_printed == 0 ) {
@@ -415,8 +415,8 @@ int do_delf_cmd(char *func, char *thread) {
 
 int find_modifier(hal_object_ptr o, foreach_args_t *args)
 {
-    if ((SHMPTR(o.pin->signal) == args->user_ptr1) &&
-	(o.pin->dir == args->user_arg1)) {
+    if ((signal_of(o.pin) == args->user_ptr1) &&
+	(pin_dir(o.pin) == args->user_arg1)) {
 
 	// pass back pin name
 	args->user_ptr2 = (void *) ho_name(o.pin);
@@ -476,34 +476,34 @@ static int preflight_net_cmd(char *signal, hal_sig_t *sig, char *pins[])
     }
 
     for(i=0; pins[i] && *pins[i]; i++) {
-        hal_pin_t *pin = 0;
+        const hal_pin_t *pin;
         pin = halpr_find_pin_by_name(pins[i]);
         if(!pin) {
             halcmd_error("Pin '%s' does not exist\n",
                     pins[i]);
             return -ENOENT;
         }
-        if(SHMPTR(pin->signal) == sig) {
+        if(signal_of(pin) == sig) {
 	     /* Already on this signal */
 	    pincnt++;
 	    continue;
-	} else if(pin->signal != 0) {
-            hal_sig_t *osig = SHMPTR(pin->signal);
+	} else if (pin_is_linked(pin)) {
+            hal_sig_t *osig = signal_of(pin);
             halcmd_error("Pin '%s' was already linked to signal '%s'\n",
 			 ho_name(pin), ho_name(osig));
             return -EINVAL;
 	}
 	if (type == -1) {
 	    /* no pre-existing type, use this pin's type */
-	    type = pin->type;
+	    type = pin_type(pin);
 	}
-        if(type != pin->type) {
+        if(type !=  pin_type(pin)) {
             halcmd_error(
                 "Signal '%s' of type '%s' cannot add pin '%s' of type '%s'\n",
                 signal, data_type2(type), ho_name(pin), data_type2(pin->type));
             return -EINVAL;
         }
-        if(pin->dir == HAL_OUT) {
+        if(pin_dir(pin) == HAL_OUT) {
             if(writers || bidirs) {
             dir_error:
                 halcmd_error(
@@ -517,7 +517,7 @@ static int preflight_net_cmd(char *signal, hal_sig_t *sig, char *pins[])
             writer_name = (char *) ho_name(pin);
             writers++;
         }
-	if(pin->dir == HAL_IO) {
+	if(pin_dir(pin) == HAL_IO) {
             if(writers) {
                 goto dir_error;
             }
@@ -548,7 +548,7 @@ int do_net_cmd(char *signal, char *pins[]) {
     }
 
     {
-	hal_pin_t *pin = halpr_find_pin_by_name(signal);
+	const hal_pin_t *pin = halpr_find_pin_by_name(signal);
 	if(pin) {
 	    halcmd_error(
                     "Signal name '%s' must not be the same as a pin.  "
@@ -560,7 +560,7 @@ int do_net_cmd(char *signal, char *pins[]) {
     }
     if(!sig) {
         /* Create the signal with the type of the first pin */
-        hal_pin_t *pin = halpr_find_pin_by_name(pins[0]);
+        const hal_pin_t *pin = halpr_find_pin_by_name(pins[0]);
         rtapi_mutex_give(&(hal_data->mutex));
         if(!pin) {
             return -ENOENT;
@@ -663,7 +663,7 @@ int do_setp_cmd(char *name, char *value)
 {
     int retval;
     hal_param_t *param;
-    hal_pin_t *pin;
+    const hal_pin_t *pin;
     hal_type_t type;
     void *d_ptr;
     hal_comp_t *comp; // owning component
@@ -688,7 +688,7 @@ int do_setp_cmd(char *name, char *value)
                 halcmd_error("pin '%s' is not writable\n", name);
                 return -EINVAL;
             }
-            if(pin->signal != 0) {
+            if(pin_is_linked(pin)) {
                 rtapi_mutex_give(&(hal_data->mutex));
                 halcmd_error("pin '%s' is connected to a signal\n", name);
                 return -EINVAL;
@@ -758,7 +758,7 @@ int do_sete_cmd(char *pos, char *value)
 int do_ptype_cmd(char *name)
 {
     hal_param_t *param;
-    hal_pin_t *pin;
+    const hal_pin_t *pin;
     hal_type_t type;
 
     rtapi_print_msg(RTAPI_MSG_DBG, "getting parameter '%s'\n", name);
@@ -814,17 +814,17 @@ int do_getp_cmd(char *name)
 
     /* not found, search pin list for name */
     pin = halpr_find_pin_by_name(name);
-    if(pin) {
+    if (pin) {
         /* found it */
-        type = pin->type;
-        if (pin->signal != 0) {
-            sig = SHMPTR(pin->signal);
-            d_ptr = SHMPTR(sig->data_ptr);
-        } else {
-            sig = 0;
-            d_ptr = &(pin->dummysig);
-        }
-        halcmd_output("%s\n", data_value2((int) type, d_ptr));
+        /* type = pin->type; */
+        /* if (pin_is_linked(pin)) { */
+        /*     sig = signal_of(pin); */
+        /*     d_ptr = SHMPTR(sig->data_ptr); */
+        /* } else { */
+        /*     sig = 0; */
+        /*     d_ptr = &(pin->dummysig); */
+        /* } */
+        halcmd_output("%s\n", data_value2((int) pin_type(pin), pin_value(pin)));
         rtapi_mutex_give(&(hal_data->mutex));
         return 0;
     }

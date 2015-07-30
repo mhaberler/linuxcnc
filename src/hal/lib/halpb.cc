@@ -6,7 +6,7 @@ int halpr_describe_pin(hal_pin_t *pin, pb::Pin *pbpin)
     pbpin->set_dir((pb::HalPinDirection) pin->dir);
     pbpin->set_handle(ho_id(pin));
     pbpin->set_name(ho_name(pin));
-    pbpin->set_linked(pin->signal != 0);
+    pbpin->set_linked(pin_is_linked(pin));
     assert(hal_pin2pb(pin, pbpin) == 0);
     pbpin->set_flags(pin->flags);
     if (pin->type == HAL_FLOAT)

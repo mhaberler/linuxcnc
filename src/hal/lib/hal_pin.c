@@ -168,7 +168,7 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 	/* initialize the structure */
 	new->type = type;
 	new->dir = dir;
-	new->signal = 0;
+	new->_signal = 0;
 	memset(&new->dummysig, 0, sizeof(hal_data_u));
 	if (is_legacy) {
 	    hh_set_legacy(&new->hdr);
@@ -194,12 +194,14 @@ void unlink_pin(hal_pin_t * pin)
     hal_sig_t *sig;
     hal_comp_t *comp;
     void **data_ptr_addr;
-    hal_data_u *dummy_addr, *sig_data_addr;
+    hal_data_u  *sig_data_addr;
 
     /* is this pin linked to a signal? */
-    if (pin->signal != 0) {
+    if (pin_is_linked(pin)) {
+	hal_data_u *dummy_addr;
+
 	/* yes, need to unlink it */
-	sig = SHMPTR(pin->signal);
+	sig = signal_of(pin);
 
 	if (hh_get_legacy(&pin->hdr)) {
 
@@ -211,11 +213,14 @@ void unlink_pin(hal_pin_t * pin)
 
 	    dummy_addr = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig))); // XXX use SHMPTR
 	} else {
-	    pin->data_ptr = SHMOFF(&(pin->dummysig));
 	    dummy_addr = (hal_data_u *) &pin->dummysig;
 	}
+	pin->data_ptr = SHMOFF(&(pin->dummysig));
+
 	/* copy current signal value to dummy */
-	sig_data_addr = (hal_data_u *)(hal_shmem_base + sig->data_ptr);  //XXX use SHMPTR
+	//XXX use SHMPTR
+	sig_data_addr = (hal_data_u *)(hal_shmem_base + SHMOFF(&sig->value));
+
 
 	switch (pin->type) {
 	case HAL_BIT:
@@ -247,7 +252,10 @@ void unlink_pin(hal_pin_t * pin)
 	    sig->bidirs--;
 	}
 	/* mark pin as unlinked */
-	pin->signal = 0;
+	pin_set_unlinked(pin);
+
+	// propagate the news
+	rtapi_smp_mb();
     }
 }
 

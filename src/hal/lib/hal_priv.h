@@ -326,8 +326,8 @@ typedef struct hal_inst {
 typedef struct hal_pin {
     halhdr_t hdr;		// common HAL object header
     int data_ptr_addr;		/* address of pin data pointer */
-    int data_ptr;		// v2: just the signal offset
-    int signal;			/* signal to which pin is linked */
+    int data_ptr;		// v2: just the signal's hal_data_u offset
+    int _signal;		// PRIVATE: signal descriptor to which pin is linked
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
     hal_type_t type;		/* data type */
     hal_pin_dir_t dir;		/* pin direction */
@@ -344,14 +344,19 @@ typedef enum {
 */
 typedef struct hal_sig {
     halhdr_t hdr;		// common HAL object header
-    hal_data_u value;           // v2 - store value in descriptor
+    hal_type_t type;		/* data type */
+#ifdef LEGACY_SIGNALS
     // data_ptr is legacy - bent to point to value:
     int data_ptr;		/* offset of signal value */
-    hal_type_t type;		/* data type */
+#else
+    hal_data_u value;           // v2 - store value in descriptor
+#endif
     int readers;		/* number of input pins linked */
     int writers;		/* number of output pins linked */
     int bidirs;			/* number of I/O pins linked */
 } hal_sig_t;
+
+
 
 /** HAL 'parameter' data structure.
     This structure contains information about a 'parameter' object.
@@ -363,6 +368,101 @@ typedef struct hal_param {
     hal_param_dir_t dir;	/* data direction */
 } hal_param_t;
 
+
+static inline const hal_type_t sig_type(const hal_sig_t *sig) {
+    return sig->type;
+}
+static inline const hal_type_t pin_type(const hal_pin_t *pin) {
+    return pin->type;
+}
+static inline const hal_type_t param_type(const hal_param_t *param) {
+    return param->type;
+}
+static inline const hal_param_dir_t param_dir(const hal_param_t *param) {
+    return param->dir;
+}
+static inline const hal_pin_dir_t pin_dir(const hal_pin_t *pin) {
+    return pin->dir;
+}
+
+static inline const hal_data_u *sig_value(const hal_sig_t *sig) {
+    return &sig->value;
+}
+
+static inline const hal_data_u *param_value(const hal_param_t *param)
+{
+    return (hal_data_u *)SHMPTR(param->data_ptr);
+}
+
+// a pin always has a value - linked or not
+static inline const hal_data_u *pin_value(const hal_pin_t *pin) {
+    if (pin->_signal != 0) {
+	const hal_sig_t *s = (hal_sig_t *)SHMPTR(pin->_signal);
+	return &s->value;
+    }
+    return &pin->dummysig;
+}
+
+// a pin may refer to a signal if linked
+static inline hal_sig_t *signal_of(const hal_pin_t *pin) {
+    if (pin->_signal != 0)
+	return (hal_sig_t *) SHMPTR(pin->_signal);
+    return NULL;
+}
+
+// make a reference from pin to signal.
+static inline void set_signal(hal_pin_t *pin, const hal_sig_t *sig) {
+    pin->_signal = SHMOFF(sig);
+}
+
+// test if a pin and a signal are linked
+static inline bool pin_linked_to(const hal_pin_t *pin, const hal_sig_t *sig) {
+    return (pin->_signal == SHMOFF(sig));
+}
+
+// test if a pin is linked at all.
+static inline bool pin_is_linked(const hal_pin_t *pin) {
+    return (SHMPTR(pin->data_ptr) != &pin->dummysig);
+}
+
+// NB this is not equivalent to unlink_pin()!
+// set a pin to 'unlinked' state.
+static inline void pin_set_unlinked(hal_pin_t *pin) {
+    pin->_signal = 0;
+    pin->data_ptr = SHMOFF(&pin->dummysig);
+}
+
+
+
+// strongly typed hal_data_u setters and getters, once and for all.
+static inline const hal_bit_t set_bit_value(hal_data_u *h, const hal_bit_t value) {
+    h->b = value;
+    return h->b;
+}
+static inline const hal_s32_t set_s32_value(hal_data_u *h, const hal_s32_t value) {
+    h->s = value;
+    return h->s;
+}
+static inline const hal_u32_t set_u32_value(hal_data_u *h, const hal_u32_t value) {
+    h->u = value;
+    return h->u;
+}
+static inline const hal_float_t set_float_value(hal_data_u *h, const hal_float_t value) {
+    h->f = value;
+    return h->f;
+}
+static inline const hal_bit_t get_bit_value(const hal_data_u *h) {
+    return h->b;
+}
+static inline const hal_s32_t get_s32_value(const hal_data_u *h) {
+    return h->s;
+}
+static inline const hal_u32_t get_u32_value(const hal_data_u *h) {
+    return h->u;
+}
+static inline const hal_float_t get_float_value(const hal_data_u *h) {
+    return h->f;
+}
 
 
 /** the HAL uses functions and threads to handle synchronization of
@@ -532,6 +632,11 @@ typedef struct hal_vtable {
     int version;                   // tags switchs struct version
     void *vtable;     // pointer to vtable (valid in loading context only)
 } hal_vtable_t;
+
+
+// only after all descriptors are defined
+// (hal_accessor.h wont work with only the incomplete typedefs from hal.h)
+#include "hal_accessor.h"
 
 
 /* IMPORTANT:  If any of the structures in this file are changed, the

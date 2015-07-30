@@ -849,7 +849,7 @@ apply_initial_values(htself_t *self, const pb::Component *pbcomp)
 		continue;
 
 	    // apply value
-	    hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
+	    hal_data_u *vp = pin_value(hp);
 	    assert(vp != NULL);
 	    if (hal_pbpin2u(&p, vp)) {
 		note_printf(self->tx, "bad pin type %d/%d name=%s", p.type(), hp->type, pname);
