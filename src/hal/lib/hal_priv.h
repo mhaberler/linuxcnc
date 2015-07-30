@@ -431,7 +431,7 @@ static inline bool pin_linked_to(const hal_pin_t *pin, const hal_sig_t *sig) {
 
 // test if a pin is linked at all.
 static inline bool pin_is_linked(const hal_pin_t *pin) {
-    return (SHMPTR(pin->data_ptr) != &pin->dummysig);
+    return (pin->data_ptr != SHMOFF(&pin->dummysig));
 }
 
 // NB this is not equivalent to unlink_pin()!

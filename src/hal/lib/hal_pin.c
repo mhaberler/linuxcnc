@@ -176,13 +176,13 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 	    /* make 'data_ptr' point to dummy signal */
 	    *data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
 	} else {
-	    // since in v2 this is just a value *, not a value**
-	    // just make it point to the dummy signal
-	    new->data_ptr = SHMOFF(&new->dummysig);
-
 	    // poison the old value** to ease debugging
 	    new->data_ptr_addr =  SHMOFF(&(hal_data->dead_beef));
 	}
+	// since in v2 this is just a value *, not a value**
+	// just make it point to the dummy signal
+	new->data_ptr = SHMOFF(&new->dummysig);
+
 	// make object visible
 	halg_add_object(false, (hal_object_ptr)new);
 	return new;
