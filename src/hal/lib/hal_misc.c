@@ -14,7 +14,7 @@
 char *fmt_ap(char *buffer,
 	     size_t size,
 	     const char *fmt,
-	     const va_list ap)
+	     va_list ap)
 {
     int sz;
     sz = rtapi_vsnprintf(buffer, size, fmt, ap);

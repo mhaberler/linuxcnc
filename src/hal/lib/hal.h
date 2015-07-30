@@ -1157,7 +1157,7 @@ static inline int hal_inst_delete(const char *name) {
 char *fmt_ap(char *buffer,
 	     size_t size,
 	     const char *fmt,
-	     const va_list ap);
+	     va_list ap);
 
 char *fmt_args(char *buffer,
 	       size_t size,
