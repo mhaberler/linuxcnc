@@ -186,6 +186,13 @@ typedef union {
     s32_sig_ptr    s32sig;
     u32_sig_ptr    u32sig;
     float_sig_ptr  floatsig;
+
+    // type aliases for param access
+    bit_param_ptr    bitparam;
+    s32_param_ptr    s32param;
+    u32_param_ptr    u32param;
+    float_param_ptr  floatparam;
+
 } hal_object_ptr;
 
 #define HO_NULL ((hal_object_ptr)NULL)
@@ -396,6 +403,8 @@ static inline const hal_data_u *param_value(const hal_param_t *param)
 
 // a pin always has a value - linked or not
 static inline const hal_data_u *pin_value(const hal_pin_t *pin) {
+    // XXX simplify eventually to SHMPTR(pin->data_ptr)
+    // once v1 pins are history
     if (pin->_signal != 0) {
 	const hal_sig_t *s = (hal_sig_t *)SHMPTR(pin->_signal);
 	return &s->value;

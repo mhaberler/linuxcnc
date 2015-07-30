@@ -539,6 +539,11 @@ typedef struct { hal_sig_t *_ss; } s32_sig_ptr;
 typedef struct { hal_sig_t *_us; } u32_sig_ptr;
 typedef struct { hal_sig_t *_fs; } float_sig_ptr;
 
+// and params
+typedef struct { hal_param_t *_bpar; } bit_param_ptr;
+typedef struct { hal_param_t *_spar; } s32_param_ptr;
+typedef struct { hal_param_t *_upar; } u32_param_ptr;
+typedef struct { hal_param_t *_fpar; } float_param_ptr;
 
 
 /***********************************************************************
