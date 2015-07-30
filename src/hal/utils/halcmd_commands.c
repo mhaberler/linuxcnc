@@ -101,7 +101,7 @@ static const char *param_data_dir(int dir);
 static const char *data_arrow1(int dir);
 static const char *data_arrow2(int dir);
 static char *data_value(int type, void *valptr);
-static char *data_value2(int type, void *valptr);
+static char *data_value2(const int type, const void *valptr);
 static void save_comps(FILE *dst);
 //static void save_aliases(FILE *dst);
 static void save_signals(FILE *dst, int only_unlinked);
@@ -2855,7 +2855,7 @@ static char *data_value(int type, void *valptr)
 
 /* Switch function to return var value in string form  */
 /* the value is printed as a packed string (no whitespace */
-static char *data_value2(int type, void *valptr)
+static char *data_value2(const int type, const void *valptr)
 {
     char *value_str;
     static char buf[15];

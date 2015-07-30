@@ -26,10 +26,12 @@ RTAPI_BEGIN_DECLS
 // should setters be lvalues?
 // add increment, and, or, not, xor
 
-#define _PINSET(ptr,member,type,value)			\
-    type *__vp = (type *)SHMPTR(ptr.member->data_ptr);	\
-    __atomic_store(__vp, &(value), RTAPI_MEMORY_MODEL);	\
-    if (unlikely(hh_get_wmb(&ptr.member->hdr)))		\
+
+#define _PINSET(ptr,member,type,value)				\
+    __atomic_store((type *)SHMPTR(ptr.member->data_ptr),	\
+		   &(value),					\
+		   RTAPI_MEMORY_MODEL);				\
+    if (unlikely(hh_get_wmb(&ptr.member->hdr)))			\
 	rtapi_smp_wmb();
 
 #define _PINGET(ptr,member,type)			 \
@@ -43,14 +45,16 @@ RTAPI_BEGIN_DECLS
 #ifdef NOTYET
 // more generic versions of the above
 #define _PINOP_VOID(aop, ptr, member, type, value)	\
-    type *vp = SHMPTR(ptr.member->data_ptr);		\
-    aop(vp, &(value), RTAPI_MEMORY_MODEL);		\
+    aop((type *)SHMPTR(ptr.member->data_ptr),		\
+	&(value),					\
+	RTAPI_MEMORY_MODEL);				\
     if (unlikely(hh_get_wmb(&ptr.member->hdr)))		\
 	rtapi_smp_wmb();
 
 #define _PINOP_VALUE(aop, ptr, member, type, value)		\
-    type *vp = SHMPTR(ptr.member->data_ptr);			\
-    type result = aop(vp, &(value), RTAPI_MEMORY_MODEL);	\
+    type result = aop((type *) SHMPTR(ptr.member->data_ptr),	\
+		      &(value),					\
+		      RTAPI_MEMORY_MODEL);			\
     if (unlikely(hh_get_wmb(&ptr.member->hdr)))			\
 	rtapi_smp_wmb();					\
     return result;
@@ -120,9 +124,10 @@ static inline hal_float_t get_float_sig(const float_sig_ptr s) {
 }
 
 // typed signal setters
-#define _SIGSET(PTR,MEMBER,SIGTYPE, HDU_TAG, VALUE)		\
-    SIGTYPE *vp = &PTR.MEMBER->value.HDU_TAG;			\
-    __atomic_store(vp, &(VALUE), RTAPI_MEMORY_MODEL);		\
+#define _SIGSET(PTR,MEMBER,SIGTYPE, TAG, VALUE)			\
+    __atomic_store((SIGTYPE *)&PTR.MEMBER->value.TAG,		\
+		   &(VALUE),					\
+		   RTAPI_MEMORY_MODEL);				\
     if (unlikely(hh_get_wmb(&PTR.MEMBER->hdr)))			\
 	rtapi_smp_wmb();
 
