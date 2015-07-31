@@ -28,7 +28,7 @@ hal_s32_t n;
         delay = 1;
 
     // loop through filters
-    for (n = 0; n < localpincount; n++)
+    for (n = 0; n < local_pincount; n++)
         {
         if(_in(n))
             {
