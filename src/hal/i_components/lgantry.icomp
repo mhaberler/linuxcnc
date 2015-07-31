@@ -111,27 +111,27 @@ FUNCTION(read)
     limit = false;
 
     // All other joints, if configured
-    for (i = 0; i < localpincount; i++) {
+    for (i = 0; i < local_pincount; i++) {
         // check to see if machine is in home state
         if(previous_home == 0) {
             // Once all joints are within proximity of homing switches,
             // the home sequence begins
-            curr_home[i] = joint_home(i);
-            home &= curr_home[i];
+            curr_home(i) = joint_home(i);
+            home &= curr_home(i);
             // Stash per joint home state for next cycle
-            prev_home[i] = curr_home[i];
+            prev_home(i) = curr_home(i);
         }
         else {
             // Use the offset to introduce a additional per joint calibration value
             // target offset is calculated when home state changes
-            if (prev_home[i] != joint_home(i)) {
-                prev_home[i] = joint_home(i);
-                pos_fb_target[i] = joint_pos_fb(i) + joint_home_offset(i);
+            if (prev_home(i) != joint_home(i)) {
+                prev_home(i) = joint_home(i);
+                pos_fb_target(i) = joint_pos_fb(i) + joint_home_offset(i);
             }
             // Once all joints come out of proximity, reset home switch
             // so machine will run normal again.
-            curr_home[i] = joint_home(i) | (joint_pos_fb(i) < pos_fb_target[i]);
-            home |= curr_home[i];
+            curr_home(i) = joint_home(i) | (joint_pos_fb(i) < pos_fb_target(i));
+            home |= curr_home(i);
         }
         limit |= joint_home(i);
     }
@@ -142,13 +142,13 @@ FUNCTION(read)
     // within proximity of the homing switch when not in home mode.
     // Feedback joint will use the first joint that IS in proximity of
     // homing switch.
-    for (i = 0; i < localpincount; i++) {
+    for (i = 0; i < local_pincount; i++) {
         if (joint_home(i) == home) {
             fb_joint = i;
             break;
         }
     }
-    position_fb = joint_pos_fb(fb_joint) + offset[fb_joint];
+    position_fb = joint_pos_fb(fb_joint) + offset(fb_joint);
 
 return 0;
 }
@@ -176,21 +176,21 @@ FUNCTION(write)
         // If we're moving towards home and all home switches are not closed
         if ((((delta * search_vel) > 0) && (home == 0)) || (home == 1)) {
             // Check each joint to see if it's home switch is active
-            for (i = 0; i < localpincount; i++) {
+            for (i = 0; i < local_pincount; i++) {
                 // If home switch is active but system not in home mode,
                 // update offset, not pos_cmd so the other joints can catch up
                 // When home, this happens when home switch is inactive
-                if (curr_home[i] != home) {
-                    offset[i] += delta;
+                if (curr_home(i) != home) {
+                    offset(i) += delta;
                 }
             }
         }
     }
 
     // Update each joint's commanded position
-    for (i = 0; i < localpincount; i++) {
-        joint_pos_cmd(i) = position_cmd - offset[i];
-        joint_offset(i) = offset[i];
+    for (i = 0; i < local_pincount; i++) {
+        joint_pos_cmd(i) = position_cmd - offset(i);
+        joint_offset(i) = offset(i);
     }
 
 return 0;

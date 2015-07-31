@@ -24,7 +24,7 @@ FUNCTION(_)
     hal_bit_t value = false;
 
     // loop through inputs
-    for (n = 0; n < localpincount; n++)
+    for (n = 0; n < local_pincount; n++)
     {
         value = value || in_(n);
     }
