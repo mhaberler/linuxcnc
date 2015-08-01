@@ -389,7 +389,9 @@ def prologue(f):
     if options.get("singleton"):
         print >>f, "RTAPI_TAG(HAL,HC_SINGLETON);"
     print >>f
-
+    if (pin_ptrs):
+        print >>f, "RTAPI_TAG(HAL,HC_SMP_SAFE);"
+        
     has_array = False
     for name, type, array, dir, value in pins:
         if array: has_array = True
@@ -708,21 +710,15 @@ def prologue(f):
             print >>f, "    z = %s;" % array
             print >>f, "    if(z > maxpins) z = maxpins;"
             print >>f, "    for(j=0; j < z; j++)\n        {"
-
-            strng = "        ip->%s[j] = halx_pin_%s_newf(%s, owner_id," % (to_c(name), type , dirmap[dir] )
-            strng += " \"%s."
-            strng += "%s" % to_c(name)
-            strng += "%d\", name, j);"
-            print >>f, strng
+            print >>f, "        ip->%s[j] = halx_pin_%s_newf(%s, owner_id," % (to_c(name), type , dirmap[dir] )
+            print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
             print >>f, "        if (%s_pin_null(ip->%s[j]))\n            return _halerrno;" % (type, to_c(name))
             if value is not None:
                 print >>f, "        set_%s_pin(ip->%s[j], %s);" % ( type, to_c(name), value)
             print >>f, "        }\n"
         else:
-            strng = "\n    ip->%s = halx_pin_%s_newf(%s, owner_id," % (to_c(name), type, dirmap[dir] )
-            strng += " \"%s."
-            strng += "%s\", name);" % to_c(name)
-            print >>f, strng
+            print >>f, "\n    ip->%s = halx_pin_%s_newf(%s, owner_id," % (to_c(name), type, dirmap[dir] )
+            print >>f, "            \"%%s%s\", name);" % to_hal("." + name)
             print >>f, "    if (%s_pin_null(ip->%s))\n            return _halerrno;\n" % (type, to_c(name))
             if value is not None:
                 print >>f, "    set_%s_pin(ip->%s, %s);\n" % (type, to_c(name), value)
@@ -1051,6 +1047,28 @@ def prologue(f):
             
         print >>f, "#undef local_pincount"
         print >>f, "#define local_pincount (ip->local_pincount)"
+        
+        print >>f, "#undef gb"
+        print >>f, "#define gb(x)  get_bit_pin(x)"
+        print >>f, "#undef gs"
+        print >>f, "#define gs(x)  get_s32_pin(x)"
+        print >>f, "#undef gu"
+        print >>f, "#define gu(x)  get_u32_pin(x)"
+        print >>f, "#undef gf"
+        print >>f, "#define gf(x)  get_float_pin(x)"
+        print >>f, "#undef sb"
+        print >>f, "#define sb(x, y)  set_bit_pin(x, y)"
+        print >>f, "#undef ss"
+        print >>f, "#define ss(x, y)  set_s32_pin(x, y)"
+        print >>f, "#undef su"
+        print >>f, "#define su(x, y)  set_u32_pin(x, y)"
+        print >>f, "#undef sf"
+        print >>f, "#define sf(x, y)  set_float_pin(x, y)"
+        print >>f, "#undef inc"
+        print >>f, "#define inc(x)  ss(x, (gs(x) + 1))"
+        print >>f, "#undef dec"
+        print >>f, "#define dec(x)  ss(x, (gs(x) - 1))"
+
     print >>f
     print >>f
 
