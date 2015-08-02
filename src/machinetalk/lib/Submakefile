@@ -57,7 +57,7 @@ $(call TOOBJSDEPS, $(LIBMTALK_SRCS)) : EXTRAFLAGS=-fPIC -g -O3 \
 TARGETS += ../lib/libmtalk.so ../lib/libmtalk.so.0
 
 ../lib/libmtalk.so.0: $(call TOOBJS, $(LIBMTALK_SRCS)) \
-	../lib/liblinuxcnc-pb2++.so \
+	../lib/libmkprotobuf.so \
 	../lib/liblinuxcncini.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p ../lib
@@ -81,7 +81,7 @@ $(call TOOBJSDEPS, $(ZRES_SRCS)) : EXTRAFLAGS += -g -std=c++0x $(AVAHI_CFLAGS)
 
 ../bin/zres: $(call TOOBJS, $(ZRES_SRCS)) \
 	../lib/libmtalk.so.0 \
-	../lib/liblinuxcnc-pb2++.so \
+	../lib/libmkprotobuf.so \
 	../lib/liblinuxcncini.so.0
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CC) -o $@ $^  $(AVAHI_LIBS) -lstdc++
