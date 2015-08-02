@@ -71,6 +71,50 @@ enum ObjectType {
     // OT_ERROR          = 130;
 }
 
+enum msgidType {
+    // all "option (nanopb_msgopt).msgid = <values> MUST be less than MSGID_MAX
+    MSGID_MAX = 4000;
+
+    // the empty zeromq frame which delimits route from payload
+    MSGID_ROUTE_DELIMITER = 4001;
+
+    // inband error message - use if a comp needs to signal an error with zeroMQ framing etc
+    MSGID_ERROR_MSG = 4002;
+
+    // an uninterpreted blob:
+    MSGID_BLOB = 4003;
+    // an uninterpreted string:
+    MSGID_STRING = 4004;
+
+    // when using multiframe rings with zeromq router/dealer, routing elements are
+    // tagged MSGID_HOP
+    MSGID_HOP = 4005;
+}
+
+enum socketType {
+    ST_ZMQ_PAIR = 0;
+    ST_ZMQ_PUB = 1;
+    ST_ZMQ_SUB = 2;
+    ST_ZMQ_REQ = 3;
+    ST_ZMQ_REP = 4;
+    ST_ZMQ_DEALER = 5;
+    ST_ZMQ_ROUTER = 6;
+    ST_ZMQ_PULL = 7;
+    ST_ZMQ_PUSH = 8;
+    ST_ZMQ_XPUB = 9;
+    ST_ZMQ_XSUB = 10;
+    ST_ZMQ_STREAM = 11;
+
+    ST_ZMQ_INVALID = 15;
+};
+
+enum securityMechanism {
+    SM_ZMQ_NONE = -1;
+    SM_ZMQ_NULL = 0;
+    SM_ZMQ_PLAIN = 1;
+    SM_ZMQ_CURVE = 2;
+};
+
 enum RCS_STATUS {
     UNINITIALIZED_STATUS = -1;
     RCS_DONE = 1;
