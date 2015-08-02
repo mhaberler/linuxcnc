@@ -242,7 +242,7 @@ int halg_xinit(const int use_hal_mutex,
     }
 
     HALDBG("%s component '%s' id=%d initialized%s",
-	   (ctor != NULL) ? "instantiable" : "legacy",
+	   (ctor != NULL) ? "instantiable" : "singleton",
 	   hal_name, comp_id,
 	   (dtor != NULL) ? ", has destructor" : "");
     return comp_id;
