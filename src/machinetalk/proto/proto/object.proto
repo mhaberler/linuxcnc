@@ -196,8 +196,16 @@ message Ring {
     optional bool        rtapi_shm     = 7;
     optional sfixed32      reader      = 8;
     optional sfixed32      writer      = 9;
-    optional sfixed32      size        = 10;
+    optional sfixed32      total_size  = 10;
     optional sfixed32      scratchpad  = 11;
+    optional sfixed32    ring_shmkey   = 12;
+    optional fixed32     encodings     = 13;
+    optional socketType  haltalk_zeromq_stype = 14;
+    optional bool        haltalk_adopt = 15;
+    optional bool        haltalk_announce = 16;
+    optional bool        haltalk_writes = 17;
+    optional fixed32     paired_handle  = 18;
+
 }
 
 message Member {
