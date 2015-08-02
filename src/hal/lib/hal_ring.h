@@ -186,6 +186,10 @@ static inline int halg_ring_attachf(const int use_hal_mutex,
 // detach a ringbuffer. Decreases the reference count.
 int halg_ring_detach(const int use_hal_mutex, ringbuffer_t *rb);
 
+static inline int hal_ring_detach(ringbuffer_t *rb) {
+    return halg_ring_detach(1, rb);
+}
+
 // accessors
 
 
