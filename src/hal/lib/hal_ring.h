@@ -3,8 +3,9 @@
 
 #include <rtapi.h>
 #include <ring.h>
-#include <multiframe.h>
 #include "hal_internal.h"
+#include <multiframe.h>
+#include <multiframe_flag.h>
 
 
 RTAPI_BEGIN_DECLS
@@ -23,6 +24,8 @@ typedef struct hal_ring {
     int total_size;              // size of shm segment allocated
     unsigned ring_offset;        // if created in HAL shared memory
     unsigned flags;
+    int handle;                  // unique ID
+    __u8 encodings;              // bitmap of hal_ring_encodings_t
 } hal_ring_t;
 
 // a plug is a read or write hookup to a HAL ring.
