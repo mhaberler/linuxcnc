@@ -11,6 +11,7 @@
 
 #define MAX_OBJECT_NAME_LEN 127
 
+
 int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
 {
     char buf[MAX_OBJECT_NAME_LEN];
@@ -19,13 +20,13 @@ int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap)
         HALFAIL_RC(ENOMEM, "length %d invalid for name starting with '%s'",
 		   sz, buf);
     }
-    char *s = shmalloc_desc(sz + 1); // include trailing zero
+    char *s = rtapi_calloc(global_heap, 1, sz + 1); // include trailing zero
     if (s == NULL) {
         HALFAIL_RC(ENOMEM, "out of memory allocating %d bytes for '%s'",
 	       sz+1, buf);
     }
     strcpy(s, buf);
-    hh->_name_ptr = SHMOFF(s);
+    hh->_name_ptr = heap_off(global_heap, s);
     hal_data->str_alloc += (sz + 1);
     return 0;
 }
@@ -72,9 +73,9 @@ int hh_clear_hdr(halhdr_t *hh)
     hh_set_id(hh, 0);
     hh_set_owner_id(hh, 0);
     if (hh->_name_ptr) {
-	void *s = SHMPTR(hh->_name_ptr);
+	void *s = heap_ptr(global_heap, hh->_name_ptr);
 	hal_data->str_freed += strlen(s) + 1;
-	shmfree_desc(s);
+	rtapi_free(global_heap, s);
 	hh->_name_ptr = 0;
     }
     hh_set_invalid(hh);

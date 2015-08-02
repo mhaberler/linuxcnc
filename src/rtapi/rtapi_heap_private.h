@@ -38,7 +38,7 @@ struct rtapi_heap {
 };
 
 static inline void *heap_ptr(struct rtapi_heap *base, size_t offset) {
-    return (((unsigned char *)base) + offset);
+    return ((unsigned char *)base + offset);
 }
 
 static inline size_t heap_off(struct rtapi_heap *base, void *p) {
