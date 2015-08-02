@@ -2621,6 +2621,14 @@ AH_TOP([/********************************************************************
 // service name is: log, rtapi, halrcomp etc
 #define ZMQIPC_FORMAT "ipc://%s/%d.%s.%s"
 
+// deprecation warning attribute
+// off by default
+#ifdef DEPRECATION_WARNINGS
+#define DEPRECATED __attribute__ ((deprecated))
+#else
+#define DEPRECATED
+#endif
+
 ]
 // flavor IDs for the various threads systems
 // and conditional to set thread system and build_sys macros

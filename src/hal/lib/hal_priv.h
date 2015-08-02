@@ -373,7 +373,7 @@ typedef struct hal_param {
     int data_ptr;		/* offset of parameter value */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
-} hal_param_t;
+} hal_param_t DEPRECATED;
 
 
 static inline const hal_type_t sig_type(const hal_sig_t *sig) {
