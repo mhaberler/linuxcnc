@@ -2,25 +2,35 @@
 #define _MULTIFRAME_FLAG_H
 
 typedef enum {
-    MF_TRANSPARENT    = 0,    // rtproxy passed through unmodified
-    MF_PROTOBUF       = 1,    // payload in protobuf wire format
-    MF_NPB_CSTRUCT    = 2,    // payload is in nanopb C struct format
-} mframetype_t;
+    MF_STRING         =  0,    // payload is a printable string
+    MF_PROTOBUF       =  1,    // payload is in protobuf wire format
+    MF_NPB_CSTRUCT    =  2,    // payload is in nanopb C struct format
+    MF_JSON           =  3,    // payload is a JSON object (string)
+    MF_GPB_TEXTFORMAT =  4,    // payload is google::protobuf::TextFormat (string)
+    MF_XML            =  5,    // payload is XML format (string)
+    MF_LEGACY_MOTCMD  =  6,    // motion command C structs, with cmd_code_t type tag
+    MF_LEGACY_MOTSTAT =  7,    // motion status C structs, with cmd_status_t type tag
+    MF_BLOB =  8,              // payload is an opaque blob
 
+    // add here as needed and change the #define to point to the last encoding
+    // used in the base code
+#define MF_LAST  MF_BLOB
 
-// if MF_PROTOBUF or MF_NPB_CSTRUCT,
-// pbmsgtype denotes the protobuf message type contained
-typedef enum {
-    NPB_UNSPECIFIED   = 0,
-    NPB_CONTAINER     = 1,
-    NPB_RT_CONTAINER  = 2,
-} npbtype_t;
+    MF_UNUSED1        =  9,    // unused in code base  - user extensions
+    MF_UNUSED2        =  10,    //
+    // ...
+
+} mf_encoding_t;
+
 
 // disposition of the __u32 flags value
 typedef struct {
-    __u32 frametype : 8;
-    __u32 npbtype   : 8;
-    __u32 __unused  : 16;
+    __u32 msgid     : 12; // must hold all proto msgid values (!)
+    __u32 format    : 4;  // an mf_encoding_t - how to interpret the message
+    __u32 more      : 1;  // zeroMQ marker for multiframe messages
+    __u32 eor       : 1;  // zeroMQ marker end-of-route, next frame is payload
+                          // zeroMQ route tags are marked by msgid == MSGID_HOP
+    __u32 unused    : 14; // spare
 } mfields_t;
 
 
