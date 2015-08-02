@@ -34,14 +34,14 @@ hal_s32_t n;
             {
             /* input true, is state at threshold? */
             if (gs(_state(n)) < gs(delay))
-                inc(_state(n));
+                incs(_state(n));
             else
                 sb(_out(n), true);
             }
         else
             {
             if (gs(_state(n)) > 0)
-                dec(_state(n));
+                decs(_state(n));
             else
                 sb(_out(n), false);
             }
