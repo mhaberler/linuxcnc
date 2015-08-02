@@ -75,11 +75,11 @@ int
 halpr_describe_signal(hal_sig_t *sig, pb::Signal *pbsig)
 {
     pbsig->set_name(ho_name(sig));
+    pbsig->set_handle(ho_id(sig));
     pbsig->set_type((pb::ValueType)sig->type);
     pbsig->set_readers(sig->readers);
     pbsig->set_writers(sig->writers);
     pbsig->set_bidirs(sig->bidirs);
-    pbsig->set_handle(ho_id(sig));
     return hal_sig2pb(sig, pbsig);
 }
 
@@ -88,8 +88,14 @@ halpr_describe_ring(hal_ring_t *ring, pb::Ring *pbring)
 {
     pbring->set_name(ho_name(ring));
     pbring->set_handle(ho_id(ring));
-    //FIXME use new attach function to query flags
+    pbring->set_total_size(ring->total_size);
+    bool halmem = (ring->flags &  ALLOC_HALMEM) != 0;
+    pbring->set_rtapi_shm(! halmem);
+    if (!halmem)
+       pbring->set_ring_shmkey(ring->ring_shmkey);
     // XXX describing more detail would require a temporary attach.
+    // FIXME use new attach function options to query flags
+
     return 0;
 }
 
