@@ -52,7 +52,8 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 	if (!self->rx.ParseFromArray(zframe_data(f), zframe_size(f))) {
 	    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
-				 16, 1, zframe_data(f), zframe_size(f), true,
+				 16, 1, zframe_data(f), zframe_size(f),
+				 true, NULL,
 				 "%s: invalid pb ", origin.c_str());
 	} else {
 	    if (self->cfg->debug) {
