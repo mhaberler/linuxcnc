@@ -163,6 +163,19 @@ static inline hal_ring_t *halg_ring_newf(const int use_hal_mutex,
     va_end(ap);
     return rp;
 }
+
+static inline int hal_ring_newf(const int size,
+				const int sp_size,
+				const int mode,
+				const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    hal_ring_t *rp = halg_ring_newfv(1, size, sp_size, mode, fmt, ap);
+    va_end(ap);
+    if (rp) return 0;
+    return _halerrno;
+}
+
 // delete a ring buffer.
 // will fail if the refcount is > 0 (meaning the ring is still attached somewhere).
 //int halg_ring_delete(const int use_hal_mutex, const char *name);
@@ -174,6 +187,13 @@ static inline int halg_ring_deletef(const int use_hal_mutex,const char *fmt, ...
     va_list ap;
     va_start(ap, fmt);
     int ret  = halg_ring_deletefv(use_hal_mutex, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+static inline int hal_ring_deletef(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int ret  = halg_ring_deletefv(1, fmt, ap);
     va_end(ap);
     return ret;
 }
