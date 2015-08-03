@@ -2624,9 +2624,9 @@ AH_TOP([/********************************************************************
 // deprecation warning attribute
 // off by default
 #ifdef DEPRECATION_WARNINGS
-#define DEPRECATED __attribute__ ((deprecated))
+#define  MK_DEPRECATED __attribute__ ((deprecated))
 #else
-#define DEPRECATED
+#define  MK_DEPRECATED
 #endif
 
 ]
