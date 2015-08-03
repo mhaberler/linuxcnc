@@ -230,7 +230,17 @@ static inline int halg_ring_attachf(const int use_hal_mutex,
     int ret = halg_ring_attachfv(use_hal_mutex, rbptr, flags, fmt, ap);
     va_end(ap);
     return ret;
+}
 
+static inline int hal_ring_attachf(ringbuffer_t *rbptr,
+				   unsigned *flags,
+				   const char *fmt,
+				   ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int ret = halg_ring_attachfv(1, rbptr, flags, fmt, ap);
+    va_end(ap);
+    return ret;
 }
 
 // detach a ringbuffer. Decreases the reference count.
