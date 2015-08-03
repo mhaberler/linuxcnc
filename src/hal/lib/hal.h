@@ -650,7 +650,7 @@ extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     hal_s32_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 	__attribute__((format(printf,4,5)));
 
-/** 'halg_pin_new()' creates a new 'pin' object.  It is a generic
+/** 'halg_pin_newf()' creates a new 'pin' object.  It is a generic
     version of the eight functions above.  It is provided ONLY for
     those special cases where a generic function is needed.  It is
     STRONGLY recommended that the functions above be used instead,
@@ -662,7 +662,7 @@ extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     the functions above.
     'type' is the hal type of the new pin - the type of data that
     will be passed in/out of the component through the new pin.
-    If successful, halg_pin_new() returns a pin descriptor reference (hal_pin_t *).
+    If successful, halg_pin_newf() returns a pin descriptor reference (hal_pin_t *).
     On failure   it returns NULL, and _halerrno is set to a negative value.
 */
 

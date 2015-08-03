@@ -352,7 +352,7 @@ EXPORT_SYMBOL(hal_comp_name);
 EXPORT_SYMBOL(halg_malloc);
 
 // hal_pin.c:
-EXPORT_SYMBOL(halg_pin_new);
+// EXPORT_SYMBOL(halg_pin_new);
 EXPORT_SYMBOL(hal_pin_newf);
 EXPORT_SYMBOL(halg_pin_newf);
 EXPORT_SYMBOL(halg_pin_newfv);
