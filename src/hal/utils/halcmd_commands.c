@@ -49,6 +49,9 @@
 #include "hal_rcomp.h"	        /* remote component declarations */
 #include "halcmd_commands.h"
 #include "halcmd_rtapiapp.h"
+#include "rtapi_hexdump.h"
+
+#include <machinetalk/generated/types.npb.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1972,6 +1975,7 @@ static int print_comp_entry(hal_object_ptr o, foreach_args_t *args)
 		halcmd_output(", unbound:%lds", comp->last_unbound-now);
 	    } else
 		halcmd_output(", unbound:never");
+		halcmd_output(", u1:%d u2:%d", comp->userarg1, comp->userarg2);
 	    break;
 	default:
 	    halcmd_output(" %-5s %s", "", state_name(comp->state));
@@ -3206,7 +3210,8 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	case RINGTYPE_MULTIPART: rtype = "multi"; break;
 	case RINGTYPE_STREAM:    rtype = "stream"; break;
 	}
-	halcmd_output("%-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
+	halcmd_output("%-5d %-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
+		      ho_id(rptr),
 		      ho_name(rptr),
 		      rh->size,
 		      rtype,
@@ -3235,7 +3240,6 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	    .user_arg1 = ho_id(rptr),
 	};
 	halg_foreach(false, &args, print_plug_entry);
-	halcmd_output("\n");
     }
  done:
     return 0;
@@ -3245,7 +3249,7 @@ static void print_ring_info(char **patterns)
 {
     if (scriptmode == 0) {
 	halcmd_output("Rings:\n");
-	halcmd_output("Name           Size       Type   Rdr Wrt Ref Flags \n");
+	halcmd_output("ID    Name           Size       Type   Rdr Wrt Ref Flags \n");
     }
     foreach_args_t args =  {
 	.type = HAL_RING,
@@ -3263,11 +3267,18 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
     size_t rmax = 50000000;  // XXX: make MAX_RINGSIZE
     char *s;
     unsigned long mode = 0; // defaults
-    int i = 0;
-    int retval;
+    int i = 0,n;
+    int retval, handle;
     char *cp;
+    unsigned adopt = 0, encodings = 0, announce=0,
+	writes = 0, sockettype = pb_socketType_ST_ZMQ_INVALID;
+    hal_ring_t *paired = NULL;
+    char *pname = NULL;
 
 #define SCRATCHPAD "scratchpad="
+#define ENCODINGS "encodings="
+#define PAIRED "paired="
+#define ZMQTYPE "zmq="
 #define MAX_SPSIZE (1024*1024)
 
     size = strtol(ring_size, &r, 0);
@@ -3295,12 +3306,13 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	    if ((*cp != '\0') && (!isspace(*cp))) {
 		/* invalid chars in string */
 		halcmd_error("string '%s' invalid for scratchpad size\n", s);
-		retval = -EINVAL;
+		return(-EINVAL);
 	    }
 	    if ((spsize < 0) || (spsize > MAX_SPSIZE)) {
 		halcmd_error("scratchpad size out of bounds (0..%d)\n", MAX_SPSIZE);
-		retval = -EINVAL;
+		return(-EINVAL);
 	    }
+
 	} else {
 	    halcmd_error("newring: invalid option '%s' (use one or several of: record stream"
 			 " rtapi hal rmutex wmutex scratchpad=<size>)\n",s);
@@ -3318,26 +3330,301 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 
 int do_delring_cmd(char *ring)
 {
-    halcmd_output("delring NIY: ring='%s'\n", ring);
-    // return halpr_group_delete(group);
+    return halg_ring_deletef(1,ring);
+}
+
+typedef int (*ring_attached_t)(const char *name, ringbuffer_t *rb, void *arg);
+static int with_ring_attached(const char *ring, ring_attached_t func, void *arg)
+{
+    ringbuffer_t ringbuffer;
+    unsigned flags;
+    int retval;
+    WITH_HAL_MUTEX();
+
+    if (halg_ring_attachf(0, NULL, NULL, ring) < 0) {
+	halcmd_error("no such ring '%s'\n", ring);
+	return -EINVAL;
+    }
+    if ((retval = halg_ring_attachf(0, &ringbuffer, &flags, ring)) < 0) {
+	halcmd_error("hal_ring_attachf(%s) failed\n", ring);
+	return -EINVAL;
+    }
+    int result = func(ring, &ringbuffer, arg);
+
+    if ((retval = halg_ring_detach(0, &ringbuffer)) < 0) {
+	halcmd_error("hal_ring_detach(%s) failed\n",ring);
+	return -EINVAL;
+    }
+    return result;
+}
+
+static void hdprinter(int level, const char *fmt, ...)
+{
+    char buf[BUFFERLEN + 1];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, BUFFERLEN, fmt, ap);
+    va_end(ap);
+    halcmd_output(buf);
+}
+
+static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
+{
+    ringheader_t *rh = rb->header;
+    size_t size;
+    size_t nr = 0, nb = 0, tfc = 0, fc;
+    const void *data;
+    ringiter_t ri;
+    int result;
+
+    switch (rh->type) {
+    default:
+	halcmd_output("%s: %s ring\n", name, rh->type == RINGTYPE_RECORD? "record" : "multi");
+
+	if ((result = record_iter_init(rb, &ri)) != 0)
+	    return result;
+
+	while (1) {
+	    size = 0;
+	    while ((result = record_iter_read(&ri, &data, &size)) == EINVAL)
+		record_iter_init(rb, &ri); // renew
+
+	    switch (result) {
+	    case EAGAIN:   // done
+		halcmd_output("records:%zu", nr);
+		if (rh->type == RINGTYPE_MULTIPART)
+		    halcmd_output(" frames:%zu", tfc);
+		halcmd_output(" used:%zu", nb);
+		halcmd_output("\n");
+		return 0;
+
+	    default:
+		// printf("data=%p size=%d\n", data, size);
+		if (rh->type == RINGTYPE_RECORD) {
+		    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+					 16, 1, data, size, true,
+					 hdprinter, "%6zu ", size);
+		    halcmd_output("\n");
+		} else {
+		    // multiframe
+		    msgbuffer_t mrb;
+		    msgbuffer_init(&mrb, rb);
+		    // just iterate the record we already pulled above
+		    mrb._read = data;
+		    mrb.read_size = size;
+		    ringvec_t rv;
+		    mflag_t *mp = (mflag_t *) &rv.rv_flags;
+		    fc = 0;
+		    while (frame_readv(&mrb, &rv) == 0) {
+			halcmd_output("record %d/%d  msgid=%d format=%d %s %s\n",
+				      nr, fc,
+				      mp->f.msgid, mp->f.format,
+				      mp->f.more ? "more":"",
+				      mp->f.eor ? "eor":"");
+			rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+					     16, 1, rv.rv_base, rv.rv_len, true,
+					     hdprinter, "%6zu ", rv.rv_len);
+			frame_shift(&mrb);
+			fc++;
+		    }
+
+		    halcmd_output("\n");
+		}
+		if ((record_iter_shift(&ri)) == EINVAL)
+		    continue;
+		nr++;
+		nb += size;
+		tfc += fc;
+	    }
+	}
+	break;
+
+    case RINGTYPE_STREAM:
+	size = stream_read_space(rh);
+	halcmd_output("%s: stream ring, %zu bytes unread\n", name, size);
+	if (size) {
+	    void *data = malloc(size);
+	    if (!data) return -ENOMEM;
+	    size = stream_peek(rb, data, size);
+	    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+				 16, 1, data, size, true,
+				 hdprinter, NULL);
+
+	    free(data);
+	}
+	break;
+    }
     return 0;
 }
 
 int do_ringdump_cmd(char *ring)
 {
-    halcmd_output("ringdump NIY: ring='%s'\n", ring);
-    return 0;
+    return with_ring_attached(ring, ringdump, NULL);
 }
-int do_ringwrite_cmd(char *ring,char *content)
+
+//convert hexstring to len bytes of data
+//returns 0 on success, -1 on error
+//data is a buffer of at least len bytes
+//hexstring is upper or lower case hexadecimal, NOT prepended with "0x"
+//http://stackoverflow.com/questions/3408706/hexadecimal-string-to-byte-array-in-c
+int hex2data(char *data, const char *hexstring, unsigned int len)
 {
-    halcmd_output("ringwrite NIY: ring='%s'\n", ring);
+    const char *pos = hexstring;
+    char *endptr;
+    size_t count = 0;
+
+    if ((hexstring[0] == '\0') || (strlen((char *)hexstring) % 2)) {
+        //hexstring contains no data
+        //or hexstring has an odd length
+        return -1;
+    }
+
+    for(count = 0; count < len; count++) {
+        char buf[5] = {'0', 'x', pos[0], pos[1], 0};
+        data[count] = strtol(buf, &endptr, 0);
+        pos += 2 * sizeof(char);
+
+        if (endptr[0] != '\0') {
+            //non-hexadecimal character encountered
+            return -1;
+        }
+    }
     return 0;
 }
 
-int do_ringread_cmd(char *ring, char *tokens[])
+static int ringwrite(const char *name, ringbuffer_t *rb, void *arg)
 {
-    halcmd_output("ringread NIY: ring='%s'\n", ring);
+    char **tokens = arg;
+    ringheader_t *rh = rb->header;
+    size_t size,wsize;
+    int i, retval;
+    msgbuffer_t mrb;
+    bool have_flag = false;
+
+    if (rh->type == RINGTYPE_MULTIPART)
+	msgbuffer_init(&mrb, rb);
+
+    for(i = 0; tokens[i] && *tokens[i]; i++) {
+	char *s = tokens[i];
+	unsigned flags = 0;
+	char buf[1024];
+	char *data, *sep;
+	if ((sep = strchr(s,':')) != NULL) {
+	    *sep = '\0';
+	    char *cp = s;
+	    flags = strtoul(s, &cp, 0);
+	    if ((*cp != '\0') && (!isspace(*cp))) {
+		halcmd_error("value '%s' invalid for flag (integer required)\n", s);
+		return -EINVAL;
+	    }
+	    s = sep + 1;
+	    have_flag = true;
+	}
+	if (strncasecmp(s, "0x",2) == 0) {
+	    int count = strlen(s+2);
+	    if (count & 1) {
+		halcmd_error("%s: '%s' - odd number of hex nibbles: %d\n",
+			     name, s, count);
+		return -EINVAL;
+	    }
+	    count /= 2;
+	    int n = hex2data(buf, s + 2, count);
+	    if (n < 0) {
+		halcmd_error("%s: '%s' - invalid hex string\n", name, s);
+		return -EINVAL;
+	    }
+	    data = buf;
+	    wsize = count;
+	} else {
+	    data = s;
+	    wsize = strlen(s);
+	}
+	//printf("flag=%u data='%s' wsize=%zu\n",flags, data, wsize);
+
+	switch (rh->type) {
+	case RINGTYPE_MULTIPART:
+	    retval = frame_write(&mrb, data, wsize, flags);
+	    switch (retval) {
+	    case EAGAIN:
+		halcmd_error("%s: insufficient space for %zu bytes\n",name, wsize);
+		break;
+	    case ERANGE:
+		halcmd_error("%s: write size %zu exceeds ringbuffer size \n",name, wsize);
+		break;
+	    default: ; // success
+	    }
+	    break;
+	case RINGTYPE_RECORD:
+	    if (have_flag) {
+		halcmd_error("flag %d has no meaning for record ring '%s'\n",
+			     flags, name);
+		break;
+	    }
+	    retval = record_write(rb, data, wsize);
+	    switch (retval) {
+	    case EAGAIN:
+		halcmd_error("%s: insufficient space for %zu bytes\n",name, wsize);
+		break;
+	    case ERANGE:
+		halcmd_error("%s: write size %zu exceeds ringbuffer size \n",name, wsize);
+		break;
+	    default: ; // success
+	    }
+	    break;
+	case RINGTYPE_STREAM:
+	    if (have_flag) {
+		halcmd_error("flag %d has no meaning for stream ring '%s'\n",
+			     flags, name);
+		break;
+	    }
+	    size = stream_write(rb, data, wsize);
+	    if (size < wsize) {
+		halcmd_error("%s: '%s' - space only for %zu out of %zu bytes\n",
+			     name, data, size, wsize);
+	    }
+	}
+    }
+    switch (rh->type) {
+    case RINGTYPE_MULTIPART:
+	msg_write_flush(&mrb);
+	break;
+    case RINGTYPE_RECORD:
+	break;
+    case RINGTYPE_STREAM:;
+    }
     return 0;
+}
+
+int do_ringwrite_cmd(char *ring,char *tokens[])
+{
+    return with_ring_attached(ring, ringwrite, tokens);
+}
+
+static int ringflush(const char *name, ringbuffer_t *rb, void *arg)
+{
+    ringheader_t *rh = rb->header;
+    int result;
+    size_t n;
+    switch (rh->type) {
+    case RINGTYPE_RECORD:
+	result = record_flush(rb);
+	halcmd_output("%s: %d records flushed\n", name, result);
+	break;
+    case RINGTYPE_MULTIPART:
+	result = record_flush(rb);
+	halcmd_output("%s: %d multiframes flushed\n", name, result);
+	break;
+    case RINGTYPE_STREAM:
+	n = stream_flush(rb);
+	halcmd_output("%s: %zu bytes flushed\n", name, n);
+	break;
+    }
+    return 0;
+}
+
+int do_ringflush_cmd(char *ring)
+{
+    return with_ring_attached(ring, ringflush, NULL);
 }
 // ----- end ring support
 

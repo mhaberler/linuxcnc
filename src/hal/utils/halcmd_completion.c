@@ -56,7 +56,7 @@ static const char *command_table[] = {
     "addf", "delf", "show", "list", "status", "save", "source",
     "start", "stop", "quit", "exit", "help", "alias", "unalias", 
     "newg"," delg", "newm", "delm",
-    "newring","delring","ringdump","ringwrite","ringread",
+    "newring","delring","ringdump","ringwrite","ringflush",
     "newcomp","newpin","ready","waitbound", "waitunbound", "waitexists",
     "log","shutdown","ping","newthread","delthread",
     "sleep","vtable","autoload","newinst", "delinst",
@@ -758,7 +758,7 @@ char **halcmd_completer(const char *text, int start, int end, hal_completer_func
         result = func(text, ring_generator);
     } else if(startswith(buffer, "ringdump ") && argno == 1) {
 	result = func(text, ring_generator);
-   } else if(startswith(buffer, "ringread ") && argno == 1) {
+   } else if(startswith(buffer, "ringflush ") && argno == 1) {
 	result = func(text, ring_generator);
    } else if(startswith(buffer, "ringwrite ") && argno == 1) {
 	result = func(text, ring_generator);
