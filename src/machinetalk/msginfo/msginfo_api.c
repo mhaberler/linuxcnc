@@ -1,6 +1,5 @@
 #include "config.h"
 #include "msginfo.h"
-#include "rtapi_export.h"
 
 #if defined(ULAPI) || defined(BUILD_SYS_USER_DSO)
 #include <stdlib.h>   // bsearch()
@@ -39,6 +38,7 @@ const  pbmsginfo_t *pbmsgdesc_by_name(const char *name)
 }
 
 #ifdef RTAPI
+#include "rtapi_export.h"
 EXPORT_SYMBOL(msginfo_cmp);
 EXPORT_SYMBOL(pbmsgdesc_by_id);
 EXPORT_SYMBOL(pbmsgdesc_by_name);

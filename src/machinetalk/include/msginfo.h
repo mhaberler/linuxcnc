@@ -19,6 +19,8 @@ extern "C" {
 	int32_t encoded_size;  // -1 if variable size
 	const char *name;
 	size_t size;
+
+	// the nanopb descriptor
 	const pb_field_t *fields;
 
 	// need to fudge this for RT - we cant include C++ headers in RT

@@ -100,8 +100,8 @@ int rtapi_app_main(void)
 	    return -1;
 	}
 	if (debug)
-	    // just show msgid's and message names in log
-	    HALINFO("%5.5d %s", p->msgid, p->name);
+	    // show msgid, name, npb descriptor, gpb descriptor
+	    HALINFO("%-5d %s %p %p", p->msgid, p->name, p->fields, p->descriptor);
     }
     return 0;
 }
