@@ -160,10 +160,15 @@ void *_rtapi_calloc(struct rtapi_heap *h, size_t nelem, size_t elsize)
 
 void *_rtapi_realloc(struct rtapi_heap *h, void *ptr, size_t size)
 {
+    size_t sz = _rtapi_allocsize (ptr);
+
+    // requested size fits current allocation?
+    if (size <= sz)
+	return ptr; // nothing to do
+
     void *p = _rtapi_malloc (h, size);
     if (!p)
         return (p);
-    size_t sz = _rtapi_allocsize (ptr);
     memcpy(p, ptr, (sz > size) ? size : sz);
     _rtapi_free(h, ptr);
     return p;
