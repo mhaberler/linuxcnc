@@ -76,6 +76,7 @@ typedef struct plug_args {
     int  ring_id;
     char *owner_name;    // matches owner either by name or object ID
     int   owner_id;
+    mt_encoding_set_t understands; // this plug is willing to accept
 } plug_args_t;
 
 hal_plug_t *halg_plug_new(const int use_hal_mutex,
@@ -114,33 +115,7 @@ int halg_plug_delete(const int use_hal_mutex,
 // named HAL rings are owned by the HAL_LIB_<pid> RTAPI module
 // components do not make sense as owners since their lifetime
 // might be shorter than the ring
-// encoding - indicates which type(s) of encoding must be present
-//            if writing a message into this ring
-//            set by reader, inspected by writer
-//            the encoding must be present in the actual write
-//            operation in the multiframe flag, see multiframe_flags.h
-//            inspected by readers and writers
-//            a bitmap of mf_encoding_t flags
-//
-// see also : rtapi/multiframe_flag.h
-//
-// to indicate support for understanding a particular encoding,
-// set the corresponding bit(s) in hal_ring_t.encodings:
-// NB: encoding is a bitmap, whereas mfields_t.format is one
-// of the underlying values (better be one only ;)
-typedef enum {
-	RE_TEXT         =  RTAPI_BIT(MF_STRING),      // payload is a printable string
-	RE_PROTOBUF     =  RTAPI_BIT(MF_PROTOBUF),    // payload is in protobuf wire format
-	RE_NPB_CSTRUCT  =  RTAPI_BIT(MF_NPB_CSTRUCT), // payload is in nanopb C struct format
-	RE_JSON         =  RTAPI_BIT(MF_JSON),        // payload is a JSON object (string)
-	RE_GPB_TEXTFORMAT  =  RTAPI_BIT(MF_GPB_TEXTFORMAT),// payload is google::protobuf::TextFormat (string)
-	RE_XML          =  RTAPI_BIT(MF_XML),         // payload is XML format (string)
-        RE_LEGACY_MOTCMD   =  RTAPI_BIT(MF_LEGACY_MOTCMD),     // motion command C structs
-        RE_LEGACY_MOTSTAT   =  RTAPI_BIT(MF_LEGACY_MOTSTAT),   // motion status C structs
 
-	//   RE_UNUSED1      =  RTAPI_BIT(MF_UNUSED1),     // unused in base code - user extensions
-} hal_ring_encodings_t;
-#define RE_MAX 255
 
 // base function
 hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
