@@ -237,6 +237,19 @@ int hal_create_xthread(const hal_threadargs_t *args)
     return 0;
 }
 
+// HAL threads - legacy API
+int hal_create_thread(const char *name, unsigned long period_nsec,
+		      int uses_fp, int cpu_id) {
+    hal_threadargs_t args = {
+	.name = name,
+	.period_nsec = period_nsec,
+	.uses_fp = uses_fp,
+	.cpu_id = cpu_id,
+	.flags = 0,
+    };
+    return hal_create_xthread(&args);
+}
+
 static int delete_thread_cb(hal_object_ptr o, foreach_args_t *args)
 {
     free_thread_struct(o.thread);
