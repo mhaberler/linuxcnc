@@ -252,59 +252,59 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
     hal_s32_t hals32;
     hal_u32_t halu32;
     hal_float_t halfloat,delta;
-    hal_pin_t *pin;
-    hal_sig_t *sig;
-    void *data_ptr;
+    hal_object_ptr hp;
 
     assert(cc->magic ==  CCOMP_MAGIC);
     RTAPI_ZERO_BITMAP(cc->changed, cc->n_pins);
 
     for (i = 0; i < cc->n_pins; i++) {
-	pin = cc->pin[i];
-	if (pin->signal != 0) {
-	    sig = SHMPTR(pin->signal);
-	    data_ptr = SHMPTR(sig->data_ptr);
-	} else {
-	    data_ptr = hal_shmem_base + SHMOFF(&(pin->dummysig));
-	}
+	hp.pin = cc->pin[i];
 
-	switch (pin->type) {
+	switch (hp.pin->type) {
 	case HAL_BIT:
-	    halbit = *((char *) data_ptr);
+	    halbit = get_bit_pin(hp.bitpin);
+	    // halbit = *((char *) data_ptr);
 	    if (cc->tracking[i].b != halbit) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
-		cc->tracking[i].b = halbit;
+		set_bit_value(&cc->tracking[i], halbit);
 	    }
 	    break;
+
 	case HAL_FLOAT:
-	    halfloat = *((hal_float_t *) data_ptr);
+	    halfloat = get_float_pin(hp.floatpin);
+
+	    // halfloat = *((hal_float_t *) data_ptr);
 	    delta = HAL_FABS(halfloat - cc->tracking[i].f);
-	    if (delta > hal_data->epsilon[pin->eps_index]) {
+	    if (delta > hal_data->epsilon[hp.pin->eps_index]) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
-		cc->tracking[i].f = halfloat;
+		set_float_value(&cc->tracking[i], halfloat);
 	    }
 	    break;
 	case HAL_S32:
-	    hals32 =  *((hal_s32_t *) data_ptr);
+	    hals32 = get_s32_pin(hp.s32pin);
+
+	    // hals32 =  *((hal_s32_t *) data_ptr);
 	    if (cc->tracking[i].s != hals32) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
-		cc->tracking[i].s = hals32;
+		set_s32_value(&cc->tracking[i],hals32);
 	    }
 	    break;
 	case HAL_U32:
-	    halu32 =  *((hal_u32_t *) data_ptr);
+	    halu32 = get_u32_pin(hp.u32pin);
+	    //halu32 =  *((hal_u32_t *) data_ptr);
 	    if (cc->tracking[i].u != halu32) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
-		cc->tracking[i].u = halu32;
+		set_u32_value(&cc->tracking[i],halu32);
 	    }
 	    break;
+
 	default:
 	    HALERR("BUG: hal_ccomp_match(%s): invalid type for pin %s: %d",
-		   ho_name(cc->comp), ho_name(pin), pin->type);
+		   ho_name(cc->comp), ho_name(hp.pin), pin_type(hp.pin));
 	    return -EINVAL;
 	}
     }
@@ -316,9 +316,6 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 		     void *cb_data, int report_all)
 {
     int retval, i;
-    hal_data_u *data_ptr;
-    hal_pin_t *pin;
-    hal_sig_t *sig;
 
     if (!report_cb)
 	return 0;
@@ -327,15 +324,12 @@ int hal_ccomp_report(hal_compiled_comp_t *cc,
 
     for (i = 0; i < cc->n_pins; i++) {
 	if (report_all || RTAPI_BIT_TEST(cc->changed, i)) {
-	    pin = cc->pin[i];
-	    if (pin->signal != 0) {
-		sig = SHMPTR(pin->signal);
-		data_ptr = (hal_data_u *)SHMPTR(sig->data_ptr);
-	    } else {
-		data_ptr = (hal_data_u *)(hal_shmem_base + SHMOFF(&(pin->dummysig)));
-	    }
+	    const hal_pin_t *pin = cc->pin[i];
+	    // XXX this is not a good API
+	    // drop the fourth argument and pass only the pin
+	    // to force accessor use in the report callback
 	    if ((retval = report_cb(REPORT_PIN, cc, pin,
-				    data_ptr, cb_data)) < 0)
+				    pin_value(pin), cb_data)) < 0)
 		return retval;
 	}
     }

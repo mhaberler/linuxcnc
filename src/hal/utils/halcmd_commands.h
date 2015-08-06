@@ -97,8 +97,8 @@ extern int do_delm_cmd(char *group, char *member);
 extern int do_newring_cmd(char *ring, char *ring_size, char *tokens[]);
 extern int do_delring_cmd(char *ring);
 extern int do_ringdump_cmd(char *ring);
-extern int do_ringwrite_cmd(char *ring,char *content);
-extern int do_ringread_cmd(char *ring, char *tokens[]);
+extern int do_ringwrite_cmd(char *ring, char *tokens[]);
+extern int do_ringflush_cmd(char *ring);
 
 int do_setrmb_cmd(char *object);
 int do_setwmb_cmd(char *object);

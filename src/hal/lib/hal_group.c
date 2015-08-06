@@ -303,7 +303,8 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
 int hal_cgroup_match(hal_compiled_group_t *cg)
 {
     int i, monitor, nchanged = 0, m = 0;
-    hal_sig_t *sig;
+    hal_object_ptr ho;
+    //    hal_sig_t *sig;
     hal_bit_t halbit;
     hal_s32_t hals32;
     hal_u32_t halu32;
@@ -324,10 +325,10 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 	    if (!((cg->member[i]->userarg1 &  MEMBER_MONITOR_CHANGE) ||
 		  (cg->group->userarg2 &  GROUP_MONITOR_ALL_MEMBERS)))
 		continue;
-	    sig = SHMPTR(cg->member[i]->sig_ptr);
-	    switch (sig->type) {
+	    ho.any = SHMPTR(cg->member[i]->sig_ptr);
+	    switch (ho.sig->type) {
 	    case HAL_BIT:
-		halbit = *((hal_bit_t *) SHMPTR(sig->data_ptr));
+		halbit = get_bit_sig(ho.bitsig);
 		if (cg->tracking[m].b != halbit) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -335,7 +336,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    case HAL_FLOAT:
-		halfloat = *((hal_float_t *) SHMPTR(sig->data_ptr));
+		halfloat = get_float_sig(ho.floatsig);
 		delta = HAL_FABS(halfloat - cg->tracking[m].f);
 		if (delta > hal_data->epsilon[cg->member[i]->eps_index]) {
 		    nchanged++;
@@ -344,7 +345,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    case HAL_S32:
-		hals32 =  *((hal_s32_t *) SHMPTR(sig->data_ptr));
+		hals32 = get_s32_sig(ho.s32sig);
 		if (cg->tracking[m].s != hals32) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -352,7 +353,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    case HAL_U32:
-		halu32 =  *((hal_u32_t *) SHMPTR(sig->data_ptr));
+		halu32 = get_u32_sig(ho.u32sig);
 		if (cg->tracking[m].u != halu32) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -361,7 +362,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		break;
 	    default:
 		HALERR("BUG: detect_changes(%s): invalid type for signal %s: %d",
-		       ho_name(cg->group), ho_name(sig), sig->type);
+		       ho_name(cg->group), ho_name(ho.sig), ho.sig->type);
 		return -EINVAL;
 	    }
 	    m++;

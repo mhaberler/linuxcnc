@@ -73,9 +73,6 @@ extern ringbuffer_t rtapi_message_buffer;
 
 static char logtag[TAGSIZE];
 
-// switch to exclusively using the ringbuffer from RT
-#define USE_MESSAGE_RING 1
-
 typedef struct {
     rtapi_msgheader_t hdr;
     char buf[RTPRINTBUFFERLEN];

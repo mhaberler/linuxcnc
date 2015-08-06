@@ -23,7 +23,6 @@ int halg_signal_new(const int use_hal_mutex,
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
-	void *data_addr;
 
 	/* check for an existing signal with the same name */
 	if (halpr_find_sig_by_name(name) != 0) {
@@ -31,6 +30,8 @@ int halg_signal_new(const int use_hal_mutex,
 	}
 	/* allocate memory for the signal value */
 #ifdef LEGACY_SIGNALS
+	void *data_addr;
+
 	switch (type) {
 	case HAL_BIT:
 	    data_addr = shmalloc_rt(sizeof(hal_bit_t));
@@ -54,6 +55,8 @@ int halg_signal_new(const int use_hal_mutex,
 				       HAL_SIGNAL, 0, name)) == NULL) {
 	    return _halerrno;
 	}
+
+#ifdef SIG_DATA_PTR // retain legacy sig.data_ptr field
 #ifndef LEGACY_SIGNALS
 	switch (type) {
 	case HAL_BIT:
@@ -87,12 +90,40 @@ int halg_signal_new(const int use_hal_mutex,
 	default:
 	    break;
 	}
-	/* initialize the structure */
 	new->data_ptr = SHMOFF(data_addr);
+#else
+	switch (type) {
+	case HAL_BIT:
+	    set_bit_value(&new->value, 0);
+	    break;
+
+	case HAL_S32:
+	    set_s32_value(&new->value, 0);
+	    break;
+
+	case HAL_U32:
+	    set_u32_value(&new->value, 0);
+	    break;
+
+	case HAL_FLOAT:
+	    set_float_value(&new->value, 0.0);
+	    break;
+
+	default:
+	    halg_free_object(0, (hal_object_ptr)new);
+	    HALFAIL_RC(EINVAL,"signal '%s': illegal signal type %d'", name, type);
+	    break;
+	}
+
+#endif
+	/* initialize the structure */
 	new->type = type;
 	new->readers = 0;
 	new->writers = 0;
 	new->bidirs = 0;
+
+	// propagate the news
+	rtapi_smp_mb();
 
 	// make it visible
 	halg_add_object(false, (hal_object_ptr)new);
@@ -235,8 +266,6 @@ int halg_link(const int use_hal_mutex,
 	      const char *sig_name)
 {
     hal_sig_t *sig;
-    hal_comp_t *comp;
-    void **data_ptr_addr, *data_addr;
 
     CHECK_HALDATA();
     CHECK_LOCK(HAL_LOCK_CONFIG);
@@ -260,13 +289,13 @@ int halg_link(const int use_hal_mutex,
 	    HALFAIL_RC(EINVAL, "signal '%s' not found", sig_name);
 	}
 	/* found both pin and signal, are they already connected? */
-	if (SHMPTR(pin->signal) == sig) {
+	if (pin_linked_to(pin, sig)) {
 	    HALWARN("pin '%s' already linked to '%s'", pin_name, sig_name);
 	    return 0;
 	}
 	/* is the pin connected to something else? */
-	if (pin->signal) {
-	    sig = SHMPTR(pin->signal);
+	if (pin_is_linked(pin)) {
+	    sig = signal_of(pin);
 	    HALFAIL_RC(EINVAL, "pin '%s' is linked to '%s', cannot link to '%s'",
 		   pin_name, ho_name(sig), sig_name);
 	}
@@ -286,13 +315,23 @@ int halg_link(const int use_hal_mutex,
 	}
         /* everything is OK, make the new link */
 	if (hh_get_legacy(&pin->hdr)) {
-	    data_ptr_addr = SHMPTR(pin->data_ptr_addr);
-	    comp = halpr_find_owning_comp(ho_owner_id(pin));
-	    data_addr = comp->shmem_base + sig->data_ptr;
+	    hal_comp_t *comp = halpr_find_owning_comp(ho_owner_id(pin));
+	    void **data_ptr_addr = SHMPTR(pin->data_ptr_addr);
+	    void *data_addr = comp->shmem_base + SHMOFF(&sig->value);
+
+	    HAL_ASSERT(data_ptr_addr != NULL);
+	    HAL_ASSERT(*data_ptr_addr != NULL);
+
 	    *data_ptr_addr = data_addr;
-	} else {
-	    pin->data_ptr = sig->data_ptr;
 	}
+
+	// track in v2 data_ptr. Eventually even this can go, just use
+	// pin->signal. Need to assure though pin->signal is not inited to 0
+	// but to SHMOFF(&sig->value). See pin_is_linked() and pin_linked(to).
+	//
+	// strategy: rename pin.signal to pin._signal and fix fallout.
+	// good runtime assertion on 'halcmd show objects'.
+	pin->data_ptr = SHMOFF(&sig->value);
 
 	if (( sig->readers == 0 ) && ( sig->writers == 0 ) &&
 	    ( sig->bidirs == 0 )) {
@@ -300,7 +339,11 @@ int halg_link(const int use_hal_mutex,
 	    // this signal is not linked to any pins
 	    // copy value from pin's "dummy" field,
 	    // making it 'inherit' the value of the first pin
-	    data_addr = hal_shmem_base + sig->data_ptr;
+	    // data_addr = hal_shmem_base + sig->data_ptr;
+
+	    const hal_data_u *hdu = pin_value(pin);
+
+	    hal_object_ptr hs = { .sig = sig };
 
 	    // assure proper typing on assignment, assigning a hal_data_u is
 	    // a surefire cause for memory corrupion as hal_data_u is larger
@@ -311,16 +354,24 @@ int halg_link(const int use_hal_mutex,
 
 	    switch (pin->type) {
 	    case HAL_BIT:
-		*((hal_bit_t *) data_addr) = pin->dummysig.b;
+		set_bit_sig(hs.bitsig, get_bit_value(hdu));
+		// *((hal_bit_t *) data_addr) = pin->dummysig.b;
 		break;
+
 	    case HAL_S32:
-		*((hal_s32_t *) data_addr) = pin->dummysig.s;
+		set_s32_sig(hs.s32sig, get_s32_value(hdu));
+
+		//*((hal_s32_t *) data_addr) = pin->dummysig.s;
 		break;
+
 	    case HAL_U32:
-		*((hal_u32_t *) data_addr) = pin->dummysig.u;
+		set_u32_sig(hs.u32sig, get_u32_value(hdu));
+		// *((hal_u32_t *) data_addr) = pin->dummysig.u;
 		break;
+
 	    case HAL_FLOAT:
-		*((hal_float_t *) data_addr) = pin->dummysig.f;
+		set_float_sig(hs.floatsig, get_float_value(hdu));
+		// *((hal_float_t *) data_addr) = pin->dummysig.f;
 		break;
 	    default:
 		HALBUG("pin '%s' has invalid type %d !!\n",
@@ -339,7 +390,7 @@ int halg_link(const int use_hal_mutex,
 	    sig->bidirs++;
 	}
 	/* and update the pin */
-	pin->signal = SHMOFF(sig);
+	set_signal(pin, sig);
 
 	// propagate the pin->signal assignment because
 	// halg_signal_propagate_barriers() triggers on
@@ -382,7 +433,7 @@ int pin_by_signal_callback(hal_object_ptr o, foreach_args_t *args)
     hal_sig_t *sig = args->user_ptr1;
     hal_pin_signal_callback_t cb = args->user_ptr2;
 
-    if (o.pin->signal == SHMOFF(sig)) {
+    if (pin_linked_to(o.pin, sig)) {
 	if (cb) return cb(o.pin, sig, args->user_ptr3);
     }
     return 0;

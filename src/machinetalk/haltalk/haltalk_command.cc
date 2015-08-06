@@ -52,7 +52,8 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 
 	if (!self->rx.ParseFromArray(zframe_data(f), zframe_size(f))) {
 	    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
-				 16, 1, zframe_data(f), zframe_size(f), true,
+				 16, 1, zframe_data(f), zframe_size(f),
+				 true, NULL,
 				 "%s: invalid pb ", origin.c_str());
 	} else {
 	    if (self->cfg->debug) {
@@ -574,7 +575,7 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 		    continue;
 		}
 		// set value
-		hal_data_u *vp = (hal_data_u *) hal_pin2u(o.pin);
+		hal_data_u *vp = pin_value(o.pin);
 		assert(vp != NULL);
 		if (hal_pbpin2u(&p, vp)) {
 		    note_printf(self->tx, "bad pin type %d name=%s",p.type(), ho_name(o.pin));
@@ -644,7 +645,7 @@ process_set(htself_t *self, bool halrcomp, const std::string &from,  void *socke
 		    continue;
 		}
 		// set value
-		hal_data_u *vp = (hal_data_u *) hal_sig2u(o.sig);
+		hal_data_u *vp = sig_value(o.sig);
 		assert(vp != NULL);
 		if (hal_pbsig2u(&s, vp)) {
 		    note_printf(self->tx, "bad signal type %d name=%s",
@@ -849,7 +850,7 @@ apply_initial_values(htself_t *self, const pb::Component *pbcomp)
 		continue;
 
 	    // apply value
-	    hal_data_u *vp = (hal_data_u *) hal_pin2u(hp);
+	    hal_data_u *vp = pin_value(hp);
 	    assert(vp != NULL);
 	    if (hal_pbpin2u(&p, vp)) {
 		note_printf(self->tx, "bad pin type %d/%d name=%s", p.type(), hp->type, pname);

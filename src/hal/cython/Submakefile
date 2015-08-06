@@ -74,7 +74,7 @@ TARGETS += ../lib/python/machinekit/rtapi.so
 	 $(patsubst %.c,objects/%.o,$(RTAPISO_CSRCS)) \
 	 $(patsubst %.cc,objects/%.o,$(RTAPISO_CXXSRCS)) \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/libmtalk.so.0
 	$(ECHO) Linking $($@)
 	@mkdir -p $(dir $@)
@@ -109,6 +109,26 @@ TARGETS += ../lib/python/machinekit/shmcommon.so
 	$(ECHO) Linking $($@)
 	@mkdir -p $(dir $@)
 	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
+
+NANOPBSO_CSRCS := $(addprefix $(HALNGMKDIR)/, \
+	nanopb.c ) \
+	machinetalk/nanopb/pb_common.c \
+	machinetalk/nanopb/pb_encode.c \
+	machinetalk/nanopb/pb_decode.c
+
+
+USERSRCS += $(NANOPBSO_CSRCS)
+$(call TOOBJSDEPS, $(NANOPBSO_CSRCS)) : \
+	EXTRAFLAGS=-fPIC -Imachinetalk/nanopb \
+	-DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<pb-machinekit.h>'
+
+TARGETS += ../lib/python/machinekit/nanopb.so
+../lib/python/machinekit/nanopb.so: \
+	 $(patsubst %.c,objects/%.o,$(NANOPBSO_CSRCS)) \
+	../lib/libmkprotobuf.so
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) $(PROTOBUF_LIBS) -lrt
 
 
 $(HALNGDIR)/machinekit/%.c: $(addprefix $(HALNGDIR)/machinekit/, %.pyx %.pxd)

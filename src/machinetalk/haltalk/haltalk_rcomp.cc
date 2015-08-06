@@ -20,12 +20,19 @@
 #include "halpb.hh"
 #include "pbutil.hh"
 
-static int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
-			  hal_pin_t *pin,
-			  hal_data_u *vp,
-			  void *cb_data);
-static int add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
-			     hal_pin_t *pin, hal_data_u *vp, void *cb_data);
+static int
+comp_report_cb(const int phase,
+	       const  hal_compiled_comp_t *cc,
+	       const hal_pin_t *pin,
+	       const hal_data_u *vp,
+	       void *cb_data);
+
+static int
+add_pins_to_items(const int phase,
+		  const hal_compiled_comp_t *cc,
+		  const hal_pin_t *pin,
+		  const hal_data_u *vp,
+		  void *cb_data);
 
 // handle timer event for a rcomp - report any changes in comp
 int
@@ -276,12 +283,12 @@ int release_comps(htself_t *self)
 
 // ----- end of public functions ----
 
-
-static
-int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
-		   hal_pin_t *pin,
-		   hal_data_u *vp,
-		   void *cb_data)
+static int
+comp_report_cb(const int phase,
+	       const  hal_compiled_comp_t *cc,
+	       const hal_pin_t *pin,
+	       const hal_data_u *vp,
+	       void *cb_data)
 {
     rcomp_t *rc = (rcomp_t *) cb_data;
     htself_t *self =  rc->self;
@@ -298,7 +305,7 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
     case REPORT_PIN: // per-reported-pin action
 	p = self->tx.add_pin();
 	p->set_handle(ho_id(pin));
-	if (hal_pin2pb(pin, p))
+	if (hal_pin2pb((hal_pin_t *)pin, p))
 		rtapi_print_msg(RTAPI_MSG_ERR, "bad type %d for pin '%s'\n",
 				pin->type, ho_name(pin));
 	break;
@@ -314,9 +321,10 @@ int comp_report_cb(int phase,  hal_compiled_comp_t *cc,
 }
 
 static int
-add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
-		  hal_pin_t *pin,
-		  hal_data_u *vp,
+add_pins_to_items(const int phase,
+		  const hal_compiled_comp_t *cc,
+		  const hal_pin_t *pin,
+		  const hal_data_u *vp,
 		  void *cb_data)
 {
     if (phase != REPORT_PIN) return 0;
@@ -326,7 +334,7 @@ add_pins_to_items(int phase,  hal_compiled_comp_t *cc,
 
     if (it == self->items.end()) { // not in handle map
 	hal_object_ptr o;
-	o.pin = pin;
+	o.pin = (hal_pin_t *)pin;
 	self->items[ho_id(pin)] = o;
 
 	// halitem_t *hi = new halitem_t();

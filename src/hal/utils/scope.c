@@ -282,26 +282,28 @@ hal_param_t *param;
 		break;
 	    }
 	    /* point at pin data */
-	    if (pin->signal == 0) {
-		/* pin is unlinked, get data from dummysig */
-		ctrl_shm->data_offset[n] = SHMOFF(&(pin->dummysig));
-	    } else {
-		/* pin is linked to a signal */
-		sig = SHMPTR(pin->signal);
-		ctrl_shm->data_offset[n] = sig->data_ptr;
-	    }
+	    ctrl_shm->data_offset[n] = SHMOFF(pin_value(pin));
+	    sig = signal_of(pin);
+	    /* if (!pin_linked(pin->signal == 0) { */
+	    /* 	/\* pin is unlinked, get data from dummysig *\/ */
+	    /* 	ctrl_shm->data_offset[n] = SHMOFF(&(pin->dummysig)); */
+	    /* } else { */
+	    /* 	/\* pin is linked to a signal *\/ */
+	    /* 	sig = SHMPTR(pin->signal); */
+	    /* 	ctrl_shm->data_offset[n] = sig->data_ptr; */
+	    /* } */
 	} else if ( chan->data_source_type == 1 ) {
 	    /* channel source is a signal, point at it */
 	    sig = SHMPTR(chan->data_source);
 	    /* make sure it's still valid */
-	    if(! ho_valid(pin))
+	    if(! ho_valid(sig))
 	    {
 		/* signal has been deleted */
 		chan->data_source_type = -1;
 		chan->data_len = 0;
 		break;
 	    }
-	    ctrl_shm->data_offset[n] = sig->data_ptr;
+	    ctrl_shm->data_offset[n] =  SHMOFF(sig_value(sig));
 	} else if ( chan->data_source_type == 2 ) {
 	    /* channel source is a parameter, point at it */
 	    param = SHMPTR(chan->data_source);

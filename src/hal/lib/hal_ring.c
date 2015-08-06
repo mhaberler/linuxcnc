@@ -251,7 +251,7 @@ int halg_ring_attachfv(const int use_hal_mutex,
 	// if a given ring exists.
 	// hal_ring_attach(name, NULL, &flags) is a way to inspect the flags
 	// of an existing ring without actually attaching it.
-	if (rptr == NULL) {
+	if (rbptr == NULL) {
 	    if (flags)
 		*flags = rptr->flags;
 	    return 0;

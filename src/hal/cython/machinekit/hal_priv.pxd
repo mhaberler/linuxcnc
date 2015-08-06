@@ -3,6 +3,7 @@
 from .hal cimport *
 from hal_const cimport hal_type_t, hal_pin_dir_t, hal_param_dir_t
 from rtapi cimport rtapi_heap
+from cpython.bool  cimport bool
 
 cdef extern from "hal_object.h":
 
@@ -34,7 +35,7 @@ cdef extern from "hal_priv.h":
 
     ctypedef struct hal_sig_t:
         halhdr_t hdr
-        int data_ptr
+        hal_data_u value
         hal_type_t type
         int readers
         int writers
@@ -176,3 +177,16 @@ cdef extern from "hal_priv.h":
                              void **data_ptr_addr,
                              const int owner_id,
                              const char *name)
+
+    # accessors
+    hal_sig_t *signal_of(const hal_pin_t *pin)
+    hal_data_u *pin_value(hal_pin_t *pin)
+    int pin_type(const hal_pin_t *pin)
+    int param_type(const hal_param_t *param)
+    int pin_dir(const hal_pin_t *pin)
+
+    int sig_type(const hal_sig_t *sig)
+    hal_data_u *sig_value(hal_sig_t *sig)
+    hal_sig_t *signal_of(const hal_pin_t *pin)
+    int pin_linked_to(const hal_pin_t *pin, const hal_sig_t *sig)
+    bint pin_is_linked(const hal_pin_t *pin)

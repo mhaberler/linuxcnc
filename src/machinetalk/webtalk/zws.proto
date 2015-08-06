@@ -1,3 +1,5 @@
+import "types.proto";
+
 package zws;
 
 enum frameType {
@@ -11,37 +13,15 @@ enum frameType {
     MT_ERROR          = 8;
 };
 
-enum socketType {
-    ST_ZMQ_PAIR = 0;
-    ST_ZMQ_PUB = 1;
-    ST_ZMQ_SUB = 2;
-    ST_ZMQ_REQ = 3;
-    ST_ZMQ_REP = 4;
-    ST_ZMQ_DEALER = 5;
-    ST_ZMQ_ROUTER = 6;
-    ST_ZMQ_PULL = 7;
-    ST_ZMQ_PUSH = 8;
-    ST_ZMQ_XPUB = 9;
-    ST_ZMQ_XSUB = 10;
-    ST_ZMQ_STREAM = 11;
-};
-
-enum securityMechanism {
-    SM_ZMQ_NONE = -1;
-    SM_ZMQ_NULL = 0;
-    SM_ZMQ_PLAIN = 1;
-    SM_ZMQ_CURVE = 2;
-};
-
 
 message Frame {
     required frameType               type = 1;
     optional int32                version = 2;
-    optional socketType             stype = 3;
+    optional pb.socketType             stype = 3;
     optional bytes               identity = 4;
     repeated string                  uri  = 5;
     repeated string                topic  = 6;
-    optional securityMechanism        sec = 7;
+    optional pb.securityMechanism        sec = 7;
     optional string                  user = 8;
     optional string               passwd  = 9;
     optional string            clientcert = 10;

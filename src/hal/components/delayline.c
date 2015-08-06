@@ -157,7 +157,7 @@ void rtapi_app_exit(void)
     for (n = 0; n < count; n++) {
 	if (instance[n]) {
 	    hal_delayline_t *hd = instance[n]->scratchpad;
-	    hal_ring_detachf(instance[n], "%s.samples", hd->name);
+	    hal_ring_detach(instance[n]);
 	    hal_ring_deletef("%s.samples", hd->name);
 	}
     }
@@ -369,7 +369,7 @@ static int return_instance_samples(int n)
 static int export_delayline(int n)
 {
     int retval, nr_of_samples, i;
-    char buf[HAL_NAME_LEN + 1], *str_type;
+    char *str_type;
 
     // determine the required size of the ringbuffer
     nr_of_samples = return_instance_samples(n);
@@ -379,13 +379,12 @@ static int export_delayline(int n)
     size_t rbsize = record_space(sample_size) * max_delay[n] * RB_HEADROOM;
 
     // create the delay queue
-    rtapi_snprintf(buf, HAL_NAME_LEN, "%s.samples", names[n]);
-    if ((retval = hal_ring_new(buf, rbsize,
-			       sizeof(hal_delayline_t), ALLOC_HALMEM))) {
+    if ((retval = hal_ring_newf(rbsize, sizeof(hal_delayline_t), ALLOC_HALMEM,
+				"%s.samples", names[n])) < 0) {
 	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: failed to create new ring %s: %d\n",
-		      cname, buf, retval);
-	return -1;
+		      "%s: failed to create new ring '%s.samples': %d\n",
+		      cname, names[n], retval);
+	return retval;
     }
 
     // use the per-using component ring access structure as the instance data,
@@ -393,10 +392,10 @@ static int export_delayline(int n)
     // HAL pins and other shared data
     if ((instance[n] = hal_malloc(sizeof(ringbuffer_t))) == NULL)
 	return -1;
-    if ((retval = hal_ring_attach(buf, instance[n], NULL))) {
+    if ((retval = hal_ring_attachf(instance[n], NULL, "%s.samples", names[n]))) {
 	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: attach to ring %s failed: %d\n",
-		      cname, buf, retval);
+		      "%s: attach to ring '%s.samples' failed: %d\n",
+		      cname, names[n], retval);
 	return -1;
     }
 

@@ -27,6 +27,10 @@ int main()
     printf("hal_pin_t = %zu\n", sizeof(hal_pin_t));
     printf("hal_param_t = %zu\n", sizeof(hal_param_t));
     printf("hal_sig_t = %zu\n", sizeof(hal_sig_t));
+    printf("\ttype\t%zu\n", offsetof(hal_sig_t,type));
+    printf("\tvalue\t%zu\n", offsetof(hal_sig_t,value));
+    printf("\treaders\t%zu\n", offsetof(hal_sig_t,readers));
+
     printf("hal_group_t = %zu\n", sizeof(hal_group_t));
     printf("hal_member_t = %zu\n", sizeof(hal_member_t));
     printf("hal_funct_t = %zu\n", sizeof(hal_funct_t));

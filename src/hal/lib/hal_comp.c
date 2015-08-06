@@ -242,7 +242,7 @@ int halg_xinit(const int use_hal_mutex,
     }
 
     HALDBG("%s component '%s' id=%d initialized%s",
-	   (ctor != NULL) ? "instantiable" : "legacy",
+	   (ctor != NULL) ? "instantiable" : "singleton",
 	   hal_name, comp_id,
 	   (dtor != NULL) ? ", has destructor" : "");
     return comp_id;
@@ -293,17 +293,19 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	       hs.arena_size, hs.total_avail, hs.fragments, hs.largest);
 	HALDBG("  heap: requested=%zu allocated=%zu freed=%zu waste=%zu%%\n",
 	       hs.requested, hs.allocated, hs.freed,
-	       (hs.allocated - hs.requested)*100/hs.allocated);
+	       hs.allocated ?
+	       (hs.allocated - hs.requested)*100/hs.allocated : 0);
 	HALDBG("  strings on heap: alloc=%zu freed=%zu balance=%zu\n",
 	       hal_data->str_alloc,
 	       hal_data->str_freed,
 	       hal_data->str_alloc - hal_data->str_freed);
+
 	size_t rtalloc = (size_t)(global_data->hal_size - hal_data->shmem_top);
-	if (rtalloc > 0)
-	    HALDBG("  RT objects: %zu  alignment loss: %zu  (%zu%%)\n",
-		   rtalloc,
-		   hal_data->rt_alignment_loss,
-		   hal_data->rt_alignment_loss * 100/rtalloc);
+	HALDBG("  RT objects: %zu  alignment loss: %zu  (%zu%%)\n",
+	       rtalloc,
+	       hal_data->rt_alignment_loss,
+	       rtalloc ?
+	       (hal_data->rt_alignment_loss * 100/rtalloc) : 0);
 	HALDBG("  hal_malloc():   %zu\n",
 	       hal_data->hal_malloced);
 

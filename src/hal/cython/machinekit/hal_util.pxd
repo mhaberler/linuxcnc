@@ -5,6 +5,7 @@ from cpython.float cimport PyFloat_Check
 from cpython.bool  cimport bool
 
 from .hal_priv     cimport hal_shmem_base, hal_data_u, hal_pin_t, hal_sig_t, hal_data
+from .hal_priv     cimport pin_type, pin_value, pin_is_linked
 from .hal_const    cimport HAL_BIT, HAL_FLOAT,HAL_S32,HAL_U32, HAL_TYPE_UNSPECIFIED
 from .hal_const    cimport HAL_IN, HAL_OUT, HAL_IO
 from .rtapi cimport rtapi_mutex_get,rtapi_mutex_give
@@ -17,15 +18,10 @@ cdef inline int shmoff(char *ptr):
     return ptr - hal_shmem_base
 
 
-cdef inline pin_value(hal_pin_t *pin):
-    cdef hal_sig_t *sig
-    cdef hal_data_u *dp
-    if pin.signal != 0:
-        sig = <hal_sig_t *>shmptr(pin.signal)
-        dp = <hal_data_u *>shmptr(sig.data_ptr)
-    else:
-        dp = <hal_data_u *>shmptr(shmoff(<char *>&pin.dummysig))
-    return hal2py(pin.type, dp)
+cdef inline pypin_value(const hal_pin_t *pin):
+    # cdef hal_sig_t *sig
+    # cdef hal_data_u *dp
+    return hal2py(pin_type(pin), pin_value(pin))
 
 
 cdef inline hal2py(int t, hal_data_u *dp):
@@ -64,13 +60,13 @@ cdef inline py2hal(int t, hal_data_u *dp, object v):
     else:
         raise RuntimeError("py2hal: float value not valid for type: %d" % (t))
 
-cdef inline bint pin_linked(hal_pin_t *p):
-    return p.signal != 0
+# cdef inline bint pin_linked(hal_pin_t *p):
+#     return p.signal != 0
 
-cdef inline hal_sig_t * linked_signal(hal_pin_t *pin):
-    cdef hal_sig_t *sig
-    if not pin_linked(pin): return NULL
-    return <hal_sig_t *>shmptr(pin.signal)
+# cdef inline hal_sig_t * linked_signal(hal_pin_t *pin):
+#     cdef hal_sig_t *sig
+#     if not pin_linked(pin): return NULL
+#     return <hal_sig_t *>shmptr(pin.signal)
 
 
 cdef inline bint valid_type(int type):

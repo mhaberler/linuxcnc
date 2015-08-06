@@ -968,6 +968,14 @@ PKG_CHECK_MODULES([AVAHI], [avahi-client > 0.6],
 	USE_AVAHI=yes
     ],)
 
+# optional - if present, build protobuf XML I/O
+PKG_CHECK_MODULES([TINYXML], [tinyxml >= 2.6.2],
+    [
+        AC_DEFINE(HAVE_TINYXML, [], [tinyxml library available])
+	USE_TINYXML=yes
+    ],
+    [ AC_MSG_RESULT([tinyxml not installed - XML protobuf support will not be available])])
+
 AC_MSG_CHECKING(whether to enable NML-using parts)
 AC_ARG_ENABLE(nml,
     [  --enable-nml      enable NML-using parts],
@@ -1753,6 +1761,9 @@ AC_SUBST([SSL_LIBS])
 AC_SUBST([UUID_CFLAGS])
 AC_SUBST([UUID_LIBS])
 
+AC_SUBST([TINYXML_CFLAGS])
+AC_SUBST([TINYXML_LIBS])
+
 AC_SUBST([USE_CZMQ])
 AC_SUBST([USE_PROTOBUF])
 AC_SUBST([USE_JANSSON])
@@ -1761,6 +1772,7 @@ AC_SUBST([USE_URIPARSER])
 AC_SUBST([USE_AVAHI])
 AC_SUBST([USE_SSL])
 AC_SUBST([USE_UUID])
+AC_SUBST([USE_TINYXML])
 
 if test "$with_usermode_pci" = yes; then
    AC_DEFINE([USERMODE_PCI], [], [build PCI drivers with usermode PCI support])
@@ -2608,6 +2620,14 @@ AH_TOP([/********************************************************************
 // pass: RUNDIR, rtapi_instance, service name, uuid
 // service name is: log, rtapi, halrcomp etc
 #define ZMQIPC_FORMAT "ipc://%s/%d.%s.%s"
+
+// deprecation warning attribute
+// off by default
+#ifdef DEPRECATION_WARNINGS
+#define  MK_DEPRECATED __attribute__ ((deprecated))
+#else
+#define  MK_DEPRECATED
+#endif
 
 ]
 // flavor IDs for the various threads systems
