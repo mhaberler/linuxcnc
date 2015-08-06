@@ -2097,22 +2097,26 @@ static int print_pin_entry(hal_object_ptr o, foreach_args_t *args)
 		halcmd_output("%5d", ho_owner_id(pin));
 
 	    if (pin->type == HAL_FLOAT) {
-		halcmd_output(" %5s %-3s  %9s  %-30.30s\t%f\t%d",
+		halcmd_output(" %5s %-3s  %9s  %-30.30s\t%f\t%s%s%s%s",
 			      data_type((int) pin->type),
 			      pin_data_dir((int) pin->dir),
 			      data_value((int) pin->type, dptr),
 			      ho_name(pin),
 			      hal_data->epsilon[pin->eps_index],
-			      pin->flags);
+			      ho_rmb(pin) ? "r" : "-",
+			      ho_wmb(pin) ? "w" : "-",
+			      ho_legacy(pin) ? "l" : "-",
+			      pin->flags & PIN_DO_NOT_TRACK ? "n" : "-");
 	    } else {
-		halcmd_output(" %5s %-3s  %9s  %-30.30s\t\t%s%s\t%d",
+		halcmd_output(" %5s %-3s  %9s  %-30.30s\t\t%s%s%s%s",
 			      data_type((int) pin->type),
 			      pin_data_dir((int) pin->dir),
 			      data_value((int) pin->type, dptr),
 			      ho_name(pin),
 			      ho_rmb(pin) ? "r" : "-",
 			      ho_wmb(pin) ? "w" : "-",
-			      pin->flags);
+			      ho_legacy(pin) ? "l" : "-",
+			      pin->flags & PIN_DO_NOT_TRACK ? "n" : "-");
 	    }
 	} else {
 	    halcmd_output("%s %s %s %s %-30.30s",
@@ -2141,7 +2145,7 @@ static void print_pin_info(int type, char **patterns)
 {
     if (scriptmode == 0) {
 	halcmd_output("Component Pins:\n");
-	halcmd_output("  Comp   Inst Type  Dir         Value  Name                             Epsilon MB  Flags   linked to:\n");
+	halcmd_output("  Comp   Inst Type  Dir         Value  Name                             Epsilon Flags  linked to:\n");
     }
     foreach_args_t args =  {
 	.type = HAL_PIN,
@@ -2165,7 +2169,7 @@ static int print_signal_entry(hal_object_ptr o, foreach_args_t *args)
     hal_sig_t *sig = o.sig;
     if ( match(args->user_ptr1, ho_name(sig)) ) {
 	void *dptr = sig_value(sig);
-	halcmd_output("%s  %s  %s%s %s \n",
+	halcmd_output("%s  %s  %s%s    %s \n",
 		      data_type((int) sig->type),
 		      data_value((int) sig->type, dptr),
 		      ho_rmb(sig) ? "r" : "-",
@@ -2186,7 +2190,7 @@ static void print_sig_info(int type, char **patterns)
 	return;
     }
     halcmd_output("Signals:\n");
-    halcmd_output("Type          Value  MB Name    linked to:\n");
+    halcmd_output("Type          Value  flags Name    linked to:\n");
 
     foreach_args_t args =  {
 	.type = HAL_SIGNAL,
