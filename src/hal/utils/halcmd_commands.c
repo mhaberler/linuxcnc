@@ -3271,13 +3271,10 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
     size_t rmax = 50000000;  // XXX: make MAX_RINGSIZE
     char *s;
     unsigned long mode = 0; // defaults
-    int i = 0,n;
-    int retval, handle;
+    int i = 0;
+    int retval;
     char *cp;
-    unsigned adopt = 0, encodings = 0, announce=0,
-	writes = 0, sockettype = pb_socketType_ST_ZMQ_INVALID;
-    hal_ring_t *paired = NULL;
-    char *pname = NULL;
+
 
 #define SCRATCHPAD "scratchpad="
 #define ENCODINGS "encodings="
@@ -4114,8 +4111,8 @@ static void save_comps(FILE *dst)
 
 static int yield_objects(hal_object_ptr o, foreach_args_t *args)
 {
-    halg_object_setbarriers(0, o, args->user_arg1, args->user_arg2);
-    return 1;  // continue
+    int retval = halg_object_setbarriers(0, o, args->user_arg1, args->user_arg2);
+    return retval < 0 ? retval : 1;  // continue on no error, else propagate return code
 }
 
 static int change_barrier(char *object, int read_barrier, int write_barrier)
@@ -4130,29 +4127,37 @@ static int change_barrier(char *object, int read_barrier, int write_barrier)
 
 int do_setrmb_cmd(char *object)
 {
-    change_barrier(object, 1, -1);
-    return 0;
+    int retval = change_barrier(object, 1, -1);
+    if (retval < 0) {
+    	halcmd_error("setrmb:  %s\n",  hal_lasterror());
+    };
+    return retval;
 }
 
 int do_setwmb_cmd(char *object)
 {
-    change_barrier(object, -1, 1);
-    return 0;
-
+    int retval =  change_barrier(object, -1, 1);
+    if (retval < 0) {
+    	halcmd_error("setwmb:  %s\n",  hal_lasterror());
+    };
+    return retval;
 }
 
 int do_clear_rmb_cmd(char *object)
 {
-    change_barrier(object, 0, -1);
-    return 0;
-
-}
+    int retval =  change_barrier(object, 0, -1);
+    if (retval < 0) {
+    	halcmd_error("clearrmb:  %s\n",  hal_lasterror());
+    };
+    return retval;}
 
 int do_clear_wmb_cmd(char *object)
 {
-    change_barrier(object, -1, 0);
-    return 0;
-}
+    int retval =  change_barrier(object, -1, 0);
+    if (retval < 0) {
+    	halcmd_error("clearwmb:  %s\n",  hal_lasterror());
+    };
+    return retval;}
 
 int do_handshake_cmd(char *signal)
 {
