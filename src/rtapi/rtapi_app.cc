@@ -37,7 +37,7 @@
  */
 #define TRACEPOINT_DEFINE
 #define TRACEPOINT_PROBE_DYNAMIC_LINKAGE
-#include "/usr/local/lib/lttng-tracepoints/machinekit_tp.h"
+#include "machinekit_tp.h"
 
 #include "config.h"
 
@@ -1499,7 +1499,7 @@ static struct option long_options[] = {
 
 int main(int argc, char **argv)
 {
-    void *lib = dlopen("/usr/local/lib/lttng-tracepoints/machinekit_tp.so", RTLD_LAZY);
+    void *lib = dlopen("/home/mah/machinekit-lttng/lib/machinekit_tp.so", RTLD_LAZY);
     tracepoint(machinekit_provider, function_tracepoint, "rtapi_app.cc main");
 
     int c;

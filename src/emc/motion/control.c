@@ -12,7 +12,7 @@
 *
 * Copyright (c) 2004 All rights reserved.
 ********************************************************************/
-#include "/usr/local/lib/lttng-tracepoints/machinekit_tp.h"
+#include "machinekit_tp.h"
 
 #include "posemath.h"
 #include "rtapi.h"
@@ -228,7 +228,7 @@ static void update_status(void);
 
 void emcmotController(void *arg, long period)
 {
-    void *lib = dlopen("/usr/local/lib/lttng-tracepoints/machinekit_tp.so", RTLD_LAZY);
+    void *lib = dlopen("/home/mah/machinekit-lttng/lib/machinekit_tp.so", RTLD_LAZY);
     int cycle_counter = 1;
 
     // - overrun detection -

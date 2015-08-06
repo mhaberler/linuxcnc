@@ -56,7 +56,7 @@
 * Last change:
 *
 ********************************************************************/
-#include "/usr/local/lib/lttng-tracepoints/machinekit_tp.h"
+#include "machinekit_tp.h"
 
 #include <linux/types.h>
 #include <float.h>
@@ -381,7 +381,7 @@ int abort_and_switchback(void)
   */
 void emcmotCommandHandler(void *arg, long period)
 {
-    void *lib = dlopen("/usr/local/lib/lttng-tracepoints/machinekit_tp.so", RTLD_LAZY);
+    void *lib = dlopen("/home/mah/machinekit-lttng/lib/machinekit_tp.so", RTLD_LAZY);
 
     int joint_num;
     int n;
