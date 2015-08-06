@@ -2455,14 +2455,18 @@ static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
     if (match(patterns, ho_name(tptr))) {
 	// note that the scriptmode format string has no \n
 	// TODO FIXME add thread runtime and max runtime to this print
+	    char flags[100];
+	    snprintf(flags, sizeof(flags),"%s%s",
+		     tptr->flags & TF_NONRT ? "posix ":"",
+		     tptr->flags & TF_NOWAIT ? "nowait":"");
 	halcmd_output(((scriptmode == 0) ?
-		       "%11ld  %-3s  %20s ( %8ld, %8ld )\n" :
+		       "%11ld  %-3s  %20s ( %8ld, %8ld ) %s\n" :
 		       "%ld %s %s %ld %ld"),
 		      tptr->period,
 		      (tptr->uses_fp ? "YES" : "NO"),
 		      ho_name(tptr),
 		      (long)tptr->runtime,
-		      (long)tptr->maxtime);
+		      (long)tptr->maxtime, flags);
 
 	hal_list_t *list_root = &(tptr->funct_list);
 	hal_list_t *list_entry = dlist_next(list_root);
@@ -4034,9 +4038,7 @@ int do_newthread_cmd(char *name, char *period, char *args[])
     int cpu = -1;
     const char *s;
     int per = atoi(period);
-
-    if (per < 10000)
-	halcmd_warning("a period < 10uS is unlikely to work\n");
+    int flags = 0;
 
     for (i = 0; ((s = args[i]) != NULL) && strlen(s); i++) {
 	if (sscanf(s, "cpu=%d", &cpu) == 1)
@@ -4045,8 +4047,20 @@ int do_newthread_cmd(char *name, char *period, char *args[])
 	    use_fp = true;
 	if (strcmp(s, "nofp") == 0)
 	    use_fp = false;
+	if (strcmp(s, "posix") == 0)
+	    flags |= TF_NONRT;
+	if (strcmp(s, "nowait") == 0)
+	    flags |= TF_NOWAIT;
     }
-    retval = rtapi_newthread(rtapi_instance, name, per, cpu, (int)use_fp);
+
+    if ((per < 10000) && !(flags & TF_NOWAIT))
+	halcmd_warning("a period < 10uS is unlikely to work\n");
+    if ((flags & (TF_NOWAIT|TF_NONRT)) == TF_NOWAIT){
+	halcmd_error("specifying 'nowait' without 'posix' will likely lock up RT\n");
+	return -EINVAL;
+    }
+
+    retval = rtapi_newthread(rtapi_instance, name, per, cpu, (int)use_fp, flags);
     if (retval)
 	halcmd_error("rc=%d: %s\n",retval,rtapi_rpcerror());
 
