@@ -122,14 +122,14 @@ int hal_create_xthread(const hal_threadargs_t *args)
     {
 	WITH_HAL_MUTEX();
 
-	if (halg_find_object_by_name(0, HAL_THREAD, name).thread) {
-	    HALERR("duplicate thread name %s", name);
+	if (halg_find_object_by_name(0, HAL_THREAD, args->name).thread) {
+	    HALERR("duplicate thread name %s", args->name);
 	    return -EINVAL;
 	}
 
 	// allocate thread descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_thread_t),
-				       HAL_THREAD, 0, name)) == NULL)
+				       HAL_THREAD, 0, args->name)) == NULL)
 	    return -ENOMEM;
 
 	dlist_init_entry(&(new->funct_list));
