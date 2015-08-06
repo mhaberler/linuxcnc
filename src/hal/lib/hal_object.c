@@ -298,6 +298,16 @@ int halg_object_setbarriers(const int use_hal_mutex,
 	if (!hh_valid(o.hdr)) {
 	    HALFAIL_RC(EINVAL, "object at %p invalid",  o.any);
 	}
+	switch (hh_get_object_type(o.hdr)) {
+	case HAL_PIN:
+	case HAL_PARAM:
+	    if (hh_get_legacy(o.hdr)) {
+		HALFAIL_RC(EINVAL, "barriers not supported on legacy %s %s",
+			   hh_get_object_typestr(o.hdr), hh_get_name(o.hdr));
+	    }
+	    break;
+	default: ;
+	}
 	bool old_rmb = hh_get_rmb(o.hdr);
 	bool old_wmb = hh_get_wmb(o.hdr);
 	if (read_barrier > -1)
