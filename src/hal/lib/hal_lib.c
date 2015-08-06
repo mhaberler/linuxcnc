@@ -376,6 +376,9 @@ EXPORT_SYMBOL(halg_foreach_pin_by_signal);
 EXPORT_SYMBOL(halg_signal_setbarriers);
 
 // hal_param.c:
+EXPORT_SYMBOL(halg_param_newfv); // v2 base function
+
+
 EXPORT_SYMBOL(hal_param_new);
 EXPORT_SYMBOL(hal_param_newf);
 
@@ -389,11 +392,12 @@ EXPORT_SYMBOL(hal_param_float_newf);
 EXPORT_SYMBOL(hal_param_u32_newf);
 EXPORT_SYMBOL(hal_param_s32_newf);
 
-EXPORT_SYMBOL(hal_param_bit_set);
-EXPORT_SYMBOL(hal_param_float_set);
-EXPORT_SYMBOL(hal_param_u32_set);
-EXPORT_SYMBOL(hal_param_s32_set);
-EXPORT_SYMBOL(hal_param_set);
+// unused in code base
+/* EXPORT_SYMBOL(hal_param_bit_set); */
+/* EXPORT_SYMBOL(hal_param_float_set); */
+/* EXPORT_SYMBOL(hal_param_u32_set); */
+/* EXPORT_SYMBOL(hal_param_s32_set); */
+/* EXPORT_SYMBOL(hal_param_set); */
 
 // hal_funct.c:
 EXPORT_SYMBOL(hal_export_funct);

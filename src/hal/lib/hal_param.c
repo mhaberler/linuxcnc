@@ -80,54 +80,51 @@ int hal_param_newf(hal_type_t type,
 		   const char *fmt, ...)
 {
     va_list ap;
-    int ret;
+    void *p;
     va_start(ap, fmt);
-    ret = hal_param_newfv(type, dir, data_addr, owner_id, fmt, ap);
+    p = halg_param_newfv(1, type, dir, data_addr, owner_id, fmt, ap);
     va_end(ap);
-    return ret;
+    return p == NULL ? _halerrno : 0;
 }
 
 
 /* this is a generic function that does the majority of the work. */
-
-int hal_param_new(const char *name,
-		  hal_type_t type,
-		  hal_param_dir_t dir,
-		  volatile void *data_addr,
-		  int owner_id)
+// v2
+hal_param_t *halg_param_newfv(const int use_hal_mutex,
+			      hal_type_t type,
+			      hal_param_dir_t dir,
+			      volatile void *data_addr,
+			      int owner_id,
+			      const char *fmt, va_list ap)
 {
+    PCHECK_HALDATA();
+    PCHECK_LOCK(HAL_LOCK_LOAD);
+    PCHECK_NULL(fmt);
+
+    char buf[HAL_MAX_NAME_LEN + 1];
+    char *name = fmt_ap(buf, sizeof(buf), fmt, ap);
+
+    PCHECK_NULL(name);
+
     hal_param_t *new;
 
-    if (hal_data == 0) {
-	hal_print_error("%s: called before init", __FUNCTION__);
-	return -EINVAL;
-    }
-
     if (type != HAL_BIT && type != HAL_FLOAT && type != HAL_S32 && type != HAL_U32) {
-	hal_print_error("%s: param type not one of HAL_BIT, HAL_FLOAT, HAL_S32 or HAL_U3",
-			__FUNCTION__);
-	return -EINVAL;
+	HALFAIL_NULL(EINVAL,
+		     "param '%s': param type not one of HAL_BIT,"
+		     " HAL_FLOAT, HAL_S32 or HAL_U32",
+		     name);
     }
 
     if (dir != HAL_RO && dir != HAL_RW) {
-	hal_print_error("%s: param direction not one of HAL_RO, or HAL_RW",
-			__FUNCTION__);
-	return -EINVAL;
+	HALFAIL_NULL(EINVAL,
+		     "param '%s': param direction not one of HAL_RO, or HAL_RW",
+		     name);
     }
 
-    if (strlen(name) > HAL_NAME_LEN) {
-	hal_print_error("%s: parameter name '%s' is too long", __FUNCTION__, name);
-	return -EINVAL;
-    }
-    if (hal_data->lock & HAL_LOCK_LOAD)  {
-	hal_print_error("%s: called while HAL locked", __FUNCTION__);
-	return -EPERM;
-    }
     {
-	hal_comp_t *comp  __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
+	hal_comp_t *comp;
+	bool is_legacy = false;
 
 	HALDBG("creating parameter '%s'\n", name);
 
@@ -135,17 +132,20 @@ int hal_param_new(const char *name,
 	comp = halpr_find_owning_comp(owner_id);
 	if (comp == 0) {
 	    /* bad comp_id */
-	    HALERR("param '%s': owning component %d not found\n",
-		   name, owner_id);
-	    return -EINVAL;
+	    HALFAIL_NULL(EINVAL, "param '%s': owning component %d not found\n",
+			 name, owner_id);
 	}
 
-	/* validate passed in pointer - must point to HAL shmem */
-	if (! SHMCHK(data_addr)) {
-	    /* bad pointer */
-	    HALERR("param '%s': data_addr not in shared memory\n", name);
-	    return -EINVAL;
-	}
+	if (data_addr != NULL) {
+	    // the v2 params dont use data_ptr but refer to param->value
+	    is_legacy = true;
+
+	    /* validate passed in pointer - must point to HAL shmem */
+	    if (! SHMCHK(data_addr)) {
+		/* bad pointer */
+		HALFAIL_NULL(EINVAL, "param '%s': data_addr not in shared memory\n", name);
+	    }
+	} // else a v2 param whose value is contained in the descriptor
 
 	// this will be 0 for legacy comps which use comp_id
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
@@ -154,17 +154,24 @@ int hal_param_new(const char *name,
 	// instances may create params post hal_ready
 	// never understood the restriction in the first place
 	if ((inst_id == 0) && (comp->state > COMP_INITIALIZING)) {
-	    HALERR("component '%s': %s called after hal_ready",
-		   name,  __FUNCTION__);
-	    return -EINVAL;
+	    HALFAIL_NULL(EINVAL, "component '%s': %s called after hal_ready",
+			 ho_name(comp), __FUNCTION__);
 	}
 
 	// allocate parameter descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_param_t),
 				       HAL_PARAM, owner_id, name)) == NULL)
-	    return -ENOMEM;
+	    return NULL; //  _halerrno, error msg set
 
-	new->data_ptr = SHMOFF(data_addr);
+	if (is_legacy) {
+	    // v1 semantics
+	    new->data_ptr = SHMOFF(data_addr);
+	    hh_set_legacy(&new->hdr);
+	} else {
+	    // v2 param. Bend data_ptr to point to value.
+	    // param accessors rely on it for v1/v2 compatibility
+	    new->data_ptr = SHMOFF(&new->value);
+	}
 	new->type = type;
 	new->dir = dir;
 
@@ -173,6 +180,9 @@ int hal_param_new(const char *name,
     }
     return 0;
 }
+
+
+#if 0
 
 /* wrapper functs for typed params - these call the generic funct below */
 
@@ -261,3 +271,4 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
     }
     return 0;
 }
+#endif // unused

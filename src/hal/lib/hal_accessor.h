@@ -85,6 +85,35 @@ static inline hal_float_t get_float_pin(const float_pin_ptr p) {
     _PPGET(p, _fp, hal_float_t, f);
 }
 
+
+// typed param setters
+// params work the same as v2 pins
+static inline void set_bit_param(bit_param_ptr p, const hal_bit_t value) {
+    _PPSET( p, _bpar, b, value);
+}
+static inline void set_s32_param(s32_param_ptr p, const hal_s32_t value) {
+    _PPSET( p, _spar, s, value);
+}
+static inline void set_u32_param(u32_param_ptr p, const hal_u32_t value) {
+    _PPSET( p, _upar, u, value);
+}
+static inline void set_float_param(float_param_ptr p, const hal_float_t value) {
+    _PPSET( p, _fpar, f, value);
+}
+// param getters
+static inline hal_bit_t get_bit_param(const bit_param_ptr p) {
+    _PPGET(p, _bpar, hal_bit_t, b);
+}
+static inline hal_s32_t get_s32_param(const s32_param_ptr p) {
+    _PPGET(p, _spar, hal_s32_t, s);
+}
+static inline hal_u32_t get_u32_param(const u32_param_ptr p) {
+    _PPGET(p, _upar, hal_u32_t, u);
+}
+static inline hal_float_t get_float_param(const float_param_ptr p) {
+    _PPGET(p, _fpar, hal_float_t, f);
+}
+
 // signal getters
 #define _SIGGET(P, MEMBER, TYPE, TAG)					\
     if (unlikely(hh_get_rmb(&P.MEMBER->hdr)))				\

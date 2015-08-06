@@ -370,9 +370,11 @@ typedef struct hal_sig {
 */
 typedef struct hal_param {
     halhdr_t hdr;		// common HAL object header
+    hal_data_u value;       	// v2: actual value, data_ptr == 0
     int data_ptr;		/* offset of parameter value */
     hal_type_t type;		/* data type */
     hal_param_dir_t dir;	/* data direction */
+
 } hal_param_t  MK_DEPRECATED;
 
 

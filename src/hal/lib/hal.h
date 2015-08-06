@@ -778,20 +778,31 @@ static inline int hal_unlink(const char *pin_name) {
     If successful, hal_param_new() returns 0.  On failure
     it returns a negative error code.
 */
-extern int hal_param_new(const char *name,
-			 hal_type_t type,
-			 hal_param_dir_t dir,
-			 volatile void *data_addr,
-			 int owner_id);
 
-extern int hal_param_newf(hal_type_t type,
-			  hal_param_dir_t dir,
-			  volatile void *data_addr,
-			  int owner_id,
-			  const char *fmt, ...)
+// v2 base function
+hal_param_t *halg_param_newfv(const int use_hal_mutex,
+			      hal_type_t type,
+			      hal_param_dir_t dir,
+			      volatile void *data_addr,
+			      int owner_id,
+			      const char *fmt, va_list ap);
+// legacy
+static inline int hal_param_new(const char *name,
+				hal_type_t type,
+				hal_param_dir_t dir,
+				volatile void *data_addr,
+				int owner_id) {
+
+    return halg_param_newfv(1, type,  dir,
+			    data_addr, owner_id, name, NULL) == NULL ? _halerrno : 0;
+}
+
+int hal_param_newf(hal_type_t type,
+		   hal_param_dir_t dir,
+		   volatile void *data_addr,
+		   int owner_id,
+		   const char *fmt, ...)
     __attribute__((format(printf,5,6)));
-
-
 
 /** There is no 'hal_param_delete()' function.  Once a component has
     created a parameter, that parameter remains as long as the
@@ -891,35 +902,6 @@ extern int hal_param_s32_newf(hal_param_dir_t dir,
     removed when the component calls 'hal_exit()'.
 */
 
-/** The 'hal_param_xxx_set()' functions modify the value of a parameter.
-    'name' is the name of the parameter that is to be set.  The
-    parameter type must match the function type, and the parameter
-    must not be read-only.
-    'value' is the value to be loaded into the parameter.
-    On success, the hal_param_xxx_set() functions return 0,
-    and on failure they return a negative error code.
-*/
-extern int hal_param_bit_set(const char *name, int value);
-extern int hal_param_float_set(const char *name, double value);
-extern int hal_param_u32_set(const char *name, unsigned long value);
-extern int hal_param_s32_set(const char *name, signed long value);
-
-/** 'hal_param_set()' is a generic function that sets the value of a
-    parameter.  It is provided ONLY for those special cases where a
-    generic function is needed.  It is STRONGLY recommended that the
-    functions above be used instead, because they are simpler and less
-    prone to errors.
-    'name', is the same as in the functions above.
-    'type' is the hal type of the the data at *value_addr, and must
-    match the type of the parameter.  The parameter must not be
-    read only.
-    'value_addr' is a pointer to the new value of the parameter.
-    The data at that location will be interpreted according to the
-    type of the parameter.
-    If successful, hal_param_set() returns 0.  On failure
-    it returns a negative error code.
-*/
-extern int hal_param_set(const char *name, hal_type_t type, void *value_addr);
 
 /***********************************************************************
 *                   EXECUTION RELATED FUNCTIONS                        *
