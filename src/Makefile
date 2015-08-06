@@ -176,6 +176,7 @@ INSTALL_DIRS :=
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
 	\
+	lttng-tracepoints \
 	machinetalk \
 	machinetalk/support \
 	machinetalk/messagebus \
@@ -448,6 +449,7 @@ default: $(INFILES)
 # in ../include is used when building external components of linuxcnc.
 HEADERS := \
     config.h \
+    lttng-tracepoints/machinekit_tp.h \
     emc/ini/emcIniFile.hh \
     emc/ini/iniaxis.hh \
     emc/ini/initool.hh \
@@ -1088,6 +1090,7 @@ INCLUDE_PREFIX = $(BASEPWD)
 
 # When the Submakefile is included in the kbuild Makefile, the
 # module's obj-m and foo-objs definitions may remain in the Submakefile
+include $(BASEPWD)/lttng-tracepoints/Submakefile
 include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
 include $(BASEPWD)/hal/i_components/Submakefile
@@ -1106,6 +1109,7 @@ endif # KERNELRELEASE non-empty
 EXTRA_CFLAGS = $(RTFLAGS) \
 	-D__MODULE__ \
 	-I$(INCLUDE_PREFIX) \
+	-I$(INCLUDE_PREFIX)/lttng-tracepoints \
 	-I$(INCLUDE_PREFIX)/libnml/linklist \
 	-I$(INCLUDE_PREFIX)/libnml/cms \
 	-I$(INCLUDE_PREFIX)/libnml/rcs \
