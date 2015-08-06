@@ -1,0 +1,40 @@
+LTTNGTP_DIR := lttng-tracepoints
+
+INCLUDES += $(LTTNGTP_DIR)
+
+
+../include/%.h: ./$(LTTNGTP_DIR)/%.h
+	cp $^ $@
+
+
+ifeq ($(HAVE_LTTNG_UST),yes)
+
+LTTNGTP_SRCS := $(LTTNGTP_DIR)/machinekit_tp.c
+
+USERSRCS += $(LTTNGTP_SRCS)
+
+
+# $(LTTNG_UST_LIBS)
+# pkg-config --libs-only-L lttng-ust
+# -L/usr/local/lib 
+
+LTTNGTP_LIB := ../lib/machinekit_tp.so
+TARGETS += $(LTTNGTP_LIB)
+
+$(call TOOBJSDEPS, $(LTTNGTP_SRCS)): EXTRAFLAGS += $(LTTNG_UST_CFLAGS) -fPIC
+
+$(LTTNGTP_LIB).0: \
+	$(call TOOBJS, $(LTTNGTP_SRCS))
+	$(ECHO) Creating shared library $(notdir $@)
+	@mkdir -p ../lib
+	@rm -f $@
+	$(Q)$(CC) $(LDFLAGS)\
+	    -Wl,-soname,$(notdir $@) -shared -Wl,--no-as-needed  \
+		$(LTTNG_UST_LIBS) \
+	    -o $@ $^
+
+# -Wl,-rpath,$(EMC2_RTLIB_DIR) \ $(RT_LDFLAGS) 
+else
+# nothing to link into rtapi_app
+LTTNGTP_LIB :=
+endif
