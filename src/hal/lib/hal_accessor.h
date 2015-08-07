@@ -57,13 +57,36 @@ static inline void set_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
 static inline void set_float_pin(float_pin_ptr p, const hal_float_t value) {
     _PPSET( p, _fp, f, value);
 }
+#define _PPINCR(P, MEMBER, TAG, VALUE)					\
+    __atomic_add_fetch(&((hal_data_u *)SHMPTR(P.MEMBER->data_ptr))->TAG, \
+		       (VALUE),					\
+		       PIN_MEMORY_MODEL);				\
+    if (unlikely(hh_get_wmb(&p.MEMBER->hdr)))				\
+	rtapi_smp_wmb();
 
+// typed pin incrementers
+static inline void incr_s32_pin(s32_pin_ptr p, const hal_s32_t value) {
+    _PPINCR( p, _sp, s, value);
+}
+static inline void incr_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
+    _PPINCR( p, _up, u, value);
+}
+
+static inline hal_bit_t toggle_bit_pin(bit_pin_ptr p) {
+    if (unlikely(hh_get_rmb(&p._bp->hdr)))
+	rtapi_smp_rmb();
+    hal_bit_t r = __atomic_xor_fetch(&((hal_data_u *)SHMPTR(p._bp->data_ptr))->b,
+				     1, PIN_MEMORY_MODEL);
+    if (unlikely(hh_get_wmb(&p._bp->hdr)))
+	rtapi_smp_wmb();
+    return r;
+}
 
 // get a hal_data_u referenced via an offset field in a descriptor
 // this should work for v2 pins and params.
 // unfortunately __typeof__(uniontype.field) does not work
 #define _PPGET(P, MEMBER, TYPE, TAG)					\
-    TYPE _ret;					\
+    TYPE _ret;								\
     if (unlikely(hh_get_rmb(&P.MEMBER->hdr)))				\
 	rtapi_smp_rmb();						\
     __atomic_load(&((hal_data_u *)SHMPTR(P.MEMBER->data_ptr))->TAG,	\
