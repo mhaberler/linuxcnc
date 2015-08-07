@@ -287,6 +287,13 @@ static inline ring_size_t * _size_at(const ringbuffer_t *ring, const size_t off)
     return (ring_size_t *) (ring->buf + off);
 }
 
+// for a record of a given size, return space used in a record ring buffer.
+// used to dimension record rings
+static inline size_t record_usage(const size_t record_size)
+{
+    return size_aligned(record_size + sizeof(ring_size_t));
+}
+
 /* record_write_begin():
  *
  * begin a zero-copy write operation for at least sz bytes. This povides a buffer
