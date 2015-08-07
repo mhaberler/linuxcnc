@@ -787,14 +787,17 @@ hal_param_t *halg_param_newfv(const int use_hal_mutex,
 			      int owner_id,
 			      const char *fmt, va_list ap);
 // legacy
-static inline int hal_param_new(const char *name,
+static inline int  __attribute__((format(printf,1,6)))
+hal_param_new(const char *name,
 				hal_type_t type,
 				hal_param_dir_t dir,
 				volatile void *data_addr,
-				int owner_id) {
-
+				int owner_id, ...)
+{
+    va_list ap;
+    va_start(ap, owner_id);
     return halg_param_newfv(1, type,  dir,
-			    data_addr, owner_id, name, NULL) == NULL ? _halerrno : 0;
+			    data_addr, owner_id, name, ap) == NULL ? _halerrno : 0;
 }
 
 int hal_param_newf(hal_type_t type,
@@ -1150,7 +1153,8 @@ char *fmt_ap(char *buffer,
 char *fmt_args(char *buffer,
 	       size_t size,
 	       const char *fmt,
-	       ...);
+	       ...)  __attribute__((format(printf,3,4)));
+
 RTAPI_END_DECLS
 
 #endif /* HAL_H */
