@@ -446,7 +446,10 @@ EXPORT_SYMBOL(halg_find_object_by_id);
 EXPORT_SYMBOL(halg_foreach);
 EXPORT_SYMBOL(halg_object_setbarriers);
 
-//EXPORT_SYMBOL();
+// hal_iring.c
+EXPORT_SYMBOL(hal_iring_alloc);
+EXPORT_SYMBOL(hal_iring_free);
+
 //EXPORT_SYMBOL();
 
 

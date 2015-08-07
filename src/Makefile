@@ -504,6 +504,7 @@ HEADERS := \
     hal/lib/hal_priv.h \
     hal/lib/hal_rcomp.h \
     hal/lib/hal_ring.h \
+    hal/lib/hal_iring.h \
     hal/lib/vtable.h \
     hal/drivers/hal_gpiomap.h \
     hal/drivers/hal_spi.h \
