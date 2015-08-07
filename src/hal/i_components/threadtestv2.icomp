@@ -1,4 +1,4 @@
-component threadtest "Machinekit HAL component for testing thread behavior";
+component threadtestv2 "Machinekit HAL component for testing thread behavior";
 pin_ptr out u32 count;
 function increment nofp;
 function reset nofp;

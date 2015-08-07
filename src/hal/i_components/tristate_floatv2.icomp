@@ -1,4 +1,4 @@
-component tristate_floatsv2 "Place a signal on an I/O pin only when enabled, similar to a tristate buffer in electronics";
+component tristate_floatv2 "Place a signal on an I/O pin only when enabled, similar to a tristate buffer in electronics";
 
 pin_ptr in float in_ "Input value";
 pin_ptr io float out "Output value";

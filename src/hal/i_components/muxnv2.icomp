@@ -1,4 +1,4 @@
-component muxn "Select from one of N input values";
+component muxnv2 "Select from one of N input values";
 pin_ptr in s32 sel = 0;
 pin_ptr out float out "Follows the value of \\fBin<M>\\fR whereas M is the value of the \\fBsel\\fR input. \
 If \\fBsel\\fR is not in the range of available inputs 0 is output.";

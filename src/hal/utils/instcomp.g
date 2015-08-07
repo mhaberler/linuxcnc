@@ -33,7 +33,6 @@ parser Hal:
     ignore: "[ \t\r\n]+"
 
     token END: ";;"
-    token PARAMDIRECTION: "rw|r"
     token PINDIRECTION: "in|out|io"
     token TYPE: "float|bit|signed|unsigned|u32|s32"
     token MPTYPE: "int|string"
@@ -55,7 +54,6 @@ parser Hal:
 ## ring left in as placeholder for now
       | "ring" PINDIRECTION HALNAME OptSAssign OptString ";"  {{ ring(HALNAME, PINDIRECTION, OptString, OptSAssign) }}
       | "pin_ptr" PINDIRECTION TYPE HALNAME OptArrayIndex OptSAssign OptString ";"  {{ pin_ptr(HALNAME, TYPE, OptArrayIndex, PINDIRECTION, OptString, OptSAssign) }}
-      | "param" PARAMDIRECTION TYPE HALNAME OptArrayIndex OptSAssign OptString ";" {{ param(HALNAME, TYPE, OptArrayIndex, PARAMDIRECTION, OptString, OptSAssign) }}
       | "instanceparam" MPTYPE HALNAME OptSAssign OptString ";" {{ instanceparam(HALNAME, MPTYPE, OptString, OptSAssign) }}
       | "moduleparam" MPTYPE HALNAME OptSAssign OptString ";" {{ moduleparam(HALNAME, MPTYPE, OptSAssign, OptString) }}
       | "function" NAME OptFP OptString ";"       {{ function(NAME, OptFP, OptString) }}
@@ -150,10 +148,10 @@ deprmap = {'s32': 'signed', 'u32': 'unsigned'}
 deprecated = ['s32', 'u32']
 
 def initialize():
-    global functions, params, instanceparams, moduleparams, pins, pin_ptrs, rings, options, comp_name, names, docs, variables, userdef_types
+    global functions, instanceparams, moduleparams, pins, pin_ptrs, rings, options, comp_name, names, docs, variables, userdef_types
     global modparams, userdef_includes
 
-    functions = []; params = []; instanceparams = []; moduleparams = []; pins = []; pin_ptrs = []; rings = []; options = {}; variables = []
+    functions = []; instanceparams = []; moduleparams = []; pins = []; pin_ptrs = []; rings = []; options = {}; variables = []
     userdef_types = []; modparams = []; docs = []; userdef_includes = [];
     comp_name = None
 
@@ -231,14 +229,6 @@ def ring(name, dir, doc, value):
     names[name] = None
     rings.append((name, dir, value))
 
-def param(name, type, array, dir, doc, value):
-    checkarray(name, array)
-    type = type2type(type)
-    check_name_ok(name)
-    docs.append(('param', name, type, array, dir, doc, value))
-    names[name] = None
-    params.append((name, type, array, dir, value))
-
 def instanceparam(name, type, doc, value):
     type = type2type(type)
     check_name_ok(name)
@@ -270,13 +260,11 @@ def option(name, value):
 
 def variable(type, name, array, doc, value):
     check_name_ok(name)
-    #docs.append(('variable', name, type, array, doc, value))
     names[name] = None
     variables.append((type, name, array, value))
 
 def userdef_type(type, name, array, doc, value):
     check_name_ok(name)
-    #docs.append(('userdef_type', name, type, array, doc, value))
     names[name] = None
     userdef_types.append((type, name, array, value))
 
@@ -395,8 +383,6 @@ def prologue(f):
     has_array = False
     for name, type, array, dir, value in pins:
         if array: has_array = True
-    for name, type, array, dir, value in params:
-        if array: has_array = True
 
     for type, name, default, doc in modparams:
         decl = mp_decl_map[type]
@@ -506,16 +492,6 @@ def prologue(f):
     for name, type, array, dir, value in pin_ptrs:
         setmax(array)
 
-    for name, type, array, dir, value in params:
-        setmax(array)
-
-##  don't use array values from variables or userdef_types, may have no linkage to pins
-
-#    for type, name, array, value in variables:
-#        setmax(array)
-
-#    for type, name, array, value in userdef_types:
-#        setmax(array)
 ########################################################################
     if maxpins :
         have_maxpins = True
@@ -577,14 +553,6 @@ def prologue(f):
             print >>f, "    %s_pin_ptr %s[%s];" % (type, to_c(name), maxpins )
         else:
             print >>f, "    %s_pin_ptr %s;" % (type, to_c(name))
-        names[name] = 1
-
-    for name, type, array, dir, value in params:
-        if array:
-            print >>f, "    hal_%s_t %s[%s];" % (type, to_c(name), maxpins)
-        else:
-            print >>f, "    hal_%s_t %s;" % (type, to_c(name))
-        print "Warning deprecated type: param pin hal_%s_t %s should be replaced with an \"pin io\" of same type" % (type, to_c(name))
         names[name] = 1
 
     for name, dir, value in rings:
@@ -723,24 +691,6 @@ def prologue(f):
             if value is not None:
                 print >>f, "    set_%s_pin(ip->%s, %s);\n" % (type, to_c(name), value)
 
-    for name, type, array, dir, value in params:
-        if array:
-            print >>f, "    z = %s;" % array
-            print >>f, "    if(z > maxpins)\n       z = maxpins;"
-            print >>f, "    for(j=0; j < z; j++)\n        {"
-            print >>f, "        r = hal_param_%s_newf(%s, &(ip->%s[j]), owner_id," % (type, dirmap[dir], to_c(name))
-            print >>f, "            \"%%s%s\", name, j);" % to_hal("." + name)
-            print >>f, "        if(r != 0) return r;"
-            if value is not None:
-                print >>f, "            ip->%s[j] = %s;" % (to_c(name), value)
-            print >>f, "        }\n"
-        else:
-            print >>f, "    r = hal_param_%s_newf(%s, &(ip->%s), owner_id," % (type, dirmap[dir], to_c(name))
-            print >>f, "            \"%%s%s\", name);" % to_hal("." + name)
-            if value is not None:
-                print >>f, "    ip->%s = %s;" % (to_c(name), value)
-            print >>f, "    if(r != 0) return r;\n"
-
     if rings :
         print >>f, "    unsigned flags;\n"
         for name, dir, value in rings:
@@ -827,7 +777,7 @@ def prologue(f):
 
 ###########################  instantiate() ###############################################################
 
-    print >>f, "\n// constructor - init all HAL pins, params, funct etc here"
+    print >>f, "\n// constructor - init all HAL pins, funct etc here"
     print >>f, "static int instantiate(const char *name, const int argc, const char**argv)\n{"
     print >>f, "struct inst_data *ip;"
     print >>f, "int r;"
@@ -864,7 +814,7 @@ def prologue(f):
                     print >>f, "    hal_print_msg(RTAPI_MSG_DBG,\"ip->local_pincount set to %d\", pin_param_value);"
 
 
-    print >>f, "\n// These pins - params - functs will be owned by the instance, and can be separately exited with delinst"
+    print >>f, "\n// These pins - pin_ptrs- functs will be owned by the instance, and can be separately exited with delinst"
 
     print >>f, "    if(strlen(iprefix))"
     print >>f, "        r = export_halobjs(ip, inst_id, iprefix);"
@@ -940,7 +890,7 @@ def prologue(f):
 #########################   delete()  ####################################################################
     if options.get("extra_inst_cleanup"):
         print >>f, "// custom destructor - normally not needed"
-        print >>f, "// pins, params, and functs are automatically deallocated regardless if a"
+        print >>f, "// pins, pin_ptrs, and functs are automatically deallocated regardless if a"
         print >>f, "// destructor is used or not (see below)"
         print >>f, "//"
         print >>f, "// some objects like vtables, rings, threads are not owned by a component"
@@ -1002,13 +952,6 @@ def prologue(f):
                     print >>f, "#define %s (*ip->%s)" % (to_c(name), to_c(name))
         
         for name, type, array, dir, value in pin_ptrs:
-            print >>f, "#undef %s" % to_c(name)
-            if array:
-                print >>f, "#define %s(i) (ip->%s[i])" % (to_c(name), to_c(name))
-            else:
-                print >>f, "#define %s (ip->%s)" % (to_c(name), to_c(name))
-        
-        for name, type, array, dir, value in params:
             print >>f, "#undef %s" % to_c(name)
             if array:
                 print >>f, "#define %s(i) (ip->%s[i])" % (to_c(name), to_c(name))
@@ -1245,25 +1188,6 @@ def document(filename, outfilename):
             lead = ".TQ"
 
     lead = ".TP"
-    if params:
-        print >>f, ".SH PARAMETERS"
-        for _, name, type, array, dir, doc, value in finddocs('param'):
-            print >>f, lead
-            print >>f, ".B %s\\fR" % to_hal_man(name),
-            print >>f, type, dir,
-            if array:
-                sz = name.count("#")
-                print >>f, " (%s=%s..%s)" % ("M" * sz, "0" * sz , array),
-            if value:
-                print >>f, "\\fR(default: \\fI%s\\fR)" % value
-            else:
-                print >>f, "\\fR"
-            if doc:
-                print >>f, doc
-                lead = ".TP"
-            else:
-                lead = ".TQ"
-
 
     if instanceparams:
         print >>f, ".SH INST_PARAMETERS"
@@ -1327,6 +1251,9 @@ def process(filename, mode, outfilename):
                 outfilename = os.path.join(tempdir,
                     os.path.splitext(os.path.basename(filename))[0] + ".c")
         a, b = parse(filename)
+        base_name = os.path.splitext(os.path.basename(outfilename))[0]
+        if comp_name != base_name:
+            raise SystemExit, "Component name (%s) does not match filename (%s)" % (comp_name, base_name)
         f = open(outfilename, "w")
 
         if (not pins) and (not pin_ptrs):

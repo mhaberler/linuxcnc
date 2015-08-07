@@ -1,4 +1,4 @@
-component mux4 "Select from one of four input values";
+component mux4v2 "Select from one of four input values";
 pin_ptr in bit sel0;
 pin_ptr in bit sel1 """\
 Together, these determine which \\fBin\\fIN\\fR value is copied to \\fBout\\fR.
