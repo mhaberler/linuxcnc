@@ -366,7 +366,11 @@ CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) -DULAPI $(call cc-option,
 # enable runtime comparison of GIT_CONFIG_SHA (config.h) and GIT_BUILD_SHA
 CFLAGS += -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
 
+# make ck_pr.h happy:
+CFLAGS += $(CK_CFLAGS)
+
 CXXFLAGS := $(INCLUDE) $(CXXFLAGS) \
+	$(CK_CFLAGS) \
 	 -DULAPI $(DEBUG) $(OPT) \
 	$(PROFILE_CFLAGS) \
 	 -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
@@ -1140,6 +1144,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(INCLUDE_PREFIX)/machinetalk/nanopb \
 	-I$(INCLUDE_PREFIX)/machinetalk/include \
 	-I$(INCLUDE_PREFIX)/machinetalk/msgcomponents \
+	$(CK_INCLUDE) \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \

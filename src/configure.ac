@@ -902,9 +902,22 @@ AC_ARG_ENABLE(dev,
 
 ##############################################################################
 # Subsection 2.3.1                                                           #
-# protobuf, zmq, websockets, json, uriparse, avahi-client packages           #
+# ck, protobuf, czmq, websockets, json, uriparse, avahi-client packages      #
 # NML
 ##############################################################################
+PKG_CHECK_MODULES([CK], [ck >= 0.4.6],
+    [
+        AC_DEFINE(HAVE_CK, [], [concurrencykit.org support available])
+	# needed for kbuild:
+	CK_INCLUDE=`pkg-config --cflags-only-I ck`
+	USE_CK=yes
+    ],
+    [
+      # eventually fail here with AC_MSG_ERROR(...)
+      AC_MSG_RESULT([concurrencykit not found - package not installed?])
+      CK_INCLUDE=""
+      USE_CK=no
+    ])
 
 PKG_CHECK_MODULES([CZMQ], [libczmq > 2.0],
     [
@@ -1764,6 +1777,8 @@ AC_SUBST([UUID_LIBS])
 AC_SUBST([TINYXML_CFLAGS])
 AC_SUBST([TINYXML_LIBS])
 
+AC_SUBST([USE_CK])
+AC_SUBST([CK_INCLUDE])
 AC_SUBST([USE_CZMQ])
 AC_SUBST([USE_PROTOBUF])
 AC_SUBST([USE_JANSSON])
