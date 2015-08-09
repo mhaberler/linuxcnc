@@ -46,16 +46,16 @@ RTAPI_BEGIN_DECLS
 
 // typed pin setters
 static inline void set_bit_pin(bit_pin_ptr p, const hal_bit_t value) {
-    _PPSET( p, _bp, b, value);
+    _PPSET( p, _bp, _b, value);
 }
 static inline void set_s32_pin(s32_pin_ptr p, const hal_s32_t value) {
-    _PPSET( p, _sp, s, value);
+    _PPSET( p, _sp, _s, value);
 }
 static inline void set_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
-    _PPSET( p, _up, u, value);
+    _PPSET( p, _up, _u, value);
 }
 static inline void set_float_pin(float_pin_ptr p, const hal_float_t value) {
-    _PPSET( p, _fp, f, value);
+    _PPSET( p, _fp, _f, value);
 }
 #define _PPINCR(P, MEMBER, TAG, VALUE)					\
     __atomic_add_fetch(&((hal_data_u *)SHMPTR(P.MEMBER->data_ptr))->TAG, \
@@ -66,16 +66,16 @@ static inline void set_float_pin(float_pin_ptr p, const hal_float_t value) {
 
 // typed pin incrementers
 static inline void incr_s32_pin(s32_pin_ptr p, const hal_s32_t value) {
-    _PPINCR( p, _sp, s, value);
+    _PPINCR( p, _sp, _s, value);
 }
 static inline void incr_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
-    _PPINCR( p, _up, u, value);
+    _PPINCR( p, _up, _u, value);
 }
 
 static inline hal_bit_t toggle_bit_pin(bit_pin_ptr p) {
     if (unlikely(hh_get_rmb(&p._bp->hdr)))
 	rtapi_smp_rmb();
-    hal_bit_t r = __atomic_xor_fetch(&((hal_data_u *)SHMPTR(p._bp->data_ptr))->b,
+    hal_bit_t r = __atomic_xor_fetch(&((hal_data_u *)SHMPTR(p._bp->data_ptr))->_b,
 				     1, PIN_MEMORY_MODEL);
     if (unlikely(hh_get_wmb(&p._bp->hdr)))
 	rtapi_smp_wmb();
@@ -96,45 +96,45 @@ static inline hal_bit_t toggle_bit_pin(bit_pin_ptr p) {
 
 // pin getters
 static inline hal_bit_t get_bit_pin(const bit_pin_ptr p) {
-    _PPGET(p, _bp, hal_bit_t, b);
+    _PPGET(p, _bp, hal_bit_t, _b);
 }
 static inline hal_s32_t get_s32_pin(const s32_pin_ptr p) {
-    _PPGET(p, _sp, hal_s32_t, s);
+    _PPGET(p, _sp, hal_s32_t, _s);
 }
 static inline hal_u32_t get_u32_pin(const u32_pin_ptr p) {
-    _PPGET(p, _up, hal_u32_t, u);
+    _PPGET(p, _up, hal_u32_t, _u);
 }
 static inline hal_float_t get_float_pin(const float_pin_ptr p) {
-    _PPGET(p, _fp, hal_float_t, f);
+    _PPGET(p, _fp, hal_float_t, _f);
 }
 
 
 // typed param setters
 // params work the same as v2 pins
 static inline void set_bit_param(bit_param_ptr p, const hal_bit_t value) {
-    _PPSET( p, _bpar, b, value);
+    _PPSET( p, _bpar, _b, value);
 }
 static inline void set_s32_param(s32_param_ptr p, const hal_s32_t value) {
-    _PPSET( p, _spar, s, value);
+    _PPSET( p, _spar, _s, value);
 }
 static inline void set_u32_param(u32_param_ptr p, const hal_u32_t value) {
-    _PPSET( p, _upar, u, value);
+    _PPSET( p, _upar, _u, value);
 }
 static inline void set_float_param(float_param_ptr p, const hal_float_t value) {
-    _PPSET( p, _fpar, f, value);
+    _PPSET( p, _fpar, _f, value);
 }
 // param getters
 static inline hal_bit_t get_bit_param(const bit_param_ptr p) {
-    _PPGET(p, _bpar, hal_bit_t, b);
+    _PPGET(p, _bpar, hal_bit_t, _b);
 }
 static inline hal_s32_t get_s32_param(const s32_param_ptr p) {
-    _PPGET(p, _spar, hal_s32_t, s);
+    _PPGET(p, _spar, hal_s32_t, _s);
 }
 static inline hal_u32_t get_u32_param(const u32_param_ptr p) {
-    _PPGET(p, _upar, hal_u32_t, u);
+    _PPGET(p, _upar, hal_u32_t, _u);
 }
 static inline hal_float_t get_float_param(const float_param_ptr p) {
-    _PPGET(p, _fpar, hal_float_t, f);
+    _PPGET(p, _fpar, hal_float_t, _f);
 }
 
 // signal getters
@@ -148,16 +148,16 @@ static inline hal_float_t get_float_param(const float_param_ptr p) {
     return _ret;
 
 static inline hal_bit_t get_bit_sig(const bit_sig_ptr s) {
-   _SIGGET( s, _bs, hal_bit_t, b);
+   _SIGGET( s, _bs, hal_bit_t, _b);
 }
 static inline hal_s32_t get_s32_sig(const s32_sig_ptr s) {
-   _SIGGET( s, _ss, hal_s32_t, s);
+   _SIGGET( s, _ss, hal_s32_t, _s);
 }
 static inline hal_u32_t get_u32_sig(const u32_sig_ptr s) {
-   _SIGGET( s, _us, hal_u32_t, u);
+   _SIGGET( s, _us, hal_u32_t, _u);
 }
 static inline hal_float_t get_float_sig(const float_sig_ptr s) {
-    _SIGGET( s, _fs, hal_float_t, f);
+    _SIGGET( s, _fs, hal_float_t, _f);
 }
 
 // signal getters
@@ -169,16 +169,16 @@ static inline hal_float_t get_float_sig(const float_sig_ptr s) {
 	rtapi_smp_wmb();
 
 static inline void set_bit_sig(bit_sig_ptr s, const hal_bit_t value) {
-   _SIGSET(s, _bs, b, value);
+   _SIGSET(s, _bs, _b, value);
 }
 static inline void set_s32_sig(s32_sig_ptr s, const hal_s32_t value) {
-   _SIGSET(s, _ss, s, value);
+   _SIGSET(s, _ss, _s, value);
 }
 static inline void set_u32_sig(u32_sig_ptr s, const hal_u32_t value) {
-   _SIGSET(s, _us, u, value);
+   _SIGSET(s, _us, _u, value);
 }
 static inline void set_float_sig(float_sig_ptr s, const hal_float_t value) {
-   _SIGSET(s, _fs, f, value);
+   _SIGSET(s, _fs, _f, value);
 }
 
 

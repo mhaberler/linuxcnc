@@ -466,10 +466,10 @@ typedef __u64 ireal_t __attribute__((aligned(8))); // integral type as wide as r
  ** This structure may hold any type of hal data
 */
 typedef union {
-    hal_bit_t b;
-    hal_s32_t s;
-    hal_u32_t u;
-    hal_float_t f;
+    hal_bit_t _b;
+    hal_s32_t _s;
+    hal_u32_t _u;
+    hal_float_t _f;
 } hal_data_u;
 
 /***********************************************************************
