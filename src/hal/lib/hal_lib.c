@@ -62,6 +62,7 @@
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
+#include "hal_iring.h"
 
 #include "rtapi_string.h"
 #ifdef RTAPI

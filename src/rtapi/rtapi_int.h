@@ -25,6 +25,11 @@ typedef __s64		s64;
 #define __iomem		/* Nothing */
 #else
 # include <asm/types.h>
+
+#ifdef HAVE_CK
+# include <ck_limits.h>
+#endif
+
 #endif
 
 #endif // RTAPI_INT_H
