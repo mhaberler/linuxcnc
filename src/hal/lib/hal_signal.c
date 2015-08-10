@@ -316,7 +316,7 @@ int halg_link(const int use_hal_mutex,
         /* everything is OK, make the new link */
 	if (hh_get_legacy(&pin->hdr)) {
 	    hal_comp_t *comp = halpr_find_owning_comp(ho_owner_id(pin));
-	    void **data_ptr_addr = SHMPTR(pin->data_ptr_addr);
+	    void **data_ptr_addr = SHMPTR(pin->_data_ptr_addr);
 	    void *data_addr = comp->shmem_base + SHMOFF(&sig->value);
 
 	    HAL_ASSERT(data_ptr_addr != NULL);

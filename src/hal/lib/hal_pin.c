@@ -172,12 +172,12 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 	memset(&new->dummysig, 0, sizeof(hal_data_u));
 	if (is_legacy) {
 	    hh_set_legacy(&new->hdr);
-	    new->data_ptr_addr = SHMOFF(data_ptr_addr);
+	    new->_data_ptr_addr = SHMOFF(data_ptr_addr);
 	    /* make 'data_ptr' point to dummy signal */
 	    *data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
 	} else {
 	    // poison the old value** to ease debugging
-	    new->data_ptr_addr =  SHMOFF(&(hal_data->dead_beef));
+	    new->_data_ptr_addr =  SHMOFF(&(hal_data->dead_beef));
 	}
 	// since in v2 this is just a value *, not a value**
 	// just make it point to the dummy signal
@@ -206,7 +206,7 @@ void unlink_pin(hal_pin_t * pin)
 	if (hh_get_legacy(&pin->hdr)) {
 
 	    /* make pin's 'data_ptr' point to its dummy signal */
-	    data_ptr_addr = SHMPTR(pin->data_ptr_addr);
+	    data_ptr_addr = SHMPTR(pin->_data_ptr_addr);
 	    comp = halpr_find_owning_comp(ho_owner_id(pin));
 	    dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
 	    *data_ptr_addr = dummy_addr;

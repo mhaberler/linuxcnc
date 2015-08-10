@@ -332,7 +332,7 @@ typedef struct hal_inst {
 */
 typedef struct hal_pin {
     halhdr_t hdr;		// common HAL object header
-    int data_ptr_addr;		/* address of pin data pointer */
+    int _data_ptr_addr;		/* address of pin data pointer */
     int data_ptr;		// v2: just the signal's hal_data_u offset
     int _signal;		// PRIVATE: signal descriptor to which pin is linked
     hal_data_u dummysig;	/* if unlinked, data_ptr points here */
