@@ -263,8 +263,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	switch (hp.pin->type) {
 	case HAL_BIT:
 	    halbit = get_bit_pin(hp.bitpin);
-	    // halbit = *((char *) data_ptr);
-	    if (cc->tracking[i].b != halbit) {
+	    if (get_bit_value(&cc->tracking[i]) != halbit) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
 		set_bit_value(&cc->tracking[i], halbit);
@@ -273,9 +272,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 
 	case HAL_FLOAT:
 	    halfloat = get_float_pin(hp.floatpin);
-
-	    // halfloat = *((hal_float_t *) data_ptr);
-	    delta = HAL_FABS(halfloat - cc->tracking[i].f);
+	    delta = HAL_FABS(halfloat - get_float_value(&cc->tracking[i]));
 	    if (delta > hal_data->epsilon[hp.pin->eps_index]) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
@@ -284,9 +281,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 	case HAL_S32:
 	    hals32 = get_s32_pin(hp.s32pin);
-
-	    // hals32 =  *((hal_s32_t *) data_ptr);
-	    if (cc->tracking[i].s != hals32) {
+	    if (get_s32_value(&cc->tracking[i]) != hals32) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
 		set_s32_value(&cc->tracking[i],hals32);
@@ -294,8 +289,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 	case HAL_U32:
 	    halu32 = get_u32_pin(hp.u32pin);
-	    //halu32 =  *((hal_u32_t *) data_ptr);
-	    if (cc->tracking[i].u != halu32) {
+	    if (get_u32_value(&cc->tracking[i]) != halu32) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
 		set_u32_value(&cc->tracking[i],halu32);

@@ -296,10 +296,10 @@ int Interp::fetch_hal_param( const char *nameBuf, int *status, double *value)
 
     assign:
     switch (type) {
-    case HAL_BIT: *value = (double) (ptr->b); break;
-    case HAL_U32: *value = (double) (ptr->u); break;
-    case HAL_S32: *value = (double) (ptr->s); break;
-    case HAL_FLOAT: *value = (double) (ptr->f); break;
+    case HAL_BIT: *value = (double) get_bit_value(ptr); break;
+    case HAL_U32: *value = (double) get_u32_value(ptr); break;
+    case HAL_S32: *value = (double) get_s32_value(ptr); break;
+    case HAL_FLOAT: *value = (double) get_float_value(ptr); break;
     }
     logOword("%s: value=%f", hal_name, *value);
     *status = 1;

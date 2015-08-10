@@ -197,16 +197,16 @@ static void write_sample_to_ring(void *arg, long period)
 	    switch (hd->pintype[j])
 		{
 		case HAL_BIT:
-		    hd->pins_out[j]->b = hd->pins_in[j]->b;
+		    set_bit_value(hd->pins_out[j], get_bit_value(hd->pins_in[j]));
 		    break;
 		case HAL_FLOAT:
-		    hd->pins_out[j]->f = hd->pins_in[j]->f;
+		    set_float_value(hd->pins_out[j], get_float_value(hd->pins_in[j]));
 		    break;
 		case HAL_S32:
-		    hd->pins_out[j]->s = hd->pins_in[j]->s;
+		    set_s32_value(hd->pins_out[j], get_s32_value(hd->pins_in[j]));
 		    break;
 		case HAL_U32:
-		    hd->pins_out[j]->u = hd->pins_in[j]->u;
+		    set_u32_value(hd->pins_out[j], get_u32_value(hd->pins_in[j]));
 		    break;
 		case HAL_TYPE_UNSPECIFIED:
 		    // an error - should fail loudly TBD
@@ -229,16 +229,16 @@ static void write_sample_to_ring(void *arg, long period)
 	switch (hd->pintype[j])
 	    {
 	    case HAL_BIT:
-		s->value[j].b = hd->pins_in[j]->b;
+		set_bit_value(&s->value[j], get_bit_value(hd->pins_in[j]));
 		break;
 	    case HAL_FLOAT:
-		s->value[j].f = hd->pins_in[j]->f;
+		set_float_value(&s->value[j], get_float_value(hd->pins_in[j]));
 		break;
 	    case HAL_S32:
-		s->value[j].s = hd->pins_in[j]->s;
+		set_s32_value(&s->value[j], get_s32_value(hd->pins_in[j]));
 		break;
 	    case HAL_U32:
-		s->value[j].u = hd->pins_in[j]->u;
+		set_u32_value(&s->value[j], get_u32_value(hd->pins_in[j]));
 		break;
 	    case HAL_TYPE_UNSPECIFIED:
 		// an error - should fail loudly TBD
@@ -265,16 +265,16 @@ static inline void apply(const sample_t *s, const hal_delayline_t *hd)
 	// dereferenced against their type
 	switch (hd->pintype[i])  {
 	case HAL_BIT:
-	    hd->pins_out[i]->b = s->value[i].b;
+	    set_bit_value(hd->pins_out[i], get_bit_value(&s->value[i]));
 	    break;
 	case HAL_FLOAT:
-	    hd->pins_out[i]->f = s->value[i].f;
-		break;
+	    set_float_value(hd->pins_out[i], get_float_value(&s->value[i]));
+	    break;
 	case HAL_S32:
-	    hd->pins_out[i]->s = s->value[i].s;
+	    set_s32_value(hd->pins_out[i], get_s32_value(&s->value[i]));
 	    break;
 	case HAL_U32:
-	    hd->pins_out[i]->u = s->value[i].u;
+	    set_u32_value(hd->pins_out[i], get_u32_value(&s->value[i]));
 	    break;
 	case HAL_TYPE_UNSPECIFIED:
 	    // an error - should fail loudly TBD

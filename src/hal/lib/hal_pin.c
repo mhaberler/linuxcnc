@@ -224,16 +224,16 @@ void unlink_pin(hal_pin_t * pin)
 
 	switch (pin->type) {
 	case HAL_BIT:
-	    dummy_addr->b = sig_data_addr->b;
+	    set_bit_value(dummy_addr, get_bit_value(sig_data_addr));
 	    break;
 	case HAL_S32:
-	    dummy_addr->s = sig_data_addr->s;
+	    set_s32_value(dummy_addr, get_s32_value(sig_data_addr));
 	    break;
 	case HAL_U32:
-	    dummy_addr->u = sig_data_addr->u;
+	    set_u32_value(dummy_addr, get_u32_value(sig_data_addr));
 	    break;
 	case HAL_FLOAT:
-	    dummy_addr->f = sig_data_addr->f;
+	    set_float_value(dummy_addr, get_float_value(sig_data_addr));
 	    break;
 	default:
 	    hal_print_msg(RTAPI_MSG_ERR,

@@ -190,3 +190,14 @@ cdef extern from "hal_priv.h":
     hal_sig_t *signal_of(const hal_pin_t *pin)
     int pin_linked_to(const hal_pin_t *pin, const hal_sig_t *sig)
     bint pin_is_linked(const hal_pin_t *pin)
+
+    # hal_data_u *accessors
+    hal_bit_t set_bit_value(hal_data_u *h, const hal_bit_t value)
+    hal_s32_t set_s32_value(hal_data_u *h, const hal_s32_t value)
+    hal_u32_t set_u32_value(hal_data_u *h, const hal_u32_t value)
+    hal_float_t set_float_value(hal_data_u *h, const hal_float_t value)
+
+    hal_bit_t get_bit_value(const hal_data_u *h)
+    hal_s32_t get_s32_value(const hal_data_u *h)
+    hal_u32_t get_u32_value(const hal_data_u *h)
+    hal_float_t get_float_value(const hal_data_u *h)

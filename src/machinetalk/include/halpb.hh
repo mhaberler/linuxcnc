@@ -43,16 +43,16 @@ static inline int hal_pin2pb(hal_pin_t *hp, pb::Pin *p)
     default:
 	return -1;
     case HAL_BIT:
-	p->set_halbit(vp->b);
+	p->set_halbit(get_bit_value(vp));
 	break;
     case HAL_FLOAT:
-	p->set_halfloat(vp->f);
+	p->set_halfloat(get_float_value(vp));
 	break;
     case HAL_S32:
-	p->set_hals32(vp->s);
+	p->set_hals32(get_s32_value(vp));
 	break;
     case HAL_U32:
-	p->set_halu32(vp->u);
+	p->set_halu32(get_u32_value(vp));
 	break;
     }
     return 0;
@@ -65,16 +65,16 @@ static inline int hal_sig2pb(hal_sig_t *sp, pb::Signal *s)
     default:
 	return -1;
     case HAL_BIT:
-	s->set_halbit(vp->b);
+	s->set_halbit(get_bit_value(vp));
 	break;
     case HAL_FLOAT:
-	s->set_halfloat(vp->f);
+	s->set_halfloat(get_float_value(vp));
 	break;
     case HAL_S32:
-	s->set_hals32(vp->s);
+	s->set_hals32(get_s32_value(vp));
 	break;
     case HAL_U32:
-	s->set_halu32(vp->u);
+	s->set_halu32(get_u32_value(vp));
 	break;
     }
     return 0;
@@ -88,16 +88,16 @@ static inline int hal_param2pb(const hal_param_t *pp, pb::Param *p)
     default:
 	return -1;
     case HAL_BIT:
-	p->set_halbit(vp->b);
+	p->set_halbit(get_bit_value(vp));
 	break;
     case HAL_FLOAT:
-	p->set_halfloat(vp->f);
+	p->set_halfloat(get_float_value(vp));
 	break;
     case HAL_S32:
-	p->set_hals32(vp->s);
+	p->set_hals32(get_s32_value(vp));
 	break;
     case HAL_U32:
-	p->set_halu32(vp->u);
+	p->set_halu32(get_u32_value(vp));
 	break;
     }
     return 0;
@@ -109,16 +109,16 @@ static inline int hal_pbpin2u(const pb::Pin *p, hal_data_u *vp)
     default:
 	return -1;
     case HAL_BIT:
-	vp->b = p->halbit();
+	set_bit_value(vp, p->halbit());
 	break;
     case HAL_FLOAT:
-	vp->f = p->halfloat();
+	set_float_value(vp, p->halfloat());
 	break;
     case HAL_S32:
-	vp->s = p->hals32();
+	set_s32_value(vp, p->hals32());
 	break;
     case HAL_U32:
-	vp->u = p->halu32();
+	set_s32_value(vp, p->hals32());
 	break;
     }
     return 0;
@@ -130,16 +130,16 @@ static inline int hal_pbsig2u(const pb::Signal *s, hal_data_u *vp)
     default:
 	return -1;
     case HAL_BIT:
-	vp->b = s->halbit();
+	set_bit_value(vp, s->halbit());
 	break;
     case HAL_FLOAT:
-	vp->f = s->halfloat();
+	set_float_value(vp, s->halfloat());
 	break;
     case HAL_S32:
-	vp->s = s->hals32();
+	set_s32_value(vp, s->hals32());
 	break;
     case HAL_U32:
-	vp->u = s->halu32();
+	set_u32_value(vp, s->halu32());
 	break;
     }
     return 0;

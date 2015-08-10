@@ -329,35 +329,35 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 	    switch (ho.sig->type) {
 	    case HAL_BIT:
 		halbit = get_bit_sig(ho.bitsig);
-		if (cg->tracking[m].b != halbit) {
+		if (get_bit_value(&cg->tracking[m]) != halbit) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].b = halbit;
+		    set_bit_value(&cg->tracking[m], halbit);
 		}
 		break;
 	    case HAL_FLOAT:
 		halfloat = get_float_sig(ho.floatsig);
-		delta = HAL_FABS(halfloat - cg->tracking[m].f);
+		delta = HAL_FABS(halfloat - get_float_value(&cg->tracking[m]));
 		if (delta > hal_data->epsilon[cg->member[i]->eps_index]) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].f = halfloat;
+		    set_float_value(&cg->tracking[m], halfloat);
 		}
 		break;
 	    case HAL_S32:
 		hals32 = get_s32_sig(ho.s32sig);
-		if (cg->tracking[m].s != hals32) {
+		if (get_s32_value(&cg->tracking[m]) != hals32) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].s = hals32;
+		    set_s32_value(&cg->tracking[m], hals32);
 		}
 		break;
 	    case HAL_U32:
 		halu32 = get_u32_sig(ho.u32sig);
-		if (cg->tracking[m].u != halu32) {
+		if (get_u32_value(&cg->tracking[m]) != halu32) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
-		    cg->tracking[m].u = halu32;
+		    set_u32_value(&cg->tracking[m], halu32);
 		}
 		break;
 	    default:
