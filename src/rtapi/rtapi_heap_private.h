@@ -20,12 +20,6 @@
 #define RTAPI_MALLOC_ALIGN 1    // *8 == alignment boundary
 #endif
 
-#ifdef CK_MD_CACHELINE
-#define RTAPI_CACHELINE CK_MD_CACHELINE
-#else
-#define RTAPI_CACHELINE  (64)
-#endif
-
 #define ATTR_ALIGNED 1
 
 typedef struct rtapi_malloc_align {

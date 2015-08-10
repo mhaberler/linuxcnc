@@ -192,6 +192,12 @@ typedef void * (*rtapi_malloc_t)(struct rtapi_heap *h, size_t nbytes);
 #define rtapi_malloc(h, nbytes) \
     rtapi_switch->rtapi_malloc(h, nbytes)
 
+typedef void * (*rtapi_malloc_aligned_t)(struct rtapi_heap *h,
+					 size_t nbytes,
+					 size_t align);
+#define rtapi_malloc_aligned(h, nbytes, align)		\
+    rtapi_switch->rtapi_malloc_aligned(h, nbytes, align)
+
 typedef void * (*rtapi_calloc_t)(struct rtapi_heap *h, size_t n, size_t size);
 #define rtapi_calloc(h, n, size)			\
     rtapi_switch->rtapi_calloc(h, n, size)
@@ -204,9 +210,9 @@ typedef void   (*rtapi_free_t)(struct rtapi_heap *h, void *p);
 #define rtapi_free(h, p) \
     rtapi_switch->rtapi_free(h, p)
 
-typedef size_t (*rtapi_allocsize_t)(void *p);
-#define rtapi_allocsize(p) \
-    rtapi_switch->rtapi_allocsize(p)
+typedef size_t (*rtapi_allocsize_t)(struct rtapi_heap *h, const void *p);
+#define rtapi_allocsize(h, p)			\
+    rtapi_switch->rtapi_allocsize(h, p)
 
 typedef int  (*rtapi_heap_init_t)(struct rtapi_heap *h);
 #define rtapi_heap_init(h) \
@@ -1031,6 +1037,7 @@ typedef struct {
     rtapi_dummy_t rtapi_task_update_stats;
 #endif
     rtapi_malloc_t       rtapi_malloc;
+    rtapi_malloc_aligned_t       rtapi_malloc_aligned;
     rtapi_calloc_t       rtapi_calloc;
     rtapi_realloc_t      rtapi_realloc;
     rtapi_free_t         rtapi_free;

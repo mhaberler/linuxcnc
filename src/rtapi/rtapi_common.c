@@ -143,6 +143,7 @@ static rtapi_switch_t rtapi_switch_struct = {
     .rtapi_task_update_stats = &_rtapi_dummy,
 #endif
     .rtapi_malloc = &_rtapi_malloc,
+    .rtapi_malloc_aligned = &_rtapi_malloc_aligned,
     .rtapi_calloc = &_rtapi_calloc,
     .rtapi_realloc = &_rtapi_realloc,
     .rtapi_free = &_rtapi_free,

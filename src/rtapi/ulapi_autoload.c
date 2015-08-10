@@ -145,6 +145,7 @@ static rtapi_switch_t dummy_ulapi_switch_struct = {
     .rtapi_task_update_stats = &_ulapi_dummy,
 
     .rtapi_malloc = (rtapi_malloc_t)&_ulapi_dummy,
+    .rtapi_malloc_aligned = (rtapi_malloc_aligned_t)&_ulapi_dummy,
     .rtapi_calloc = (rtapi_calloc_t)&_ulapi_dummy,
     .rtapi_realloc = (rtapi_realloc_t)&_ulapi_dummy,
     .rtapi_free = (rtapi_free_t)&_ulapi_dummy,
