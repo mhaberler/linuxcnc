@@ -58,32 +58,32 @@ typedef struct halhdr {
 // accessors for common HAL object attributes
 // no locking - caller is expected to aquire the HAL mutex with WITH_HAL_MUTEX()
 
-static inline void *hh_get_next(halhdr_t *o)
+static inline void *hh_get_next(halhdr_t *hh)
 {
-    return (void *) dlist_next(&o->list);
+    return (void *) dlist_next(&hh->list);
 }
-static inline void  hh_set_next(halhdr_t *o, void *next)   { dlist_add_after(&o->list, (hal_list_t *)next); }
+static inline void  hh_set_next(halhdr_t *hh, void *next)   { dlist_add_after(&hh->list, (hal_list_t *)next); }
 
-static inline int   hh_get_id(const halhdr_t *o)  { return o->_id; }
-static inline void  hh_set_id(halhdr_t *o, int id)    { o->_id = id; }
+static inline int   hh_get_id(const halhdr_t *hh)  { return hh->_id; }
+static inline void  hh_set_id(halhdr_t *hh, const unsigned id)    { hh->_id = id; }
 
-static inline int   hh_get_rmb(const halhdr_t *o)  { return o->_rmb; }
-static inline void  hh_set_rmb(halhdr_t *o, int b)    { o->_rmb = b ? 1 : 0; }
+static inline int   hh_get_rmb(const halhdr_t *hh)  { return hh->_rmb; }
+static inline void  hh_set_rmb(halhdr_t *hh, const unsigned b)    { hh->_rmb = b ? 1 : 0; }
 
-static inline int   hh_get_wmb(const halhdr_t *o)  { return o->_wmb; }
-static inline void  hh_set_wmb(halhdr_t *o, int b)    { o->_wmb = b ? 1 : 0; }
+static inline int   hh_get_wmb(const halhdr_t *hh)  { return hh->_wmb; }
+static inline void  hh_set_wmb(halhdr_t *hh, int b)    { hh->_wmb = b ? 1 : 0; }
 
-static inline int hh_get_refcnt(const halhdr_t *o)  { return o->_refcnt; }
+static inline int hh_get_refcnt(const halhdr_t *hh)  { return hh->_refcnt; }
 
 // these probably should use atomics, but then header ops are under the hal_mutex lock anyway
-static inline int hh_incr_refcnt(halhdr_t *o)  { o->_refcnt++; return o->_refcnt; }
-static inline int hh_decr_refcnt(halhdr_t *o)  { o->_refcnt--; return o->_refcnt; }
+static inline int hh_incr_refcnt(halhdr_t *hh)  { hh->_refcnt++; return hh->_refcnt; }
+static inline int hh_decr_refcnt(halhdr_t *hh)  { hh->_refcnt--; return hh->_refcnt; }
 
-static inline int   hh_get_owner_id(const halhdr_t *o){ return o->_owner_id; }
-static inline void  hh_set_owner_id(halhdr_t *o, int owner) { o->_owner_id = owner; }
+static inline int   hh_get_owner_id(const halhdr_t *hh){ return hh->_owner_id; }
+static inline void  hh_set_owner_id(halhdr_t *hh, int owner) { hh->_owner_id = owner; }
 
-static inline __u32 hh_get_object_type(const halhdr_t *o)    { return o->_object_type; }
-static inline void  hh_set_object_type(halhdr_t *o, __u32 type){ o->_object_type = type; }
+static inline __u32 hh_get_object_type(const halhdr_t *hh)    { return hh->_object_type; }
+static inline void  hh_set_object_type(halhdr_t *hh, __u32 type){ hh->_object_type = type; }
 
 const char *hal_object_typestr(const unsigned type);
 static inline const char *hh_get_object_typestr(const halhdr_t *hh) { return hal_object_typestr(hh->_object_type); }
@@ -103,42 +103,42 @@ static inline bool hh_is_toplevel(__u32 type) {
     return true;
 }
 
+extern struct rtapi_heap *global_heap;
+
 // this enables us to eventually drop the name from the header
 // and move to a string table
-static inline const char *hh_get_name(const halhdr_t *o) {
-#ifdef CHECK_NULL_NAMES
-    if (o->_name_ptr == 0)
+static inline const char *hh_get_name(const halhdr_t *hh) {
+    if (hh->_name_ptr == 0)
 	return "*** NULL ***";
-#endif
-    return (const char *)SHMPTR(o->_name_ptr);
+    return (const char *)heap_ptr(global_heap, hh->_name_ptr);
 }
 
-int hh_set_namefv(halhdr_t *o, const char *fmt, va_list ap);
+int hh_set_namefv(halhdr_t *hh, const char *fmt, va_list ap);
 int hh_set_namef(halhdr_t *hh, const char *fmt, ...);
 
-static inline __u32 hh_valid(const halhdr_t *o)       { return (o->_valid); }
-static inline bool hh_is_valid(const halhdr_t *o)     { return (hh_valid(o) == 1); }
-static inline void hh_set_valid(halhdr_t *o)          { o->_valid = 1; }
-static inline void hh_set_invalid(halhdr_t *o)        { o->_valid = 0; }
+static inline __u32 hh_valid(const halhdr_t *hh)       { return (hh->_valid); }
+static inline bool hh_is_valid(const halhdr_t *hh)     { return (hh_valid(hh) == 1); }
+static inline void hh_set_valid(halhdr_t *hh)          { hh->_valid = 1; }
+static inline void hh_set_invalid(halhdr_t *hh)        { hh->_valid = 0; }
 
-static inline bool hh_get_legacy(const halhdr_t *o)     { return ( o->_legacy == 1); }
-static inline void hh_set_legacy(halhdr_t *o)          { o->_legacy = 1; }
+static inline bool hh_get_legacy(const halhdr_t *hh)     { return ( hh->_legacy == 1); }
+static inline void hh_set_legacy(halhdr_t *hh)          { hh->_legacy = 1; }
 
 // shorthands macros assuming a hal_object_ptr argument
-#define ho_id(h)  hh_get_id(&(h)->hdr)
-#define ho_owner_id(h)  hh_get_owner_id(&(h)->hdr)
-#define ho_name(h)  hh_get_name(&(h)->hdr)
-#define ho_valid(h)   hh_is_valid(&(h)->hdr)
-#define ho_object_type(h)  hh_get_object_type(&(h)->hdr)
-#define ho_object_typestr(h)  hh_get_object_typestr(&(h)->hdr)
+#define ho_id(o)  hh_get_id(&(o)->hdr)
+#define ho_owner_id(o)  hh_get_owner_id(&(o)->hdr)
+#define ho_name(o)  hh_get_name(&(o)->hdr)
+#define ho_valid(o)   hh_is_valid(&(o)->hdr)
+#define ho_object_type(o)  hh_get_object_type(&(o)->hdr)
+#define ho_object_typestr(o)  hh_get_object_typestr(&(o)->hdr)
 
-#define ho_referenced(h)  (hh_get_refcnt(&(h)->hdr) != 0)
-#define ho_refcnt(h)  hh_get_refcnt(&(h)->hdr)
-#define ho_incref(h)  hh_incr_refcnt(&(h)->hdr)
-#define ho_decref(h)  hh_decr_refcnt(&(h)->hdr)
-#define ho_rmb(h)     hh_get_rmb(&(h)->hdr)
-#define ho_wmb(h)     hh_get_wmb(&(h)->hdr)
-#define ho_legacy(h)  hh_get_legacy(&(h)->hdr)
+#define ho_referenced(o)  (hh_get_refcnt(&(o)->hdr) != 0)
+#define ho_refcnt(o)  hh_get_refcnt(&(o)->hdr)
+#define ho_incref(o)  hh_incr_refcnt(&(o)->hdr)
+#define ho_decref(o)  hh_decr_refcnt(&(o)->hdr)
+#define ho_rmb(o)     hh_get_rmb(&(o)->hdr)
+#define ho_wmb(o)     hh_get_wmb(&(o)->hdr)
+#define ho_legacy(o)  hh_get_legacy(&(o)->hdr)
 
 // print common HAL object header to a sized buffer.
 // returns number of chars used or -1 for 'too small buffer'
@@ -185,18 +185,18 @@ int halg_object_setbarriers(const int use_hal_mutex,
 // optionally an owner id for dependent objects (e.g. hal_pin_t, hal_inst_t)
 // use 0 as owner_id for top-level objects:
 
-int  hh_init_hdrf(halhdr_t *o,
+int  hh_init_hdrf(halhdr_t *hh,
 		  const hal_object_type type,
 		  const int owner_id,
 		  const char *fmt, ...);
 
-int  hh_init_hdrfv(halhdr_t *o,
+int  hh_init_hdrfv(halhdr_t *hh,
 		   const hal_object_type type,
 		   const int owner_id,
 		   const char *fmt, va_list ap);
 
 // invalidate a hal object header
-int hh_clear_hdr(halhdr_t *o);
+int hh_clear_hdr(halhdr_t *hh);
 
 // halg_foreach: generic HAL object iterator
 // set to replace the gazillion of type-specific iterators

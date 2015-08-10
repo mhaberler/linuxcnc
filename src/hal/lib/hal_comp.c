@@ -287,30 +287,7 @@ int halg_exit(const int use_hal_mutex, int comp_id)
     if (comptype == TYPE_HALLIB) {
 	int retval;
 #ifdef RTAPI
-	struct rtapi_heap_stat hs = {};
-	rtapi_heap_status(&hal_data->heap, &hs);
-	HALDBG("  heap: arena=%zu totail_avail=%zu fragments=%zu largest=%zu\n",
-	       hs.arena_size, hs.total_avail, hs.fragments, hs.largest);
-	HALDBG("  heap: requested=%zu allocated=%zu freed=%zu waste=%zu%%\n",
-	       hs.requested, hs.allocated, hs.freed,
-	       hs.allocated ?
-	       (hs.allocated - hs.requested)*100/hs.allocated : 0);
-	HALDBG("  strings on heap: alloc=%zu freed=%zu balance=%zu\n",
-	       hal_data->str_alloc,
-	       hal_data->str_freed,
-	       hal_data->str_alloc - hal_data->str_freed);
-
-	size_t rtalloc = (size_t)(global_data->hal_size - hal_data->shmem_top);
-	HALDBG("  RT objects: %zu  alignment loss: %zu  (%zu%%)\n",
-	       rtalloc,
-	       hal_data->rt_alignment_loss,
-	       rtalloc ?
-	       (hal_data->rt_alignment_loss * 100/rtalloc) : 0);
-	HALDBG("  hal_malloc():   %zu\n",
-	       hal_data->hal_malloced);
-
-	HALDBG("  unused:   %ld\n",
-	       (long)( hal_data->shmem_top - hal_data->shmem_bot));
+	report_memory_usage();
 #endif
 	/* release RTAPI resources */
 	retval = rtapi_shmem_delete(lib_mem_id, comp_id);
@@ -577,13 +554,14 @@ int init_hal_data(void)
 
     // initial heap allocation
     rtapi_heap_init(&hal_data->heap);
-    heap_addmem(HAL_HEAP_INITIAL);
+    hal_heap_addmem(HAL_HEAP_INITIAL);
     // rtapi_heap_setflags(&hal_data->heap, -1); // verbose heap allocator
     rtapi_heap_setflags(&hal_data->heap, 0);
     rtapi_heap_setloghdlr(&hal_data->heap, rtapi_get_msg_handler());
 
     /* done, release mutex */
     rtapi_mutex_give(&(hal_data->mutex));
+
     return 0;
 }
 #endif

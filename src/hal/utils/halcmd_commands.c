@@ -2691,6 +2691,7 @@ static void print_mem_status()
     count_objects("members\t", HAL_MEMBER);
     count_objects("functs\t", HAL_FUNCT);
     count_objects("rings\t", HAL_RING);
+    count_objects("plugs\t", HAL_PLUG);
     count_objects("instances", HAL_INST);
     halcmd_output("(some figures do not fully add up as some usage is unaccounted for)\n");
 }

@@ -222,6 +222,7 @@ typedef union {
 #define HAL_HEAP_MINFREE      (1024)   // shmem_top - shmem_bot
 #define HAL_ARENA_ALIGN 16
 
+
 /* Master HAL data structure
    There is a single instance of this structure in the machine.
    It resides at the base of the HAL shared memory block, where it
@@ -836,6 +837,8 @@ int halg_foreach_pin_by_signal(const int use_hal_mutex,
 
 int halg_signal_propagate_barriers(const int use_hal_mutex,
 				   const hal_sig_t *sig);
+
+void report_memory_usage(void);
 
 // automatically release the local hal_data->mutex on scope exit.
 // if a local variable is declared like so:
