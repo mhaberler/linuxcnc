@@ -302,44 +302,38 @@ void write_fp(void *arg, long period) {
     if (s >= inst->size)
         s = inst->size - 1;
 
-    hal_float_t tf;
     switch (inst->in_type * 8 + inst->out_type) {
     case 012: //HAL_BIT => HAL_FLOAT
-        set_float_value(inst->output, get_bit_value(inst->inputs[s]) ? 1.0 : 0.0);
-	break;
+        inst->output->_f = inst->inputs[s]->_b? 1.0 : 0.0; //
+        break;
     case 021: //HAL_FLOAT => HAL_BIT
-	tf = get_float_value(inst->inputs[s]);
-	set_bit_value(inst->output,
-		      (tf > EPS || tf < -EPS) ? 1 : 0);
-	break;
+        inst->output->_b=
+                (inst->inputs[s]->_f > EPS || inst->inputs[s]->_f < -EPS) ? 1 : 0;
+        break;
     case 022: //HAL_FLOAT => HAL_FLOAT
-	set_float_value(inst->output, get_float_value(inst->inputs[s]));
+        inst->output->_f = inst->inputs[s]->_f;
         break;
     case 023: //HAL_FLOAT => HAL_S32
-	tf = get_float_value(inst->inputs[s]);
-
-        if (tf > MAX_S32) {
-            set_s32_value(inst->output, MAX_S32);
-        } else if (tf < -MAX_S32) {
-	    set_s32_value(inst->output, -MAX_S32);
+        if (inst->inputs[s]->_f > MAX_S32) {
+            inst->output->_s = MAX_S32;
+        } else if (inst->inputs[s]->_f < -MAX_S32) {
+            inst->output->_s = -MAX_S32;
         } else {
-	    set_float_value(inst->output, get_float_value(inst->inputs[s]));
+            inst->output->_s = inst->inputs[s]->_f;
         }
         break;
     case 024: //HAL_FLOAT => HAL_U32
-	tf = get_float_value(inst->inputs[s]);
-
-        if (tf > MAX_U32) {
-	    set_u32_value(inst->output, MAX_U32);
-        } else if (tf < 0) {
-	    set_u32_value(inst->output, 0);
+        if (inst->inputs[s]->_f > MAX_U32) {
+            inst->output->_u = MAX_U32;
+        } else if (inst->inputs[s]->_f < 0) {
+            inst->output->_u = 0;
         }
         break;
     case 032: //HAL_S32 => HAL_FLOAT
-	set_float_value(inst->output, (hal_float_t) get_s32_value(inst->inputs[s]));
+        inst->output->_f = inst->inputs[s]->_s;
         break;
     case 042: //HAL_U32 => HAL_FLOAT
-	set_float_value(inst->output, (hal_float_t) get_u32_value(inst->inputs[s]));
+        inst->output->_f = (unsigned int) inst->inputs[s]->_u;
         break;
     }
 }
@@ -368,41 +362,35 @@ void write_nofp(void *arg, long period) {
 
     if (s >= inst->size)
         s = inst->size - 1;
-
-    hal_s32_t ts;
-    hal_u32_t tu;
-
     switch (inst->in_type * 8 + inst->out_type) {
     case 011: //HAL_BIT => HAL_BIT
-	set_bit_value(inst->output, get_bit_value(inst->inputs[s]));
+        inst->output->_b= inst->inputs[s]->_b;
         break;
     case 013: //HAL_BIT => HAL_S32
-	set_s32_value(inst->output, (hal_s32_t) get_bit_value(inst->inputs[s]));
+        inst->output->_s = inst->inputs[s]->_b;
         break;
     case 014: //HAL_BIT => HAL_U32
-	set_u32_value(inst->output, (hal_u32_t) get_bit_value(inst->inputs[s]));
+        inst->output->_u = inst->inputs[s]->_b;
         break;
     case 031: //HAL_S32 => HAL_BIT
-	set_bit_value(inst->output, get_s32_value(inst->inputs[s]) == 0? 0 : 1);
+        inst->output->_b= inst->inputs[s]->_s == 0 ? 0 : 1;
         break;
     case 033: //HAL_S32 => HAL_S32
-	set_s32_value(inst->output,  get_s32_value(inst->inputs[s]));
+        inst->output->_s = inst->inputs[s]->_s;
         break;
-
     case 034: //HAL_S32 => HAL_U32
-	ts = get_s32_value(inst->inputs[s]);
-        set_u32_value(inst->output,  (ts > 0) ? ts : 0);
+        inst->output->_u = (inst->inputs[s]->_s > 0) ? inst->inputs[s]->_s : 0;
         break;
     case 041: //HAL_U32 => HAL_BIT
-	set_bit_value(inst->output, get_u32_value(inst->inputs[s]) == 0 ? 0 : 1);
+        inst->output->_b= inst->inputs[s]->_u == 0 ? 0 : 1;
         break;
     case 043: //HAL_U32 => HAL_S32
-	tu = get_u32_value(inst->inputs[s]);
-	set_s32_value(inst->output, ((unsigned int) tu > MAX_S32) ?
-		      MAX_S32 : tu);
+        inst->output->_s =
+                ((unsigned int) inst->inputs[s]->_u > MAX_S32) ?
+                        MAX_S32 : inst->inputs[s]->_u;
         break;
     case 044: //HAL_U32 => HAL_U32
-	set_u32_value(inst->output,  get_u32_value(inst->inputs[s]));
+        inst->output->_u = inst->inputs[s]->_u;
         break;
     }
 }
