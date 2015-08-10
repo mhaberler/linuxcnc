@@ -61,7 +61,7 @@ int hal_heap_addmem(size_t click)
 	HALERR("can't extend arena - below minfree: %zu", hal_freemem());
 	return 0;
     }
-    // TBD: lock this. Probably best to use the rtapi heap mutex.
+
     if (rtapi_heap_addmem(&hal_data->heap,
 			  SHMPTR(hal_data->shmem_bot),
 			  actual)) {

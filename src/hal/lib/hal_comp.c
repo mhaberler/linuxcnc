@@ -543,7 +543,7 @@ int init_hal_data(void)
     RTAPI_BIT_SET(hal_data->rings,0);
 
     /* set up for shmalloc_xx() */
-    hal_data->shmem_bot = sizeof(hal_data_t);
+    hal_data->shmem_bot = SHMOFF(&hal_data->arena);
     hal_data->shmem_top = global_data->hal_size;
     hal_data->lock = HAL_LOCK_NONE;
 

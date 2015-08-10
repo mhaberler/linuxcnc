@@ -4,6 +4,8 @@
 #include <hal_priv.h>
 #include <hal_group.h>
 #include <hal_ring.h>
+#include <rtapi_heap.h>
+#include <rtapi_heap_private.h>
 #include <emc/motion/motion.h>
 #include <emc/motion/motion_debug.h>
 
@@ -21,6 +23,8 @@ int main()
     printf("\tid\t%zu\n", offsetof(halhdr_t,_id));
     printf("\towner_id\t%zu\n", offsetof(halhdr_t,_owner_id));
     printf("\tname_ptr\t%zu\n", offsetof(halhdr_t,_name_ptr));
+
+    printf("heap:\trtapi_malloc_hdr_t\t%zu\n", sizeof(rtapi_malloc_hdr_t));
 
     printf("hal_comp_t = %zu\n", sizeof(hal_comp_t));
     printf("hal_inst_t = %zu\n", sizeof(hal_inst_t));

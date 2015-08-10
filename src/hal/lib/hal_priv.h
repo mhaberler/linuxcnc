@@ -220,7 +220,7 @@ typedef union {
 #endif
 
 #define HAL_HEAP_MINFREE      (1024)   // shmem_top - shmem_bot
-#define HAL_ARENA_ALIGN 16
+#define HAL_ARENA_ALIGN       64
 
 
 /* Master HAL data structure

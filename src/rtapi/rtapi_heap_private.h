@@ -13,14 +13,21 @@
 // the offsets used in the rtapi_heap and rtapi_malloc_header structure
 // are offsets from the rtapi_heap structure.
 
-typedef double rtapi_malloc_align;
+#ifndef RTAPI_MALLOC_ALIGN
+#define RTAPI_MALLOC_ALIGN 1
+#endif
+
+typedef struct rtapi_malloc_align {
+    double _align[RTAPI_MALLOC_ALIGN];
+} rtapi_malloc_align_t;
+
 
 union rtapi_malloc_header {
     struct hdr {
 	size_t   next;	// next block if on free list
 	unsigned size;	// size of this block
     } s;
-    rtapi_malloc_align align;	// unused - force alignment of blocks
+    rtapi_malloc_align_t align;	// unused - force alignment of blocks
 };
 
 typedef union rtapi_malloc_header rtapi_malloc_hdr_t;
