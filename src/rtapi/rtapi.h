@@ -75,23 +75,6 @@
 
 #include <stddef.h> // provides NULL, offset_of
 
-#ifndef MODULE
-#ifndef container_of
-#define container_of(ptr, type, member)					\
-	({								\
-		const __typeof__(((type *)0)->member) *__mptr = (ptr);	\
-		(type *)((char *)__mptr - offsetof(type, member));	\
-	})
-#endif
-#endif
-
-#ifndef likely
-#define likely(x)	__builtin_expect(!!(x), 1)
-#define unlikely(x)	__builtin_expect(!!(x), 0)
-#endif
-
-#define RTAPI_ALIGN(x,boundary)  (x + (-x & (boundary - 1)))
-
 #include "rtapi_int.h"
 
 
@@ -122,6 +105,37 @@
 
 RTAPI_BEGIN_DECLS
 
+
+#ifdef HAVE_CK
+#include <ck_pr.h>
+#endif
+
+#ifdef CK_MD_CACHELINE
+#define RTAPI_CACHELINE CK_MD_CACHELINE
+#else
+#define RTAPI_CACHELINE  (64)
+#endif
+
+
+#ifndef MODULE
+#ifndef container_of
+#define container_of(ptr, type, member)					\
+	({								\
+		const __typeof__(((type *)0)->member) *__mptr = (ptr);	\
+		(type *)((char *)__mptr - offsetof(type, member));	\
+	})
+#endif
+#endif
+
+#ifndef likely
+#define likely(x)	__builtin_expect(!!(x), 1)
+#define unlikely(x)	__builtin_expect(!!(x), 0)
+#endif
+
+#define RTAPI_ALIGN(x,boundary)  (x + (-x & (boundary - 1)))
+static inline int is_aligned(const void *pointer, size_t byte_count) {
+    return (uintptr_t)pointer % byte_count == 0;
+}
 
 
 /***********************************************************************

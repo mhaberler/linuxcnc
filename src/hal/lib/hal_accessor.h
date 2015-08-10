@@ -5,11 +5,6 @@
 
 RTAPI_BEGIN_DECLS
 
-#ifdef HAVE_CK
-#include <ck_pr.h>
-#endif
-
-
 // see type aliases for hal_pin_t and hal_sig_t in hal.h ca line 530
 
 // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
