@@ -2609,7 +2609,7 @@ static void print_lock_status()
 int yield_ostats(hal_object_ptr o, foreach_args_t *args)
 {
     if (ho_legacy(o.pin)) args->user_arg1++;   // legacy count
-    args->user_arg2 += rtapi_allocsize(o.any); // descriptor sizes
+    args->user_arg2 += rtapi_allocsize(&hal_data->heap, o.any); // descriptor sizes
 
     switch (ho_object_type(o.pin)) {
     case HAL_PIN:

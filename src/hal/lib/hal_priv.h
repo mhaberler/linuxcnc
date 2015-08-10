@@ -204,23 +204,11 @@ typedef union {
 *            PRIVATE HAL DATA STRUCTURES AND DECLARATIONS              *
 ************************************************************************/
 
-// #define HEAP_EXERCISE
-
-// HAL heap params
-#ifdef HEAP_EXERCISE
-
-// force frequent arena extension
-#define HAL_HEAP_INITIAL     1024
-#define HAL_HEAP_INCREMENT   1024
-
-#else
-
-#define HAL_HEAP_INITIAL     (HAL_SIZE/4)
+// grab half of the shm segment for the HAL heap
+#define HAL_HEAP_INITIAL     (2) // fraction of global_data->hal_size
+// and grow incrementally thereafter
 #define HAL_HEAP_INCREMENT   (hal_freemem() / 2)
-#endif
-
-#define HAL_HEAP_MINFREE      (1024)   // shmem_top - shmem_bot
-#define HAL_ARENA_ALIGN       64
+#define HAL_HEAP_MINFREE     (1024)   // shmem_top - shmem_bot
 
 
 /* Master HAL data structure
@@ -268,7 +256,7 @@ typedef struct {
 
     // HAL heap for shmalloc_desc()
     struct rtapi_heap heap;
-    unsigned char arena[0] __attribute__((aligned(HAL_ARENA_ALIGN)));
+    unsigned char arena[0] __attribute__((aligned(RTAPI_CACHELINE)));
     // heap grows from here
 
 } hal_data_t;

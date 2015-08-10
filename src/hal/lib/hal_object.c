@@ -125,7 +125,7 @@ void *halg_create_objectfv(const bool use_hal_mutex,
 			  const char *fmt,
 			  va_list ap)
 {
-    halhdr_t *new = shmalloc_desc(size);
+    halhdr_t *new = shmalloc_desc_aligned(size, RTAPI_CACHELINE);
     if (new == NULL) {
 	char name[HAL_MAX_NAME_LEN+1];
 	rtapi_vsnprintf(name, sizeof(name), fmt, ap);

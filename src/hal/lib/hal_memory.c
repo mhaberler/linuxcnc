@@ -53,7 +53,7 @@ void shmfree_desc(void *p)
 
 int hal_heap_addmem(size_t click)
 {
-    size_t actual = RTAPI_ALIGN(click, HAL_ARENA_ALIGN);
+    size_t actual = RTAPI_ALIGN(click, RTAPI_CACHELINE);
 
     HALDBG("extending arena by %zu bytes", actual);
 
@@ -87,6 +87,30 @@ void *shmalloc_desc(size_t size)
 	_halerrno = -ENOMEM;
     }
     return retval;
+}
+
+void *shmalloc_desc_aligned(size_t size, size_t alignment)
+{
+    // force arena expansion by alloc/free just in case
+    // so the following internal malloc in rtapi_malloc_aligned()
+    // does not fail
+    // not terribly elegant but effective
+    void *dummy = shmalloc_desc(size + alignment);
+    if (dummy) {
+	shmfree_desc(dummy);
+    } else
+	return NULL;
+
+    void *ptr = rtapi_malloc_aligned(&hal_data->heap,
+				     size,
+				     alignment);
+    if (ptr == NULL) {
+	_halerrno = -ENOMEM;
+	return NULL;
+    }
+    HAL_ASSERT(is_aligned(ptr, alignment));
+    memset(ptr, 0, size);
+    return ptr;
 }
 
 void *shmalloc_rt(size_t size)
