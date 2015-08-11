@@ -192,7 +192,7 @@ static inline size_t ring_storage_alloc(int flags, size_t size)
 	// stream mode buffers need to be a power of two sized
 	return next_power_of_two(size);
     } else {
-	// default to MODE_RECORD
+	// default to /* RINGTYPE_RECORD */
 	// round up buffer size to closest upper alignment boundary
 	return  size_aligned(size);
     }
