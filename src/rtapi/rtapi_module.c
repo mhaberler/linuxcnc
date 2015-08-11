@@ -143,9 +143,10 @@ int init_module(void) {
     // make it accessible in RTAPI
     global_heap = &global_data->heap;
 
-    // make error ringbuffer accessible within RTAPI
-    ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
-    global_data->rtapi_messages.refcount += 1;   // rtapi is 'attached'
+    // make the message ringbuffer accessible
+    ringbuffer_init(shm_ptr(global_data, global_data->rtapi_messages_ptr),
+		    &rtapi_message_buffer);
+    rtapi_message_buffer.header->refcount++; // rtapi is 'attached'
 
     // tag messages originating from RT proper
     rtapi_set_logtag("rt");
@@ -305,8 +306,7 @@ void cleanup_module(void) {
 		 retval);
     }
     rtapi_data = NULL;
-
-    global_data->rtapi_messages.refcount -= 1;   // detach rtapi end
+    rtapi_message_buffer.header->refcount--;  // detach rtapi end
 
     sm.key = OS_KEY(GLOBAL_KEY, rtapi_instance);
     sm.size = sizeof(global_data_t);

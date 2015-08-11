@@ -133,7 +133,7 @@ int rtapi_app_main(void)
     // make the message ringbuffer accessible
     ringbuffer_init(shm_ptr(global_data, global_data->rtapi_messages_ptr),
 		    &rtapi_message_buffer);
-    rtapi_message_buffer.header->refcount++;
+    rtapi_message_buffer.header->refcount++; // rtapi is 'attached'
 
 
     // some flavors might use a shared memory segment for rtapi data. That
