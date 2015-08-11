@@ -54,7 +54,7 @@ parser Hal:
 ## ring left in as placeholder for now
       | "ring" PINDIRECTION HALNAME OptSAssign OptString ";"  {{ ring(HALNAME, PINDIRECTION, OptString, OptSAssign) }}
       | "pin_ptr" PINDIRECTION TYPE HALNAME OptArrayIndex OptSAssign OptString ";"  {{ pin_ptr(HALNAME, TYPE, OptArrayIndex, PINDIRECTION, OptString, OptSAssign) }}
-      | "instanceparam" MPTYPE HALNAME OptSAssign OptString ";" {{ instanceparam(HALNAME, MPTYPE, OptString, OptSAssign) }}
+      | "instanceparam" MPTYPE HALNAME OptArrayIndex OptSAssign OptString ";" {{ instanceparam(HALNAME, MPTYPE, OptArrayIndex, OptString, OptSAssign) }}
       | "moduleparam" MPTYPE HALNAME OptSAssign OptString ";" {{ moduleparam(HALNAME, MPTYPE, OptSAssign, OptString) }}
       | "function" NAME OptFP OptString ";"       {{ function(NAME, OptFP, OptString) }}
       | "variable" NAME STARREDNAME OptArrayIndex OptSAssign OptString ";" {{ variable(NAME, STARREDNAME, OptArrayIndex, OptString, OptSAssign) }}
@@ -229,12 +229,13 @@ def ring(name, dir, doc, value):
     names[name] = None
     rings.append((name, dir, value))
 
-def instanceparam(name, type, doc, value):
+def instanceparam(name, type, array, doc, value):
+#    checkarray(name, array)    
     type = type2type(type)
     check_name_ok(name)
-    docs.append(('instanceparam', name, type, doc, value))
+    docs.append(('instanceparam', name, type, array, doc, value))
     names[name] = None
-    instanceparams.append((name, type, doc, value))
+    instanceparams.append((name, type, array, doc, value))
 ##################################################################
 ##  These are rt module params, there is currently little purpose
 ##  in their usage, but left in for future options since the base
@@ -322,6 +323,7 @@ def prologue(f):
 #include "hal.h"
 #include "hal_priv.h"
 #include "hal_accessor.h"
+#include "hal_internal.h"
 \nstatic int comp_id;
 """
     for value in userdef_includes:
@@ -350,6 +352,9 @@ def prologue(f):
     global have_count
     have_count = False
 
+    global instance_string_clean
+    instance_string_clean = False
+    
     print >>f, "\nstatic char *compname = \"%s\";\n" % (comp_name)
 
     names = {}
@@ -396,7 +401,7 @@ def prologue(f):
 
 ###  Get the values from the instanceparams ############################################################
 
-    for name, mptype, doc, value in instanceparams:
+    for name, mptype, array, doc, value in instanceparams:
         if (name == 'pincount') or (name == 'iprefix'):
             if name == 'pincount':
                 if value != None:
@@ -483,8 +488,6 @@ def prologue(f):
 #  preventing any array overruns
 ##############################################################################
 
-
-
 #  if value of any array sizing param is higher than maxpins - reset maxpins
     for name, type, array, dir, value in pins:
         setmax(array)
@@ -508,17 +511,35 @@ def prologue(f):
 
 ############################  RTAPI_IP / MP declarations ########################
 
-    for name, mptype, doc, value in instanceparams:
+    for name, mptype, array, doc, value in instanceparams:
         if (mptype == 'int'):
             if value == None: v = 0
             else: v = value
             print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
-            print >>f, "RTAPI_IP_INT(%s, \"%s\");\n" % (to_c(name), to_c(doc))
+            print >>f, "RTAPI_IP_INT(%s, \"%s\");\n" % (to_c(name), doc)
         else:
-            if value == None: strng = "\"\\0\"";
-            else: strng = value
-            print >>f, "static char *%s = %s;" % (to_c(name), strng)
-            print >>f, "RTAPI_IP_STRING(%s, \"%s\");\n" % (to_c(name), to_c(doc))
+            ## if there are string instanceparams, we will need to clean up afterwards
+            instance_string_clean = True
+            if(array):
+                strng = "{"
+                if (array == 'pincount'):
+                    r = maxpins
+                else:
+                    r = int(array)
+                
+                for i in range(0, r):
+                    strng += "0,"
+                strng = strng[:-1]
+                strng += "}"
+            else:
+                if value == None: strng = "\"\\0\"";
+                else: strng = value
+            if(array):
+                print >>f, "static char *%s[%s] = %s;" % (to_c(name), array, strng)
+                print >>f, "RTAPI_IP_ARRAY_STRING(%s, %s, \"%s\");\n" % (to_c(name), array, doc)
+            else:
+                print >>f, "static char *%s = %s;" % (to_c(name), strng)
+                print >>f, "RTAPI_IP_STRING(%s, \"%s\");\n" % (to_c(name), doc)
 
 ################################################################################################
 #  Still process these but don't advertise them - possible future application in base component
@@ -583,10 +604,16 @@ def prologue(f):
             print >>f, "    %s %s;" % (type, name)
 
     # if int instanceparam exists, echo its value in inst_data
-    for name, mptype, doc, value in instanceparams:
+    for name, mptype, array, doc, value in instanceparams:
         if (mptype == 'int') and (name != "pincount"):
             print >>f, "    int local_%s;" % to_c(name)
-            
+        else :
+            if(mptype == 'string'):
+                if(array):  # several strings potentially, but could just be one
+                    print >>f, "    char *local_%s[%s];" % (to_c(name), array);
+                else:       # just one
+                    print >>f, "    char *local_%s;" % to_c(name)
+     
     ##local copy used in function and set to default value
     print >>f, "    int local_pincount;"
     print >>f, "    };"
@@ -611,16 +638,16 @@ def prologue(f):
         names[name] = 1
 
     print >>f, "static int instantiate(const char *name, const int argc, const char**argv);\n"
-    if options.get("extra_inst_cleanup"):
+    if options.get("extra_inst_cleanup") or instance_string_clean:
         print >>f, "static int delete(const char *name, void *inst, const int inst_size);\n"
 
-    if options.get("extra_inst_setup"):
+    if options.get("extra_inst_setup") :
         print >>f, "static int extra_inst_setup(struct inst_data* ip, const char *name, int argc, const char**argv);\n"
     if options.get("extra_inst_cleanup"):
         print >>f, "static void extra_inst_cleanup(const char *name, void *inst, const int inst_size);\n"
 
     if not options.get("no_convenience_defines"):
-# capitalised defines removed to enforce lowercase C boolean values
+    # capitalised defines removed to enforce lowercase C boolean values
         print >>f, "#undef TRUE"
         print >>f, "#undef FALSE"
         print >>f, "#undef true"
@@ -743,11 +770,25 @@ def prologue(f):
         print >>f, "         ip->local_pincount = DEFAULTCOUNT;\n"
         print >>f, "    hal_print_msg(RTAPI_MSG_DBG,\"export_halobjs() ip->local_pincount set to %d\", ip->local_pincount);\n"
 
-    ## echo instanceparam values in inst_data, except local_pincount, which is done explicitly
-    for name, mptype, doc, value in instanceparams:
+    ## echo instanceparam values into inst_data, except local_pincount, which is done explicitly
+    for name, mptype, array, doc, value in instanceparams:
         if (mptype == 'int') and (name != "pincount"):
             print >>f, "    ip->local_%s = %s;" % (to_c(name), to_c(name))
-               
+        else :
+            if(mptype == 'string'):
+                if(array):  
+                     ## test validity first and copy to buffer first to enforce sizing and give const char*
+                    print >>f, "    for(r= 0; r < %d; r++)\n        {" % int(array)
+                    print >>f, "        if(%s[r] != NULL)\n            {" % (to_c(name))
+                    print >>f, "            strncpy(buf, %s[r], HAL_NAME_LEN);" % (to_c(name))
+                    print >>f, "            ip->local_%s[r] =  halg_strdup(1, buf);\n            }" % (to_c(name))
+                    print >>f, "        else\n            ip->local_%s[r] = NULL;\n        }\n" % (to_c(name))
+                else: 
+                    print >>f, "    if(%s != NULL)\n        {" % (to_c(name))
+                    print >>f, "        strncpy(buf, %s, HAL_NAME_LEN);" % (to_c(name))
+                    print >>f, "        ip->local_%s = halg_strdup(1, buf);        }" % (to_c(name), to_c(name))
+                    print >>f, "    else\n    ip->local_%s = NULL;\n" % (to_c(name))
+                                             
     for name, fp in functions:
         print >>f, "\n    // exporting an extended thread function:"
         print >>f, "    hal_export_xfunct_args_t %s_xf = " % to_c(name)
@@ -791,17 +832,21 @@ def prologue(f):
     print >>f, "    hal_print_msg(RTAPI_MSG_DBG,\"%s inst=%s argc=%d\",__FUNCTION__, name, argc);\n"
     print >>f, "// Debug print of params and values"
 
-    for name, mptype, doc, value in instanceparams:
+    for name, mptype, array, doc, value in instanceparams:
         if (mptype == 'int'):
             strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: int instance param: %s=%d\",__FUNCTION__,"
             strg += "\"%s\", %s);" % (to_c(name), to_c(name))
             print >>f, strg
         else:
-            strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: string instance param: %s=%s\",__FUNCTION__,"
-            strg += "\"%s\", %s);" % (to_c(name), to_c(name))
+            if(array):
+                strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: string array instance param: %s=%s\",__FUNCTION__,"
+                strg += "\"%s\", (char *)%s[0]);" % (to_c(name), to_c(name))
+            else:            
+                strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: string instance param: %s=%s\",__FUNCTION__,"
+                strg += "\"%s\", %s);" % (to_c(name), to_c(name))
             print >>f, strg
     if have_count:
-        for name, mptype, doc, value in instanceparams:
+        for name, mptype, array, doc, value in instanceparams:
             if name == 'pincount':
                 if value != None:
                     print >>f, "//  if pincount=NN is passed, set local variable here, if not set to default"
@@ -840,17 +885,8 @@ def prologue(f):
 
     print >>f, "\nint rtapi_app_main(void)\n{"
     print >>f, "// Debug print of params and values"
-    for name, mptype, doc, value in instanceparams:
-        if (mptype == 'int'):
-            strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: int instance param: %s=%d\",__FUNCTION__,"
-            strg += "\"%s\", %s);" % (to_c(name), to_c(name))
-            print >>f, strg
-        else:
-            strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: string instance param: %s=%s\",__FUNCTION__,"
-            strg += "\"%s\", %s);" % (to_c(name), to_c(name))
-            print >>f, strg
 
-    if options.get("extra_inst_cleanup"):
+    if options.get("extra_inst_cleanup") or instance_string_clean:
         print >>f, "    comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate, delete, compname);"
     else :
         print >>f, "    comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate, NULL, compname);"
@@ -888,7 +924,7 @@ def prologue(f):
 
 
 #########################   delete()  ####################################################################
-    if options.get("extra_inst_cleanup"):
+    if options.get("extra_inst_cleanup") or instance_string_clean:
         print >>f, "// custom destructor - normally not needed"
         print >>f, "// pins, pin_ptrs, and functs are automatically deallocated regardless if a"
         print >>f, "// destructor is used or not (see below)"
@@ -908,7 +944,7 @@ def prologue(f):
 #
 #    print >>f, "    hal_print_msg(RTAPI_MSG_DBG,\"%s inst=%s size=%d %p\\n\", __FUNCTION__, name, inst_size, inst);"
 #    print >>f, "// Debug print of params and values"
-#    for name, mptype, doc, value in instanceparams:
+#    for name, mptype, array, doc, value in instanceparams:
 #        if (mptype == 'int'):
 #            strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: int instance param: %s=%d\",__FUNCTION__,"
 #            strg += "\"%s\", %s);" % (to_c(name), to_c(name))
@@ -918,8 +954,26 @@ def prologue(f):
 #            strg += "\"%s\", %s);" % (to_c(name), to_c(name))
 #            print >>f, strg
 #####################################################################################################################
-
-        print >>f, "    return extra_inst_cleanup(name, inst, inst_size);"
+        if instance_string_clean:
+            print >>f, "    struct inst_data *ip = inst;\n"
+            print >>f, "    int r __attribute__((unused)) = 0;"  # stop warning if no arrays
+            for name, mptype, array, doc, value in instanceparams:
+                if(mptype == 'string'):
+                    if(array):  
+                        print >>f, "    for(r= 0; r < %d; r++)\n        {" % int(array)
+                        print >>f, "        if(ip->local_%s[r] != NULL)" % (to_c(name))
+                        print >>f, "            halg_free_str(ip->local_%s[r]);" % (to_c(name))
+                        print >>f, "        }\n"
+                    else:
+                        print >>f, "    if(ip->local_%s != NULL)" % (to_c(name))
+                        print >>f, "        halg_free_str(ip->local_%s);" % to_c(name)
+                        
+            print >>f,  "    hal_print_msg(RTAPI_MSG_DBG,\"Instanceparam string memory (if any) freed\");"
+            
+        if options.get("extra_inst_cleanup"):
+            print >>f, "    return extra_inst_cleanup(name, inst, inst_size);"
+        else:
+            print >>f, "    return 0;\n"
         print >>f, "}\n"
 
 ######################  preliminary defines before user FUNCTION(_) ######################################
@@ -982,12 +1036,19 @@ def prologue(f):
                     print >>f, "#define %s (*(ip->%s))" % (to_c(name), to_c(name) )
                 else :
                     print >>f, "#define %s (ip->%s)" % (to_c(name), to_c(name) )
-
-        for name, mptype, doc, value in instanceparams:
+                    
+        for name, mptype, array, doc, value in instanceparams:
             if (mptype == 'int') and (name != "pincount"):
                 print >>f, "#undef local_%s" % to_c(name)
                 print >>f, "#define local_%s (ip->local_%s)" % (to_c(name), to_c(name))
-            
+            if (mptype == 'string'):
+                print >>f, "#undef local_%s" % to_c(name) 
+                if(array): 
+                    print >>f, "#define local_%s(i) (ip->local_%s[i])" % (to_c(name), to_c(name))
+                else: 
+                    print >>f, "#define local_%s (ip->local_%s)" % (to_c(name), to_c(name))
+                
+                
         print >>f, "#undef local_pincount"
         print >>f, "#define local_pincount (ip->local_pincount)"
         
@@ -1191,7 +1252,7 @@ def document(filename, outfilename):
 
     if instanceparams:
         print >>f, ".SH INST_PARAMETERS"
-        for _, name, type, doc, value in finddocs('instanceparam'):
+        for _, name, type, array, doc, value in finddocs('instanceparam'):
             print >>f, lead
             print >>f, ".B %s\\fR" % name,
             print >>f, type,

@@ -68,6 +68,9 @@ void free_pin_struct(hal_pin_t * pin);
 
 int hal_heap_addmem(size_t click);
 
+char *halg_strdup(const int use_hal_mutex, const char *paramptr);
+int halg_free_str(char *s);
+
 RTAPI_END_DECLS
 
 #endif /* HAL_INTERNAL_H */
