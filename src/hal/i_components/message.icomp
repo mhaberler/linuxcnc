@@ -1,0 +1,86 @@
+/********************************************************************
+* Description:  message.icomp
+*               Message HAL component.
+*
+* Author: Les Newell <les at sheetcam dot com>
+* Copyright (c) 2011 All rights reserved.
+* License: GPL Version 2 or later
+* 
+*   Adapted and altered for instantiated component
+*   by ArcEye <arceye@mgwareDOTcoDOTuk> 2015
+*
+*   newinst message low_warn messages="Oil Low,Coolant Low,Lunch Is Ready"
+*   setp low_warn.message-num 0 (default message anyway)
+*   setp low_warn.message-num 1
+*   setp low_warn.message-num 2
+*    
+*************************************************************************/
+ 
+component message "Display a message";
+ 
+description "Allows HAL pins to trigger a message.";
+
+pin in bit trigger = false   "signal that triggers the message";
+pin in bit force = false     "FALSE->TRUE transition forces message redisplay";
+pin io bit edge = true "Selects desired edge: TRUE = falling, FALSE = rising";
+pin in s32 message_num = 0   "Required message number";
+
+instanceparam string messages[4] "series of comma separated messages, NO spaces";
+
+variable hal_bit_t prev_trigger = false;
+variable hal_bit_t prev_force = true;
+variable hal_bit_t prev_edge = true;
+
+option extra_inst_setup yes;
+ 
+function _ nofp "Display a message when triggered";
+
+license "GPL v2";
+;;
+ 
+ 
+FUNCTION(_)
+{
+hal_bit_t show = false;
+    
+    if(prev_edge != edge) // edge type has changed 
+        {
+        prev_edge = edge;
+        prev_trigger = !edge;
+        }
+    if(force != prev_force) // force type has changed 
+        {
+        prev_force = force;
+        if(force && (trigger == edge))
+            show = true;
+        }
+       
+    if(trigger != prev_trigger) // trigger has changed 
+        {
+        prev_trigger = trigger;
+        if(trigger == edge)
+            show = true;
+        }
+    // once in the component function, print our local copy of the messages
+    if(show && (local_messages(message_num) != 0))
+        rtapi_print_msg(RTAPI_MSG_ERR, "%s\n", (char *)local_messages(message_num));
+    
+    return 0;
+}
+ 
+EXTRA_INST_SETUP()
+{
+hal_s32_t i = 0;
+
+    // If there is a problem with messages abort creation
+    if(messages[0] == 0)
+        {
+        rtapi_print_msg(RTAPI_MSG_ERR, "No messages in array - aborted load of message component\n");
+        return -1;
+        }
+    // otherwise print the instanceparam copies of the messages to log    
+    for(i; messages[i] != 0 ; i++)
+        rtapi_print_msg(RTAPI_MSG_DBG, "String %d is %s\n",i, (char *)messages[i]);
+      
+    return 0;
+}

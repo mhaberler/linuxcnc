@@ -351,6 +351,8 @@ EXPORT_SYMBOL(hal_comp_name);
 
 // hal_memory.c:
 EXPORT_SYMBOL(halg_malloc);
+EXPORT_SYMBOL(halg_strdup);
+EXPORT_SYMBOL(halg_free_str);
 
 // hal_pin.c:
 // EXPORT_SYMBOL(halg_pin_new);
