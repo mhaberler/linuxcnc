@@ -553,17 +553,11 @@ int init_hal_data(void)
     hal_data->epsilon[0] = DEFAULT_EPSILON;
 
     // HAL heap
-    rtapi_heap_init(&hal_data->heap);
-    hal_heap_addmem(global_data->hal_size / HAL_HEAP_INITIAL);
-#ifdef LOG_RTAPI_HEAP
-    rtapi_heap_setflags(&hal_data->heap,
-			RTAPIHEAP_TRIM|
-			RTAPIHEAP_TRACE_MALLOC|
-			RTAPIHEAP_TRACE_FREE ); // verbose heap allocator
-#else
-    rtapi_heap_setflags(&hal_data->heap,0);//  RTAPIHEAP_TRIM);
-#endif
+    rtapi_heap_init(&hal_data->heap, "hal");
+    rtapi_heap_setflags(&hal_data->heap, global_data->hal_heap_flags);
     rtapi_heap_setloghdlr(&hal_data->heap, rtapi_get_msg_handler());
+    hal_heap_addmem((size_t) (global_data->hal_size / HAL_HEAP_INITIAL));
+    rtapi_heap_setloghdlr(&global_data->heap, rtapi_get_msg_handler());
 
     /* done, release mutex */
     rtapi_mutex_give(&(hal_data->mutex));

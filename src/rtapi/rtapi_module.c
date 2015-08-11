@@ -90,7 +90,7 @@ void _rtapi_module_exit_hook(void);
 int init_module(void) {
     int n;
     struct shm_status sm;
-    int retval;
+    int retval, gsize;
 
     rtapi_switch = rtapi_get_handle();
 
@@ -105,6 +105,7 @@ int init_module(void) {
 	       retval);
 	return -EINVAL;
     }
+    gsize = sm.size;
 
     // fail immediately if the global segment isnt in shape yet
     // this catches https://github.com/zultron/linuxcnc/issues/49 early
@@ -167,14 +168,14 @@ int init_module(void) {
 
 	// release rtapi and global shared memory blocks
 	sm.key = OS_KEY(RTAPI_KEY, rtapi_instance);
-	sm.size = sizeof(global_data_t);
+	sm.size = sizeof(rtapi_data_t);
 	sm.flags = 0;
 	if ((retval = shmdrv_detach(&sm)) < 0)
 	    RTAPIERR("shmdrv_detach(rtapi=0x%x,%zu) returns %d",
 		     sm.key, sm.size, retval);
 
 	sm.key = OS_KEY(GLOBAL_KEY, rtapi_instance);
-	sm.size = sizeof(global_data_t);
+	sm.size = gsize;
 	sm.flags = 0;
 	if ((retval = shmdrv_detach(&sm)) < 0)
 	    RTAPIERR("shmdrv_detach(global=0x%x,%zu) returns %d",

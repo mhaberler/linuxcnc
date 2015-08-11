@@ -92,7 +92,8 @@ void vs_ring_write(msg_level_t level, const char *format, va_list ap)
     if (global_data) {
 	// one-time initialisation
 	if (!rtapi_message_buffer.header) {
-	    ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
+	    ringbuffer_init(shm_ptr(global_data, global_data->rtapi_messages_ptr),
+			    &rtapi_message_buffer);
 	}
 	logmsg.hdr.origin = MSG_ORIGIN;
 #if defined(RTAPI) && defined(BUILD_SYS_KBUILD)

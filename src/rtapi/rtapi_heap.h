@@ -17,6 +17,7 @@ RTAPI_BEGIN_DECLS
 #include "stdarg.h"
 #include "rtapi_bitops.h" // RTAPI_BIT
 
+// flags for _rtapi_heap_setflags()
 #define RTAPIHEAP_TRACE_MALLOC RTAPI_BIT(0)
 #define RTAPIHEAP_TRACE_FREE   RTAPI_BIT(1)
 #define RTAPIHEAP_TRIM         RTAPI_BIT(2)  //  free alignment overallocations
@@ -38,7 +39,7 @@ void  *_rtapi_calloc(struct rtapi_heap *h, size_t n, size_t size);
 void  *_rtapi_realloc(struct rtapi_heap *h, void *p, size_t size);
 void   _rtapi_free(struct rtapi_heap *h, void *p);
 size_t _rtapi_allocsize(struct rtapi_heap *h, const void *ap);
-int    _rtapi_heap_init(struct rtapi_heap *h);
+int   _rtapi_heap_init(struct rtapi_heap *h, const char *name);
 // any memory added to the heap must lie above the rtapi_heap structure:
 int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size);
 

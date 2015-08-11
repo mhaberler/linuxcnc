@@ -125,7 +125,15 @@ void *halg_create_objectfv(const bool use_hal_mutex,
 			  const char *fmt,
 			  va_list ap)
 {
-    halhdr_t *new = shmalloc_desc_aligned(size, RTAPI_CACHELINE);
+    halhdr_t *new;
+    if (global_data->hal_descriptor_alignment)
+	// cache-line aligned alloc. more memory usage, more cache friendly.
+	new = shmalloc_desc_aligned(size,
+				    global_data->hal_descriptor_alignment);
+    else
+	// default alignent (8). Less waste.
+	new = shmalloc_desc(size);
+
     if (new == NULL) {
 	char name[HAL_MAX_NAME_LEN+1];
 	rtapi_vsnprintf(name, sizeof(name), fmt, ap);

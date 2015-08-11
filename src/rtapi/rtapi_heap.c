@@ -37,11 +37,16 @@ heap_print(struct rtapi_heap *h, int level, const char *fmt, ...)
 #ifdef RTAPI
     if (!h->msg_handler)
 	return;
+    char buffer[80];
 
     va_list args;
     va_start(args, fmt);
-    h->msg_handler(level, fmt, args);
+    strcpy(buffer, h->name);
+    strcat(buffer, " ");
+    size_t l = strlen(buffer);
+    rtapi_vsnprintf(buffer + l, sizeof(buffer) - l, fmt, args);
     va_end(args);
+    h->msg_handler(level, buffer, NULL);
 #endif
 }
 
@@ -53,6 +58,10 @@ static void malloc_autorelease_mutex(rtapi_atomic_type **mutex) {
 
 void  *_rtapi_malloc_aligned(struct rtapi_heap *h, size_t nbytes, size_t align)
 {
+    if (h->flags & RTAPIHEAP_TRACE_MALLOC)
+	heap_print(h, RTAPI_MSG_INFO, "%s: size=%zu align=%zu",
+		   __FUNCTION__, nbytes, align);
+
     if ((align & (align - 1)) != 0) { // m must be power of 2
 	heap_print(h, RTAPI_MSG_ERR,
 		   "%s: odd alignment %zu, size=%zu\n",
@@ -62,7 +71,6 @@ void  *_rtapi_malloc_aligned(struct rtapi_heap *h, size_t nbytes, size_t align)
     void *base = _rtapi_malloc(h, nbytes + align);
     void *result = (void *)((uintptr_t)(base + align) & - align);
     size_t slack = result - base;
-
     if (slack < sizeof(rtapi_malloc_tag_t)) {
 	heap_print(h, RTAPI_MSG_ERR, "%s: ASSUMPTION VIOLATED slack=%zu\n",
 		   __FUNCTION__, slack);
@@ -133,12 +141,12 @@ void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
 	    h->requested += nbytes;
 	    h->allocated += alloced;
 	    if (h->flags & RTAPIHEAP_TRACE_MALLOC)
-		heap_print(h, RTAPI_MSG_DBG, "malloc req=%zu actual=%zu at %p\n",
+		heap_print(h, RTAPI_MSG_INFO, "malloc req=%zu actual=%zu at %p\n",
 			   nbytes, alloced, p);
 	    return (void *)(p+1);
 	}
 	if (p == freep)	{	/* wrapped around free list */
-	    heap_print(h, RTAPI_MSG_DBG, "rtapi_malloc: out of memory"
+	    heap_print(h, RTAPI_MSG_INFO, "rtapi_malloc: out of memory"
 		       " (size=%zu arena=%zu)\n", nbytes, h->arena_size);
 	    //if ((p = morecore(nunits)) == NULL)
 	    return NULL;	/* none left */
@@ -159,7 +167,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
 	// yes, retrieve original region and release that
 	void *base = heap_ptr(h, rt->size);
 	if (h->flags & RTAPIHEAP_TRACE_FREE)
-	    heap_print(h, RTAPI_MSG_DBG,
+	    heap_print(h, RTAPI_MSG_INFO,
 		       "%s: free aligned %p->%p size=%zu\n",
 		       __FUNCTION__, ap, base, _rtapi_allocsize(h, base));
 	ap = base;
@@ -175,7 +183,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
 	    (bp > p || bp < (rtapi_malloc_hdr_t *)heap_ptr(h,p->s.next))) {
 	    // freed block at start or end of arena
 	    if (h->flags & RTAPIHEAP_TRACE_FREE)
-		heap_print(h, RTAPI_MSG_DBG,
+		heap_print(h, RTAPI_MSG_INFO,
 			   "%s: freed block at start or end of arena n=%u\n",
 			   __FUNCTION__,
 			   alloc);
@@ -188,7 +196,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
 	// join to upper neighbor
 	size_t ns = ((rtapi_malloc_hdr_t *)heap_ptr(h,p->s.next))->s.tag.size;
 	if (h->flags & RTAPIHEAP_TRACE_FREE)
-	    heap_print(h, RTAPI_MSG_DBG, "%s: join upper  %u+=%u\n",
+	    heap_print(h, RTAPI_MSG_INFO, "%s: join upper  %u+=%u\n",
 		       __FUNCTION__, ns, alloc);
 	bp->s.tag.size += ns;
 	bp->s.next = ((rtapi_malloc_hdr_t *)heap_ptr(h,p->s.next))->s.next;
@@ -198,7 +206,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
     if (p + p->s.tag.size == bp) {
 	// join to lower nbr
 	if (h->flags & RTAPIHEAP_TRACE_FREE)
-	    heap_print(h, RTAPI_MSG_DBG, "%s: join lower %u+=%u\n",
+	    heap_print(h, RTAPI_MSG_INFO, "%s: join lower %u+=%u\n",
 		       __FUNCTION__, bp->s.tag.size, alloc);
 	p->s.tag.size += bp->s.tag.size;
 	p->s.next = bp->s.next;
@@ -206,7 +214,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
     } else {
 	p->s.next = heap_off(h,bp);
 	if (h->flags & RTAPIHEAP_TRACE_FREE)
-	    heap_print(h, RTAPI_MSG_DBG,  "%s: free fragment n=%u\n",
+	    heap_print(h, RTAPI_MSG_INFO,  "%s: free fragment n=%u\n",
 		       __FUNCTION__, alloc);
     }
     h->free_p = heap_off(h,p);
@@ -294,7 +302,7 @@ int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size)
     return 0;
 }
 
-int _rtapi_heap_init(struct rtapi_heap *heap)
+int _rtapi_heap_init(struct rtapi_heap *heap, const char *name)
 {
     unsigned long *m __attribute__((cleanup(malloc_autorelease_mutex))) = &heap->mutex;
     rtapi_mutex_get(m);
@@ -309,6 +317,15 @@ int _rtapi_heap_init(struct rtapi_heap *heap)
     heap->requested = 0;
     heap->allocated = 0;
     heap->freed = 0;
+    if (name) 
+	strncpy(heap->name, name, sizeof(heap->name));
+    else {
+#ifdef RTAPI
+	rtapi_snprintf(heap->name, sizeof(heap->name),"<%p>", heap);
+#else
+    snprintf(heap->name, sizeof(heap->name),"<%p>", heap);
+#endif
+    }
     return 0;
 }
 

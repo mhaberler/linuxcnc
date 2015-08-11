@@ -16,6 +16,8 @@
 // the offsets used in the rtapi_heap and rtapi_malloc_header structure
 // are offsets from the rtapi_heap structure.
 
+
+// compile time parameter for all heaps
 #ifndef RTAPI_MALLOC_ALIGN
 #define RTAPI_MALLOC_ALIGN 1    // *8 == alignment boundary
 #endif
@@ -26,6 +28,10 @@ typedef struct rtapi_malloc_align {
     double _align[RTAPI_MALLOC_ALIGN];
 } rtapi_malloc_align_t;
 
+// if a region is allocated via rtapi_malloc_aligned(), this tag
+// lives right below the pointer to the allocated region, and records
+// the location of the actual rtapi_malloc() allocation so it can be
+// properly freed
 typedef struct rtapi_malloc_tag {
     unsigned size : 24;	// size of this block
     unsigned attr : 8;  // alloc attributes
@@ -35,7 +41,6 @@ union rtapi_malloc_header {
     struct hdr {
 	size_t   next;	// next block if on free list
 	rtapi_malloc_tag_t tag; // size of
-	// unsigned size;	// size of this block
     } s;
     rtapi_malloc_align_t align;	// unused - force alignment of blocks
 };
@@ -50,8 +55,9 @@ struct rtapi_heap {
     int flags; // debugging, tracing etc
     size_t requested;
     size_t allocated;
-    size_t freed;
+    int freed;
     heap_print_t msg_handler;
+    char name[16];
 };
 
 static inline void *heap_ptr(struct rtapi_heap *base, size_t offset) {

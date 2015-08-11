@@ -73,10 +73,16 @@
 #error "Can't define both RTAPI and ULAPI!"
 #endif
 
+#ifdef __cplusplus
+#define RTAPI_BEGIN_DECLS extern "C" {
+#define RTAPI_END_DECLS }
+#else
+#define RTAPI_BEGIN_DECLS
+#define RTAPI_END_DECLS
+#endif
+
 #include <stddef.h> // provides NULL, offset_of
-
 #include "rtapi_int.h"
-
 
 /* LINUX_VERSION_CODE for rtapi_{module,io}.c */
 #ifdef MODULE
@@ -89,23 +95,9 @@
 #endif
 
 #include <rtapi_errno.h>
-#include <rtapi_global.h>
-#include <rtapi_heap.h>
-#include <rtapi_exception.h>
 
-#define RTAPI_NAME_LEN   31	/* length for module, etc, names */
-
-#ifdef __cplusplus
-#define RTAPI_BEGIN_DECLS extern "C" {
-#define RTAPI_END_DECLS }
-#else
-#define RTAPI_BEGIN_DECLS
-#define RTAPI_END_DECLS
-#endif
-
+// need RTAPI_CACHELINE for rtapi_global.h
 RTAPI_BEGIN_DECLS
-
-
 #ifdef HAVE_CK
 #include <ck_pr.h>
 #endif
@@ -115,7 +107,16 @@ RTAPI_BEGIN_DECLS
 #else
 #define RTAPI_CACHELINE  (64)
 #endif
+RTAPI_END_DECLS
 
+#include <rtapi_global.h>
+#include <rtapi_heap.h>
+#include <rtapi_exception.h>
+
+#define RTAPI_NAME_LEN   31	/* length for module, etc, names */
+
+
+RTAPI_BEGIN_DECLS
 
 #ifndef MODULE
 #ifndef container_of
@@ -214,9 +215,9 @@ typedef size_t (*rtapi_allocsize_t)(struct rtapi_heap *h, const void *p);
 #define rtapi_allocsize(h, p)			\
     rtapi_switch->rtapi_allocsize(h, p)
 
-typedef int  (*rtapi_heap_init_t)(struct rtapi_heap *h);
-#define rtapi_heap_init(h) \
-    rtapi_switch->rtapi_heap_init(h)
+typedef int  (*rtapi_heap_init_t)(struct rtapi_heap *h, const char *name);
+#define rtapi_heap_init(h, n)			\
+    rtapi_switch->rtapi_heap_init(h, n)
 
 // any memory added to the heap must lie above the rtapi_heap structure:
 typedef int  (*rtapi_heap_addmem_t)(struct rtapi_heap *h, void *space, size_t size);

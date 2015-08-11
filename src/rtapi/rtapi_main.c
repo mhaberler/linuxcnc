@@ -106,10 +106,10 @@ int rtapi_app_main(void)
 			 rtapi_instance, globalkey, strerror(-retval));
 	 return retval;
     }
-    if (size != sizeof(global_data_t)) {
+    if (size < sizeof(global_data_t)) {
 	 rtapi_print_msg(RTAPI_MSG_ERR,
 			 "RTAPI:%d ERROR: unexpected global shm size:"
-			 " expected: %zd actual:%d\n",
+			 " expected: >%zu actual:%d\n",
 			 rtapi_instance, sizeof(global_data_t), size);
 	 return -EINVAL;
     }
@@ -131,7 +131,8 @@ int rtapi_app_main(void)
     global_heap = &global_data->heap;
 
     // make the message ringbuffer accessible
-    ringbuffer_init(&global_data->rtapi_messages, &rtapi_message_buffer);
+    ringbuffer_init(shm_ptr(global_data, global_data->rtapi_messages_ptr),
+		    &rtapi_message_buffer);
     rtapi_message_buffer.header->refcount++;
 
 

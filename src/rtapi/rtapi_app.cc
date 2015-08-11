@@ -726,9 +726,9 @@ static int attach_global_segment()
 	}
     } while (retval < 0);
 
-    if (size != sizeof(global_data_t)) {
+    if (size < (int) sizeof(global_data_t)) {
 	syslog_async(LOG_ERR,
-	       "rtapi_app:%d global segment size mismatch: expect %zu got %d\n",
+	       "rtapi_app:%d global segment size mismatch: expect >%zu got %d\n",
 	       instance_id, sizeof(global_data_t), size);
 	return -EINVAL;
     }
@@ -1611,7 +1611,7 @@ int main(int argc, char **argv)
 #endif
 
     // the actual checking for setuid happens in harden_rt() (if needed)
-    if (getuid() != 0) {
+    if (!foreground && (getuid() != 0)) {
 	pid_t pid1;
 	pid_t pid2;
 	int status;

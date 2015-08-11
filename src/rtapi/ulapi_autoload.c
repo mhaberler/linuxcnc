@@ -217,7 +217,7 @@ static int ulapi_load(rtapi_switch_t **ulapi_switch)
 	return retval;
     }
 
-    if (size != sizeof(global_data_t)) {
+    if (size < sizeof(global_data_t)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"ULAPI:%d ERROR: global segment size mismatch,"
 			" expected: %zd, actual:%d\n",

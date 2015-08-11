@@ -104,10 +104,9 @@ void *shmalloc_desc_aligned(size_t size, size_t alignment)
     void *ptr = rtapi_malloc_aligned(&hal_data->heap,
 				     size,
 				     alignment);
-    if (ptr == NULL) {
-	_halerrno = -ENOMEM;
-	return NULL;
-    }
+    if (ptr == NULL)
+	HALFAIL_NULL(ENOMEM, "insufficient memory for %zu, align=%zu",
+		     size, alignment);
     HAL_ASSERT(is_aligned(ptr, alignment));
     memset(ptr, 0, size);
     return ptr;
