@@ -281,7 +281,22 @@ static inline void ringbuffer_init(ringheader_t *ringheader, ringbuffer_t *ring)
     ring->magic = RINGBUFFER_MAGIC;
 }
 
+// memory layout of record rings:
+//
+// an RB_ALIGN aligned sequence of records:
+// struct record {
+//    ring_size_t size;  // a int32_t
+//    char data[0];
+// }
+// zero-length records are ok.
+//
+// when writing near the end of the buffer, and the remaining space
+// is too small, a zero-length record with size -1 is added.
+// this marks the current end of buffer, and tells the reader to retry
+// the read at the beginning of the buffer.
 
+
+// returns pointer to size field at a given offset
 static inline ring_size_t * _size_at(const ringbuffer_t *ring, const size_t off)
 {
     return (ring_size_t *) (ring->buf + off);
@@ -296,7 +311,7 @@ static inline size_t record_usage(const size_t record_size)
 
 /* record_write_begin():
  *
- * begin a zero-copy write operation for at least sz bytes. This povides a buffer
+ * begin a zero-copy write operation for up to sz bytes. This povides a buffer
  * to write to within free ringbuffer space.
  *
  * return 0 if there is sufficient space for the requested size
@@ -306,6 +321,18 @@ static inline size_t record_usage(const size_t record_size)
  * The write needs to be committed with a corresponding record_write_end()
  * operation whose size argument must be less or equal to the size requested in
  * record_write_begin().
+ *
+ * This operation does not modifiy head or tail; record_write_end() does.
+ * It also does not record the tentative write size in the ring; this is
+ * only done in record_write_end() once the write is committed.
+ *
+ * 'sz' is used here to decide if an actual write of the size would wrap, and
+ * return 'data' accordingly. The decision to wrap is committed though, even if
+ * record_write_end() applies a smaller size which would have fit without
+ * wrapping during record_write_begin().
+ *
+ * record_write_end() uses the 'data' field to decide if the decision was to
+ * wrap or not.
  */
 static inline int record_write_begin(ringbuffer_t *ring, void ** data, size_t sz)
 {
@@ -313,19 +340,30 @@ static inline int record_write_begin(ringbuffer_t *ring, void ** data, size_t sz
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
     size_t a = size_aligned(sz + sizeof(ring_size_t));
+
+     // record too large for ring?
     if (a > h->size)
 	return ERANGE;
 
     free = (h->size + h->head - t->tail - 1) % h->size + 1; // -1 + 1 is needed for head==tail
 
     //printf("Free space: %d; Need %zd\n", free, a);
-    if (free <= a) return EAGAIN;
+
+    if (free <= a) return EAGAIN; // currently not enough space
+
+    // would the write wrap around the end of ring?
     if (t->tail + a > h->size) {
+
+	// would record fit at the start of the ring?
 	if (h->head <= a)
+	    // currently not
 	    return EAGAIN;
+
+	// yes, return address of tentative write at start of ring
 	*data = _size_at(ring, 0) + 1;
 	return 0;
     }
+    // size would fit, return address post tail + size field
     *data = _size_at(ring, t->tail) + 1;
     return 0;
 }
@@ -333,8 +371,9 @@ static inline int record_write_begin(ringbuffer_t *ring, void ** data, size_t sz
 /* record_write_end()
  *
  * commit a zero-copy write to the ring which was started by record_write_begin().
- * sz on record_write_end() must be less equal to the size requested in
+ * 'sz' on record_write_end() must be less equal to the size requested in
  * the corresponding record_write_begin().
+ * 'data' must be the pointer returned by record_write_begin().
  */
 static inline int record_write_end(ringbuffer_t *ring, void * data, size_t sz)
 {
@@ -342,11 +381,15 @@ static inline int record_write_end(ringbuffer_t *ring, void * data, size_t sz)
     ringtrailer_t *t = ring->trailer;
 
     size_t a = size_aligned(sz + sizeof(ring_size_t));
+
+    // was the write at the beginning of the buffer?
     if (data == _size_at(ring, 0) + 1) {
-	// Wrap
+	// Wrap case
+	// invalidate the tail record
 	*_size_at(ring, t->tail) = -1;
 	t->tail = 0;
     }
+    // record comitted write size
     *_size_at(ring, t->tail) = sz;
 
     /* ensure that previous writes are seen before we update the write index
@@ -378,6 +421,9 @@ static inline int record_write(ringbuffer_t *ring, void * data, size_t sz)
 }
 
 /* internal use function
+ *
+ * returns size and data address of the record at 'offset',
+ * or EAGAIN if empty at 'offset'.
  */
 static inline int _ring_read_at(const ringbuffer_t *ring, size_t offset,
 				const void **data, size_t *size)
@@ -386,15 +432,18 @@ static inline int _ring_read_at(const ringbuffer_t *ring, size_t offset,
     ringtrailer_t *t = ring->trailer;
 
     if (offset == t->tail)
+	// nothing available
 	return EAGAIN;
 
     /* (read-after-read) => read barrier */
     rtapi_smp_rmb();
 
     sz = _size_at(ring, offset);
-    if (*sz < 0)
+    if (*sz < 0)  // wrap mark
+	// return size/data of record at start of ring
         return _ring_read_at(ring, 0, data, size);
 
+    // non-wrapping case
     *size = *sz;
     *data = sz + 1;
     return 0;
