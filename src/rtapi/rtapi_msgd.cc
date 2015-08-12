@@ -854,6 +854,9 @@ int main(int argc, char **argv)
 	hal_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
 	global_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
     }
+    if (getenv("DEFAULTALIGN") != NULL)
+	hal_descriptor_alignment = 0; // default heap alignment (8)
+
 
     // sanity
     if (getuid() == 0) {
