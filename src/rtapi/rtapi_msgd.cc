@@ -413,7 +413,7 @@ static int init_global_data(global_data_t * data,
     }
 
     // init the global heap
-    _rtapi_heap_init(&data->heap, "global");
+    _rtapi_heap_init(&data->heap, "global heap");
 
     // allocate everything from global->arena to end of egment for global heap
     size_t global_heap_size = data->global_segment_size -

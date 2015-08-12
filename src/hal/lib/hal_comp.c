@@ -553,7 +553,7 @@ int init_hal_data(void)
     hal_data->epsilon[0] = DEFAULT_EPSILON;
 
     // HAL heap
-    rtapi_heap_init(&hal_data->heap, "hal");
+    rtapi_heap_init(&hal_data->heap, "hal heap");
     rtapi_heap_setflags(&hal_data->heap, global_data->hal_heap_flags);
     rtapi_heap_setloghdlr(&hal_data->heap, rtapi_get_msg_handler());
     hal_heap_addmem((size_t) (global_data->hal_size / HAL_HEAP_INITIAL));
