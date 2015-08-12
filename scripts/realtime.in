@@ -182,10 +182,9 @@ Load(){
 
     # rtapi_app_<flavor> now handles the kernel module loading
     # for kthreads as needed
-    if [ $DEBUG -gt 0 ] ; then
-	    ${rtapi_app} --instance=$INSTANCE $RTAPI_APP_OPTS  || \
-		(echo "rtapi_app startup failed - aborting"; exit $?)
-    fi
+    ${rtapi_app} --instance=$INSTANCE $RTAPI_APP_OPTS  || \
+	(echo "rtapi_app startup failed - aborting"; exit $?)
+
     # wait until rtapi_app responds, meaning setup is complete
     # this avoids startup races
     halcmd ping
