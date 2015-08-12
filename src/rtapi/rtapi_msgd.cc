@@ -121,8 +121,8 @@ static size_t message_ring_size = MESSAGE_RING_SIZE;
 static int hal_descriptor_alignment = RTAPI_CACHELINE;
 static int global_segment_size = MESSAGE_RING_SIZE + GLOBAL_HEAP_SIZE + sizeof(global_data_t);
 static int actual_global_size; // as returned by create_global_segment()
-static int hal_heap_flags = RTAPIHEAP_TRIM;
-static int global_heap_flags = RTAPIHEAP_TRIM;
+static int hal_heap_flags    =  RTAPIHEAP_TRIM;
+static int global_heap_flags =  RTAPIHEAP_TRIM;
 
 static const char *inifile;
 static int log_stderr;
@@ -655,57 +655,48 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 	n_msgs++;
 	n_bytes += msg_size;
 
-	switch (msg->encoding) {
-	case MSG_ASCII:
-	    // strip trailing newlines
-	    while ((cp = strrchr(msg->buf,'\n')))
-		*cp = '\0';
-	    syslog_async(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
-		   msg->tag, msg->pid, origins[msg->origin],
-		   (int) payload_length, msg->buf);
+
+	// strip trailing newlines
+	while ((cp = strrchr(msg->buf,'\n')))
+	    *cp = '\0';
+	syslog_async(rtapi2syslog(msg->level), "%s:%d:%s %.*s",
+		     msg->tag, msg->pid, origins[msg->origin],
+		     (int) payload_length, msg->buf);
 
 
-	    if (logpub.socket) {
-		// publish protobuf-encoded log message
-		container.set_type(pb::MT_LOG_MESSAGE);
+	if (logpub.socket) {
+	    // publish protobuf-encoded log message
+	    container.set_type(pb::MT_LOG_MESSAGE);
 
-		struct timespec timestamp;
-		clock_gettime(CLOCK_REALTIME, &timestamp);
-		container.set_tv_sec(timestamp.tv_sec);
-		container.set_tv_nsec(timestamp.tv_nsec);
+	    struct timespec timestamp;
+	    clock_gettime(CLOCK_REALTIME, &timestamp);
+	    container.set_tv_sec(timestamp.tv_sec);
+	    container.set_tv_nsec(timestamp.tv_nsec);
 
-		logmsg = container.mutable_log_message();
-		logmsg->set_origin((pb::MsgOrigin)msg->origin);
-		logmsg->set_pid(msg->pid);
-		logmsg->set_level((pb::MsgLevel) msg->level);
-		logmsg->set_tag(msg->tag);
-		logmsg->set_text(msg->buf, strlen(msg->buf));
+	    logmsg = container.mutable_log_message();
+	    logmsg->set_origin((pb::MsgOrigin)msg->origin);
+	    logmsg->set_pid(msg->pid);
+	    logmsg->set_level((pb::MsgLevel) msg->level);
+	    logmsg->set_tag(msg->tag);
+	    logmsg->set_text(msg->buf, strlen(msg->buf));
 
-		z_pbframe = zframe_new(NULL, container.ByteSize());
-		assert(z_pbframe != NULL);
+	    z_pbframe = zframe_new(NULL, container.ByteSize());
+	    assert(z_pbframe != NULL);
 
-		if (container.SerializeWithCachedSizesToArray(zframe_data(z_pbframe))) {
-		    // channel name:
-		    if (zstr_sendm(logpub.socket, "log"))
-			syslog_async(LOG_ERR,"zstr_sendm(): %s", strerror(errno));
+	    if (container.SerializeWithCachedSizesToArray(zframe_data(z_pbframe))) {
+		// channel name:
+		if (zstr_sendm(logpub.socket, "log"))
+		    syslog_async(LOG_ERR,"zstr_sendm(): %s", strerror(errno));
 
-		    // and the actual pb2-encoded message
-		    // zframe_send() deallocates the frame after sending,
-		    // and frees pb_buffer through zfree_cb()
-		    if (zframe_send(&z_pbframe, logpub.socket, 0))
-			syslog_async(LOG_ERR,"zframe_send(): %s", strerror(errno));
+		// and the actual pb2-encoded message
+		// zframe_send() deallocates the frame after sending,
+		// and frees pb_buffer through zfree_cb()
+		if (zframe_send(&z_pbframe, logpub.socket, 0))
+		    syslog_async(LOG_ERR,"zframe_send(): %s", strerror(errno));
 
-		} else {
-		    syslog_async(LOG_ERR, "container serialization failed");
-		}
+	    } else {
+		syslog_async(LOG_ERR, "container serialization failed");
 	    }
-	    break;
-	case MSG_STASHF:
-	    break;
-	case MSG_PROTOBUF:
-	    break;
-	default: ;
-	    // whine
 	}
 	record_shift(&rtapi_msg_buffer);
 	msg_poll = msg_poll_min; // keep going quick
@@ -757,6 +748,7 @@ static struct option long_options[] = {
     { "interfaces", required_argument, 0, 'n'},
     { "shmdrv_opts", required_argument, 0, 'o'},
     { "nosighdlr",   no_argument,    0, 'G'},
+    { "heapdebug",   no_argument,    0, 'P'},
 
     {0, 0, 0, 0}
 };
@@ -833,6 +825,10 @@ int main(int argc, char **argv)
 	case 'o':
 	    shmdrv_opts = strdup(optarg);
 	    break;
+	case 'P':
+	    hal_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
+	    global_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
+	    break;
 	case 's':
 	    log_stderr++;
 	    option |= LOG_PERROR;
@@ -853,6 +849,11 @@ int main(int argc, char **argv)
 
     if (trap_signals && (getenv("NOSIGHDLR") != NULL))
 	trap_signals = false;
+
+    if (getenv("HEAPTRACE") != NULL) {
+	hal_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
+	global_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
+    }
 
     // sanity
     if (getuid() == 0) {

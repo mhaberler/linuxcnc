@@ -228,10 +228,6 @@ typedef size_t  (*rtapi_heap_status_t)(struct rtapi_heap *h, struct rtapi_heap_s
 #define rtapi_heap_status(h, hs) \
     rtapi_switch->rtapi_heap_status(h, hs)
 
-typedef void * (*rtapi_heap_setloghdlr_t)(struct rtapi_heap *h, void *hdlr);
-#define rtapi_heap_setloghdlr(h, hdlr) \
-        rtapi_switch->rtapi_heap_setloghdlr(h, hdlr)
-
 typedef int (*rtapi_heap_setflags_t)(struct rtapi_heap *h, int flags);
 #define rtapi_heap_setflags(h, flags) \
         rtapi_switch->rtapi_heap_setflags(h, flags)
@@ -414,8 +410,6 @@ extern int rtapi_get_msg_level(void);
 typedef void(*rtapi_msg_handler_t)(msg_level_t level, const char *fmt,
 				   va_list ap);
 
-// message handler which writes to ringbuffer if global is available
-extern void vs_ring_write(msg_level_t level, const char *format, va_list ap);
 
 typedef void (*rtapi_set_msg_handler_t)(rtapi_msg_handler_t);
 
@@ -434,11 +428,14 @@ typedef enum {
 	MSG_ULAPI = 2,
 } msg_origin_t;
 
-typedef enum {
-    MSG_ASCII    = 0,  // printf conversion already applied
-    MSG_STASHF   = 1,  // Jeff's stashf.c argument encoding
-    MSG_PROTOBUF = 2,  // encoded as protobuf RTAPI_Message
-} msg_encoding_t;
+// low-level message handler which writes to ringbuffer if global is available
+// else to stderr/printk
+int vs_ringlogfv(const msg_level_t level,
+		 const int pid,
+		 const msg_origin_t origin,
+		 const char *tag,
+		 const char *format,
+		 va_list ap);
 
 #define TAGSIZE 16
 
@@ -447,7 +444,6 @@ typedef struct {
     int pid;                 // if User RT or ULAPI; 0 for kernel
     int level;               // as passed in to rtapi_print_msg()
     char tag[TAGSIZE];       // eg program or module name
-    msg_encoding_t encoding; // how to interpret buf
     char buf[0];             // actual message
 } rtapi_msgheader_t;
 
@@ -1046,7 +1042,6 @@ typedef struct {
     rtapi_heap_init_t    rtapi_heap_init;
     rtapi_heap_addmem_t  rtapi_heap_addmem;
     rtapi_heap_status_t  rtapi_heap_status;
-    rtapi_heap_setloghdlr_t rtapi_heap_setloghdlr;
     rtapi_heap_setflags_t rtapi_heap_setflags;
     rtapi_heap_walk_freelist_t rtapi_heap_walk_freelist;
 

@@ -153,7 +153,6 @@ static rtapi_switch_t dummy_ulapi_switch_struct = {
     .rtapi_heap_init = (rtapi_heap_init_t)&_ulapi_dummy,
     .rtapi_heap_addmem = (rtapi_heap_addmem_t)&_ulapi_dummy,
     .rtapi_heap_status = (rtapi_heap_status_t)&_ulapi_dummy,
-    .rtapi_heap_setloghdlr = (rtapi_heap_setloghdlr_t)&_ulapi_dummy,
     .rtapi_heap_setflags = (rtapi_heap_setflags_t)&_ulapi_dummy,
     .rtapi_heap_walk_freelist = (rtapi_heap_walk_freelist_t)&_ulapi_dummy,
 };

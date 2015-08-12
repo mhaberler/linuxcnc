@@ -163,7 +163,6 @@ global_data_t *global_data;
 static int init_actions(int instance);
 static void exit_actions(int instance);
 static int harden_rt(void);
-static void rtapi_app_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
 
 static int do_one_item(char item_type_char,
@@ -1230,7 +1229,7 @@ static int mainloop(size_t  argc, char **argv)
 	    global_data->rtapi_app_pid = 0;
 	    exit(EXIT_FAILURE);
 	}
-	rtapi_print_msg(RTAPI_MSG_ERR,"accepting commands at %s\n",uri);
+	rtapi_print_msg(RTAPI_MSG_DBG,"accepting commands at %s\n",uri);
 	umask(prev);
     }
     zloop_t *z_loop = zloop_new();
@@ -1503,7 +1502,6 @@ int main(int argc, char **argv)
     uuid_generate_time(process_uuid);
     uuid_unparse(process_uuid, process_uuid_str);
 
-    rtapi_set_msg_handler(rtapi_app_msg_handler);
     openlog_async(argv[0], LOG_NDELAY, LOG_LOCAL1);
     setlogmask_async(LOG_UPTO(LOG_DEBUG));
     // max out async syslog buffers for slow system in debug mode
@@ -1633,23 +1631,6 @@ int main(int argc, char **argv)
 	// dont run as root XXX
     }
     exit(mainloop(argc, argv));
-}
-
-
-// normally rtapi_app will log through the message ringbuffer in the
-// global data segment. This isnt available initially, and during shutdown,
-// so switch to direct syslog during these time windows so we dont
-// loose log messages, even if they cant go through the ringbuffer
-static void rtapi_app_msg_handler(msg_level_t level, const char *fmt,
-				  va_list ap)
-{
-    // during startup the global segment might not be
-    // available yet, so use stderr until then
-    if (global_data) {
-	vs_ring_write(level, fmt, ap);
-    } else {
-	vsyslog_async(rtapi2syslog(level), fmt, ap);
-    }
 }
 
 // use this handler if -F/--foreground was given
