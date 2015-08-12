@@ -190,12 +190,12 @@ char buf[80];
 
     int sz = rtapi_snprintf(buf, sizeof(buf), paramptr);
     if(sz == -1 || sz > sizeof(buf)) {
-        HALFAIL_RC(ENOMEM, "Invalid length %d  when duplicating %s'", sz, paramptr);
+        HALFAIL_NULL(ENOMEM, "Invalid length %d  when duplicating %s'", sz, paramptr);
     }
     char *s = shmalloc_desc(sz + 1); // include trailing zero
     if (s == NULL) {
-        HALFAIL_RC(ENOMEM, "out of memory allocating %d bytes for '%s'",
-	       sz+1, buf);
+        HALFAIL_NULL(ENOMEM, "out of memory allocating %d bytes for '%s'",
+		     sz+1, buf);
     }
     strcpy(s, buf);
     hal_data->str_alloc += (sz + 1);
@@ -209,7 +209,6 @@ int halg_free_str(char *s)
     if (s == NULL) 
         {
         HALFAIL_RC(ENOMEM, "NULL pointer passed");
-        return -1;
         }
     else
         shmfree_desc(s);
