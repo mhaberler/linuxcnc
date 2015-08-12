@@ -56,7 +56,6 @@ struct rtapi_heap {
     size_t requested;
     size_t allocated;
     int freed;
-    heap_print_t msg_handler;
     char name[16];
 };
 

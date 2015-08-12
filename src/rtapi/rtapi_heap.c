@@ -23,6 +23,8 @@
 #include "rtapi_bitops.h"
 #ifdef ULAPI
 #include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 // this is straight from the malloc code in:
@@ -31,23 +33,28 @@
 // so it can be used as a shared memory malloc
 static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap);
 
-void __attribute__((format(printf,3,4)))
+#ifdef MODULE
+#define MSG_ORIGIN MSG_KERNEL
+#else
+#ifdef RTAPI
+#define MSG_ORIGIN MSG_RTUSER
+#else
+#define MSG_ORIGIN MSG_ULAPI
+#endif
+#endif
+
+static void __attribute__((format(printf,3,4)))
 heap_print(struct rtapi_heap *h, int level, const char *fmt, ...)
 {
-#ifdef RTAPI
-    if (!h->msg_handler)
-	return;
-    char buffer[80];
-
-    va_list args;
-    va_start(args, fmt);
-    strcpy(buffer, h->name);
-    strcat(buffer, " ");
-    size_t l = strlen(buffer);
-    rtapi_vsnprintf(buffer + l, sizeof(buffer) - l, fmt, args);
-    va_end(args);
-    h->msg_handler(level, buffer, NULL);
+    static pid_t _pid;
+#if !defined(RTAPI)   && !defined(BUILD_SYS_KBUILD)
+    if (_pid == 0)
+	_pid = getpid();
 #endif
+    va_list ap;
+    va_start(ap, fmt);
+    vs_ringlogfv(level, _pid, MSG_ORIGIN, h->name, fmt, ap);
+    va_end(ap);
 }
 
 // scoped lock helper
@@ -313,7 +320,6 @@ int _rtapi_heap_init(struct rtapi_heap *heap, const char *name)
     heap->mutex = 0;
     heap->arena_size = 0;
     heap->flags = 0;
-    heap->msg_handler = NULL;
     heap->requested = 0;
     heap->allocated = 0;
     heap->freed = 0;
@@ -334,13 +340,6 @@ int  _rtapi_heap_setflags(struct rtapi_heap *heap, int flags)
     int f = heap->flags;
     heap->flags = flags;
     return f;
-}
-
-void *_rtapi_heap_setloghdlr(struct rtapi_heap *heap, void  *p)
-{
-    void *h = heap->msg_handler;
-    heap->msg_handler = p;
-    return h;
 }
 
 size_t _rtapi_heap_status(struct rtapi_heap *h,

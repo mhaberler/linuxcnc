@@ -40,14 +40,11 @@ void  *_rtapi_realloc(struct rtapi_heap *h, void *p, size_t size);
 void   _rtapi_free(struct rtapi_heap *h, void *p);
 size_t _rtapi_allocsize(struct rtapi_heap *h, const void *ap);
 int   _rtapi_heap_init(struct rtapi_heap *h, const char *name);
+
 // any memory added to the heap must lie above the rtapi_heap structure:
 int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size);
 
-// same signature as rtapi_msg_handler_t but avoid reference on RTAPI
-// malloc/free tracing goes to this handler (RTAPI only)
-typedef void (*heap_print_t)(int level, const char *fmt, va_list ap);
 int    _rtapi_heap_setflags(struct rtapi_heap *heap, int flags);
-void * _rtapi_heap_setloghdlr(struct rtapi_heap *heap, void  *p);
 size_t _rtapi_heap_status(struct rtapi_heap *h, struct rtapi_heap_stat *hs);
 
 // callback for freelist iterator
