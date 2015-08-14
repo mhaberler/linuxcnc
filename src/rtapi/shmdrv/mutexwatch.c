@@ -46,6 +46,7 @@ int rm = -1;
 int rrm = -1;
 int hm = -1;
 int mm = -1;
+int gh = -1;
 
 int rtapi_instance = 0;
 
@@ -133,6 +134,10 @@ int main(int argc, char **argv)
 	if (MMAP_OK(hal_data) && (hal_data->heap.mutex != mm)) {
 	    printf("hal_data->heap.mutex: %ld\n", hal_data->heap.mutex);
 	    mm = hal_data->heap.mutex;
+	}
+	if (MMAP_OK(global_data) && (global_data->heap.mutex != gh)) {
+	    printf("global_data->heap.mutex: %ld\n", global_data->heap.mutex);
+	    gh = global_data->heap.mutex;
 	}
 
     } while (1);
