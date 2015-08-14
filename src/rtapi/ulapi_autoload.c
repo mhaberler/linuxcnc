@@ -52,6 +52,7 @@ static rtapi_switch_t dummy_ulapi_switch_struct;
 rtapi_switch_t *rtapi_switch = &dummy_ulapi_switch_struct;
 global_data_t *global_data;
 struct rtapi_heap *global_heap;
+extern ringbuffer_t rtapi_message_buffer;   // error ring access strcuture
 int rtapi_instance;
 flavor_ptr flavor;
 // end exported symbols:
@@ -235,6 +236,10 @@ static int ulapi_load(rtapi_switch_t **ulapi_switch)
 
     // global data set up ok
 
+    // make the message ringbuffer accessible
+    ringbuffer_init(shm_ptr(global_data, global_data->rtapi_messages_ptr),
+		    &rtapi_message_buffer);
+    
     // this heap is inited in rtapi_msgd.cc
     // make it accessible in HAL
     global_heap = &global_data->heap;
