@@ -217,7 +217,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
 					     16,1, data, (size > 16) ? 16: size, 1,
 					     NULL,
-					     "%s->%s size=%d msgid=%d format=%d: ",
+					     "%s->%s size=%zu msgid=%d format=%d: ",
 					     self->name, self->to_rt_name, size,
 					     flags.f.msgid,flags.f.format);
 	    }
@@ -247,7 +247,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
 					     16,1, data, (size > 16) ? 16: size, 1,
 					     NULL,
-					     "%s->%s size=%d msgid=%d format=%d: ",
+					     "%s->%s size=%zu msgid=%d format=%d: ",
 					     self->from_rt_name,self->name, size,
 					     flags.f.msgid, flags.f.format);
 		    pb_ostream_t sstream, ostream;

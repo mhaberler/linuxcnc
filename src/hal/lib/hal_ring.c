@@ -22,7 +22,7 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 			    const int sp_size,
 			    const int mode,
 			    const char *fmt,
-			    const va_list ap)
+			    va_list ap)
 {
     PCHECK_HALDATA();
     PCHECK_LOCK(HAL_LOCK_LOAD);
@@ -199,7 +199,7 @@ int free_ring_struct(hal_ring_t *hrptr)
 
 int halg_ring_deletefv(const int use_hal_mutex,
 		       const char *fmt,
-		       const va_list ap)
+		       va_list ap)
 {
 
     CHECK_HALDATA();
@@ -227,7 +227,7 @@ int halg_ring_attachfv(const int use_hal_mutex,
 		       ringbuffer_t *rbptr,
 		       unsigned *flags,
 		       const char *fmt,
-		       const va_list ap)
+		       va_list ap)
 {
     CHECK_HALDATA();
     CHECK_STR(fmt);

@@ -123,7 +123,7 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 			    const int sp_size,
 			    const int mode,
 			    const char *fmt,
-			    const va_list ap);
+			    va_list ap);
 
 // printf-style variant layered ontop
 static inline hal_ring_t *halg_ring_newf(const int use_hal_mutex,
@@ -156,7 +156,7 @@ static inline int hal_ring_newf(const int size,
 //int halg_ring_delete(const int use_hal_mutex, const char *name);
 int halg_ring_deletefv(const int use_hal_mutex,
 		       const char *fmt,
-		       const va_list ap);
+		       va_list ap);
 
 static inline int halg_ring_deletef(const int use_hal_mutex,const char *fmt, ...) {
     va_list ap;
@@ -193,7 +193,7 @@ int halg_ring_attachfv(const int use_hal_mutex,
 		       ringbuffer_t *rbptr,
 		       unsigned *flags,
 		       const char *fmt,
-		       const va_list ap);
+		       va_list ap);
 
 static inline int halg_ring_attachf(const int use_hal_mutex,
 				    ringbuffer_t *rbptr,

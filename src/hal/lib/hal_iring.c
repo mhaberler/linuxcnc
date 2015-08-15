@@ -5,7 +5,7 @@ iring_t *hal_iring_alloc(const size_t size)
 {
     iring_t *ip;
     size_t total_size = ring_memsize( RINGTYPE_RECORD, size, 0) + offsetof(iring_t,rh);
-    HALDBG("size=%zu total_size=%d", size, total_size);
+    HALDBG("size=%zu total_size=%zu", size, total_size);
     ip = shmalloc_desc(total_size);
     if (ip == NULL) {
 	HALFAIL_NULL(ENOMEM, "size %zu - insufficient HAL memory for ring",
