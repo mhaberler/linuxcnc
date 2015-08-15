@@ -34,13 +34,13 @@ typedef struct rtapi_malloc_align {
 // the location of the actual rtapi_malloc() allocation so it can be
 // properly freed
 typedef struct rtapi_malloc_tag {
-    unsigned size : 24;	// size of this block
-    unsigned attr : 8;  // alloc attributes
+    uint32_t size : 24;	// size of this block
+    uint32_t attr : 8;  // alloc attributes
 } rtapi_malloc_tag_t;
 
 union rtapi_malloc_header {
     struct hdr {
-	size_t   next;	// next block if on free list
+	uint32_t   next;	// next block if on free list
 	rtapi_malloc_tag_t tag; // size of
     } s;
     rtapi_malloc_align_t align;	// unused - force alignment of blocks
