@@ -382,7 +382,6 @@ EXPORT_SYMBOL(halg_signal_setbarriers);
 EXPORT_SYMBOL(halg_param_newfv); // v2 base function
 EXPORT_SYMBOL(halg_param_newf);
 
-
 EXPORT_SYMBOL(hal_param_new);
 EXPORT_SYMBOL(hal_param_newf);
 
@@ -407,6 +406,7 @@ EXPORT_SYMBOL(hal_param_s32_newf);
 EXPORT_SYMBOL(hal_export_funct);
 EXPORT_SYMBOL(hal_export_functf);
 EXPORT_SYMBOL(hal_export_xfunctf);
+EXPORT_SYMBOL(halg_export_xfunctf);
 EXPORT_SYMBOL(hal_add_funct_to_thread);
 EXPORT_SYMBOL(hal_del_funct_from_thread);
 EXPORT_SYMBOL(hal_call_usrfunct);

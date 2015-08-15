@@ -10,7 +10,9 @@ static hal_funct_entry_t *alloc_funct_entry_struct(void);
 
 #ifdef RTAPI
 hal_funct_t *alloc_funct_struct(void);
-static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *fmt, va_list ap);
+static int halg_export_xfunctfv(const int use_halmutex,
+				const hal_export_xfunct_args_t *xf,
+				const char *fmt, va_list ap);
 
 // printf-style version of hal_export_funct
 int hal_export_functf(void (*funct) (void *, long),
@@ -31,7 +33,7 @@ int hal_export_functf(void (*funct) (void *, long),
 	.reentrant = reentrant,
 	.owner_id = owner_id,
     };
-    ret = hal_export_xfunctfv(&xf, fmt, ap);
+    ret = halg_export_xfunctfv(1, &xf, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -41,7 +43,18 @@ int hal_export_xfunctf( const hal_export_xfunct_args_t *xf, const char *fmt, ...
     va_list ap;
     int ret;
     va_start(ap, fmt);
-    ret = hal_export_xfunctfv(xf, fmt, ap);
+    ret = halg_export_xfunctfv(1, xf, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+int halg_export_xfunctf(const int use_halmutex,
+			const hal_export_xfunct_args_t *xf,
+			const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = halg_export_xfunctfv(use_halmutex, xf, fmt, ap);
     va_end(ap);
     return ret;
 }
@@ -52,7 +65,10 @@ int hal_export_funct(const char *name, void (*funct) (void *, long),
     return hal_export_functf(funct, arg, uses_fp, reentrant, owner_id, name);
 }
 
-static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *fmt, va_list ap)
+static int halg_export_xfunctfv(const int use_hal_mutex,
+			       const hal_export_xfunct_args_t *xf,
+			       const char *fmt,
+			       va_list ap)
 {
     int sz;
     hal_funct_t *nf;
@@ -66,11 +82,10 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
         HALERR("length %d invalid for name starting '%s'", sz, name);
         return -ENOMEM;
     }
-
     HALDBG("exporting function '%s' type %d", name, xf->type);
 
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
 	if (halpr_find_funct_by_name(name)) {
 	    HALERR("funct '%s' already exists", name);
@@ -100,7 +115,7 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 	}
 
 	// allocate a new function structure
-	nf = halg_create_objectf(0, sizeof(hal_funct_t),
+	nf = halg_create_objectf(false, sizeof(hal_funct_t),
 				 HAL_FUNCT, xf->owner_id, name);
 	if (nf == NULL)
 	    return -ENOMEM;
@@ -125,10 +140,12 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
     switch (xf->type) {
     case FS_LEGACY_THREADFUNC:
     case FS_XTHREADFUNC:
-	/* create a pin with the function's runtime in it */
-	if (hal_pin_s32_newf(HAL_OUT, &(nf->runtime), xf->owner_id, "%s.time",name)) {
-	    HALERR("failed to create pin '%s.time'", name);
-	    return -EINVAL;
+
+	if (halg_pin_newf(0, HAL_S32, HAL_OUT,
+			  (void **)&(nf->runtime),
+			  xf->owner_id,
+			  "%s.time",name) == NULL) {
+	    HALFAIL_RC(EINVAL, "failed to create pin '%s.time'", name);
 	}
 	*(nf->runtime) = 0;
 
@@ -137,12 +154,14 @@ static int hal_export_xfunctfv(const hal_export_xfunct_args_t *xf, const char *f
 	   for debugging and testing use only */
 	/* create a parameter with the function's maximum runtime in it */
 	nf->maxtime = 0;
-	hal_param_s32_newf(HAL_RW,  &(nf->maxtime), xf->owner_id, "%s.tmax", name);
+	halg_param_newf(0, HAL_S32, HAL_RW,
+			&(nf->maxtime), xf->owner_id, "%s.tmax", name);
 
 	/* create a parameter with the function's maximum runtime in it */
 	nf->maxtime_increased = 0;
-	hal_param_bit_newf(HAL_RO, &(nf->maxtime_increased), xf->owner_id,
-			    "%s.tmax-inc", name);
+	halg_param_newf(0, HAL_BIT, HAL_RO,
+			&(nf->maxtime_increased), xf->owner_id,
+			"%s.tmax-inc", name);
 	break;
     case FS_USERLAND: // no timing pins/params
 	;

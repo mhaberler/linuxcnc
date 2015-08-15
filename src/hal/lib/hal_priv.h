@@ -556,6 +556,9 @@ typedef struct hal_export_xfunct_args {
 } hal_export_xfunct_args_t;
 
 int hal_export_xfunctf( const hal_export_xfunct_args_t *xf, const char *fmt, ...);
+int halg_export_xfunctf(const int use_halmutex,
+			const hal_export_xfunct_args_t *xf,
+			const char *fmt, ...);
 
  typedef struct hal_funct {
     halhdr_t hdr;
