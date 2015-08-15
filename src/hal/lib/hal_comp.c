@@ -19,12 +19,13 @@ static int create_instance(const hal_funct_args_t *fa);
 static int delete_instance(const hal_funct_args_t *fa);
 #endif
 
-int hal_xinitf(const int type,
-	       const int userarg1,
-	       const int userarg2,
-	       const hal_constructor_t ctor,
-	       const hal_destructor_t dtor,
-	       const char *fmt, ...)
+int halg_xinitf(const int use_halmutex,
+		const int type,
+		const int userarg1,
+		const int userarg2,
+		const hal_constructor_t ctor,
+		const hal_destructor_t dtor,
+		const char *fmt, ...)
 {
     va_list ap;
     char hal_name[HAL_NAME_LEN + 1];
@@ -38,7 +39,7 @@ int hal_xinitf(const int type,
 	       sz, hal_name);
         return -EINVAL;
     }
-    return halg_xinit(1, type, userarg1, userarg2, ctor, dtor, hal_name);
+    return halg_xinit(use_halmutex, type, userarg1, userarg2, ctor, dtor, hal_name);
 }
 
 int halg_xinit(const int use_hal_mutex,
@@ -52,7 +53,7 @@ int halg_xinit(const int use_hal_mutex,
     int comp_id, retval;
 
     rtapi_set_logtag("hal_lib");
-    CHECK_STRLEN(name, HAL_NAME_LEN);
+    CHECK_STRLEN(name, HAL_MAX_NAME_LEN);
 
     // sanity: these must have been inited before by the
     // respective rtapi.so/.ko module
@@ -68,113 +69,122 @@ int halg_xinit(const int use_hal_mutex,
     HALDBG("initializing component '%s' type=%d arg1=%d arg2=%d/0x%x",
 	   name, type, userarg1, userarg2, userarg2);
 
-    if ((lib_module_id < 0) && (type != TYPE_HALLIB)) {
-	// if hal_lib not inited yet, do so now - recurse
+    {
+	// in this phase it is not guaranteed that the hal library is loaded,
+	// and the hal shm segment is available; therefore, whatever the
+	// argument says, we cannot lock the hal mutex since it resides
+	// in the very shm segment the hal lib initialisation will attach.
+	WITH_HAL_MUTEX_IF(use_hal_mutex && (hal_data != NULL));
+
+	if ((lib_module_id < 0) && (type != TYPE_HALLIB)) {
+	    // if hal_lib not inited yet, do so now - recurse
 #ifdef RTAPI
-	retval = hal_xinit(TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib");
+	    retval = halg_xinitf(0, TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib");
 #else
-	retval = hal_xinitf(TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib%ld",
-			    (long) getpid());
+	    retval = halg_xinitf(0, TYPE_HALLIB, 0, 0, NULL, NULL, "hal_lib%ld",
+				(long) getpid());
 #endif
-	if (retval < 0)
-	    return retval;
-    }
+	    if (retval < 0)
+		return retval;
+	}
 
-    // tag message origin field since ulapi autoload re-tagged them temporarily
-    rtapi_set_logtag("hal_lib");
+	// tag message origin field since ulapi autoload re-tagged them temporarily
+	rtapi_set_logtag("hal_lib");
 
-    /* copy name to local vars, truncating if needed */
-    char rtapi_name[RTAPI_NAME_LEN + 1];
-    char hal_name[HAL_NAME_LEN + 1];
+	/* copy name to local vars, truncating if needed */
+	char rtapi_name[RTAPI_NAME_LEN + 1];
 
-    rtapi_snprintf(hal_name, sizeof(hal_name), "%s", name);
-    rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", hal_name);
+	rtapi_snprintf(rtapi_name, RTAPI_NAME_LEN, "HAL_%s", name);
 
-    /* do RTAPI init */
-    comp_id = rtapi_init(rtapi_name);
-    if (comp_id < 0) {
-	HALERR("rtapi init(%s) failed", rtapi_name);
-	return -EINVAL;
-    }
-
-    // recursing? init HAL shm
-    if ((lib_module_id < 0) && (type == TYPE_HALLIB)) {
-	// recursion case, we're initing hal_lib
-
-	// get HAL shared memory from RTAPI
-	int shm_id = rtapi_shmem_new(HAL_KEY,
-				     comp_id,
-				     global_data->hal_size);
-	if (shm_id < 0) {
-	    HALERR("hal_lib:%d failed to allocate HAL shm %x, rc=%d",
-		   comp_id, HAL_KEY, shm_id);
-	    rtapi_exit(comp_id);
+	/* do RTAPI init */
+	comp_id = rtapi_init(rtapi_name);
+	if (comp_id < 0) {
+	    HALERR("rtapi init(%s) failed", rtapi_name);
 	    return -EINVAL;
 	}
-	// retrieve address of HAL shared memory segment
-	void *mem;
-	retval = rtapi_shmem_getptr(shm_id, &mem, 0);
-	if (retval < 0) {
-	    HALERR("hal_lib:%d failed to acquire HAL shm %x, id=%d rc=%d",
-		   comp_id, HAL_KEY, shm_id, retval);
-	    rtapi_exit(comp_id);
-	    return -EINVAL;
-	}
-	// set up internal pointers to shared mem and data structure
-	hal_shmem_base = (char *) mem;
-	hal_data = (hal_data_t *) mem;
+
+	// recursing? init HAL shm
+	if ((lib_module_id < 0) && (type == TYPE_HALLIB)) {
+	    // recursion case, we're initing hal_lib
+
+	    // get HAL shared memory from RTAPI
+	    int shm_id = rtapi_shmem_new(HAL_KEY,
+					 comp_id,
+					 global_data->hal_size);
+	    if (shm_id < 0) {
+		HALERR("hal_lib:%d failed to allocate HAL shm %x, rc=%d",
+		       comp_id, HAL_KEY, shm_id);
+		rtapi_exit(comp_id);
+		return -EINVAL;
+	    }
+	    // retrieve address of HAL shared memory segment
+	    void *mem;
+	    retval = rtapi_shmem_getptr(shm_id, &mem, 0);
+	    if (retval < 0) {
+		HALERR("hal_lib:%d failed to acquire HAL shm %x, id=%d rc=%d",
+		       comp_id, HAL_KEY, shm_id, retval);
+		rtapi_exit(comp_id);
+		return -EINVAL;
+	    }
+	    // set up internal pointers to shared mem and data structure
+	    hal_shmem_base = (char *) mem;
+	    hal_data = (hal_data_t *) mem;
 
 #ifdef RTAPI
-	// only on RTAPI hal_lib initialization:
-	// initialize up the HAL shm segment
-	retval = init_hal_data();
-	if (retval) {
-	    HALERR("could not init HAL shared memory rc=%d", retval);
-	    rtapi_exit(lib_module_id);
-	    lib_module_id = -1;
-	    return -EINVAL;
-	}
-	retval = hal_proc_init();
-	if (retval) {
-	    HALERR("could not init /proc files");
-	    rtapi_exit(lib_module_id);
-	    lib_module_id = -1;
-	    return -EINVAL;
-	}
+	    // only on RTAPI hal_lib initialization:
+	    // initialize up the HAL shm segment
+	    retval = init_hal_data();
+	    if (retval) {
+		HALERR("could not init HAL shared memory rc=%d", retval);
+		rtapi_exit(lib_module_id);
+		lib_module_id = -1;
+		return -EINVAL;
+	    }
+	    retval = hal_proc_init();
+	    if (retval) {
+		HALERR("could not init /proc files");
+		rtapi_exit(lib_module_id);
+		lib_module_id = -1;
+		return -EINVAL;
+	    }
 #endif
-	// record hal_lib comp_id
-	lib_module_id = comp_id;
-	// and the HAL shm segmed id
-	lib_mem_id = shm_id;
+	    // record hal_lib comp_id
+	    lib_module_id = comp_id;
+	    // and the HAL shm segmed id
+	    lib_mem_id = shm_id;
 
+	}
+	// global_data MUST be at hand now:
+	HAL_ASSERT(global_data != NULL);
+
+	// paranoia
+	HAL_ASSERT(hal_shmem_base != NULL);
+	HAL_ASSERT(hal_data != NULL);
+	HAL_ASSERT(lib_module_id > -1);
+	HAL_ASSERT(lib_mem_id > -1);
+	if (lib_module_id < 0) {
+	    HALERR("giving up");
+	    return -EINVAL;
+	}
     }
-    // global_data MUST be at hand now:
-    HAL_ASSERT(global_data != NULL);
-
-    // paranoia
-    HAL_ASSERT(hal_shmem_base != NULL);
-    HAL_ASSERT(hal_data != NULL);
-    HAL_ASSERT(lib_module_id > -1);
-    HAL_ASSERT(lib_mem_id > -1);
-    if (lib_module_id < 0) {
-	HALERR("giving up");
-	return -EINVAL;
-    }
-
+    // from here on, the hal and global data segments are
+    // guaranteed to be mapped, so it is safe to lock as
+    // directed by use_hal_mutex
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
+
 	hal_comp_t *comp;
 
 	/* make sure name is unique in the system */
-	if (halpr_find_comp_by_name(hal_name) != 0) {
+	if (halpr_find_comp_by_name(name) != 0) {
 	    /* a component with this name already exists */
-	    HALERR("duplicate component name '%s'", hal_name);
+	    HALERR("duplicate component name '%s'", name);
 	    rtapi_exit(comp_id);
 	    return -EINVAL;
 	}
 
-	comp = halg_create_objectf(0, sizeof(hal_comp_t),
-				   HAL_COMPONENT, 0, hal_name);
+	comp = halg_create_objectf(false, sizeof(hal_comp_t),
+				   HAL_COMPONENT, 0, name);
 	if (comp == NULL) {
 	    rtapi_exit(comp_id);
 	    return -ENOMEM;
@@ -205,51 +215,53 @@ int halg_xinit(const int use_hal_mutex,
 
 	// make it visible
 	halg_add_object(false, (hal_object_ptr)comp);
-    }
-    // scope exited - mutex released
 
-    // finish hal_lib initialisation
-    // in ULAPI this will happen after the recursion on hal_lib%d unwinds
+	// scope exited - mutex released
 
-    if (type == TYPE_HALLIB) {
+	// finish hal_lib initialisation
+	// in ULAPI this will happen after the recursion on hal_lib%d unwinds
+
+	if (type == TYPE_HALLIB) {
 #ifdef RTAPI
-	// only on RTAPI hal_lib initialization:
-	// export the instantiation support userfuncts
-	hal_export_xfunct_args_t ni = {
-	    .type = FS_USERLAND,
-	    .funct.u = create_instance,
-	    .arg = NULL,
-	    .owner_id = lib_module_id
-	};
-	if ((retval = hal_export_xfunctf( &ni, "newinst")) < 0)
-	    return retval;
+	    // only on RTAPI hal_lib initialization:
+	    // export the instantiation support userfuncts
+	    hal_export_xfunct_args_t ni = {
+		.type = FS_USERLAND,
+		.funct.u = create_instance,
+		.arg = NULL,
+		.owner_id = lib_module_id
+	    };
+	    if ((retval = halg_export_xfunctf(0,  &ni, "newinst")) < 0)
+		return retval;
 
-	hal_export_xfunct_args_t di = {
-	    .type = FS_USERLAND,
-	    .funct.u = delete_instance,
-	    .arg = NULL,
-	    .owner_id = lib_module_id
-	};
-	if ((retval = hal_export_xfunctf( &di, "delinst")) < 0)
-	    return retval;
+	    hal_export_xfunct_args_t di = {
+		.type = FS_USERLAND,
+		.funct.u = delete_instance,
+		.arg = NULL,
+		.owner_id = lib_module_id
+	    };
+	    if ((retval = halg_export_xfunctf(0, &di, "delinst")) < 0)
+		return retval;
 #endif
-	retval = hal_ready(lib_module_id);
-	if (retval)
-	    HALERR("hal_ready(%d) failed rc=%d", lib_module_id, retval);
-	else
-	    HALDBG("%s initialization complete", hal_name);
-	return retval;
-    }
+	    retval = halg_ready(0, lib_module_id);
+	    if (retval)
+		HALERR("hal_ready(%d) failed rc=%d", lib_module_id, retval);
+	    else
+		HALDBG("%s initialization complete", name);
+	    return retval;
+	}
 
-    HALDBG("%s component '%s' id=%d initialized%s",
-	   (ctor != NULL) ? "instantiable" : "singleton",
-	   hal_name, comp_id,
-	   (dtor != NULL) ? ", has destructor" : "");
-    return comp_id;
+	HALDBG("%s component '%s' id=%d initialized%s",
+	       (ctor != NULL) ? "instantiable" : "singleton",
+	       name, comp_id,
+	       (dtor != NULL) ? ", has destructor" : "");
+
+	// end of scope lock
+	return comp_id;
+    }
 }
 
-
-int halg_exit(const int use_hal_mutex, int comp_id)
+    int halg_exit(const int use_hal_mutex, int comp_id)
 {
     int comptype;
 
@@ -501,6 +513,7 @@ static int delete_instance(const hal_funct_args_t *fa)
 
 /** init_hal_data() initializes the entire HAL data structure,
     by the RT hal_lib component
+    must be called with hal mutex held
 */
 int init_hal_data(void)
 {
@@ -515,7 +528,7 @@ int init_hal_data(void)
 	}
     }
     /* no, we need to init it, grab the mutex unconditionally */
-    rtapi_mutex_try(&(hal_data->mutex));
+    //    rtapi_mutex_try(&(hal_data->mutex));
 
     // some heaps contain garbage, like xenomai
     memset(hal_data, 0, global_data->hal_size);
@@ -558,7 +571,7 @@ int init_hal_data(void)
     hal_heap_addmem((size_t) (global_data->hal_size / HAL_HEAP_INITIAL));
 
     /* done, release mutex */
-    rtapi_mutex_give(&(hal_data->mutex));
+    //    rtapi_mutex_give(&(hal_data->mutex));
 
     return 0;
 }
