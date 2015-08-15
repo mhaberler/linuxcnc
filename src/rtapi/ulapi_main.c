@@ -61,10 +61,10 @@ int ulapi_main(int instance, int flavor, global_data_t *global)
     // has a disjoint symbol namespace from hal_lib
     global_data = global;
 
-    rtapi_print_msg(RTAPI_MSG_DBG,"ULAPI:%d %s %s init\n",
-		    rtapi_instance,
-		    rtapi_get_handle()->thread_flavor_name,
-		    GIT_VERSION);
+    /* rtapi_print_msg(RTAPI_MSG_DBG,"ULAPI:%d %s %s init\n", */
+    /* 		    rtapi_instance, */
+    /* 		    rtapi_get_handle()->thread_flavor_name, */
+    /* 		    GIT_VERSION); */
 
 
     if (rtapi_switch->thread_flavor_flags & FLAVOR_RTAPI_DATA_IN_SHM) {
@@ -109,9 +109,9 @@ int ulapi_main(int instance, int flavor, global_data_t *global)
 
 int ulapi_exit(int instance)
 {
-    rtapi_print_msg(RTAPI_MSG_DBG, "ULAPI:%d %s exit\n",
-		    instance,
-		    GIT_VERSION);
+    /* rtapi_print_msg(RTAPI_MSG_DBG, "ULAPI:%d %s exit\n", */
+    /* 		    instance, */
+    /* 		    GIT_VERSION); */
 
     if (rtapi_switch->thread_flavor_flags & FLAVOR_RTAPI_DATA_IN_SHM) {
 	// detach RTAPI segment
