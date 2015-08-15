@@ -16,6 +16,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ********************************************************************/
 
+#include "config.h" //  BUILD_CACHEFRIENDLY
 #include "rtapi.h"
 #include "rtapi_heap.h"
 #include "rtapi_heap_private.h"
@@ -27,7 +28,6 @@
 #include <unistd.h>
 #endif
 
-// #undef ALIGNED_MALLOC
 
 // this is straight from the malloc code in:
 // K&R The C Programming Language, Edition 2, pages 185-189
@@ -105,7 +105,7 @@ void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
     return _rtapig_malloc(1, h, nbytes);
 }
 
-#ifndef  ALIGNED_MALLOC
+#ifndef  BUILD_CACHEFRIENDLY
 void  *_rtapi_malloc_aligned(struct rtapi_heap *h, size_t nbytes, size_t align)
 {
     return NULL;
@@ -218,7 +218,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
     rtapi_malloc_hdr_t *bp, *p;
     rtapi_malloc_hdr_t *freep =  heap_ptr(h,h->free_p);
 
-#ifdef  ALIGNED_MALLOC
+#ifdef  BUILD_CACHEFRIENDLY
     rtapi_malloc_tag_t *rt = (rtapi_malloc_tag_t *) ap - 1;
 
     // a block with non-standard alignment?
@@ -292,7 +292,7 @@ void _rtapi_free(struct rtapi_heap *h,void *ap)
 // might be a bit larger than requested) due to chunk alignent)
 size_t _rtapi_allocsize(struct rtapi_heap *h, const void *ap)
 {
-#ifdef  ALIGNED_MALLOC
+#ifdef  BUILD_CACHEFRIENDLY
     rtapi_malloc_tag_t *rt = ((rtapi_malloc_tag_t *) ap) - 1;
 
     if (rt->attr & ATTR_ALIGNED) {

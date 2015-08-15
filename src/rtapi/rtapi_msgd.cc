@@ -119,7 +119,7 @@ static int halsize = HAL_SIZE;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static size_t message_ring_size = MESSAGE_RING_SIZE;
 
-#ifdef ALIGNED_MALLOC
+#ifdef BUILD_CACHEFRIENDLY
 static int hal_descriptor_alignment = RTAPI_CACHELINE;
 #else
 static int hal_descriptor_alignment = 0;
