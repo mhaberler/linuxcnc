@@ -810,6 +810,14 @@ AC_ARG_ENABLE(examples,
       BUILD_EXAMPLES=no
     ])
 
+# by default, use the cacheline-aligning malloc for descriptors
+
+DEFAULT_BUILD_CACHEFRIENDLY=yes
+AC_ARG_DISABLE(cachefriendly, [  --disable-cachefriendly
+                          disable the use of cacheline alignment for
+			  descriptor storage], BUILD_CACHEFRIENDLY)
+
+
 # protobuf-to-Javascript generator from  https://github.com/dcodeIO/ProtoBuf.js/wiki
 AC_PATH_PROG(PROTO2JS,proto2js, none)
 AC_SUBST([PROTO2JS])
@@ -1732,6 +1740,11 @@ AC_SUBST(SHMDRV_KERNEL_DIRS,[$shmdrv_kernels])
 AC_SUBST(BUILD_EXAMPLES)
 if test "$BUILD_EXAMPLES" = yes; then
    AC_DEFINE(BUILD_EXAMPLES, [], [build programming examples])
+fi
+
+AC_SUBST(BUILD_CACHEFRIENDLY)
+if test "$BUILD_CACHEFRIENDLY" = yes; then
+   AC_DEFINE(BUILD_CACHEFRIENDLY, [], [build with cacheline-aligned malloc])
 fi
 
 AC_SUBST(PROTOC)
