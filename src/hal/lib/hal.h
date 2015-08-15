@@ -789,10 +789,10 @@ hal_param_t *halg_param_newfv(const int use_hal_mutex,
 // legacy
 static inline int  __attribute__((format(printf,1,6)))
 hal_param_new(const char *name,
-				hal_type_t type,
-				hal_param_dir_t dir,
-				volatile void *data_addr,
-				int owner_id, ...)
+	      hal_type_t type,
+	      hal_param_dir_t dir,
+	      volatile void *data_addr,
+	      int owner_id, ...)
 {
     va_list ap;
     va_start(ap, owner_id);
@@ -806,6 +806,15 @@ int hal_param_newf(hal_type_t type,
 		   int owner_id,
 		   const char *fmt, ...)
     __attribute__((format(printf,5,6)));
+
+
+int halg_param_newf(const int use_hal_mutex,
+		    hal_type_t type,
+		    hal_param_dir_t dir,
+		    volatile void *data_addr,
+		    int owner_id,
+		    const char *fmt, ...)
+    __attribute__((format(printf,6,7)));
 
 /** There is no 'hal_param_delete()' function.  Once a component has
     created a parameter, that parameter remains as long as the

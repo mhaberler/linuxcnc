@@ -380,6 +380,7 @@ EXPORT_SYMBOL(halg_signal_setbarriers);
 
 // hal_param.c:
 EXPORT_SYMBOL(halg_param_newfv); // v2 base function
+EXPORT_SYMBOL(halg_param_newf);
 
 
 EXPORT_SYMBOL(hal_param_new);

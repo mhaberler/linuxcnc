@@ -87,6 +87,21 @@ int hal_param_newf(hal_type_t type,
     return p == NULL ? _halerrno : 0;
 }
 
+int halg_param_newf(const int use_hal_mutex,
+		    hal_type_t type,
+		    hal_param_dir_t dir,
+		    volatile void * data_addr,
+		    int owner_id,
+		    const char *fmt, ...)
+{
+    va_list ap;
+    void *p;
+    va_start(ap, fmt);
+    p = halg_param_newfv(use_hal_mutex, type, dir, data_addr, owner_id, fmt, ap);
+    va_end(ap);
+    return p == NULL ? _halerrno : 0;
+}
+
 
 /* this is a generic function that does the majority of the work. */
 // v2
