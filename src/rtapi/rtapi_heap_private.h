@@ -24,6 +24,7 @@
 
 #define ATTR_ALIGNED 1
 
+
 typedef struct rtapi_malloc_align {
     double _align[RTAPI_MALLOC_ALIGN];
 } rtapi_malloc_align_t;
