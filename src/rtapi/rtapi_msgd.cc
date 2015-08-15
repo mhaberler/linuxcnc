@@ -118,7 +118,14 @@ static int rt_msglevel = RTAPI_MSG_INFO ;
 static int halsize = HAL_SIZE;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static size_t message_ring_size = MESSAGE_RING_SIZE;
+
+#ifdef ALIGNED_MALLOC
 static int hal_descriptor_alignment = RTAPI_CACHELINE;
+#else
+static int hal_descriptor_alignment = 0;
+#endif
+
+
 static int global_segment_size = MESSAGE_RING_SIZE + GLOBAL_HEAP_SIZE + sizeof(global_data_t);
 static int actual_global_size; // as returned by create_global_segment()
 static int hal_heap_flags    =  RTAPIHEAP_TRIM;
@@ -399,6 +406,7 @@ static int init_global_data(global_data_t * data,
     // record HAL parameters for later
     data->hal_size = hal_size;
     data->hal_descriptor_alignment = hal_descriptor_alignment;
+
     data->hal_heap_flags = hal_heap_flags;
     // stack size passed to rtapi_task_new() in hal_create_thread()
     data->hal_thread_stack_size = stack_size;
@@ -854,9 +862,9 @@ int main(int argc, char **argv)
 	hal_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
 	global_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
     }
-    if (getenv("DEFAULTALIGN") != NULL)
-	hal_descriptor_alignment = 0; // default heap alignment (8)
 
+    if (getenv("DEFAULTALIGN") != NULL)
+	hal_descriptor_alignment = 0;
 
     // sanity
     if (getuid() == 0) {

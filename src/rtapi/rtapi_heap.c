@@ -27,7 +27,7 @@
 #include <unistd.h>
 #endif
 
-#undef ALIGNED_MALLOC
+// #undef ALIGNED_MALLOC
 
 // this is straight from the malloc code in:
 // K&R The C Programming Language, Edition 2, pages 185-189
