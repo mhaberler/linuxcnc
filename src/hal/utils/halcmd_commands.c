@@ -4034,10 +4034,9 @@ int do_newinst_cmd(char *comp, char *inst, char *args[])
 int do_delinst_cmd(char *inst)
 {
     {
-	hal_inst_t *hi  __attribute__((cleanup(halpr_autorelease_mutex)));
-	rtapi_mutex_get(&(hal_data->mutex));
-	hi = halpr_find_inst_by_name(inst);
+	WITH_HAL_MUTEX();
 
+	hal_inst_t *hi = halpr_find_inst_by_name(inst);
 	if (hi == NULL) {
 	    halcmd_error("no such instance: '%s'\n", inst);
 	    return -1;
