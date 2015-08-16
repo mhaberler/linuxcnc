@@ -89,8 +89,22 @@ MODULE_LICENSE("GPL");
 #include "rtapi/shmdrv/shmdrv.h"
 #endif
 
-char *hal_shmem_base = 0;
+
+// for reasons lost in the mists of history, there are two
+// pointers of different types both pointing to the start
+// of the HAL shared memory segment. They are de facto read-only
+// post startup.
+//
+// since hal_shmem_base is involved in every single offset operation
+// within HAL, keep it in its own cache line.
+char *hal_shmem_base  __attribute__((aligned(RTAPI_CACHELINE))) = 0;
 hal_data_t *hal_data = 0;
+static char _padding[RTAPI_CACHELINE
+		     - sizeof(char *)
+		     - sizeof(hal_data_t *)]
+    __attribute__((unused));
+
+
 int lib_module_id = -1; 	/* RTAPI module ID for library module */
 int lib_mem_id = -1;	/* RTAPI shmem ID for library module */
 
