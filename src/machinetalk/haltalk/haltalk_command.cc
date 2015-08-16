@@ -91,8 +91,7 @@ process_ping(htself_t *self, const std::string &from,  void *socket)
 static int
 validate_component(const char *name, const pb::Component *pbcomp, pb::Container &e)
 {
-    hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
-    rtapi_mutex_get(&(hal_data->mutex));
+    WITH_HAL_MUTEX();
 
     hal_comp_t *hc = halpr_find_comp_by_name(name);
     if (hc == NULL) {
@@ -442,9 +441,9 @@ process_rcomp_bind(htself_t *self, const std::string &from,
     // all good.
     if (rc) {
 	// a valid component, either existing or new.
+	WITH_HAL_MUTEX();
 
-	pb::Component *c  __attribute__((cleanup(halpr_autorelease_mutex))) = self->tx.add_comp();
-	rtapi_mutex_get(&(hal_data->mutex));
+	pb::Component *c = self->tx.add_comp();
 	hal_comp_t *comp = halpr_find_comp_by_name(cname);
 	assert(comp != NULL);
 	self->tx.set_type(pb::MT_HALRCOMP_BIND_CONFIRM);
@@ -761,11 +760,10 @@ process_get(htself_t *self, const std::string &from,  void *socket)
 static
 int describe_pin_by_name(htself_t *self, const char *name)
 {
-    hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
-    rtapi_mutex_get(&(hal_data->mutex));
-    itemmap_iterator it;
+    WITH_HAL_MUTEX();
 
-    hp = halpr_find_pin_by_name(name);
+    itemmap_iterator it;
+    hal_pin_t *hp = halpr_find_pin_by_name(name);
     if (hp == NULL) {
 	note_printf(self->tx, "no such pin: '%s'", name);
 	return -1;
@@ -797,8 +795,9 @@ int describe_pin_by_name(htself_t *self, const char *name)
 static
 int describe_signal_by_name(htself_t *self, const char *name)
 {
-    hal_sig_t *hs __attribute__((cleanup(halpr_autorelease_mutex)));
-    rtapi_mutex_get(&(hal_data->mutex));
+    WITH_HAL_MUTEX();
+
+    hal_sig_t *hs;
     itemmap_iterator it;
 
     hs = halpr_find_sig_by_name(name);
@@ -833,8 +832,8 @@ apply_initial_values(htself_t *self, const pb::Component *pbcomp)
     for (int i = 0; i < pbcomp->pin_size(); i++) {
 	const pb::Pin &p = pbcomp->pin(i);
 	{
-	    hal_pin_t *hp __attribute__((cleanup(halpr_autorelease_mutex)));
-	    rtapi_mutex_get(&(hal_data->mutex));
+	    WITH_HAL_MUTEX();
+	    hal_pin_t *hp;
 
 	    const char *pname  = p.name().c_str();
 	    hp = halpr_find_pin_by_name(pname);
