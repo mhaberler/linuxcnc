@@ -505,6 +505,49 @@ typedef struct {
 	}
     }
 
+// support for conditional scoped mutex use
+struct _mutex_cleanup {
+  int cond;
+  rtapi_atomic_type *m;
+};
+
+// conditional scoped lock helper
+static inline void _autorelease_mutex_if(struct  _mutex_cleanup *c) {
+    if (c->cond) // release lock if condition was true
+	rtapi_mutex_give(c->m);
+}
+
+#define _WITH_MUTEX_IF(mptr, unique, c)					\
+    struct _mutex_cleanup RTAPI_PASTE(__scope_protector_, unique)	\
+	 __attribute__((cleanup(_autorelease_mutex_if))) = {		\
+	.cond = c,							\
+	.m = mptr,							\
+    };									\
+    if (c) rtapi_mutex_get(mptr);
+
+#define WITH_MUTEX_IF(h, intval) _WITH_MUTEX_IF(h, __LINE__, intval)
+#define WITH_MUTEX(h) _WITH_MUTEX_IF(h,__LINE__,1)
+
+// using the generic conditional scope lock:
+//
+// unconditional scope lock usage:
+//
+// {   // begin critical section
+//     WITH_MUTEX(&mutex);
+//     .. in criticial region, lock held
+//     any scope exit will release the  mutex
+// }
+// lock automatically released, by whatever exit path from the block
+//
+// conditional scope lock usage:
+//
+// {
+//     WITH_MUTEX_IF(&mutex, condition)
+//     /* lock held here iff condition */
+// }
+// lock automatically released if condition was true,
+// by whatever exit path from the block
+
 /***********************************************************************
 *                      TIME RELATED FUNCTIONS                          *
 ************************************************************************/
@@ -1139,6 +1182,7 @@ extern int ulapi_loaded(void);
 #endif
 
 #define RTAPI_STRINGIFY(x)    #x
+#define RTAPI_PASTE(a, b)     a##b
 
 #if defined(BUILD_SYS_USER_DSO) || (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
 
