@@ -45,43 +45,7 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap);
 #endif
 #endif
 
-struct cleanup {
-  int cond;
-  rtapi_atomic_type *m;
-};
-
-
-
-#ifndef __PASTE
-#define __PASTE(a,b)	a##b
-#endif
-#define _WITH_MUTEX_IF(mptr, unique, c)					\
-  struct cleanup __PASTE(__scope_protector_, unique)			\
-       __attribute__((cleanup(_autorelease_mutex_if))) = {		\
-    .cond = c,								\
-    .m = mptr,								\
-  };									\
-  if (c) rtapi_mutex_get(mptr);
-
-#define WITH_MUTEX_IF(h, intval) _WITH_MUTEX_IF(h, __LINE__, intval)
-#define WITH_MUTEX(h) _WITH_MUTEX_IF(h,__LINE__,1)
-
-// using the generic conditional scope lock:
-// 1. define a macro, which - given a datastructure -
-//    returns a pointer to the RTAPI mutex therein
 #define HEAP_MUTEX(h) (&(h)->mutex)
-
-// 2. unconditional scope lock usage
-// WITH_MUTEX(HEAP_MUTEX(h))
-
-// 3. unconditional scope lock usage
-// WITH_MUTEX_IF(HEAP_MUTEX(h), condition)
-
-// conditional scoped lock helper
-static void _autorelease_mutex_if(struct cleanup *c) {
-    if (c->cond)
-	rtapi_mutex_give(c->m);
-}
 
 
 static void __attribute__((format(printf,3,4)))
