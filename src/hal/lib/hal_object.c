@@ -8,6 +8,7 @@
 #include "hal_object.h"
 #include "hal_list.h"
 #include "hal_internal.h"
+#include "rtapi_heap_private.h" // rtapi_malloc_hdr_t
 
 #define MAX_OBJECT_NAME_LEN 127
 
@@ -126,14 +127,31 @@ void *halg_create_objectfv(const bool use_hal_mutex,
 			  va_list ap)
 {
     halhdr_t *new;
-    if (global_data->hal_descriptor_alignment)
+    if (global_data->hal_descriptor_alignment) {
 	// cache-line aligned alloc. more memory usage, more cache friendly.
 	new = shmalloc_desc_aligned(size,
 				    global_data->hal_descriptor_alignment);
-    else
+    } else {
 	// default alignent (8). Less waste.
-	new = shmalloc_desc(size);
 
+	// assure HAL_SIGNAL an HAL_PIN objects are cachline size apart
+	// the memory allocator adds an rtapi_malloc_hdr_t sized struct
+	// before the returned area which can be considered part of the
+	// spacing
+	size_t allocsize = size;
+	switch (type) {
+	case HAL_SIGNAL:
+	case HAL_PIN:
+	    allocsize = RTAPI_ALIGN((size + sizeof(rtapi_malloc_hdr_t)),
+			       RTAPI_CACHELINE) - sizeof(rtapi_malloc_hdr_t);
+	    // HALDBG("alloc %s size %zu",
+	    //         hal_object_typestr(type), allocsize);
+	    break;
+	default:;
+	}
+
+	new = shmalloc_desc(allocsize);
+    }
     if (new == NULL) {
 	char name[HAL_MAX_NAME_LEN+1];
 	rtapi_vsnprintf(name, sizeof(name), fmt, ap);
