@@ -71,19 +71,15 @@ halpr_param_count(const char *name)
 hal_pin_t *
 hal_find_pin_by_name(const char *name)
 {
-    hal_pin_t *p __attribute__((cleanup(halpr_autorelease_mutex)));
-    rtapi_mutex_get(&(hal_data->mutex));
-    p = halpr_find_pin_by_name(name);
-    return p;
+    WITH_HAL_MUTEX();
+    return halpr_find_pin_by_name(name);
 }
 
 int
 hal_comp_state_by_name(const char *name)
 {
-    hal_comp_t *comp __attribute__((cleanup(halpr_autorelease_mutex)));
-    rtapi_mutex_get(&(hal_data->mutex));
-
-    comp = halpr_find_comp_by_name(name);
+    WITH_HAL_MUTEX();
+    hal_comp_t *comp = halpr_find_comp_by_name(name);
     if (comp == NULL)
 	return -ENOENT;
     return comp->state;

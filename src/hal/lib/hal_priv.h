@@ -832,56 +832,9 @@ int halg_signal_propagate_barriers(const int use_hal_mutex,
 
 void report_memory_usage(void);
 
-// automatically release the local hal_data->mutex on scope exit.
-// if a local variable is declared like so:
-//
-// int foo  __attribute__((cleanup(halpr_autorelease_mutex)));
-//
-// then leaving foo's scope will cause halpr_release_lock() to be called
-// see http://git.mah.priv.at/gitweb?p=emc2-dev.git;a=shortlog;h=refs/heads/hal-lock-unlock
-// NB: make sure the mutex is actually held in the using code when leaving scope!
-void halpr_autorelease_mutex(void *variable);
-void halpr_autorelease_mutex_if(void *variable);
 
-
-// scope protection macro for simplified usage
-// use like so:
-// { // begin criticial region
-//    WITH_HAL_MUTEX();
-//    .. in criticial region
-//    any scope exit will release the HAL mutex
-// }
-//
-// conditional scope protection based on parameter:
-// <lock> must yield an int value (passed in from outer scope)
-// use like so:
-//
-// int use_lock = 1;
-// int no_lock = 0;
-//
-// { // enters a criticial region since use_lock is nonzero:
-//    WITH_HAL_MUTEX_IF(use_lock);
-//    .. in criticial region
-//    any scope exit will release the HAL mutex
-// }
-//
-// { // does NOT enter a criticial region since no_lock is zero:
-//    WITH_HAL_MUTEX_IF(no_lock);
-//    .. not protected by hal_mutex
-//    any scope exit will leave the HAL mutex untouched
-// }
-
-#ifndef __PASTE
-#define __PASTE(a,b)	a##b
-#endif
-
-#define _WITH_HAL_MUTEX_IF(unique, cond)				\
-    int __PASTE(__scope_protector_,unique)				\
-	 __attribute__((cleanup(halpr_autorelease_mutex_if))) = cond;	\
-    if (cond) rtapi_mutex_get(&(hal_data->mutex));
-
-#define WITH_HAL_MUTEX_IF(intval) _WITH_HAL_MUTEX_IF(__LINE__, intval)
-#define WITH_HAL_MUTEX() _WITH_HAL_MUTEX_IF(__LINE__, 1)
+#define WITH_HAL_MUTEX_IF(intval) _WITH_MUTEX_IF(&hal_data->mutex, __LINE__, intval)
+#define WITH_HAL_MUTEX() _WITH_MUTEX_IF(&hal_data->mutex, __LINE__, 1)
 
 
 

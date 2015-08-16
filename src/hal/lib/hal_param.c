@@ -235,13 +235,10 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
     HALDBG("setting parameter '%s'\n", name);
 
     {
-	hal_param_t *param __attribute__((cleanup(halpr_autorelease_mutex)));
-
-	/* get mutex before accessing shared data */
-	rtapi_mutex_get(&(hal_data->mutex));
+	WITH_HAL_MUTEX();
 
 	/* search param list for name */
-	param = halpr_find_param_by_name(name);
+	hal_param_t *param = halpr_find_param_by_name(name);
 	if (param == 0) {
 	    /* parameter not found */
 	    HALERR("parameter '%s' not found\n", name);
