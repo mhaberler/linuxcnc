@@ -193,6 +193,7 @@ typedef union {
     u32_param_ptr    u32param;
     float_param_ptr  floatparam;
 
+    shmoff_t any_ptr;
 } hal_object_ptr;
 
 #define HO_NULL ((hal_object_ptr)NULL)
