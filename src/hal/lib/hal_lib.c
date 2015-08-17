@@ -328,8 +328,9 @@ EXPORT_SYMBOL(halx_pin_s32_newf);
 
 // hal_comp.c:
 EXPORT_SYMBOL(hal_init);
-EXPORT_SYMBOL(halg_xinit);
-EXPORT_SYMBOL(hal_xinitf);
+EXPORT_SYMBOL(halg_xinitf);
+EXPORT_SYMBOL(halg_xinitfv);
+EXPORT_SYMBOL(hal_xinit);
 EXPORT_SYMBOL(halg_ready);
 EXPORT_SYMBOL(halg_exit);
 EXPORT_SYMBOL(hal_comp_name);

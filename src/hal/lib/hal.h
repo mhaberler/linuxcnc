@@ -147,8 +147,36 @@ RTAPI_BEGIN_DECLS
 
 #define HAL_LOCK_ALL      255   /* locks every action */
 
+// opaque forward declaration of internal structs
+struct halhdr;
+struct hal_comp;
+struct hal_inst;
+struct hal_pin;
+struct hal_param;
+struct hal_sig;
+struct hal_group;
+struct hal_member;
+struct hal_funct;
+struct hal_thread;
+struct hal_vtable;
+struct hal_ring;
+struct hal_plug;
+
+typedef struct hal_comp hal_comp_t;
+typedef struct hal_inst hal_inst_t;
+typedef struct hal_pin hal_pin_t;
+typedef struct hal_param hal_param_t;
+typedef struct hal_sig hal_sig_t;
+typedef struct hal_group hal_group_t;
+typedef struct hal_member hal_member_t;
+typedef struct hal_funct hal_funct_t;
+typedef struct hal_thread hal_thread_t;
+typedef struct hal_vtable hal_vtable_t;
+typedef struct hal_ring hal_ring_t;
+typedef struct hal_plug hal_plug_t;
 
 
+extern int _halerrno; // set by methods not returning an int
 
 /***********************************************************************
 *                   GENERAL PURPOSE FUNCTIONS                          *
@@ -227,40 +255,40 @@ enum comp_state {
 typedef int (*hal_constructor_t) (const char *name, const int argc, const char**argv);
 typedef int (*hal_destructor_t) (const char *name, void *inst, const int inst_size);
 
-// generic version
-int halg_xinit(const int use_hal_mutex,
-	       const int type,
-	       const int userarg1,
-	       const int userarg2,
-	       const hal_constructor_t ctor,
-	       const hal_destructor_t dtor,
-	       const char *name);
+// generic base function
+hal_comp_t *halg_xinitfv(const int use_hal_mutex,
+			 const int type,
+			 const int userarg1,
+			 const int userarg2,
+			 const hal_constructor_t ctor,
+			 const hal_destructor_t dtor,
+			 const char *fmt,
+			 va_list ap);
 
-static inline int hal_xinit(const int type,
-			    const int userarg1,
-			    const int userarg2,
-			    const hal_constructor_t ctor,
-			    const hal_destructor_t dtor,
-			    const char *name) {
-    return halg_xinit(1, type, userarg1, userarg2, ctor, dtor, name);
-}
+// generic printf-style version
+hal_comp_t *halg_xinitf(const int use_hal_mutex,
+			const int type,
+			const int userarg1,
+			const int userarg2,
+			const hal_constructor_t ctor,
+			const hal_destructor_t dtor,
+			const char *fmt, ...)
+    __attribute__((format(printf,7, 8)));
 
-// printf-style version of hal_xinit
-int hal_xinitf(const int type,
+// legacy
+int hal_xinit(const int type,
 	      const int userarg1,
 	      const int userarg2,
 	      const hal_constructor_t ctor,
 	      const hal_destructor_t dtor,
-	      const char *fmt, ...)
-    __attribute__((format(printf,6,7)));
-
+	      const char *name);
 
 // backwards compatibility:
 static inline int hal_init(const char *name) {
 #ifdef RTAPI
-    return halg_xinit(1, TYPE_RT, 0, 0, NULL, NULL, name);
+    return hal_xinit(TYPE_RT, 0, 0, NULL, NULL, name);
 #else
-    return halg_xinit(1, TYPE_USER, 0, 0, NULL, NULL, name);
+    return hal_xinit(TYPE_USER, 0, 0, NULL, NULL, name);
 #endif
 }
 
@@ -371,8 +399,6 @@ extern int hal_rtapi_attach();
 // return the last HAL error message. Used for API binding error messages during setup
 // not guaranteed to be related to last HAL API call if threads are running.
 const char *hal_lasterror(void);
-
-extern int _halerrno; // set by methods not returning an int
 
 // same signature as rtapi_print_msg, but records last error message for hal_lasterror():
 void hal_print_msg(int level, const char *fmt, ...)
@@ -495,32 +521,6 @@ extern unsigned char hal_get_lock(void);
 /***********************************************************************
 *           opaque forward typedefs for HAL object pointers            *
 ************************************************************************/
-struct halhdr;
-struct hal_comp;
-struct hal_inst;
-struct hal_pin;
-struct hal_param;
-struct hal_sig;
-struct hal_group;
-struct hal_member;
-struct hal_funct;
-struct hal_thread;
-struct hal_vtable;
-struct hal_ring;
-struct hal_plug;
-
-typedef struct hal_comp hal_comp_t;
-typedef struct hal_inst hal_inst_t;
-typedef struct hal_pin hal_pin_t;
-typedef struct hal_param hal_param_t;
-typedef struct hal_sig hal_sig_t;
-typedef struct hal_group hal_group_t;
-typedef struct hal_member hal_member_t;
-typedef struct hal_funct hal_funct_t;
-typedef struct hal_thread hal_thread_t;
-typedef struct hal_vtable hal_vtable_t;
-typedef struct hal_ring hal_ring_t;
-typedef struct hal_plug hal_plug_t;
 
 // type aliases for hal_pin_t * - makes compiler
 // detect type mismatch between <type1> and <type2>:
