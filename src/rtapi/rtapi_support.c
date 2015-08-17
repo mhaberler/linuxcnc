@@ -157,7 +157,7 @@ void default_rtapi_msg_handler(msg_level_t level, const char *fmt,
 			       va_list ap)
 {
     static pid_t rtapi_pid;
-#if !defined(RTAPI)   && !defined(BUILD_SYS_KBUILD)
+#if !defined(BUILD_SYS_KBUILD) && !defined(MODULE)
     if (rtapi_pid == 0)
 	rtapi_pid = getpid();
 #endif
