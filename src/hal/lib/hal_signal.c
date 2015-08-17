@@ -343,7 +343,7 @@ int halg_link(const int use_hal_mutex,
 
 	    const hal_data_u *hdu = pin_value(pin);
 
-	    hal_object_ptr hs = { .sig = sig };
+	    hal_object_ptr hs = { .any_ptr = hal_off(sig) };
 
 	    // assure proper typing on assignment, assigning a hal_data_u is
 	    // a surefire cause for memory corrupion as hal_data_u is larger

@@ -5,8 +5,6 @@
 
 RTAPI_BEGIN_DECLS
 
-// see type aliases for hal_pin_t and hal_sig_t in hal.h ca line 530
-
 // see https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
 
 // NB these setters/getters work for V2 pins only which use hal_pin_t.data_ptr,
@@ -14,24 +12,16 @@ RTAPI_BEGIN_DECLS
 // <haltype>*
 // this means atomics+barrier support is possible only with V2 pins (!).
 
-// void __atomic_load (type *ptr, type *ret, int memorder)  returns the contents of *ptr in *ret.
-// void __atomic_store (type *ptr, type val, int memorder) writes val into *ptr.
-//
-// — Built-in Function: type __atomic_add_fetch (type *ptr, type val, int memorder)
-// — Built-in Function: type __atomic_sub_fetch (type *ptr, type val, int memorder)
-// — Built-in Function: type __atomic_and_fetch (type *ptr, type val, int memorder)
-// — Built-in Function: type __atomic_xor_fetch (type *ptr, type val, int memorder)
-// — Built-in Function: type __atomic_or_fetch (type *ptr, type val, int memorder)
-// — Built-in Function: type __atomic_nand_fetch (type *ptr, type val, int memorder)
-// These built-in functions perform the operation suggested by the name, and return the result of the operation. That is,
-//         { *ptr op= val; return *ptr; }
-// TBD: add increment, and, or, not, xor
 
 
 static inline void *hal_ptr(const shmoff_t offset) {
     return ((char *)hal_shmem_base + offset);
 }
 static inline shmoff_t hal_off(const void *p) {
+    return ((char *)p - (char *)hal_shmem_base);
+}
+static inline shmoff_t hal_off_safe(const void *p) {
+    if (p == NULL) return 0;
     return ((char *)p - (char *)hal_shmem_base);
 }
 
@@ -48,7 +38,7 @@ static inline shmoff_t hal_off(const void *p) {
 #endif
 
 #define _PINSET(OFFSET, TAG, VALUE)					\
-    const hal_pin_t *pin = (const hal_pin_t *)hal_ptr(OFFSET);		\
+    hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFFSET);			\
     hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);		\
     __atomic_store(&u->TAG, &VALUE, RTAPI_MEMORY_MODEL);		\
     if (unlikely(hh_get_wmb(&pin->hdr)))				\
@@ -94,18 +84,17 @@ PINGETTER(float, f)
 #define _PININCR(TYPE, OFF, TAG, VALUE)					\
     hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFF);				\
     hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);				\
-    TYPE ret = __atomic_add_fetch(&u->TAG, (VALUE),			\
+    TYPE rvalue = __atomic_add_fetch(&u->TAG, (VALUE),			\
 				  RTAPI_MEMORY_MODEL);			\
     if (unlikely(hh_get_wmb(&pin->hdr)))				\
 	rtapi_smp_wmb();						\
-    return ret;
+    return rvalue;
 
 #define PIN_INCREMENTER(type, tag)					\
     static inline const hal_##type##_t					\
 	 incr_##type##_pin(type##_pin_ptr p,				\
 			   const hal_##type##_t value) {		\
 	_PININCR(hal_##type##_t, p._##tag##p, _##tag, value)		\
-	SRETURN  	    						\
     }
 
 // typed pin incrementers
@@ -144,7 +133,7 @@ SIGGETTER(float, f)
 
 #define SIGSETTER(type, tag)						\
     static inline STYPE(type)						\
-	 set_##type##_sig(const type##_sig_ptr s,			\
+	 set_##type##_sig(type##_sig_ptr s,				\
 			  const hal_##type##_t value) {			\
 	_SIGSET(s._##tag##s, _##tag, value)				\
 	SRETURN 	    						\
