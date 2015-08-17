@@ -11,7 +11,7 @@
     threadstyle (both kernel threads and userland threads have uniform
     access)
 
-    The realtime ULAPI - the support code used by RT components
+    The userland API - ULAPI - the API used by userland components
 
     The userland HAL and RT support API's - arbitrary user processes
     like halcmd, or userland HAL drivers and components
@@ -31,10 +31,10 @@
 
     Support data:
 
-    a global counter for the next module ID (next_handle) which is
+    a global atomic counter for the next module ID (next_handle) which is
     needed by userland threadstyles since they do not arrays for modules.
     (this was formerly Jeff Epler's 'uuid' mechanism). next_handle can
-    also be used to generated integer ID's unique throughout an RTAPI
+    also be used to generated unique integer ID's unique throughout an RTAPI
     instance.
 
     Other possible uses of global_data include, but are not limited to,
@@ -132,13 +132,6 @@ typedef struct {
 } global_data_t;
 
 extern global_data_t *global_data;
-
-static inline void *shm_ptr(void *base, size_t offset) {
-    return ((char *)base + offset);
-}
-static inline size_t shm_off(void *base, const void *p) {
-    return ((char *)p - (char *)base);
-}
 
 #define GLOBAL_LAYOUT_VERSION 44   // bump on layout changes of global_data_t
 

@@ -63,7 +63,7 @@
   RTAPI_SERIAL should be bumped with changes that break compatibility
   with previous versions.
 */
-#define RTAPI_SERIAL 2
+#define RTAPI_SERIAL 3
 #include "config.h"
 
 #if ( !defined RTAPI ) && ( !defined ULAPI )
@@ -136,6 +136,27 @@ RTAPI_BEGIN_DECLS
 #define RTAPI_ALIGN(x,boundary)  (x + (-x & (boundary - 1)))
 static inline int is_aligned(const void *pointer, size_t byte_count) {
     return (uintptr_t)pointer % byte_count == 0;
+}
+
+#define RTAPI_DECONST_PTR(X)  CK_CC_DECONST_PTR(X)
+
+#ifdef USE__PTRDIFF
+// ptrdiff_t would be the right type for pointer arithmetic results
+// and hence shared memory offsets
+// however this leads to 8-byte offsets on amd64, which is overkill
+typedef ptrdiff_t   shmoff_t;
+
+#else
+// good enough for mk purposes
+typedef __s32       shmoff_t;
+
+#endif
+
+static inline void *shm_ptr(const void *base, const shmoff_t offset) {
+    return ((char *)base + offset);
+}
+static inline shmoff_t shm_off(const void *base, const void *p) {
+    return ((char *)p - (char *)base);
 }
 
 
