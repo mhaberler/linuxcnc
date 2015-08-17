@@ -17,8 +17,8 @@
     inside a larger structure.
 */
 typedef struct {
-    int next;			/* next element in list */
-    int prev;			/* previous element in list */
+    shmoff_t next;			/* next element in list */
+    shmoff_t prev;			/* previous element in list */
 } hal_list_t;
 
 /** These functions are used to manipulate double-linked circular lists.
@@ -126,19 +126,19 @@ static inline hal_list_t *dlist_next(const hal_list_t * entry)
     return (hal_list_t *) SHMPTR(entry->next);
 }
 
-static inline int dlist_empty(const hal_list_t *head)
+static inline shmoff_t dlist_empty(const hal_list_t *head)
 {
     return dlist_next(head) == head;
 }
 
-static inline int dlist_empty_careful(const hal_list_t *head)
+static inline shmoff_t dlist_empty_careful(const hal_list_t *head)
 {
     hal_list_t *next = dlist_next(head);
     return (next == head) && (next == dlist_prev(head));
 }
 static inline void dlist_init_entry(hal_list_t * entry)
 {
-    int entry_n;
+    shmoff_t entry_n;
 
     entry_n = SHMOFF(entry);
     entry->next = entry_n;
@@ -147,7 +147,7 @@ static inline void dlist_init_entry(hal_list_t * entry)
 
 static inline void dlist_add_after(hal_list_t * entry, hal_list_t * prev)
 {
-    int entry_n, prev_n, next_n;
+    shmoff_t entry_n, prev_n, next_n;
     hal_list_t *next;
 
     /* messiness needed because of memory mapping */
@@ -164,7 +164,7 @@ static inline void dlist_add_after(hal_list_t * entry, hal_list_t * prev)
 
 static inline void dlist_add_before(hal_list_t * entry, hal_list_t * next)
 {
-    int entry_n, prev_n, next_n;
+    shmoff_t entry_n, prev_n, next_n;
     hal_list_t *prev;
 
     /* messiness needed because of memory mapping */
@@ -181,7 +181,7 @@ static inline void dlist_add_before(hal_list_t * entry, hal_list_t * next)
 
 static inline hal_list_t *dlist_remove_entry(hal_list_t * entry)
 {
-    int entry_n;
+    shmoff_t entry_n;
     hal_list_t *prev, *next;
 
     /* messiness needed because of memory mapping */
