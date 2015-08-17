@@ -24,10 +24,6 @@ cdef extern from "hal.h":
     ctypedef void (*hal_destructor_t) (const char *name, void *inst, const int inst_size)
 
 
-    # superset of hal_init()
-    int halg_xinit(const int use_hal_mutex, int mode, int userarg1, int userarg2,
-                  hal_constructor_t ctor, hal_destructor_t dtor, char *name)
-
     ctypedef libcpp.bool hal_bit_t
     ctypedef float hal_float_t
     ctypedef int hal_s32_t

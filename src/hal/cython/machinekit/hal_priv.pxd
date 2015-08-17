@@ -140,6 +140,11 @@ cdef extern from "hal_priv.h":
     char *hal_shmem_base
     int _halerrno
 
+    # superset of hal_init()
+    hal_comp_t *halg_xinitf(const int use_hal_mutex, int mode, int userarg1,
+                            int userarg2, hal_constructor_t ctor,
+                            hal_destructor_t dtor, char *name, ...)
+
     hal_comp_t *halpr_find_comp_by_name(const char *name)
     hal_pin_t *halpr_find_pin_by_name(const char *name)
     hal_sig_t *halpr_find_sig_by_name(const char *name)

@@ -14,18 +14,19 @@ cdef class Component(HALObject):
         hal_required()
         self._itemdict = dict()
         with HALMutexIf(lock):
+            self._cc = NULL
             if not wrap:
                 # if name in components:
                 #     raise RuntimeError("component with name '%s' already exists" % name)
-                id = halg_xinit(0, mode, userarg1, userarg2, NULL, NULL, name)
-                if id < 0:
-                    raise RuntimeError("Failed to create component '%s': %d - %s" % (name,id, hal_lasterror()))
+                self._o.comp = halg_xinitf(0, mode, userarg1, userarg2, NULL, NULL, name)
+                if self._o.comp == NULL:
+                    raise RuntimeError("Failed to create component '%s': - %s" %
+                                       (name, hal_lasterror()))
                 if not noexit:
                     _comps.append(id)  # to exit list
-
-            self._cc = NULL
-            self._o.comp = halg_find_object_by_name(0, hal_const.HAL_COMPONENT,
-                                                    name).comp
+            else:
+                self._o.comp = halg_find_object_by_name(0, hal_const.HAL_COMPONENT,
+                                                        name).comp
             if self._o.comp == NULL:
                 raise RuntimeError("halpr_find_comp_by_name(%s) failed" % name)
 
