@@ -118,7 +118,7 @@ static int print_objects(char **patterns);
 static int print_mutexes(char **patterns);
 static int print_heap(char **patterns);
 
-static int inst_count(hal_comp_t *comp);
+static int inst_count(const int use_halmutex, hal_comp_t *comp);
 
 static int tmatch(int req_type, int type) {
     return req_type == -1 || type == req_type;
@@ -1165,31 +1165,31 @@ int do_autoload_cmd(char *what)
 // helper functions to check if base module is loaded and what instances exist
 
 
-bool module_loaded(char *mod_name)
+bool module_loaded(const int use_halmutex, char *mod_name)
 {
     CHECK_HALDATA();
     CHECK_STR(mod_name);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_halmutex);
         hal_comp_t *comp = halpr_find_comp_by_name(mod_name);
         return (comp != NULL);
     }
 }
 
 
-bool inst_name_exists(char *name)
+bool inst_name_exists(const int use_halmutex, char *name)
 {
     CHECK_HALDATA();
     CHECK_STR(name);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_halmutex);
 
 	hal_inst_t *ins  = halpr_find_inst_by_name(name);
 	return (ins != NULL);
     }
 }
 
-int loadrt(char *mod_name, char *args[])
+int loadrt(const int use_halmutex, char *mod_name, char *args[])
 {
     char *cp1;
     int n, retval;
@@ -1211,7 +1211,7 @@ int loadrt(char *mod_name, char *args[])
 	strncat(arg_string, " ", MAX_CMD_LEN);
     }
     // allocate HAL shmem for the string
-    cp1 = hal_malloc(strlen(arg_string)+1);
+    cp1 = halg_malloc(use_halmutex, strlen(arg_string)+1);
     if ( cp1 == NULL ) {
 	halcmd_error("failed to allocate memory for module args\n");
 	return -1;
@@ -1219,7 +1219,7 @@ int loadrt(char *mod_name, char *args[])
     // copy string to shmem
     strcpy (cp1, arg_string);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_halmutex);
 
 	// search component list for the newly loaded component
 	hal_comp_t *comp = halpr_find_comp_by_name(mod_name);
@@ -1272,7 +1272,7 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
     // just loadrt the comp
     if (!(instantiable && instantiate)) {
 	// legacy components
-        return loadrt(mod_name, args);
+        return loadrt(1, mod_name, args);
     }
 
     // from here on: only instantiable comps to be considered
@@ -1280,6 +1280,7 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
     //
     // if we come here we were called from do_newinst_cmd()
     if (!(args[0] != NULL && strlen(args[0]))) {
+
 	// no args case: treat as count=1
 	// if no args just create a single instance
 	// with default number 0, unless singleton.
@@ -1287,17 +1288,18 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	// if the module isnt loaded yet, do so now:
 	// XXX - autoload setting? I guess this is assumed
 	// to be on
-	if (!module_loaded(mod_name)) {
-	    if((retval = (loadrt(mod_name, argv))) )
+	if (!module_loaded(1, mod_name)) {
+	    if((retval = (loadrt(0, mod_name, argv))) )
 		return retval;
 	}
 	// determine instance name:
 	if (singleton) {
+	    WITH_HAL_MUTEX();
 	    // a singleton instantiable comp will have a single instance
 	    // with the same name as the component.
 	    sprintf(buff, "%s", mod_name);
 	    hal_comp_t *existing_comp = halpr_find_comp_by_name(mod_name);
-	    if (inst_name_exists(buff) || inst_count(existing_comp)) {
+	    if (inst_name_exists(0, buff) || inst_count(0, existing_comp)) {
 		halcmd_error("\nError singleton component '%s' already exists\n", buff);
 		return -1;
 	    }
@@ -1305,7 +1307,7 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	    // find unused instance name
 	    w = 0;
 	    sprintf(buff, "%s.%d", mod_name, w);
-	    while(inst_name_exists(buff))
+	    while(inst_name_exists(1, buff))
 		sprintf(buff, "%s.%d", mod_name, ++w);
 	}
 	// now instantiate with this name
@@ -1314,6 +1316,7 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	    halcmd_error("rc=%d  %s\n", retval, rtapi_rpcerror());
 	}
 	return retval;
+	// end of scoped lock
     }
 
     // args were given.
@@ -1326,14 +1329,14 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	n = strtol(arg_section, &cp1, 10);
 	if (n > 0) {
 	    // check if already loaded, if not load it
-	    if (!module_loaded(mod_name)) {
-		if((retval = (loadrt(mod_name, argv))) )
+	    if (!module_loaded(1, mod_name)) {
+		if((retval = (loadrt(1, mod_name, argv))) )
 		    return retval;
 	    }
 	    for(int y = 0, v = 0; y < n; y++ , v++) {
 		// find unused instance name
 		sprintf(buff, "%s.%d", mod_name, v);
-		while(inst_name_exists(buff))
+		while(inst_name_exists(1, buff))
 		    sprintf(buff, "%s.%d", mod_name, ++v);
 		// and instantiate
 		retval = do_newinst_cmd(mod_name, buff, argv);
@@ -1358,15 +1361,15 @@ static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
 	    cp1 = strtok(NULL, ",");
 	}
 	if (list_index) {
-	    if (!module_loaded(mod_name)) {
-		if ((retval = (loadrt(mod_name, argv)))) {
+	    if (!module_loaded(1, mod_name)) {
+		if ((retval = (loadrt(1, mod_name, argv)))) {
 		    for(p = 0; p < list_index; p++)
 			free(list[p]);
 		    return retval;
 		}
 	    }
 	    for (w = 0; w < list_index; w++) {
-		if (inst_name_exists(list[w])) {
+		if (inst_name_exists(1, list[w])) {
 		    halcmd_error("\nA named instance '%s' already exists\n", list[w]);
 		    for( p = 0; p < list_index; p++)
 			free(list[p]);
@@ -1912,13 +1915,13 @@ static const char *state_name(int state)
     }
 }
 
-static int inst_count(hal_comp_t *comp)
+static int inst_count(const int use_halmutex, hal_comp_t *comp)
 {
     foreach_args_t args =  {
 	.type = HAL_INST,
 	.owner_id = ho_id(comp),
     };
-    return halg_foreach(0, &args, yield_count);
+    return halg_foreach(use_halmutex,  &args, yield_count);
 }
 
 static int print_comp_entry(hal_object_ptr o, foreach_args_t *args)
@@ -1937,7 +1940,7 @@ static int print_comp_entry(hal_object_ptr o, foreach_args_t *args)
 		      has_dtor ? 'd': ' ',
 		      is_hallib ? 'i': ' ',
 		      ' ',
-		      inst_count(comp),
+		      inst_count(0, comp),
 		      HAL_NAME_LEN,
 		      ho_name(comp));
 
@@ -2653,7 +2656,7 @@ static void print_mem_status()
     size_t unused = hal_data->shmem_top - hal_data->shmem_bot;
 
     halcmd_output("HAL memory status\n");
-    halcmd_output("HAL shm segment size:  %d unused: %zu Usage=%d%%\n",
+    halcmd_output("HAL shm segment size:  %d unused: %zu Usage=%zu%%\n",
 		  global_data->hal_size, unused,
 		  100*(global_data->hal_size-unused)/global_data->hal_size);
     struct rtapi_heap_stat hs = {};
@@ -2663,7 +2666,7 @@ static void print_mem_status()
 		  " fragments=%zu largest=%zu\n",
 		  hs.arena_size, hs.total_avail, hs.fragments, hs.largest);
     if (hs.allocated)
-	halcmd_output("  heap: requested=%zu allocated=%zu freed=%zu waste=%d%%\n",
+	halcmd_output("  heap: requested=%zu allocated=%zu freed=%zu waste=%zu%%\n",
 		      hs.requested, hs.allocated, hs.freed,
 		      (hs.allocated - hs.requested)*100/hs.allocated);
 
@@ -3422,7 +3425,7 @@ static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
 		    mflag_t *mp = (mflag_t *) &rv.rv_flags;
 		    fc = 0;
 		    while (frame_readv(&mrb, &rv) == 0) {
-			halcmd_output("record %d/%d  msgid=%d format=%d %s %s\n",
+			halcmd_output("record %zu/%zu  msgid=%d format=%d %s %s\n",
 				      nr, fc,
 				      mp->f.msgid, mp->f.format,
 				      mp->f.more ? "more":"",
@@ -3943,12 +3946,12 @@ typedef enum {
     CS_RTLOADED_AND_INSTANTIABLE
 } cstatus_t;
 
-cstatus_t classify_comp(const char *comp)
+cstatus_t classify_comp(const int use_halmutex, const char *comp)
 {
     CHECK_HALDATA();
     CHECK_STR(comp);
     {
-	WITH_HAL_MUTEX();
+	WITH_HAL_MUTEX_IF(use_halmutex);
 	hal_comp_t *c = halpr_find_comp_by_name(comp);
 	if (c == NULL)
 	    return CS_NOT_LOADED;
@@ -3963,7 +3966,7 @@ cstatus_t classify_comp(const char *comp)
 int do_newinst_cmd(char *comp, char *inst, char *args[])
 {
     int retval;
-    cstatus_t status = classify_comp(comp);
+    cstatus_t status = classify_comp(1, comp);
     char *argv[] = { NULL};
     bool singleton = false;
 
@@ -4014,7 +4017,7 @@ int do_newinst_cmd(char *comp, char *inst, char *args[])
     if (singleton) {
 	WITH_HAL_MUTEX();
         hal_comp_t *existing_comp = halpr_find_comp_by_name(comp);
-        if (inst_name_exists(comp) || inst_count(existing_comp)) {
+        if (inst_name_exists(0, comp) || inst_count(0, existing_comp)) {
 	    halcmd_error("Singleton components cannot have multiple instances\n\n");
 	    return -1;
 	}

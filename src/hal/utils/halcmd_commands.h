@@ -117,8 +117,8 @@ extern int do_callfunc_cmd(char *func, char *args[]);
 extern int do_newinst_cmd(char *comp, char *inst, char *args[]);
 extern int do_delinst_cmd(char *inst);
 
-extern bool module_loaded(char *mod_name);
-extern bool inst_name_exists(char *name);
+extern bool module_loaded(const int use_halmutex, char *mod_name);
+extern bool inst_name_exists(const int use_halmutex, char *name);
 
 // shutdown the RTAPI stack
 extern int do_shutdown_cmd(void);
