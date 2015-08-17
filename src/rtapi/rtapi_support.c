@@ -31,7 +31,12 @@
 #include "rtapi.h"
 #include "rtapi/shmdrv/shmdrv.h"
 #include "ring.h"
-
+#if defined(BUILD_SYS_USER_DSO) || defined(ULAPI)
+#include "syslog_async.h"
+#ifndef SYSLOG_FACILITY
+#define SYSLOG_FACILITY LOG_LOCAL1  // where all rtapi/ulapi logging goes
+#endif
+#endif
 #define RTPRINTBUFFERLEN 256
 
 #ifdef MODULE
@@ -117,10 +122,23 @@ int vs_ringlogfv(const msg_level_t level,
     } else {
 	// early startup, global_data & log ring not yet initialized
 	// depending on context, log the message in an appropriate way:
+
 #if defined(BUILD_SYS_USER_DSO) || defined(ULAPI)
+	static int log_opened;
+	if (!log_opened) {
+	    log_opened = async_log_open();
+	    if (!log_opened) {
+		openlog_async("startup", LOG_NDELAY , SYSLOG_FACILITY);
+		log_opened = 1;
+	    }
+	}
+#ifdef USE_STDERR
 	if (!strchr(msg.buf, '\n'))
 	    strcat(msg.buf,"\n");
 	fprintf(stderr,
+#else
+        syslog_async(rtapi2syslog(level),
+#endif
 #endif
 #if defined(RTAPI) && defined(BUILD_SYS_KBUILD)
 	printk(

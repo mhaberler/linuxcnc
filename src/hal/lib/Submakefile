@@ -59,6 +59,7 @@ $(HALLIB).0: \
 	$(call TOOBJS, $(SHMDRVAPISRCS)) \
 	$(call TOOBJS, $(HALLIBMTALK_SRCS)) \
 	$(call TOOBJS, $(LIBINISRCS)) \
+	$(call TOOBJS, machinetalk/lib/syslog_async.c) \
 	../lib/libmkprotobuf.so
 	$(ECHO) Creating shared library $(notdir $@)
 	@mkdir -p ../lib
