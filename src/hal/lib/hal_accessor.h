@@ -25,187 +25,163 @@ RTAPI_BEGIN_DECLS
 // — Built-in Function: type __atomic_nand_fetch (type *ptr, type val, int memorder)
 // These built-in functions perform the operation suggested by the name, and return the result of the operation. That is,
 //         { *ptr op= val; return *ptr; }
-
-// should setters be lvalues?
-// add increment, and, or, not, xor
-
-#define PIN_MEMORY_MODEL     RTAPI_MEMORY_MODEL
-#define SIGNAL_MEMORY_MODEL  RTAPI_MEMORY_MODEL
+// TBD: add increment, and, or, not, xor
 
 
-// set a hal_data_u referenced via an offset field in a descriptor
-// this should work for v2 pins and params as long as both have
-// the value ptr called 'data_ptr'
-#define _PPSET(P, MEMBER, TAG, VALUE)					\
-    __atomic_store(&((hal_data_u *)SHMPTR(P.MEMBER->data_ptr))->TAG,	\
-		   &(VALUE),						\
-		   PIN_MEMORY_MODEL);					\
-    if (unlikely(hh_get_wmb(&p.MEMBER->hdr)))				\
+static inline void *hal_ptr(const shmoff_t offset) {
+    return ((char *)hal_shmem_base + offset);
+}
+static inline shmoff_t hal_off(const void *p) {
+    return ((char *)p - (char *)hal_shmem_base);
+}
+
+
+// should setters be rvalues?
+#define SETTER_IS_RVALUE 1
+
+#ifdef SETTER_IS_RVALUE
+#define STYPE(t)  const hal_##t##_t
+#define SRETURN   return value;
+#else
+#define STYPE(t) void
+#define SRETURN
+#endif
+
+#define _PINSET(OFFSET, TAG, VALUE)					\
+    const hal_pin_t *pin = (const hal_pin_t *)hal_ptr(OFFSET);		\
+    hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);		\
+    __atomic_store(&u->TAG, &VALUE, RTAPI_MEMORY_MODEL);		\
+    if (unlikely(hh_get_wmb(&pin->hdr)))				\
 	rtapi_smp_wmb();
 
+// usage: PINSETTER(bit, b)
+#define PINSETTER(type, tag)						\
+    static inline STYPE(type)						\
+    set_##type##_pin(type##_pin_ptr p,					\
+		     const hal_##type##_t value) {			\
+	_PINSET(p._##tag##p, _##tag, value)				\
+	SRETURN    							\
+    }
 
-// typed pin setters
-static inline void set_bit_pin(bit_pin_ptr p, const hal_bit_t value) {
-    _PPSET( p, _bp, _b, value);
-}
-static inline void set_s32_pin(s32_pin_ptr p, const hal_s32_t value) {
-    _PPSET( p, _sp, _s, value);
-}
-static inline void set_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
-    _PPSET( p, _up, _u, value);
-}
-static inline void set_float_pin(float_pin_ptr p, const hal_float_t value) {
-    _PPSET( p, _fp, _f, value);
-}
-#define _PPINCR(P, MEMBER, TAG, VALUE)					\
-    __atomic_add_fetch(&((hal_data_u *)SHMPTR(P.MEMBER->data_ptr))->TAG, \
-		       (VALUE),					\
-		       PIN_MEMORY_MODEL);				\
-    if (unlikely(hh_get_wmb(&p.MEMBER->hdr)))				\
-	rtapi_smp_wmb();
+// emit typed pin setters
+PINSETTER(bit,   b)
+PINSETTER(s32,   s)
+PINSETTER(u32,   u)
+PINSETTER(float, f)
+
+// v2 pins only.
+#define _PINGET(TYPE, OFFSET, TAG)					\
+    const hal_pin_t *pin = (const hal_pin_t *)hal_ptr(OFFSET);		\
+    const hal_data_u *u = (const hal_data_u *)hal_ptr(pin->data_ptr);	\
+    if (unlikely(hh_get_rmb(&pin->hdr)))				\
+	rtapi_smp_rmb();						\
+    TYPE rvalue ;							\
+    __atomic_load(&u->TAG, &rvalue , RTAPI_MEMORY_MODEL);		\
+    return rvalue ;
+
+#define PINGETTER(type, tag)						\
+    static inline const hal_##type##_t					\
+	 get_##type##_pin(const type##_pin_ptr p) {			\
+	_PINGET(hal_##type##_t, p._##tag##p, _##tag)			\
+    }
+
+// typed pin getters
+PINGETTER(bit, b)
+PINGETTER(s32, s)
+PINGETTER(u32, u)
+PINGETTER(float, f)
+
+#define _PININCR(TYPE, OFF, TAG, VALUE)					\
+    hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFF);				\
+    hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);				\
+    TYPE ret = __atomic_add_fetch(&u->TAG, (VALUE),			\
+				  RTAPI_MEMORY_MODEL);			\
+    if (unlikely(hh_get_wmb(&pin->hdr)))				\
+	rtapi_smp_wmb();						\
+    return ret;
+
+#define PIN_INCREMENTER(type, tag)					\
+    static inline const hal_##type##_t					\
+	 incr_##type##_pin(type##_pin_ptr p,				\
+			   const hal_##type##_t value) {		\
+	_PININCR(hal_##type##_t, p._##tag##p, _##tag, value)		\
+	SRETURN  	    						\
+    }
 
 // typed pin incrementers
-static inline void incr_s32_pin(s32_pin_ptr p, const hal_s32_t value) {
-    _PPINCR( p, _sp, _s, value);
-}
-static inline void incr_u32_pin(u32_pin_ptr p, const hal_u32_t value) {
-    _PPINCR( p, _up, _u, value);
-}
+PIN_INCREMENTER(s32, s)
+PIN_INCREMENTER(u32, u)
 
-static inline hal_bit_t toggle_bit_pin(bit_pin_ptr p) {
-    if (unlikely(hh_get_rmb(&p._bp->hdr)))
-	rtapi_smp_rmb();
-    hal_bit_t r = __atomic_xor_fetch(&((hal_data_u *)SHMPTR(p._bp->data_ptr))->_b,
-				     1, PIN_MEMORY_MODEL);
-    if (unlikely(hh_get_wmb(&p._bp->hdr)))
-	rtapi_smp_wmb();
-    return r;
-}
-
-// get a hal_data_u referenced via an offset field in a descriptor
-// this should work for v2 pins and params.
-// unfortunately __typeof__(uniontype.field) does not work
-#define _PPGET(P, MEMBER, TYPE, TAG)					\
-    TYPE _ret;								\
-    if (unlikely(hh_get_rmb(&P.MEMBER->hdr)))				\
-	rtapi_smp_rmb();						\
-    __atomic_load(&((hal_data_u *)SHMPTR(P.MEMBER->data_ptr))->TAG,	\
-		  &_ret,						\
-		  PIN_MEMORY_MODEL);					\
-    return _ret;
-
-// pin getters
-static inline hal_bit_t get_bit_pin(const bit_pin_ptr p) {
-    _PPGET(p, _bp, hal_bit_t, _b);
-}
-static inline hal_s32_t get_s32_pin(const s32_pin_ptr p) {
-    _PPGET(p, _sp, hal_s32_t, _s);
-}
-static inline hal_u32_t get_u32_pin(const u32_pin_ptr p) {
-    _PPGET(p, _up, hal_u32_t, _u);
-}
-static inline hal_float_t get_float_pin(const float_pin_ptr p) {
-    _PPGET(p, _fp, hal_float_t, _f);
-}
-
-
-// typed param setters
-// params work the same as v2 pins
-static inline void set_bit_param(bit_param_ptr p, const hal_bit_t value) {
-    _PPSET( p, _bpar, _b, value);
-}
-static inline void set_s32_param(s32_param_ptr p, const hal_s32_t value) {
-    _PPSET( p, _spar, _s, value);
-}
-static inline void set_u32_param(u32_param_ptr p, const hal_u32_t value) {
-    _PPSET( p, _upar, _u, value);
-}
-static inline void set_float_param(float_param_ptr p, const hal_float_t value) {
-    _PPSET( p, _fpar, _f, value);
-}
-// param getters
-static inline hal_bit_t get_bit_param(const bit_param_ptr p) {
-    _PPGET(p, _bpar, hal_bit_t, _b);
-}
-static inline hal_s32_t get_s32_param(const s32_param_ptr p) {
-    _PPGET(p, _spar, hal_s32_t, _s);
-}
-static inline hal_u32_t get_u32_param(const u32_param_ptr p) {
-    _PPGET(p, _upar, hal_u32_t, _u);
-}
-static inline hal_float_t get_float_param(const float_param_ptr p) {
-    _PPGET(p, _fpar, hal_float_t, _f);
-}
 
 // signal getters
-#define _SIGGET(P, MEMBER, TYPE, TAG)					\
-    if (unlikely(hh_get_rmb(&P.MEMBER->hdr)))				\
+#define _SIGGET(TYPE, OFFSET, TAG)					\
+    const hal_sig_t *sig = (const hal_sig_t *)hal_ptr(OFFSET);		\
+    if (unlikely(hh_get_rmb(&sig->hdr)))				\
 	rtapi_smp_rmb();						\
-    TYPE _ret;								\
-    __atomic_load(&P.MEMBER->value.TAG,					\
-		  &_ret,						\
-		  SIGNAL_MEMORY_MODEL);					\
-    return _ret;
+    TYPE rvalue ;							\
+    __atomic_load(&sig->value.TAG, &rvalue , RTAPI_MEMORY_MODEL);	\
+    return rvalue ;
 
-static inline hal_bit_t get_bit_sig(const bit_sig_ptr s) {
-   _SIGGET( s, _bs, hal_bit_t, _b);
-}
-static inline hal_s32_t get_s32_sig(const s32_sig_ptr s) {
-   _SIGGET( s, _ss, hal_s32_t, _s);
-}
-static inline hal_u32_t get_u32_sig(const u32_sig_ptr s) {
-   _SIGGET( s, _us, hal_u32_t, _u);
-}
-static inline hal_float_t get_float_sig(const float_sig_ptr s) {
-    _SIGGET( s, _fs, hal_float_t, _f);
-}
+#define SIGGETTER(type, tag)						\
+    static inline const hal_##type##_t					\
+	 get_##type##_sig(const type##_sig_ptr p) {			\
+	_SIGGET(hal_##type##_t, p._##tag##s, _##tag)			\
+    }
 
-// signal getters
-#define _SIGSET(P, MEMBER, TAG, VALUE)		\
-    __atomic_store(&P.MEMBER->value.TAG,			\
-		   &(VALUE),					\
-		   SIGNAL_MEMORY_MODEL);			\
-    if (unlikely(hh_get_wmb(&P.MEMBER->hdr)))			\
+// emit typed signal getters
+SIGGETTER(bit, b)
+SIGGETTER(s32, s)
+SIGGETTER(u32, u)
+SIGGETTER(float, f)
+
+
+// signal setters - halcmd, python bindings use only (initial value)
+#define _SIGSET(OFFSET, TAG, VALUE)					\
+    hal_sig_t *sig = (hal_sig_t *)hal_ptr(OFFSET);			\
+    __atomic_store(&sig->value.TAG, &VALUE, RTAPI_MEMORY_MODEL);	\
+    if (unlikely(hh_get_wmb(&sig->hdr)))				\
 	rtapi_smp_wmb();
 
-static inline void set_bit_sig(bit_sig_ptr s, const hal_bit_t value) {
-   _SIGSET(s, _bs, _b, value);
-}
-static inline void set_s32_sig(s32_sig_ptr s, const hal_s32_t value) {
-   _SIGSET(s, _ss, _s, value);
-}
-static inline void set_u32_sig(u32_sig_ptr s, const hal_u32_t value) {
-   _SIGSET(s, _us, _u, value);
-}
-static inline void set_float_sig(float_sig_ptr s, const hal_float_t value) {
-   _SIGSET(s, _fs, _f, value);
-}
+#define SIGSETTER(type, tag)						\
+    static inline STYPE(type)						\
+	 set_##type##_sig(const type##_sig_ptr s,			\
+			  const hal_##type##_t value) {			\
+	_SIGSET(s._##tag##s, _##tag, value)				\
+	SRETURN 	    						\
+    }
+
+// emit typed signal setters
+SIGSETTER(bit, b)
+SIGSETTER(s32, s)
+SIGSETTER(u32, u)
+SIGSETTER(float, f)
+
 
 
 // typed validity tests for pins and signals
 static inline bool bit_pin_null(const bit_pin_ptr b) {
-    return b._bp == NULL;
+    return b._bp == 0;
 }
 static inline bool s32_pin_null(const s32_pin_ptr b) {
-    return b._sp == NULL;
+    return b._sp == 0;
 }
 static inline bool u32_pin_null(const u32_pin_ptr b) {
-    return b._up == NULL;
+    return b._up == 0;
 }
 static inline bool float_pin_null(const float_pin_ptr b) {
-    return b._fp == NULL;
+    return b._fp == 0;
 }
 static inline bool bit_sig_null(const bit_sig_ptr s) {
-    return s._bs == NULL;
+    return s._bs == 0;
 }
 static inline bool s32_sig_null(const s32_sig_ptr s) {
-    return s._ss == NULL;
+    return s._ss == 0;
 }
 static inline bool u32_sig_null(const u32_sig_ptr s) {
-    return s._us == NULL;
+    return s._us == 0;
 }
 static inline bool float_sig_null(const float_sig_ptr s) {
-    return s._fs == NULL;
+    return s._fs == 0;
 }
 
 
@@ -236,5 +212,17 @@ s32_pin_ptr halx_pin_s32_newf(const hal_pin_dir_t dir,
     __attribute__((format(printf,3,4)));
 
 
+#if NOTYET
+static inline hal_bit_t toggle_bit_pin(bit_pin_ptr p) {
+    hal_pin_t *pin = hal_ptr(p);
+    hal_data_u *u = hal_ptr(pin->data_ptr);
+    if (unlikely(hh_get_rmb(&p._bp->hdr)))
+	rtapi_smp_rmb();
+    hal_bit_t r = __atomic_xor_fetch(&u->_b, 1, RTAPI_MEMORY_MODEL);
+    if (unlikely(hh_get_wmb(&p._bp->hdr)))
+	rtapi_smp_wmb();
+    return r;
+}
+#endif
 RTAPI_END_DECLS
 #endif // HAL_ACCESSOR_H
