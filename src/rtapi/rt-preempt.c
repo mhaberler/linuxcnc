@@ -69,7 +69,7 @@ typedef struct {
     unsigned int failures;
 } extra_task_data_t;
 
-extra_task_data_t extra_task_data[RTAPI_MAX_TASKS + 1];
+static extra_task_data_t extra_task_data[RTAPI_MAX_TASKS + 1];
 
 #ifdef HAVE_RTAPI_GET_CLOCKS_HOOK
 long long int _rtapi_get_clocks_hook(void)
