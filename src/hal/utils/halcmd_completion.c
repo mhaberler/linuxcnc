@@ -286,8 +286,15 @@ static inline void zero_foreach_args(foreach_args_t *a) {
 
 static int yield_strname(hal_object_ptr o, foreach_args_t *args)
 {
-    args->result = strdup(hh_get_name(o.hdr));
-    return 1;  // terminate visit on first match
+    size_t len = strlen(args->user_ptr1);
+    if ((len == 0) ||
+	!strncmp(hh_get_name(o.hdr),    // prefix match
+		 args->user_ptr1,
+		 len)) {
+	args->result = strdup(hh_get_name(o.hdr));
+	return 1;  // terminate visit on first match
+    }
+    return 0;
 }
 
 static char *signal_generator(const char *text, int state)
@@ -295,7 +302,7 @@ static char *signal_generator(const char *text, int state)
     if (!state) {
 	zero_foreach_args(&cargs);
 	cargs.type = HAL_SIGNAL;
-	cargs.name = strlen(text) ? text : NULL;
+	cargs.user_ptr1 = text;
     }
     halg_yield(0, &cargs, yield_strname);
     return cargs.result;
@@ -303,11 +310,18 @@ static char *signal_generator(const char *text, int state)
 
 static int yield_ppstrname(hal_object_ptr o, foreach_args_t *args)
 {
+    size_t len = strlen(args->user_ptr1);
     switch (hh_get_object_type(o.hdr)) {
     case HAL_PARAM:
     case HAL_PIN:
+	if ((len == 0) ||
+	    !strncmp(hh_get_name(o.hdr),    // prefix match
+		     args->user_ptr1,
+		     strlen(args->user_ptr1))) {
 	    args->result = strdup(hh_get_name(o.hdr));
 	    return 1;  // terminate visit on first match
+	}
+	break;
     default: ;
     }
     return 0;
@@ -317,7 +331,7 @@ static char *getp_generator(const char *text, int state)
 {
     if (!state) {
 	zero_foreach_args(&cargs);
-	cargs.name = strlen(text) ? text : NULL;
+	cargs.user_ptr1 = text;
     }
     halg_yield(0, &cargs, yield_ppstrname);
     return cargs.result;

@@ -1614,7 +1614,7 @@ int do_sweep_cmd(char *flags)
 				     RTAPIHEAP_TRACE_MALLOC|
 				     RTAPIHEAP_TRACE_FREE);
     }
-    int retval = halg_sweep(1);
+    int retval = hal_sweep();
     if (retval)
 	halcmd_output("%d objects freed\n", retval);
     if (log) {
