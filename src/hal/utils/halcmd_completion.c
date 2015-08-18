@@ -278,59 +278,49 @@ static char *attached_funct_generator(const char *text, int state) {
     return funct_generator_common(text, state, 1);
 }
 
-static char *signal_generator(const char *text, int state) {
-#if 0
-    static int len;
-    static int next;
+foreach_args_t cargs;
 
-    if(!state) {
-        next = hal_data->sig_list_ptr;
-        len = strlen(text);
-    }
-
-    while(next) {
-        hal_sig_t *sig = SHMPTR(next);
-        next = sig->next_ptr;
-        if ( match_type != HAL_TYPE_UNSPECIFIED && match_type != sig->type ) continue; 
-        if ( !writer_match( match_direction, sig->writers ) ) continue;
-	if ( strncmp(text, sig->name, len) == 0 )
-            return strdup(sig->name);
-    }
-#endif
-    return NULL;
+static inline void zero_foreach_args(foreach_args_t *a) {
+    memset((void *)a, 0, sizeof(foreach_args_t));
 }
 
-static char *getp_generator(const char *text, int state) {
-    static int len;
-    static int next;
-    static int what;
+static int yield_strname(hal_object_ptr o, foreach_args_t *args)
+{
+    args->result = strdup(hh_get_name(o.hdr));
+    return 1;  // terminate visit on first match
+}
 
-#warning FIXME
-#if 0
-    if(!state) {
-        what = 0;
-        next = hal_data->param_list_ptr;
-        len = strlen(text);
+static char *signal_generator(const char *text, int state)
+{
+    if (!state) {
+	zero_foreach_args(&cargs);
+	cargs.type = HAL_SIGNAL;
+	cargs.name = strlen(text) ? text : NULL;
     }
+    halg_yield(0, &cargs, yield_strname);
+    return cargs.result;
+}
 
-    if(what == 0) {
-        while(next) {
-            hal_param_t *param = SHMPTR(next);
-            next = param->next_ptr;
-            if ( strncmp(text, param->name, len) == 0 )
-                return strdup(param->name);
-        }
-        what = 1;
-        next = hal_data->pin_list_ptr;
+static int yield_ppstrname(hal_object_ptr o, foreach_args_t *args)
+{
+    switch (hh_get_object_type(o.hdr)) {
+    case HAL_PARAM:
+    case HAL_PIN:
+	    args->result = strdup(hh_get_name(o.hdr));
+	    return 1;  // terminate visit on first match
+    default: ;
     }
-    while(next) {
-        hal_pin_t *pin = SHMPTR(next);
-        next = pin->next_ptr;
-        if ( strncmp(text, pin->name, len) == 0 )
-            return strdup(pin->name);
+    return 0;
+}
+
+static char *getp_generator(const char *text, int state)
+{
+    if (!state) {
+	zero_foreach_args(&cargs);
+	cargs.name = strlen(text) ? text : NULL;
     }
-#endif
-    return NULL;
+    halg_yield(0, &cargs, yield_ppstrname);
+    return cargs.result;
 }
 
 static char *setp_generator(const char *text, int state) {
