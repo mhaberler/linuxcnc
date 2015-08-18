@@ -5,8 +5,8 @@ setp v1and5.function 0x80000000
 newinst lutnv2 v2and5 pincount=5 functn=0x80000000
 
 # compute mean, stddev, variance of funct execution time
-newinst stats  v1stats
-newinst stats  v2stats
+newinst statsv2  v1stats
+newinst statsv2  v2stats
 
 # type conversion s32->float for stats
 loadrt conv_s32_float names=v1cvt,v2cvt
