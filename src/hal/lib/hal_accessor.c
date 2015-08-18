@@ -3,8 +3,8 @@
 #include "hal_priv.h"
 #include "hal_accessor.h"
 
-// allocators for accessor-style pins and sigs
-// passing NULL for data_ptr_addr makes them v2 pins
+// allocators for accessor-style pins
+// passing NULL for data_ptr_addr in halg_pin_newfv makes them v2 pins
 
 bit_pin_ptr halx_pin_bit_newf(const hal_pin_dir_t dir,
 			      const int owner_id,
