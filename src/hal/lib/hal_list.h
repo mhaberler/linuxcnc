@@ -113,7 +113,6 @@ static inline hal_list_t *dlist_remove_entry(hal_list_t * entry);
 	 &pos->member != (head);					\
 	 pos = n, n = dlist_next_entry(n, member))
 
-
 static inline hal_list_t *dlist_prev(const hal_list_t * entry)
 {
     /* this function is only needed because of memory mapping */
@@ -197,3 +196,21 @@ static inline hal_list_t *dlist_remove_entry(hal_list_t * entry)
 }
 
 #endif /* HAL_LIST_H */
+
+#if 0
+
+// add this later for a halg_yield() type iterator
+/**
+ * dlist_for_each_entry_safe_continue -	iterate over list of given type
+ *			continuing after existing point safe against removal of list entry
+ * @pos:	the type * to use as a loop counter.
+ * @n:		another type * to use as temporary storage
+ * @head:	the head for your list.
+ * @member:	the name of the list_struct within the struct.
+ */
+#define list_for_each_entry_safe_continue(pos, n, head, member) 		\
+	for (pos = list_entry(pos->member.next, typeof(*pos), member), 		\
+		n = list_entry(pos->member.next, typeof(*pos), member);		\
+	     &pos->member != (head);						\
+	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
+#endif
