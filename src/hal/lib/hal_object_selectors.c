@@ -18,6 +18,12 @@ int yield_match(hal_object_ptr o, foreach_args_t *args)
     return 1;  // terminate visit on first match
 }
 
+int yield_name(hal_object_ptr o, foreach_args_t *args)
+{
+    args->user_ptr1 = hh_get_name(o.hdr);
+    return 1;  // terminate visit on first match
+}
+
 int yield_count(hal_object_ptr o, foreach_args_t *args)
 {
     return 0; // continue visiting

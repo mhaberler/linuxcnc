@@ -34,6 +34,19 @@
 // };
 int yield_match(hal_object_ptr o, foreach_args_t *args);
 
+
+//--------------------------------------------------------------------
+// use this selector to retrieve the name of a HAL object
+// selected by the standard selection (type, object ID/object name prefix):
+//
+// selector-specific arguments:
+//
+// returned name or NULL if not found
+//     .user_ptr1 = NULL,
+// };
+int yield_match(hal_object_ptr o, foreach_args_t *args);
+
+
 //--------------------------------------------------------------------
 // use this selector to count the number of objects matching
 // the standard selection (type, object ID/object name):
