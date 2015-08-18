@@ -122,6 +122,8 @@ extern bool inst_name_exists(const int use_halmutex, char *name);
 
 // shutdown the RTAPI stack
 extern int do_shutdown_cmd(void);
+// HAL object garbage collector
+extern int do_sweep_cmd(char *flags);
 // ping the RTAPI stack
 extern int do_ping_cmd(void);
 // create a new named RT thread

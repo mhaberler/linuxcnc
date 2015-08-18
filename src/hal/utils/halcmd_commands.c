@@ -1602,6 +1602,28 @@ int do_shutdown_cmd(void)
     return retval;
 }
 
+int do_sweep_cmd(char *flags)
+{
+    bool log = (flags && strlen(flags));
+    int hflags, gflags;
+    if (log) {
+	hflags = rtapi_heap_setflags(&hal_data->heap,
+				    RTAPIHEAP_TRACE_MALLOC|
+				    RTAPIHEAP_TRACE_FREE);
+	gflags = rtapi_heap_setflags(&global_data->heap,
+				     RTAPIHEAP_TRACE_MALLOC|
+				     RTAPIHEAP_TRACE_FREE);
+    }
+    int retval = halg_sweep(1);
+    if (retval)
+	halcmd_output("%d objects freed\n", retval);
+    if (log) {
+	rtapi_heap_setflags(&hal_data->heap, hflags);
+	rtapi_heap_setflags(&global_data->heap, gflags);
+    }
+    return 0;
+}
+
 int do_ping_cmd(void)
 {
     int retval = rtapi_ping(rtapi_instance);
@@ -2348,13 +2370,19 @@ static void print_funct_info(char **patterns)
 
 static int print_objects(char **patterns)
 {
+    WITH_HAL_MUTEX();
     halhdr_t *hh, *tmp;
-
+    int count = 0;
     dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
+	if (!hh_is_valid(hh)) {
+	    count++;
+	    continue;
+	}
 	char buffer[200];
 	hh_snprintf(buffer, sizeof(buffer), hh);
 	halcmd_output("%s\n", buffer);
     }
+    if (count) 	halcmd_output("%d objects marked for deletion\n", count);
     return 0;
 }
 
