@@ -43,14 +43,17 @@ int count_subordinate_objects(hal_object_ptr o, foreach_args_t *args)
 
 int yield_free(hal_object_ptr o, foreach_args_t *args)
 {
-    /* HALDBG("name=%s id=%d owner=%d type=%d seltype=%d selid=%d selowner=%d", */
-    /* 	   hh_get_name(o.hdr), */
-    /* 	   hh_get_id(o.hdr), */
-    /* 	   hh_get_owner_id(o.hdr), */
-    /* 	   hh_get_object_type(o.hdr), */
-    /* 	   args->type, */
-    /* 	   args->id, */
-    /* 	   args->owner_id); */
+
+#if TRACE_YIELD_FREE
+    HALDBG("type=%s name=%s id=%d owner=%d seltype=%d selid=%d selowner=%d",
+	   hh_get_object_typestr(o.hdr),
+	   hh_get_name(o.hdr),
+	   hh_get_id(o.hdr),
+	   hh_get_owner_id(o.hdr),
+	   args->type,
+	   args->id,
+	   args->owner_id);
+#endif
 
     switch (args->type) {
 
