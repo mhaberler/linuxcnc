@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <stddef.h>
 #include <hal.h>
 #include <hal_priv.h>
