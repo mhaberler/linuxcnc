@@ -30,7 +30,7 @@ typedef struct rtapi_malloc_align {
 } rtapi_malloc_align_t;
 
 // if a region is allocated via rtapi_malloc_aligned(), this tag
-// lives right below the pointer to the allocated region, and records
+// lives right below tehe pointer to the allocated region, and records
 // the location of the actual rtapi_malloc() allocation so it can be
 // properly freed
 typedef struct rtapi_malloc_tag {
