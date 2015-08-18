@@ -11,11 +11,18 @@ newinst stats  v2stats
 # type conversion s32->float for stats
 loadrt conv_s32_float names=v1cvt,v2cvt
 
+# compute relative times
+newinst div2 ratio
+
 net v1times32 v1and5.funct.time v1cvt.in
 net v2times32 v2and5.funct.time v2cvt.in
 
 net v1timef v1cvt.out v1stats.in
 net v2timef v2cvt.out v2stats.in
+
+net v1mean v1stats.mean ratio.in1
+net v2mean v2stats.mean ratio.in0
+
 
 setp v1stats.enable 1
 setp v2stats.enable 1
@@ -28,4 +35,7 @@ addf v1cvt        t
 addf v2cvt        t
 addf v1stats.funct t
 addf v2stats.funct t
+addf ratio.funct   t
 start
+
+
