@@ -132,7 +132,6 @@ static int hal_heap_flags    =  RTAPIHEAP_TRIM;
 static int global_heap_flags =  RTAPIHEAP_TRIM;
 
 static const char *inifile;
-static int log_stderr;
 static int foreground;
 static int use_shmdrv;
 static flavor_ptr flavor;
@@ -838,7 +837,6 @@ int main(int argc, char **argv)
 	    global_heap_flags |= (RTAPIHEAP_TRACE_MALLOC|RTAPIHEAP_TRACE_FREE);
 	    break;
 	case 's':
-	    log_stderr++;
 	    option |= LOG_PERROR;
 	    break;
 	case 'R':
