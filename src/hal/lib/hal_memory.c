@@ -73,19 +73,27 @@ int hal_heap_addmem(size_t click)
     return 0;
 }
 
+// must be called with HAL mutex held
 void *shmalloc_desc(size_t size)
 {
-    void *retval = rtapi_calloc(&hal_data->heap, 1, size);
+    void *retval;
 
-    // extend shm arena on failure
-    if (retval == NULL) {
-	hal_heap_addmem(HAL_HEAP_INCREMENT);
+ RETRY:
+    retval = rtapi_calloc(&hal_data->heap, 1, size);
+    if (retval != NULL)
+	return retval;
 
-	retval = rtapi_calloc(&hal_data->heap, 1, size);
-	if (retval == NULL)
-	    HALERR("giving up - can't allocate %zu bytes", size);
-	_halerrno = -ENOMEM;
-    }
+    // first try freeing up some garbage.
+    if (halg_sweep(0))
+	    goto RETRY;   // some object(s) were freed
+
+    // Nope, extend shm arena.
+    hal_heap_addmem(HAL_HEAP_INCREMENT);
+
+    retval = rtapi_calloc(&hal_data->heap, 1, size);
+    if (retval == NULL)
+	HALFAIL_NULL(ENOMEM, "giving up - can't allocate %zu bytes", size);
+
     return retval;
 }
 

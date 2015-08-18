@@ -121,6 +121,8 @@ void *halg_create_objectfv(const bool use_hal_mutex,
 			  const char *fmt,
 			  va_list ap)
 {
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
+
     halhdr_t *new;
     if (global_data->hal_descriptor_alignment) {
 	// cache-line aligned alloc. more memory usage, more cache friendly.
