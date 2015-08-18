@@ -222,7 +222,9 @@ typedef int (*hal_object_callback_t)  (hal_object_ptr object,
 //
 // the user_* fields have no bearing on matching - they are strictly
 // for passing values to/from the callback routine.
-
+//
+// NB: any unused fields MUST be set to zero before calling halg_foreach().
+//
 // only the following foreach_args_t fields drive matching:
 // name type id  owner_id owning_comp
 //
@@ -286,12 +288,28 @@ typedef struct foreach_args {
     void *user_ptr1;        // opaque user pointer arguments
     void *user_ptr2;
     void *user_ptr3;
+
+    void *result;      // return value for each halg_yield() call
+
+    // internal: not for public use
+    hal_list_t *_cursor;   // record state for halg_yield() use
 } foreach_args_t;
 
 
 int halg_foreach(bool use_hal_mutex,
 		 foreach_args_t *args,
 		 const hal_object_callback_t callback); // optional callback
+
+
+// halg_yield - state-recording iterator
+// can be called repeatedly and will return the next match in
+// args->result, and nonzero
+// if no match, returns 0 and args->result == NULL
+// see yield_strname for an example callback used in
+// halcmd completion
+int halg_yield(bool use_hal_mutex,
+	       foreach_args_t *args,
+	       hal_object_callback_t callback);
 
 #include "hal_object_selectors.h"
 

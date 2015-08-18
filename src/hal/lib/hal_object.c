@@ -250,11 +250,15 @@ int halg_sweep(const bool use_hal_mutex)
     return count;
 }
 
-int halg_foreach(bool use_hal_mutex,
-		 foreach_args_t *args,
-		 hal_object_callback_t callback)
+
+// iterate HAL object list from a given node
+static int halg_foreach_from(bool use_hal_mutex,
+			     foreach_args_t *args,
+			     hal_object_callback_t callback,
+			     const hal_list_t *where)
 {
     halhdr_t *hh, *tmp;
+    const hal_list_t *start = where;
     int nvisited = 0, result;
 
     CHECK_NULL(args);
@@ -262,7 +266,14 @@ int halg_foreach(bool use_hal_mutex,
 	// run with HAL mutex if use_hal_mutex nonzero:
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
-	dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
+	// if no starting point given, iterate whole list:
+	if (start == NULL)
+	    start = OBJECTLIST;
+
+	for (hh = dlist_first_entry(start, halhdr_t, list),
+		 tmp = dlist_next_entry(hh, list);
+	     &hh->list != OBJECTLIST;
+	     hh = tmp, tmp = dlist_next_entry(tmp, list)) {
 
 	    // skip any entries marked for garbage collection
 	    if (!hh_is_valid(hh))
@@ -292,8 +303,13 @@ int halg_foreach(bool use_hal_mutex,
 	    }
 
 	    // 5. by name if non-NULL - prefix match OK for name strings
-	    if (args->name && strcmp(hh_get_name(hh), args->name))
+	    if (args->name && strncmp(hh_get_name(hh),
+				      args->name,
+				      strlen(args->name)))
 		continue;
+
+	    // record current position for yield-type use
+	    args->_cursor = &hh->list;
 
 	    nvisited++;
 	    if (callback) {
@@ -322,6 +338,47 @@ int halg_foreach(bool use_hal_mutex,
     // so return match count
     return nvisited;
 }
+
+// iterate over complete HAL object list
+int halg_foreach(bool use_hal_mutex,
+		 foreach_args_t *args,
+		 hal_object_callback_t callback)
+{
+    return halg_foreach_from(use_hal_mutex,
+			     args,
+			     callback,
+			     NULL);
+}
+
+
+int halg_yield(bool use_hal_mutex,
+	       foreach_args_t *args,
+	       hal_object_callback_t callback)
+{
+    int nvisited;
+
+    CHECK_NULL((void *)args);
+    CHECK_NULL((void *)callback);
+
+    if (args->_cursor == NULL) { // first call
+	args->_cursor = OBJECTLIST;
+    }
+    args->result = NULL;
+
+    nvisited = halg_foreach_from(use_hal_mutex,
+				 args,
+				 callback,
+				 args->_cursor);
+#if TRACE_YIELD
+    if (nvisited) {
+	char buf[200];
+	hh_snprintf(buf,200, (halhdr_t *)args->_cursor);
+	HALDBG("cursor=%s result=%s", buf, args->result);
+    }
+#endif
+    return nvisited;
+}
+
 
 
 // specialisations for common tasks
