@@ -434,6 +434,7 @@ EXPORT_SYMBOL(halpr_find_owning_comp);
 EXPORT_SYMBOL(halg_find_object_by_name);
 EXPORT_SYMBOL(halg_find_object_by_id);
 EXPORT_SYMBOL(halg_foreach);
+EXPORT_SYMBOL(halg_yield);
 EXPORT_SYMBOL(halg_sweep);
 EXPORT_SYMBOL(halg_object_setbarriers);
 
