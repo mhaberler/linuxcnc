@@ -176,7 +176,7 @@ void halg_add_object(const bool use_hal_mutex,  hal_object_ptr o);
 int halg_free_object(const bool use_hal_mutex, hal_object_ptr o);
 
 // HAL objects garbage collector. Run every now and then.
-int halg_sweep(const bool use_hal_mutex);
+int hal_sweep(void);
 
 // set barriers on an aribtrary HAL object
 int halg_object_setbarriers(const int use_hal_mutex,

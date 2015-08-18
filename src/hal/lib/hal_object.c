@@ -224,9 +224,11 @@ int halg_free_object(const bool use_hal_mutex,
     return 0;
 }
 
-int halg_sweep(const bool use_hal_mutex)
+// garbage collector - not nestable under other
+// halg_* methods - must be the only HAL code to hold the HAL mutex
+int hal_sweep(void)
 {
-    WITH_HAL_MUTEX_IF(use_hal_mutex);
+    WITH_HAL_MUTEX();
     halhdr_t *hh, *tmp;
     int count = 0;
 
@@ -302,10 +304,9 @@ static int halg_foreach_from(bool use_hal_mutex,
 		    continue;
 	    }
 
-	    // 5. by name if non-NULL - prefix match OK for name strings
-	    if (args->name && strncmp(hh_get_name(hh),
-				      args->name,
-				      strlen(args->name)))
+	    // 5. by name if non-NULL. Exact match only - prefix
+	    // matching must be done in a callback.
+	    if (args->name && strcmp(hh_get_name(hh), args->name))
 		continue;
 
 	    // record current position for yield-type use
