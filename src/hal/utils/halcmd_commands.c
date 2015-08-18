@@ -4137,8 +4137,9 @@ int do_setrmb_cmd(char *object)
     int retval = change_barrier(object, 1, -1);
     if (retval < 0) {
     	halcmd_error("setrmb:  %s\n",  hal_lasterror());
+	return retval;
     };
-    return retval;
+    return 0;
 }
 
 int do_setwmb_cmd(char *object)
@@ -4146,8 +4147,9 @@ int do_setwmb_cmd(char *object)
     int retval =  change_barrier(object, -1, 1);
     if (retval < 0) {
     	halcmd_error("setwmb:  %s\n",  hal_lasterror());
+	return retval;
     };
-    return retval;
+    return 0;
 }
 
 int do_clear_rmb_cmd(char *object)
@@ -4155,16 +4157,20 @@ int do_clear_rmb_cmd(char *object)
     int retval =  change_barrier(object, 0, -1);
     if (retval < 0) {
     	halcmd_error("clearrmb:  %s\n",  hal_lasterror());
+	return retval;
     };
-    return retval;}
+    return 0;
+}
 
 int do_clear_wmb_cmd(char *object)
 {
     int retval =  change_barrier(object, -1, 0);
     if (retval < 0) {
     	halcmd_error("clearwmb:  %s\n",  hal_lasterror());
+	return retval;
     };
-    return retval;}
+    return 0;
+}
 
 int do_handshake_cmd(char *signal)
 {
