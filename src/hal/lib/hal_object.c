@@ -73,12 +73,7 @@ int hh_clear_hdr(halhdr_t *hh)
     int ret = hh_is_valid(hh);
     hh_set_id(hh, 0);
     hh_set_owner_id(hh, 0);
-    if (hh->_name_ptr) {
-	void *s = heap_ptr(global_heap, hh->_name_ptr);
-	hal_data->str_freed += strlen(s) + 1;
-	rtapi_free(global_heap, s);
-	hh->_name_ptr = 0;
-    }
+
     hh_set_invalid(hh);
     hh->_refcnt = 0;
     return ret;
@@ -218,16 +213,39 @@ int halg_free_object(const bool use_hal_mutex,
 		   hh_get_name(o.hdr),
 		   hh_get_refcnt(o.hdr));
     }
-    // unlink from list of active objects
-    dlist_remove_entry(&o.hdr->list);
-    // zap the header, including valid bit
-    hh_clear_hdr(o.hdr);
-    // return descriptor memory to HAL heap
-    shmfree_desc(o.hdr);
 
+    // zap the header, including valid bit
+    // marks object for garbage collection by halg_sweep()
+    hh_clear_hdr(o.hdr);
     // make sure all values visible everywhere
     rtapi_smp_mb();
     return 0;
+}
+
+int halg_sweep(const bool use_hal_mutex)
+{
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
+    halhdr_t *hh, *tmp;
+    int count = 0;
+
+    dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
+
+	if (!hh_is_valid(hh)) {
+	    // free the name to the global heap
+	    if (hh->_name_ptr) {
+		void *s = heap_ptr(global_heap, hh->_name_ptr);
+		hal_data->str_freed += strlen(s) + 1;
+		rtapi_free(global_heap, s);
+		hh->_name_ptr = 0;
+	    }
+	    // unlink from list of active objects
+	    dlist_remove_entry(&hh->list);
+	    // return descriptor memory to HAL heap
+	    shmfree_desc(hh);
+	    count++;
+	}
+    }
+    return count;
 }
 
 int halg_foreach(bool use_hal_mutex,
@@ -244,10 +262,9 @@ int halg_foreach(bool use_hal_mutex,
 
 	dlist_for_each_entry_safe(hh, tmp, OBJECTLIST, list) {
 
-	    // cop out if the object list emptied by now
-	    // (may happen through callbacks when deleting)
-	    if (dlist_empty_careful(&hh->list))
-		break;
+	    // skip any entries marked for garbage collection
+	    if (!hh_is_valid(hh))
+		continue;
 
 	    // 1. select by type if given
 	    if (args->type && (hh_get_object_type(hh) != args->type))

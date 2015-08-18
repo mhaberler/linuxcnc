@@ -42,6 +42,7 @@ typedef struct halhdr {
     // this is the HAL Object type, not the data type of a pin/signal!!
     __u32    _object_type   : 5;       // enum hal_object_type from above
     __u32    _valid  : 1;              // marks as active/unreferenced object
+                                       // if 0, candidate for garbage collection
 
     // per-object memory barrier flags
     // these apply to pins, signals and params as 'values'
@@ -170,9 +171,12 @@ static inline void *halg_create_objectf(const bool use_hal_mutex,
 void halg_add_object(const bool use_hal_mutex,  hal_object_ptr o);
 
 // free a HAL object
-// invalidates and removes the object, and frees the descriptor.
+// invalidates the object, and marks it for deletion by halg_sweep().
 // returns -EBUSY if reference count not zero.
 int halg_free_object(const bool use_hal_mutex, hal_object_ptr o);
+
+// HAL objects garbage collector. Run every now and then.
+int halg_sweep(const bool use_hal_mutex);
 
 // set barriers on an aribtrary HAL object
 int halg_object_setbarriers(const int use_hal_mutex,
