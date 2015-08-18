@@ -18,6 +18,7 @@ static void thread_task(void *arg)
     hal_thread_t *thread = arg;
     hal_funct_entry_t *funct_root, *funct_entry;
     long long int end_time;
+    hal_s32_t delta;
 
     // thread execution times collected here, doubles as
     // param struct for xthread functs
@@ -63,13 +64,15 @@ static void thread_task(void *arg)
 		}
 		/* capture execution time */
 		end_time = rtapi_get_clocks();
+
 		/* update execution time data */
-		*(fa.funct->runtime) = (hal_s32_t)(end_time - fa.start_time);
-		if ( *(fa.funct->runtime) > fa.funct->maxtime) {
-		    fa.funct->maxtime = *(fa.funct->runtime);
-		    fa.funct->maxtime_increased = 1;
+		delta = end_time - fa.start_time;
+		set_s32_pin(fa.funct->f_runtime, delta);
+		if ( delta > get_s32_pin(fa.funct->f_maxtime)) {
+		    set_s32_pin(fa.funct->f_maxtime, delta);
+		    set_bit_pin(fa.funct->f_maxtime_increased, 1);
 		} else {
-		    fa.funct->maxtime_increased = 0;
+		    set_bit_pin(fa.funct->f_maxtime_increased, 0);
 		}
 
 		// issue a write barrier if set in funct_entry or

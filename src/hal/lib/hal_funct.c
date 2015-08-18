@@ -82,7 +82,8 @@ static int halg_export_xfunctfv(const int use_hal_mutex,
         HALERR("length %d invalid for name starting '%s'", sz, name);
         return -ENOMEM;
     }
-    HALDBG("exporting function '%s' type %d", name, xf->type);
+    HALDBG("exporting function '%s' type %d fp=%d owner=%d",
+	   name, xf->type, xf->uses_fp, xf->owner_id);
 
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
@@ -128,11 +129,6 @@ static int halg_export_xfunctfv(const int use_hal_mutex,
 	nf->type = xf->type;
 	nf->funct.l = xf->funct.l; // a bit of a cheat really
 
-	/* init time logging variables */
-	nf->runtime = 0;
-	nf->maxtime = 0;
-	nf->maxtime_increased = 0;
-
 	halg_add_object(false, (hal_object_ptr)nf);
     }
     // unlocked here
@@ -140,28 +136,11 @@ static int halg_export_xfunctfv(const int use_hal_mutex,
     switch (xf->type) {
     case FS_LEGACY_THREADFUNC:
     case FS_XTHREADFUNC:
-
-	if (halg_pin_newf(0, HAL_S32, HAL_OUT,
-			  (void **)&(nf->runtime),
-			  xf->owner_id,
-			  "%s.time",name) == NULL) {
-	    HALFAIL_RC(EINVAL, "failed to create pin '%s.time'", name);
-	}
-	*(nf->runtime) = 0;
-
-	/* note that failure to successfully create the following params
-	   does not cause the "export_funct()" call to fail - they are
-	   for debugging and testing use only */
-	/* create a parameter with the function's maximum runtime in it */
-	nf->maxtime = 0;
-	halg_param_newf(0, HAL_S32, HAL_RW,
-			&(nf->maxtime), xf->owner_id, "%s.tmax", name);
-
-	/* create a parameter with the function's maximum runtime in it */
-	nf->maxtime_increased = 0;
-	halg_param_newf(0, HAL_BIT, HAL_RO,
-			&(nf->maxtime_increased), xf->owner_id,
-			"%s.tmax-inc", name);
+	nf->f_runtime = halx_pin_s32_newf(HAL_OUT,xf->owner_id,"%s.time",name);
+	nf->f_maxtime = halx_pin_s32_newf(HAL_OUT,xf->owner_id,"%s.tmax",name);
+	nf->f_maxtime_increased =
+	    halx_pin_bit_newf(HAL_OUT,xf->owner_id,"%s.tmax-inc",name);
+	// TBD: check success of above
 	break;
     case FS_USERLAND: // no timing pins/params
 	;

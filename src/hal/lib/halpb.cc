@@ -111,8 +111,8 @@ int halpr_describe_funct(hal_funct_t *funct, pb::Function *pbfunct)
     pbfunct->set_name(ho_name(funct));
     pbfunct->set_handle(ho_id(funct));
     pbfunct->set_users(funct->users);
-    pbfunct->set_runtime(*(funct->runtime));
-    pbfunct->set_maxtime(funct->maxtime);
+    pbfunct->set_runtime(get_s32_pin(funct->f_runtime));
+    pbfunct->set_maxtime(get_s32_pin(funct->f_maxtime));
     pbfunct->set_reentrant(funct->reentrant);
     return 0;
 }

@@ -561,14 +561,14 @@ int halg_export_xfunctf(const int use_halmutex,
 			const hal_export_xfunct_args_t *xf,
 			const char *fmt, ...);
 
- typedef struct hal_funct {
+typedef struct hal_funct {
     halhdr_t hdr;
     void *arg;			/* argument for function */
     hal_funct_u funct;          // ptr to function code
     hal_funct_signature_t type; // drives call signature, addf
-    hal_s32_t* runtime;	        /* (pin) duration of last run, in nsec */
-    hal_s32_t maxtime;		/* duration of longest run, in nsec */
-    hal_bit_t maxtime_increased;	/* on last call, maxtime increased */
+    s32_pin_ptr f_runtime;	// (pin) duration of last run, in nsec
+    s32_pin_ptr f_maxtime;	// duration of longest run, in nsec
+    bit_pin_ptr f_maxtime_increased;	// on last call, maxtime increased
     int uses_fp;		/* floating point flag */
     int reentrant;		/* non-zero if function is re-entrant */
     int users;			/* number of threads using function */
