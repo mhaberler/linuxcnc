@@ -54,7 +54,7 @@ static const char *command_table[] = {
     "linkps", "linksp", "linkpp", "unlinkp",
     "net", "newsig", "delsig", "getp", "gets", "setp", "sets", "sete", "ptype", "stype",
     "addf", "delf", "show", "list", "status", "save", "source",
-    "start", "stop", "quit", "exit", "help", "alias", "unalias", 
+    "start", "stop", "quit", "exit", "help",
     "newg"," delg", "newm", "delm",
     "newring","delring","ringdump","ringwrite","ringflush",
     "newcomp","newpin","ready","waitbound", "waitunbound", "waitexists",
@@ -68,31 +68,26 @@ static const char *nonRT_command_table[] = {
     NULL,
 };
 
-static const char *alias_table[] = {
-    "param", "pin",
-    NULL,
-};
-
 static const char *show_table[] = {
-    "all", "alias", "comp", "pin", "sig", "param", "funct", "thread", "group", "member",
+    "all", "comp", "pin", "sig", "param", "funct", "thread", "group", "member",
     "ring", "eps","vtable","inst",
     NULL,
 };
 
 static const char *save_table[] = {
-    "all", "alias", "comp", "sig", "link", "linka", "net", "neta", "param", "thread",
+    "all",  "comp", "sig", "link", "linka", "net", "neta", "param", "thread",
     "group", "member", "ring",
     NULL,
 };
 
 static const char *list_table[] = {
-    "comp", "alias", "pin", "sig", "param", "funct", "thread", "group", "member",
+    "comp", "pin", "sig", "param", "funct", "thread", "group", "member",
     "ring","inst",
     NULL
 };
 
 static const char *status_table[] = {
-    "alias", "lock", "mem", "all",
+    "lock", "mem", "all",
     NULL
 };
 
@@ -518,9 +513,6 @@ static char *pin_generator(const char *text, int state)
     halg_yield(0, &cargs, yield_pinstrname);
     return cargs.result;
 }
-
-
-
 
 #include <dirent.h>
 
