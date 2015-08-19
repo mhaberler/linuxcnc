@@ -847,7 +847,7 @@ void halcmd_init_readline()
     char path[PATH_MAX];
     snprintf(path,sizeof(path),"%s/%s", getenv("HOME"), HALCMD_HISTORY);
     if ((read_history (path))){
-	perror(path);
+	// perror(path);
     } else {
 	// printf("%d history lines read from %s\n", history_length, path);
     }
