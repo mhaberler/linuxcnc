@@ -370,7 +370,7 @@ int halg_yield(bool use_hal_mutex,
 				 args,
 				 callback,
 				 args->_cursor);
-#if 1 // TRACE_YIELD
+#if TRACE_YIELD
     if (nvisited) {
 	char buf[200];
 	hh_snprintf(buf,200, (halhdr_t *)args->_cursor);
