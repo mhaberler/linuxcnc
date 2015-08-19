@@ -115,7 +115,7 @@ long page_size;
 // global segment
 static int usr_msglevel = RTAPI_MSG_INFO ;
 static int rt_msglevel = RTAPI_MSG_INFO ;
-static int halsize = HAL_SIZE;
+static int halsize;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static size_t message_ring_size = MESSAGE_RING_SIZE;
 
@@ -776,7 +776,21 @@ int main(int argc, char **argv)
     progname = argv[0];
     page_size = sysconf(_SC_PAGESIZE);
     shm_common_init();
-
+    {
+	// default to rtapi.ini:HAL_SIZE
+	char param[10];
+	if (!get_rtapi_config(param, "HAL_SIZE", sizeof(param))) {
+	    char *cp;
+	    halsize = strtol(param, &cp, 0);
+	    if ((*cp != '\0') && (!isspace(*cp))) {
+		fprintf(stderr, "rtapi.ini: string '%s' invalid for HAL_SIZE\n",
+			param);
+		exit(1);
+	    }
+	}
+	// TBD: read global sizing params from rtapi.ini:
+	// message ring, global heap size
+    }
     while (1) {
 	int option_index = 0;
 	int curind = optind;
