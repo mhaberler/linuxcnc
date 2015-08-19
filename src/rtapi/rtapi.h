@@ -1218,6 +1218,10 @@ extern int ulapi_loaded(void);
   MODULE_PARM(var,"i");            \
   MODULE_PARM_DESC(var,descr);
 
+#define RTAPI_MP_UINT(var,descr)    \
+  MODULE_PARM(var,"u");	    \
+  MODULE_PARM_DESC(var,descr);
+
 #define RTAPI_MP_LONG(var,descr)   \
   MODULE_PARM(var,"l");            \
   MODULE_PARM_DESC(var,descr);
@@ -1244,6 +1248,10 @@ extern int ulapi_loaded(void);
 
 #define RTAPI_IP_INT(var,descr)    \
   INSTANCE_PARM(var,"i");            \
+  INSTANCE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_UINT(var,descr)    \
+  INSTANCE_PARM(var,"u");            \
   INSTANCE_PARM_DESC(var,descr);
 
 #define RTAPI_IP_LONG(var,descr)   \
@@ -1275,6 +1283,10 @@ extern int ulapi_loaded(void);
   module_param(var, int, 0);       \
   MODULE_PARM_DESC(var,descr);
 
+#define RTAPI_MP_UINT(var,descr)    \
+  module_param(var, uint, 0);       \
+  MODULE_PARM_DESC(var,descr);
+
 #define RTAPI_MP_LONG(var,descr)   \
   module_param(var, long, 0);      \
   MODULE_PARM_DESC(var,descr);
@@ -1304,6 +1316,10 @@ extern int ulapi_loaded(void);
 
 #define RTAPI_IP_INT(var,descr)    \
   module_param(var, int, RTAPI_IP_MODE);       \
+  MODULE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_UINT(var,descr)    \
+  module_param(var, uint, RTAPI_IP_MODE);       \
   MODULE_PARM_DESC(var,descr);
 
 #define RTAPI_IP_LONG(var,descr)   \
