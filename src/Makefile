@@ -1777,3 +1777,10 @@ cscope/man/:
 NOSETESTS := $(wildcard ../nosetests/*.py)
 nosetest:
 	$(foreach var,$(NOSETESTS),nosetests -v $(var);)
+
+
+TEMPDIR := $(shell mktemp -u)
+# disassemble a .so and create interspersed C/disassembly
+%.dis:  %.so
+	objdump -l -d -M $(shell arch) -S  $^  >  $@.tmp
+	@sh move-if-change $@.tmp $@
