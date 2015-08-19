@@ -17,11 +17,15 @@ RTAPI_BEGIN_DECLS
 // unsigned int ck_pr_load_uint(const unsigned int *target);
 
 // gcc intrinsics
-// Built-in Function: void __atomic_load (type *ptr, type *ret, int memorder)
-// This is the generic version of an atomic load. It returns the contents of *ptr in *ret.
+//
+// type __atomic_load_n (type *ptr, int memorder)
+//     This built-in function implements an atomic load operation.
+//     It returns the contents of *ptr.
+//
+// void __atomic_store_n (type *ptr, type val, int memorder)
+//     This built-in function implements an atomic store operation.
+//     It writes val into *ptr.
 
-// Built-in Function: void __atomic_store (type *ptr, type *val, int memorder)
-// This is the generic version of an atomic store. It stores the value of *val into *ptr.
 
 static inline void *hal_ptr(const shmoff_t offset) {
     return ((char *)hal_shmem_base + offset);
@@ -38,13 +42,7 @@ static inline shmoff_t hal_off_safe(const void *p) {
 // should setters be rvalues?
 #define SETTER_IS_RVALUE 1
 
-#ifdef SETTER_IS_RVALUE
 #define STYPE(t)  const hal_##t##_t
-#define SRETURN   return value;
-#else
-#define STYPE(t) void
-#define SRETURN
-#endif
 
 #ifdef HAVE_CK  // use concurrencykit.org primitives
 #define _STORE(dest, value, op, type) ck_##op((type *)dest, value)
@@ -63,10 +61,10 @@ static inline shmoff_t hal_off_safe(const void *p) {
 // usage: PINSETTER(bit, b)
 #define PINSETTER(type, tag, op, cast)					\
     static inline STYPE(type)						\
-    set_##type##_pin(type##_pin_ptr p,					\
-		     const hal_##type##_t value) {			\
-	_PINSET(p._##tag##p, _##tag, value, op, cast)		\
-	SRETURN    							\
+	 set_##type##_pin(type##_pin_ptr p,				\
+			  const hal_##type##_t value) {			\
+	 _PINSET(p._##tag##p, _##tag, value, op, cast)			\
+	     return value;						\
     }
 
 // emit typed pin setters
@@ -86,7 +84,7 @@ PINSETTER(float, f, __atomic_store_8,)
 #endif
 
 #ifdef HAVE_CK  // use concurrencykit.org primitives
-#define _LOAD(src, op, cast) value = ck_##op((cast *)src)
+#define _LOAD(src, op, cast)  ck_##op((cast *)src)
 #else // use gcc intrinsics
 #define _LOAD(dest, op, type) op(dest, RTAPI_MEMORY_MODEL)
 #endif
@@ -97,8 +95,7 @@ PINSETTER(float, f, __atomic_store_8,)
     const hal_data_u *u = (const hal_data_u *)hal_ptr(pin->data_ptr);	\
     if (unlikely(hh_get_rmb(&pin->hdr)))				\
 	rtapi_smp_rmb();						\
-    TYPE rvalue =  _LOAD(&u->TAG, OP, CAST);				\
-    return rvalue ;
+    return _LOAD(&u->TAG, OP, CAST);
 
 #define PINGETTER(type, tag, op, cast)					\
     static inline const hal_##type##_t					\
@@ -178,7 +175,7 @@ SIGGETTER(float, f)
 	 set_##type##_sig(type##_sig_ptr s,				\
 			  const hal_##type##_t value) {			\
 	_SIGSET(s._##tag##s, _##tag, value)				\
-	SRETURN 	    						\
+	    return value;						\
     }
 
 // emit typed signal setters
