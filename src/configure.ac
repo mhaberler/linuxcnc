@@ -921,19 +921,30 @@ AC_ARG_ENABLE(dev,
 # ck, protobuf, czmq, websockets, json, uriparse, avahi-client packages      #
 # NML
 ##############################################################################
-PKG_CHECK_MODULES([CK], [ck >= 0.4.6],
-    [
-        AC_DEFINE(HAVE_CK, [], [concurrencykit.org support available])
-	# needed for kbuild:
-	CK_INCLUDE=`pkg-config --cflags-only-I ck`
-	USE_CK=yes
-    ],
-    [
-      # eventually fail here with AC_MSG_ERROR(...)
-      AC_MSG_RESULT([concurrencykit not found - package not installed?])
-      CK_INCLUDE=""
-      USE_CK=no
-    ])
+
+DEFAULT_USE_CK=yes
+AC_ARG_DISABLE(ck, [  --disable-ck
+		        disable concurrencykit use]
+		        descriptor storage], USE_CK)
+if test "x$USE_CK" = "xyes"; then
+
+   AC_MSG_CHECKING(if concurrencykit is installed)
+	# package detection
+	PKG_CHECK_MODULES([CK], [ck >= 0.4.6],
+    	[
+		AC_DEFINE(HAVE_CK, [], [concurrencykit.org support available])
+		# needed for kbuild:
+		CK_INCLUDE=`pkg-config --cflags-only-I ck`
+		USE_CK=yes
+	],
+    	[
+		# eventually fail here with AC_MSG_ERROR(...)
+		AC_MSG_RESULT([concurrencykit not found - package not installed?])
+		CK_INCLUDE=""
+		USE_CK=no
+        ])
+fi
+
 AC_MSG_CHECKING(whether to enable accessor test)
 AC_ARG_ENABLE(accessor-test,
     [  --enable-accessor-test      enable accessor test code],
