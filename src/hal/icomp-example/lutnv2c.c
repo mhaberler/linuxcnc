@@ -2,8 +2,8 @@
 // usage:
 //
 // halcmd loadrt lutn
-// halcmd newinst lutn and2.0 inputs=2 function=0x8
-// halcmd newinst lutn or2.0  inputs=2 function=0xe
+// halcmd newinst lutn and2.0 pincount=2 function=0x8
+// halcmd newinst lutn or2.0  pincount=2 function=0xe
 
 
 // # src/hal/icomp-example$ python lut5.py -n2 'i0 & i1'
@@ -37,21 +37,21 @@ MODULE_LICENSE("GPL");
 RTAPI_TAG(HAL,HC_INSTANTIABLE);
 
 static int comp_id;
-static char *compname = "lutnv2";
+static char *compname = "lutnv2c";
 
 struct inst_data {
-    int inputs;
-    hal_u32_t function;
+    int pincount;
+    hal_u32_t functn;
     bit_pin_ptr out;
     bit_pin_ptr in[0];
 };
 
 
-static unsigned function = 0xff;
-RTAPI_IP_UINT(function, "lookup function - see man lut5");
+static unsigned functn = 0xff;
+RTAPI_IP_UINT(functn, "lookup function - see man lut5");
 
-static int inputs = 2;
-RTAPI_IP_INT(inputs, "number of input pins, in0..inN");
+static int pincount = 2;
+RTAPI_IP_INT(pincount, "number of input pins, in0..inN");
 
 static int lutn(void *arg, const hal_funct_args_t *fa)
 {
@@ -70,10 +70,10 @@ static int lutn(void *arg, const hal_funct_args_t *fa)
     struct inst_data *ip = arg;
     int shift = 0, i;
 
-    for (i = 0; i < ip->inputs; i++)
+    for (i = 0; i < ip->pincount; i++)
 	if (get_bit_pin(ip->in[i])) shift += (1 << i);
 
-    set_bit_pin(ip->out, (ip->function & (1 << shift)) != 0);
+    set_bit_pin(ip->out, (ip->functn & (1 << shift)) != 0);
     return 0;
 }
 
@@ -84,33 +84,33 @@ static int instantiate_lutn(const char *name,
     struct inst_data *ip;
     int i, inst_id;
 
-    if ((inputs < 1) || (inputs > 5)) {
+    if ((pincount < 1) || (pincount > 5)) {
 	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: invalid parameter inputs=%d, valid range=1..5",
-		      name, inputs);
+		      "%s: invalid parameter pincount=%d, valid range=1..5",
+		      name, pincount);
 	return -1;
     }
-    if ((function == 0) || (function == -1)) {
+    if ((functn == 0) || (functn == -1)) {
 	hal_print_msg(RTAPI_MSG_ERR,
-		      "%s: function=0x%x does not make sense",
-		      name, function);
+		      "%s: functn=0x%x does not make sense",
+		      name, functn);
 	return -1;
     }
 
     if ((inst_id = hal_inst_create(name, comp_id,
-				  sizeof(struct inst_data) + inputs * sizeof(hal_bit_t *),
+				  sizeof(struct inst_data) + pincount * sizeof(hal_bit_t *),
 				   (void **)&ip)) < 0)
 	return -1;
 
-    HALDBG("name='%s' inputs=%d function=0x%x ip=%p",
-	   name, inputs, function, ip);
+    HALDBG("name='%s' pincount=%d functn=0x%x ip=%p",
+	   name, pincount, functn, ip);
 
     // record instance params
-    ip->inputs = inputs;
-    ip->function = function;
+    ip->pincount = pincount;
+    ip->functn = functn;
 
     // export per-instance HAL objects
-    for (i = 0; i < ip->inputs; i++) {
+    for (i = 0; i < ip->pincount; i++) {
 	ip->in[i] = halx_pin_bit_newf(HAL_IN, inst_id, "%s.in%d", name,i);
 	if (bit_pin_null(ip->in[i]))
 	    return _halerrno;
