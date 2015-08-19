@@ -15,10 +15,10 @@ newinst failstop fs pincount=1
 newinst lut5   v1and5
 setp v1and5.function 0x80000000
 
-newinst lutnv2 v2and5 pincount=5 functn=0x80000000
+newinst lutnv2c v2and5 pincount=5 functn=0x80000000
 
 # for comparing v1and5.out and v2and5.out
-newinst lutnv2 xor2 pincount=2 functn=0x66666666
+newinst lutnv2c xor2 pincount=2 functn=0x66666666
 
 # wire the v1 and v2 in pins to the test signal
 net test0 pat5.out0 v1and5.in-0 v2and5.in0
