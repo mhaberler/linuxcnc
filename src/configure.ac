@@ -934,6 +934,19 @@ PKG_CHECK_MODULES([CK], [ck >= 0.4.6],
       CK_INCLUDE=""
       USE_CK=no
     ])
+AC_MSG_CHECKING(whether to enable accessor test)
+AC_ARG_ENABLE(accessor-test,
+    [  --enable-accessor-test      enable accessor test code],
+    [
+        AC_DEFINE(HAVE_ACCESSOR_TEST, [], [enable accessor test code])
+	ACCESSOR_TEST=yes
+        AC_MSG_RESULT([configuring enable  accessor test code])
+    ],
+    [
+      AC_MSG_RESULT([not generating  accessor test code])
+      ACCESSOR_TEST=no
+    ])
+AC_SUBST([ACCESSOR_TEST])
 
 PKG_CHECK_MODULES([CZMQ], [libczmq > 2.0],
     [
@@ -2631,7 +2644,6 @@ AH_TOP([/********************************************************************
 #define RTAPI_MAX_SHMEMS	32
 
 #define MAX_INSTANCES           16
-
 
 // minimum memlock limit
 // see http://wiki.linuxcnc.org/cgi-bin/wiki.pl?LockedMemory
