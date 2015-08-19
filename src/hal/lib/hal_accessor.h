@@ -37,8 +37,8 @@ static inline shmoff_t hal_off_safe(const void *p) {
 #define SRETURN
 #endif
 
-#if def HAVE_CK  // use concurrencykit.org primitives
-#define _STORE(dest, value, op, type) op((type *)dest, value)
+#ifdef HAVE_CK  // use concurrencykit.org primitives
+#define _STORE(dest, value, op, type) ck_##op((type *)dest, value)
 #else // use gcc intrinsics
 #define _STORE(dest, value, op, type) op(dest, &value, RTAPI_MEMORY_MODEL)
 #endif
@@ -61,11 +61,13 @@ static inline shmoff_t hal_off_safe(const void *p) {
     }
 
 // emit typed pin setters
-#if def HAVE_CK  // use concurrencykit.org primitives
-PINSETTER(bit,   b, ck_pr_store_8, uint8_t)
-PINSETTER(s32,   s, ck_pr_store_32, uint32_t)
-PINSETTER(u32,   u, ck_pr_store_32, uint32_t)
-PINSETTER(float, f, ck_pr_store_64, uint64_t)
+#ifdef HAVE_CK  // use concurrencykit.org primitives
+
+PINSETTER(bit,   b, pr_store_8,  uint8_t)
+PINSETTER(s32,   s, pr_store_32, uint32_t)
+PINSETTER(u32,   u, pr_store_32, uint32_t)
+PINSETTER(float, f, pr_store_64, uint64_t)
+
 #else // use gcc intrinsics
 
 PINSETTER(bit,   b, __atomic_store,)
@@ -74,27 +76,44 @@ PINSETTER(u32,   u, __atomic_store,)
 PINSETTER(float, f, __atomic_store,)
 #endif
 
+#ifdef HAVE_CK  // use concurrencykit.org primitives
+#define _LOAD(src, value, op, cast) value = ck_##op((cast *)src)
+#else // use gcc intrinsics
+#define _LOAD(dest, value, op, type) op(dest, &value, RTAPI_MEMORY_MODEL)
+#endif
+
 // v2 pins only.
-#define _PINGET(TYPE, OFFSET, TAG)					\
+#define _PINGET(TYPE, OFFSET, TAG, OP, CAST)					\
     const hal_pin_t *pin = (const hal_pin_t *)hal_ptr(OFFSET);		\
     const hal_data_u *u = (const hal_data_u *)hal_ptr(pin->data_ptr);	\
     if (unlikely(hh_get_rmb(&pin->hdr)))				\
 	rtapi_smp_rmb();						\
     TYPE rvalue ;							\
-    __atomic_load(&u->TAG, &rvalue , RTAPI_MEMORY_MODEL);		\
+    _LOAD(&u->TAG, rvalue, OP, CAST);					\
     return rvalue ;
 
-#define PINGETTER(type, tag)						\
+#define PINGETTER(type, tag, op, cast)					\
     static inline const hal_##type##_t					\
 	 get_##type##_pin(const type##_pin_ptr p) {			\
-	_PINGET(hal_##type##_t, p._##tag##p, _##tag)			\
+	_PINGET(hal_##type##_t, p._##tag##p, _##tag, op, cast)		\
     }
 
 // typed pin getters
-PINGETTER(bit, b)
-PINGETTER(s32, s)
-PINGETTER(u32, u)
-PINGETTER(float, f)
+#ifdef HAVE_CK  // use concurrencykit.org primitives
+
+PINGETTER(bit, b,   pr_load_8,  uint8_t)
+PINGETTER(s32, s,   pr_load_32, uint32_t)
+PINGETTER(u32, u,   pr_load_32, uint32_t)
+PINGETTER(float, f, pr_load_64, uint64_t)
+
+#else
+
+PINGETTER(bit, b,   __atomic_load,)
+PINGETTER(s32, s,   __atomic_load,)
+PINGETTER(u32, u,   __atomic_load,)
+PINGETTER(float, f, __atomic_load,)
+
+#endif
 
 #define _PININCR(TYPE, OFF, TAG, VALUE)					\
     hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFF);				\
