@@ -786,7 +786,7 @@ def prologue(f):
                 else: 
                     print >>f, "    if(%s != NULL)\n        {" % (to_c(name))
                     print >>f, "        strncpy(buf, %s, HAL_NAME_LEN);" % (to_c(name))
-                    print >>f, "        ip->local_%s = halg_strdup(1, buf);        }" % (to_c(name), to_c(name))
+                    print >>f, "        ip->local_%s = halg_strdup(1, buf);        }" % (to_c(name))
                     print >>f, "    else\n    ip->local_%s = NULL;\n" % (to_c(name))
                                              
     for name, fp in functions:
