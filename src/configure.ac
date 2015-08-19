@@ -2632,9 +2632,6 @@ AH_TOP([/********************************************************************
 
 #define MAX_INSTANCES           16
 
-// default size of the HAL data segment
-// can be overridden by the rtapi.so/ko module param hal_size=<n>
-#define HAL_SIZE                262000
 
 // minimum memlock limit
 // see http://wiki.linuxcnc.org/cgi-bin/wiki.pl?LockedMemory
