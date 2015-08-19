@@ -195,6 +195,17 @@ static int do_one_item(char item_type_char,
 	}
 	return 0;
     }
+    case 'u': {
+	unsigned *iitem = *(unsigned**) vitem;
+	iitem[idx] = strtoul(param_value.c_str(), &endp, 0);
+	if(*endp) {
+	    note_printf(pbreply,
+			"`%s' invalid for parameter `%s'",
+			param_value.c_str(), param_name.c_str());
+	    return -1;
+	}
+	return 0;
+    }
     case 's': {
 	char **sitem = *(char***) vitem;
 	sitem[idx] = strdup(param_value.c_str());
