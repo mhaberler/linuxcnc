@@ -6,30 +6,17 @@ INCLUDES += $(ACCESSOR_DIR)
 ../include/%.h: ./$(ACCESSOR_DIR)/%.h
 	cp $^ $@
 
-
-#-fwrapv  -fno-strict-overflow -g -Wall -funwind-tables -fno-omit-frame-pointer  -DULAPI -std=gnu99 -fgnu89-inline -DGIT_BUILD_SHA=\"'d4fc6bc'\" -D__x86_64__ -I/usr/local/include  -DULAPI  -g  hal/accessor/acctest.c
+ifeq ($(ACCESSOR_TEST),yes)
 
 ASMCFLAGS := $(patsubst %,-I%, $(INCLUDES))
 ASMCFLAGS += -DULAPI
 ASMCFLAGS += -g  -std=c11 -O -S -fverbose-asm  -Wa,-adhln
 
-#-fgnu89-inline -O3
-#ASMCFLAGS += -S -Wa,-adhln
-#
 
 # create interspersed C/assembly
-#%.s:  %.c
-#	$(CC) $(ASMCFLAGS)  %.o
-#	objdump -d -M intel -S %.o >$@
-
-
 /tmp/acctest.s: $(ACCESSOR_DIR)/acctest.c
 	$(CC) $(ASMCFLAGS)  $^  -o $@
 
-
-# $(CC) $(ASMCFLAGS)  $^ -o /tmp/acctest.o
-# objdump -d -M intel -S  /tmp/acctest.o >$@
-# rm -f /tmp/acctest.o
 
 TARGETS += /tmp/acctest.s
 
@@ -47,3 +34,5 @@ CB := astyle --style=linux
 
 TARGETS += /tmp/hal_accessor-expanded-c.i
 TARGETS += /tmp/hal_accessor-expanded-c++.i
+
+endif # ACCESSOR_TEST
