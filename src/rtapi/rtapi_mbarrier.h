@@ -19,16 +19,23 @@
 #ifndef _RTAPI_MBARRIER_H
 #define _RTAPI_MBARRIER_H
 
+#include "config.h" // HAVE_CK
 
 // memory barrier primitives
-// required for SMP-safe lock-free datastructures
 // see https://www.kernel.org/doc/Documentation/memory-barriers.txt
 
-// use gcc intrinsics
+#ifdef HAVE_CK
+// use concurrencykit.org primitives
+#define	rtapi_smp_rmb() ck_pr_fence_load()
+#define	rtapi_smp_wmb() ck_pr_fence_store()
+#define	rtapi_smp_mb()  ck_pr_fence_memory()
 
+#else
+
+// use gcc intrinsics
 #define	rtapi_smp_mb()  __sync_synchronize()
 #define	rtapi_smp_wmb() __sync_synchronize()
 #define	rtapi_smp_rmb() __sync_synchronize()
-
+#endif
 
 #endif // _RTAPI_MBARRIER_H
