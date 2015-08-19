@@ -12,7 +12,16 @@ RTAPI_BEGIN_DECLS
 // <haltype>*
 // this means atomics+barrier support is possible only with V2 pins (!).
 
+// ck
+// void    ck_pr_store_uint(unsigned int *target, unsigned int value);
+// unsigned int ck_pr_load_uint(const unsigned int *target);
 
+// gcc intrinsics
+// Built-in Function: void __atomic_load (type *ptr, type *ret, int memorder)
+// This is the generic version of an atomic load. It returns the contents of *ptr in *ret.
+
+// Built-in Function: void __atomic_store (type *ptr, type *val, int memorder)
+// This is the generic version of an atomic store. It stores the value of *val into *ptr.
 
 static inline void *hal_ptr(const shmoff_t offset) {
     return ((char *)hal_shmem_base + offset);
