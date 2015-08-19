@@ -59,12 +59,6 @@ typedef struct halhdr {
 // accessors for common HAL object attributes
 // no locking - caller is expected to aquire the HAL mutex with WITH_HAL_MUTEX()
 
-static inline void *hh_get_next(halhdr_t *hh)
-{
-    return (void *) dlist_next(&hh->list);
-}
-static inline void  hh_set_next(halhdr_t *hh, void *next)   { dlist_add_after(&hh->list, (hal_list_t *)next); }
-
 static inline int   hh_get_id(const halhdr_t *hh)  { return hh->_id; }
 static inline void  hh_set_id(halhdr_t *hh, const unsigned id)    { hh->_id = id; }
 
@@ -106,8 +100,7 @@ static inline bool hh_is_toplevel(__u32 type) {
 
 extern struct rtapi_heap *global_heap;
 
-// this enables us to eventually drop the name from the header
-// and move to a string table
+// names are stored in the global heap
 static inline const char *hh_get_name(const halhdr_t *hh) {
     if (hh->_name_ptr == 0)
 	return "*** NULL ***";
