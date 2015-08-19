@@ -49,7 +49,7 @@ static inline shmoff_t hal_off_safe(const void *p) {
 #ifdef HAVE_CK  // use concurrencykit.org primitives
 #define _STORE(dest, value, op, type) ck_##op((type *)dest, value)
 #else // use gcc intrinsics
-#define _STORE(dest, value, op, type) op(dest, &value, RTAPI_MEMORY_MODEL)
+#define _STORE(dest, value, op, type) op(dest, value, RTAPI_MEMORY_MODEL)
 #endif
 
 
@@ -79,26 +79,25 @@ PINSETTER(float, f, pr_store_64, uint64_t)
 
 #else // use gcc intrinsics
 
-PINSETTER(bit,   b, __atomic_store,)
-PINSETTER(s32,   s, __atomic_store,)
-PINSETTER(u32,   u, __atomic_store,)
-PINSETTER(float, f, __atomic_store,)
+PINSETTER(bit,   b, __atomic_store_1,)
+PINSETTER(s32,   s, __atomic_store_4,)
+PINSETTER(u32,   u, __atomic_store_4,)
+PINSETTER(float, f, __atomic_store_8,)
 #endif
 
 #ifdef HAVE_CK  // use concurrencykit.org primitives
-#define _LOAD(src, value, op, cast) value = ck_##op((cast *)src)
+#define _LOAD(src, op, cast) value = ck_##op((cast *)src)
 #else // use gcc intrinsics
-#define _LOAD(dest, value, op, type) op(dest, &value, RTAPI_MEMORY_MODEL)
+#define _LOAD(dest, op, type) op(dest, RTAPI_MEMORY_MODEL)
 #endif
 
 // v2 pins only.
-#define _PINGET(TYPE, OFFSET, TAG, OP, CAST)					\
+#define _PINGET(TYPE, OFFSET, TAG, OP, CAST)				\
     const hal_pin_t *pin = (const hal_pin_t *)hal_ptr(OFFSET);		\
     const hal_data_u *u = (const hal_data_u *)hal_ptr(pin->data_ptr);	\
     if (unlikely(hh_get_rmb(&pin->hdr)))				\
 	rtapi_smp_rmb();						\
-    TYPE rvalue ;							\
-    _LOAD(&u->TAG, rvalue, OP, CAST);					\
+    TYPE rvalue =  _LOAD(&u->TAG, OP, CAST);				\
     return rvalue ;
 
 #define PINGETTER(type, tag, op, cast)					\
@@ -117,10 +116,10 @@ PINGETTER(float, f, pr_load_64, uint64_t)
 
 #else
 
-PINGETTER(bit, b,   __atomic_load,)
-PINGETTER(s32, s,   __atomic_load,)
-PINGETTER(u32, u,   __atomic_load,)
-PINGETTER(float, f, __atomic_load,)
+PINGETTER(bit, b,   __atomic_load_1,)
+PINGETTER(s32, s,   __atomic_load_4,)
+PINGETTER(u32, u,   __atomic_load_4,)
+PINGETTER(float, f, __atomic_load_8,)
 
 #endif
 
