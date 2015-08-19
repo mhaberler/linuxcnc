@@ -46,8 +46,9 @@ struct inst_data {
     bit_pin_ptr in[0];
 };
 
-static int function = 0xff;
-RTAPI_IP_INT(function, "lookup function - see man lut5");
+
+static unsigned function = 0xff;
+RTAPI_IP_UINT(function, "lookup function - see man lut5");
 
 static int inputs = 2;
 RTAPI_IP_INT(inputs, "number of input pins, in0..inN");
