@@ -1,6 +1,7 @@
 component failstop "if any of the inputs ever become true, stop threads and print a message";
 
 pin_ptr in bit in#[pincount] = 0;
+pin_ptr out bit failstop = 0;
 instanceparam int pincount = 2      "number of input pins, in0..inN";
 //instanceparam string message; //  = "input became TRUE";
 option MAXCOUNT 16;
@@ -16,8 +17,9 @@ FUNCTION(_)
     int i;
     for (i = 0; i < local_pincount; i++)
 	if (get_bit_pin(in(i))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR, "failstop: pin %d became true", i);
 	    hal_stop_threads();
+	    set_bit_pin(failstop, 1);
+	    rtapi_print_msg(RTAPI_MSG_ERR, "failstop: pin %d became true", i);
 	}
     return 0;
 }
