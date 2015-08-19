@@ -1033,29 +1033,39 @@ int main(int argc, char **argv)
     } else {
 	syslog_async(LOG_INFO,
 		     "startup pid=%d flavor=%s "
-		     "rtlevel=%d usrlevel=%d halsize=%d shm=%s gcc=%s version=%s",
+		     "rtlevel=%d usrlevel=%d halsize=%d shm=%s cc=%s %s  version=%s",
 		     getpid(),
 		     flavor->name,
 		     global_data->rt_msg_level,
 		     global_data->user_msg_level,
 		     global_data->hal_size,
 		     shmdrv_loaded ? "shmdrv" : "Posix",
-		     __VERSION__,
+#ifdef __clang__
+		     "clang", __clang_version__,
+#endif
+#ifdef   __GNUC__
+		     "gcc", __VERSION__,
+#endif
 		     GIT_VERSION);
     }
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
     syslog_async(LOG_DEBUG,
-		 "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d concurrencykit=%s %s\n",
+		 "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d atomics=%s %s %s\n",
 		 major, minor, patch,
 		 CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
 		 GOOGLE_PROTOBUF_VERSION / 1000000,
 		 (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
 		 GOOGLE_PROTOBUF_VERSION % 1000,
 #ifdef HAVE_CK
-		 CK_VERSION, CK_GIT_SHA
+		 "concurrencykit", CK_VERSION, CK_GIT_SHA
 #else
-		 "n/a", ""
+#ifdef __clang__
+		 "clang intrinsics", "", ""
+#endif
+#ifdef   __GNUC__
+		 "gcc intrinsics", "", ""
+#endif
 #endif
 		 );
     syslog_async(LOG_INFO,"configured: sha=%s", GIT_CONFIG_SHA);
