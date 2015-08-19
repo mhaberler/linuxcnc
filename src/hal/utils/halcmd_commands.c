@@ -2496,10 +2496,11 @@ static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
 		     tptr->flags & TF_NONRT ? "posix ":"",
 		     tptr->flags & TF_NOWAIT ? "nowait":"");
 	halcmd_output(((scriptmode == 0) ?
-		       "%11ld  %-3s  %20s ( %8ld, %8ld ) %s\n" :
-		       "%ld %s %s %ld %ld"),
+		       "%11ld  %-3s %-2d %20s ( %8ld, %8ld ) %s\n" :
+		       "%ld %s %d %s %ld %ld"),
 		      tptr->period,
 		      (tptr->uses_fp ? "YES" : "NO"),
+		      tptr->cpu_id,
 		      ho_name(tptr),
 		      (long)tptr->runtime,
 		      (long)tptr->maxtime, flags);
@@ -2537,7 +2538,7 @@ static void print_thread_info(char **patterns)
 {
     if (scriptmode == 0) {
 	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
-	halcmd_output("     Period  FP     Name               (     Time, Max-Time )\n");
+	halcmd_output("     Period  FP CPU Name               (     Time, Max-Time )\n");
     }
     foreach_args_t args =  {
 	.type = HAL_THREAD,
