@@ -37,27 +37,42 @@ static inline shmoff_t hal_off_safe(const void *p) {
 #define SRETURN
 #endif
 
-#define _PINSET(OFFSET, TAG, VALUE)					\
+#if def HAVE_CK  // use concurrencykit.org primitives
+#define _STORE(dest, value, op, type) op((type *)dest, value)
+#else // use gcc intrinsics
+#define _STORE(dest, value, op, type) op(dest, &value, RTAPI_MEMORY_MODEL)
+#endif
+
+
+#define _PINSET(OFFSET, TAG, VALUE, OP, TYPE)				\
     hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFFSET);			\
     hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);		\
-    __atomic_store(&u->TAG, &VALUE, RTAPI_MEMORY_MODEL);		\
+    _STORE(&u->TAG, VALUE, OP, TYPE);					\
     if (unlikely(hh_get_wmb(&pin->hdr)))				\
 	rtapi_smp_wmb();
 
 // usage: PINSETTER(bit, b)
-#define PINSETTER(type, tag)						\
+#define PINSETTER(type, tag, op, cast)					\
     static inline STYPE(type)						\
     set_##type##_pin(type##_pin_ptr p,					\
 		     const hal_##type##_t value) {			\
-	_PINSET(p._##tag##p, _##tag, value)				\
+	_PINSET(p._##tag##p, _##tag, value, op, cast)		\
 	SRETURN    							\
     }
 
 // emit typed pin setters
-PINSETTER(bit,   b)
-PINSETTER(s32,   s)
-PINSETTER(u32,   u)
-PINSETTER(float, f)
+#if def HAVE_CK  // use concurrencykit.org primitives
+PINSETTER(bit,   b, ck_pr_store_8, uint8_t)
+PINSETTER(s32,   s, ck_pr_store_32, uint32_t)
+PINSETTER(u32,   u, ck_pr_store_32, uint32_t)
+PINSETTER(float, f, ck_pr_store_64, uint64_t)
+#else // use gcc intrinsics
+
+PINSETTER(bit,   b, __atomic_store,)
+PINSETTER(s32,   s, __atomic_store,)
+PINSETTER(u32,   u, __atomic_store,)
+PINSETTER(float, f, __atomic_store,)
+#endif
 
 // v2 pins only.
 #define _PINGET(TYPE, OFFSET, TAG)					\
