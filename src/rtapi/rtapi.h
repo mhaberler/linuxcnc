@@ -133,9 +133,16 @@ RTAPI_BEGIN_DECLS
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #endif
 
+#ifdef HAVE_UINTPTR_T
+#define UINTPTR uintptr_t
+#else
+#define UINTPTR long
+#endif
+
 #define RTAPI_ALIGN(x,boundary)  (x + (-x & (boundary - 1)))
+
 static inline int is_aligned(const void *pointer, size_t byte_count) {
-    return (uintptr_t)pointer % byte_count == 0;
+    return (UINTPTR)pointer % byte_count == 0;
 }
 
 #define RTAPI_DECONST_PTR(X)  CK_CC_DECONST_PTR(X)
