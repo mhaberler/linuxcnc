@@ -23,91 +23,149 @@ static inline shmoff_t hal_off_safe(const void *p) {
     return ((char *)p - (char *)hal_shmem_base);
 }
 
+void hal_typefailure(const char *file,
+		     const int line,
+		     const int object_type,
+		     const int value_type);
+
+#ifndef FAIL_STOP
+#define FAIL_STOP(file, line, otype, expected)				\
+    do {								\
+	hal_typefailure(file, line, otype, expected);			\
+    } while (0)
+#endif
+
+
+#if CHECK_ACCESSOR_TYPE
+// optionally compiled-in runtime check on type compatibility
+// when using raw descriptors
+#define _CHECK(otype, vtype)			\
+    if (otype != vtype)		\
+	FAIL_STOP(__FILE__, __LINE__, otype, vtype);
+#else
+#define _CHECK(otype, vtype)
+#endif
+
 
 #ifdef HAVE_CK  // use concurrencykit.org primitives
 #define _STORE(dest, value, op, type) ck_##op((type *)dest, value)
+#define _LOAD(src, op, cast) ck_##op((cast *)src)
 #else // use gcc intrinsics
 #define _STORE(dest, value, op, type) op(dest, value, RTAPI_MEMORY_MODEL)
+#define _LOAD(src, op, cast) op(src, RTAPI_MEMORY_MODEL)
 #endif
 
-#define _PINSET(OFFSET, TAG, VALUE, OP, TYPE)				\
-    hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFFSET);			\
-    hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);		\
-    _STORE(&u->TAG, VALUE, OP, TYPE);					\
-    if (unlikely(hh_get_wmb(&pin->hdr)))				\
+
+// how a HAL value is set, given a pointer to a hal_data_u,
+// including any memory barrier
+#define _SETVALUE(U, DESC, TAG, VALUE, OP, TYPE)			\
+    _STORE(&U->TAG, VALUE, OP, TYPE);					\
+    if (unlikely(hh_get_wmb(&DESC->hdr)))				\
 	rtapi_smp_wmb();
 
-#define PINSETTER(type, tag, op, cast)					\
+// how a HAL value is retrieved, given a pointer to a hal_data_u,
+// including any memory barrier
+#define _GETVALUE(U, DESC, TAG, OP, CAST)				\
+    if (unlikely(hh_get_rmb(&DESC->hdr)))				\
+	rtapi_smp_rmb();						\
+    return _LOAD(&U->TAG, OP, CAST);
+
+// atomically increment a value (integral types only)
+// unclear how to do the equivalent of an __atomic_add_fetch
+// with ck, so use gcc intrinsics for now:
+#define _INCREMENT(U, DESC, TYPE, TAG, VALUE)				\
+    TYPE rvalue = __atomic_add_fetch(&U->TAG, VALUE,			\
+				     RTAPI_MEMORY_MODEL);		\
+    if (unlikely(hh_get_wmb(&DESC->hdr)))				\
+	rtapi_smp_wmb();						\
+    return rvalue;
+
+
+// export context-independent setters which are strongly typed,
+// and context-dependent accessors with a descriptor argument,
+// and an optional runtime type check
+#define PINSETTER(type, otype, tag, op, cast)				\
     static inline const hal_##type##_t					\
-	 set_##type##_pin(type##_pin_ptr p,				\
-			  const hal_##type##_t value) {			\
-	 _PINSET(p._##tag##p, _##tag, value, op, cast)			\
-	     return value;						\
+    set_##type##_pin(type##_pin_ptr p,					\
+		     const hal_##type##_t value) {			\
+    hal_pin_t *pin =							\
+	(hal_pin_t *)hal_ptr(p._##tag##p);				\
+    hal_data_u *u =							\
+	(hal_data_u *)hal_ptr(pin->data_ptr);				\
+    _SETVALUE(u, pin, _##tag, value, op, cast);				\
+    return value;							\
+    }									\
+									\
+    static inline const hal_##type##_t					\
+    _set_##type##_pin(hal_pin_t *pin,					\
+		      const hal_##type##_t value) {			\
+    hal_data_u *u =							\
+	(hal_data_u *)hal_ptr(pin->data_ptr);				\
+    _CHECK(pin_type(pin), otype);					\
+    _SETVALUE(u, pin, _##tag, value, op, cast);				\
+    return value;							\
     }
 
 // emit typed pin setters
 #ifdef HAVE_CK
-PINSETTER(bit,   b, pr_store_8,  uint8_t)
-PINSETTER(s32,   s, pr_store_32, uint32_t)
-PINSETTER(u32,   u, pr_store_32, uint32_t)
-PINSETTER(float, f, pr_store_64, uint64_t)
+PINSETTER(bit,   HAL_BIT,   b, pr_store_8,  uint8_t)
+PINSETTER(s32,   HAL_S32,   s, pr_store_32, uint32_t)
+PINSETTER(u32,   HAL_U32,   u, pr_store_32, uint32_t)
+PINSETTER(float, HAL_FLOAT, f, pr_store_64, uint64_t)
 #else
-PINSETTER(bit,   b, __atomic_store_1,)
-PINSETTER(s32,   s, __atomic_store_4,)
-PINSETTER(u32,   u, __atomic_store_4,)
-PINSETTER(float, f, __atomic_store_8,)
+PINSETTER(bit,   HAL_BIT,   b, __atomic_store_1,)
+PINSETTER(s32,   HAL_S32,   s, __atomic_store_4,)
+PINSETTER(u32,   HAL_U32,   u, __atomic_store_4,)
+PINSETTER(float, HAL_FLOAT, f, __atomic_store_8,)
 #endif
 
-#ifdef HAVE_CK
-#define _LOAD(src, op, cast) ck_##op((cast *)src)
-#else
-#define _LOAD(src, op, cast) op(src, RTAPI_MEMORY_MODEL)
-#endif
 
-// v2 pins only.
-#define _PINGET(TYPE, OFFSET, TAG, OP, CAST)				\
-    const hal_pin_t *pin = (const hal_pin_t *)hal_ptr(OFFSET);		\
-    const hal_data_u *u = (const hal_data_u *)hal_ptr(pin->data_ptr);	\
-    if (unlikely(hh_get_rmb(&pin->hdr)))				\
-	rtapi_smp_rmb();						\
-    return _LOAD(&u->TAG, OP, CAST);
-
-#define PINGETTER(type, tag, op, cast)					\
+#define PINGETTER(type, otype, letter, op, cast)			\
     static inline const hal_##type##_t					\
 	 get_##type##_pin(const type##_pin_ptr p) {			\
-	_PINGET(hal_##type##_t, p._##tag##p, _##tag, op, cast)		\
+    const hal_pin_t *pin =						\
+	(const hal_pin_t *)hal_ptr(p._##letter##p);			\
+    const hal_data_u *u =						\
+	(const hal_data_u *)hal_ptr(pin->data_ptr);			\
+    _GETVALUE(u, pin, _##letter, op, cast);				\
+    }									\
+									\
+    static inline const hal_##type##_t					\
+    _get_##type##_pin(const hal_pin_t *pin) {				\
+	const hal_data_u *u =						\
+	    (const hal_data_u *)hal_ptr(pin->data_ptr);			\
+	_CHECK(pin_type(pin), otype)					\
+        _GETVALUE(u, pin, _##letter, op, cast)			        \
     }
+
 
 // emit typed pin getters
 #ifdef HAVE_CK
-PINGETTER(bit, b,   pr_load_8,  uint8_t)
-PINGETTER(s32, s,   pr_load_32, uint32_t)
-PINGETTER(u32, u,   pr_load_32, uint32_t)
-PINGETTER(float, f, pr_load_64, uint64_t)
+PINGETTER(bit,   HAL_BIT,   b, pr_load_8,  uint8_t)
+PINGETTER(s32,   HAL_S32,   s, pr_load_32, uint32_t)
+PINGETTER(u32,   HAL_U32,   u, pr_load_32, uint32_t)
+PINGETTER(float, HAL_FLOAT, f, pr_load_64, uint64_t)
 #else
-PINGETTER(bit, b,   __atomic_load_1,)
-PINGETTER(s32, s,   __atomic_load_4,)
-PINGETTER(u32, u,   __atomic_load_4,)
-PINGETTER(float, f, __atomic_load_8,)
+PINGETTER(bit,   HAL_BIT,   b, __atomic_load_1,)
+PINGETTER(s32,   HAL_S32,   s, __atomic_load_4,)
+PINGETTER(u32,   HAL_U32,   u, __atomic_load_4,)
+PINGETTER(float, HAL_FLOAT, f, __atomic_load_8,)
 #endif
-
-
-// unclear how to do the equivalent of an __atomic_add_fetch
-// with ck, so use gcc intrinsics for now:
-#define _PININCR(TYPE, OFF, TAG, VALUE)					\
-    hal_pin_t *pin = (hal_pin_t *)hal_ptr(OFF);				\
-    hal_data_u *u = (hal_data_u*)hal_ptr(pin->data_ptr);		\
-    TYPE rvalue = __atomic_add_fetch(&u->TAG, (VALUE),			\
-				  RTAPI_MEMORY_MODEL);			\
-    if (unlikely(hh_get_wmb(&pin->hdr)))				\
-	rtapi_smp_wmb();						\
-    return rvalue;
 
 #define PIN_INCREMENTER(type, tag)					\
     static inline const hal_##type##_t					\
 	 incr_##type##_pin(type##_pin_ptr p,				\
 			   const hal_##type##_t value) {		\
-	_PININCR(hal_##type##_t, p._##tag##p, _##tag, value)		\
+        hal_pin_t *pin = (hal_pin_t *)hal_ptr(p._##tag##p);		\
+	hal_data_u *u = (hal_data_u*)hal_ptr(pin->data_ptr);		\
+	_INCREMENT(u, pin, hal_##type##_t,  _##tag, value);		\
+    }									\
+									\
+    static inline const hal_##type##_t					\
+    _incr_##type##_pin(hal_pin_t *pin,					\
+		       const hal_##type##_t value) {			\
+	hal_data_u *u = (hal_data_u*)hal_ptr(pin->data_ptr);		\
+	_INCREMENT(u, pin, hal_##type##_t,  _##tag, value)		\
     }
 
 // typed pin incrementers
@@ -115,58 +173,72 @@ PIN_INCREMENTER(s32, s)
 PIN_INCREMENTER(u32, u)
 
 // signal getters
-#define _SIGGET(TYPE, OFFSET, TAG, OP, CAST)				\
-    const hal_sig_t *sig = (const hal_sig_t *)hal_ptr(OFFSET);		\
-    if (unlikely(hh_get_rmb(&sig->hdr)))				\
-	rtapi_smp_rmb();						\
-    return _LOAD(&sig->value.TAG, OP, CAST);
-
-#define SIGGETTER(type, tag, op, cast)					\
+#define SIGGETTER(type, otype, letter, op, cast)			\
     static inline const hal_##type##_t					\
-	 get_##type##_sig(const type##_sig_ptr p) {			\
-	_SIGGET(hal_##type##_t, p._##tag##s, _##tag, op, cast)		\
+    get_##type##_sig(const type##_sig_ptr s) {				\
+    const hal_sig_t *sig =						\
+	(const hal_sig_t *)hal_ptr(s._##letter##s);			\
+    hal_data_u *u = (hal_data_u*)&sig->value;				\
+    _GETVALUE(u, sig, _##letter, op, cast);			\
+    }									\
+									\
+    static inline const hal_##type##_t					\
+    _get_##type##_sig(const hal_sig_t *sig) {				\
+    _CHECK(sig_type(sig), otype);					\
+    hal_data_u *u = (hal_data_u*)&sig->value;				\
+    _GETVALUE(u, sig, _##letter, op, cast);			\
     }
 
 // emit typed signal getters
 #ifdef HAVE_CK
-SIGGETTER(bit, b,   pr_load_8,  uint8_t)
-SIGGETTER(s32, s,   pr_load_32, uint32_t)
-SIGGETTER(u32, u,   pr_load_32, uint32_t)
-SIGGETTER(float, f, pr_load_64, uint64_t)
+SIGGETTER(bit,   HAL_BIT,   b, pr_load_8,  uint8_t)
+SIGGETTER(s32,   HAL_S32,   s, pr_load_32, uint32_t)
+SIGGETTER(u32,   HAL_U32,   u, pr_load_32, uint32_t)
+SIGGETTER(float, HAL_FLOAT, f, pr_load_64, uint64_t)
 #else
-SIGGETTER(bit, b,   __atomic_load_1,)
-SIGGETTER(s32, s,   __atomic_load_4,)
-SIGGETTER(u32, u,   __atomic_load_4,)
-SIGGETTER(float, f, __atomic_load_8,)
+SIGGETTER(bit,   HAL_BIT,   b, __atomic_load_1,)
+SIGGETTER(s32,   HAL_S32,   s, __atomic_load_4,)
+SIGGETTER(u32,   HAL_U32,   u, __atomic_load_4,)
+SIGGETTER(float, HAL_FLOAT, f, __atomic_load_8,)
 #endif
 
 // signal setters - halcmd, python bindings use only (like setting initial value)
 #define _SIGSET(OFFSET, TAG, VALUE, OP, TYPE)				\
-    hal_sig_t *sig = (hal_sig_t *)hal_ptr(OFFSET);			\
-    hal_data_u *u = &sig->value;					\
     _STORE(&u->TAG, VALUE, OP, TYPE);					\
     if (unlikely(hh_get_wmb(&sig->hdr)))				\
 	rtapi_smp_wmb();
 
-#define SIGSETTER(type, tag, op, cast)					\
+#define SIGSETTER(type, otype, letter, op, cast)				\
     static inline const hal_##type##_t					\
     set_##type##_sig(type##_sig_ptr s,					\
 		     const hal_##type##_t value) {			\
-	_SIGSET(s._##tag##s, _##tag, value, op, cast)			\
-	    return value;						\
+	hal_sig_t *sig =						\
+	    (hal_sig_t *)hal_ptr(s._##letter##s);			\
+	hal_data_u *u = &sig->value;					\
+	_SETVALUE(u, sig, _##letter, value, op, cast);			\
+	return value;							\
+    }									\
+									\
+    static inline const hal_##type##_t					\
+    _set_##type##_sig(hal_sig_t *sig,					\
+		      const hal_##type##_t value) {			\
+	hal_data_u *u = &sig->value;					\
+	_SETVALUE(u, sig, _##letter, value, op, cast);			\
+	return value;							\
     }
+
 
 // emit typed signal setters
 #ifdef HAVE_CK
-SIGSETTER(bit,   b, pr_store_8,  uint8_t)
-SIGSETTER(s32,   s, pr_store_32, uint32_t)
-SIGSETTER(u32,   u, pr_store_32, uint32_t)
-SIGSETTER(float, f, pr_store_64, uint64_t)
+SIGSETTER(bit,   HAL_BIT,   b, pr_store_8,  uint8_t)
+SIGSETTER(s32,   HAL_S32,   s, pr_store_32, uint32_t)
+SIGSETTER(u32,   HAL_U32,   u, pr_store_32, uint32_t)
+SIGSETTER(float, HAL_FLOAT, f, pr_store_64, uint64_t)
 #else
-SIGSETTER(bit,   b, __atomic_store_1,)
-SIGSETTER(s32,   s, __atomic_store_4,)
-SIGSETTER(u32,   u, __atomic_store_4,)
-SIGSETTER(float, f, __atomic_store_8,)
+SIGSETTER(bit,   HAL_BIT,   b, __atomic_store_1,)
+SIGSETTER(s32,   HAL_S32,   s, __atomic_store_4,)
+SIGSETTER(u32,   HAL_U32,   u, __atomic_store_4,)
+SIGSETTER(float, HAL_FLOAT, f, __atomic_store_8,)
 #endif
 
 
