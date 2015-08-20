@@ -287,7 +287,7 @@ static inline size_t hal_freemem(void) {
 typedef struct hal_comp {
     halhdr_t hdr;		// common HAL object header
     int type  : 8;              // subtype, one of:
-                                // TYPE_RT, TYPE_USER, TYPE_INSTANCE, TYPE_REMOTE
+                                // TYPE_RT, TYPE_USER, TYPE_REMOTE
     int state : 8;              /* one of: COMP_INITIALIZING, COMP_UNBOUND, */
                                 /* COMP_BOUND, COMP_READY */
     void *shmem_base;           /* base of shmem for this component */
