@@ -320,9 +320,10 @@ int _rtapi_heap_addmem(struct rtapi_heap *h, void *space, size_t size)
     if (space < (void*) h) return -EINVAL;
     memset(space, 0, size);
     rtapi_malloc_hdr_t *arena = space;
-    arena->s.tag.size = size / sizeof(rtapi_malloc_hdr_t);
+    size_t clicks = size / sizeof(rtapi_malloc_hdr_t);
+    arena->s.tag.size = clicks;
     _rtapi_unlocked_free(h, (void *) (arena + 1));
-    h->freed -= size;
+    h->freed -= (clicks-1) * sizeof(rtapi_malloc_hdr_t);
     h->arena_size += size;
     return 0;
 }
