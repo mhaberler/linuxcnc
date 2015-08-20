@@ -11,9 +11,9 @@ typedef struct {
     int magic;
     hal_comp_t *comp;
     int n_pins;
-    const hal_pin_t  **pin;           // all members (nesting resolved)
-    unsigned long *changed;     // bitmap
-    hal_data_u    *tracking;    // tracking values of monitored pins
+    const hal_pin_t  **pin;
+    unsigned long *changed;      // bitmap
+    hal_data_u    *tracking;     // tracking values of monitored pins
     void *user_data;             // uninterpreted by HAL code
     unsigned long user_flags;    // uninterpreted by HAL code
 } hal_compiled_comp_t;

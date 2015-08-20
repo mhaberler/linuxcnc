@@ -187,12 +187,13 @@ typedef union {
     u32_sig_ptr    u32sig;
     float_sig_ptr  floatsig;
 
+#if 0  // params are deprecated
     // type aliases for param access
     bit_param_ptr    bitparam;
     s32_param_ptr    s32param;
     u32_param_ptr    u32param;
     float_param_ptr  floatparam;
-
+#endif
     shmoff_t any_ptr;
 } hal_object_ptr;
 

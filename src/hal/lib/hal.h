@@ -528,24 +528,6 @@ extern unsigned char hal_get_lock(void);
 //   set_<type1>_pin(<type2>pinptr,...) and
 //   get_<type1>_pin(<type2>pinptr)
 
-#ifdef CONTEXT_DEPENDENT_ACCESSORS
-typedef struct { hal_pin_t *_bp; } bit_pin_ptr;
-typedef struct { hal_pin_t *_sp; } s32_pin_ptr;
-typedef struct { hal_pin_t *_up; } u32_pin_ptr;
-typedef struct { hal_pin_t *_fp; } float_pin_ptr;
-
-// same trick for signals
-typedef struct { hal_sig_t *_bs; } bit_sig_ptr;
-typedef struct { hal_sig_t *_ss; } s32_sig_ptr;
-typedef struct { hal_sig_t *_us; } u32_sig_ptr;
-typedef struct { hal_sig_t *_fs; } float_sig_ptr;
-
-// and params
-typedef struct { hal_param_t *_bpar; } bit_param_ptr;
-typedef struct { hal_param_t *_spar; } s32_param_ptr;
-typedef struct { hal_param_t *_upar; } u32_param_ptr;
-typedef struct { hal_param_t *_fpar; } float_param_ptr;
-#else
 // context-independent - use offsets
 
 typedef struct { shmoff_t _bp; } bit_pin_ptr;
@@ -559,7 +541,8 @@ typedef struct { shmoff_t _ss; } s32_sig_ptr;
 typedef struct { shmoff_t _us; } u32_sig_ptr;
 typedef struct { shmoff_t _fs; } float_sig_ptr;
 
-// and params
+#if 0
+// params are on the way out, so dont bother
 typedef struct { shmoff_t _bpar; } bit_param_ptr;
 typedef struct { shmoff_t _spar; } s32_param_ptr;
 typedef struct { shmoff_t _upar; } u32_param_ptr;
