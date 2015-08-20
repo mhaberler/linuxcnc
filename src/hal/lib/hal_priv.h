@@ -299,15 +299,25 @@ typedef struct hal_comp {
     long int last_unbound;           /* timestamp of last unbind operation */
     int pid;			     /* PID of component (user components only) */
 
-    hal_constructor_t ctor;     // NULL for non-instatiable legacy comps
-    hal_destructor_t dtor;      // may be NULL for a default destructor
-                                // the default dtor will deleted pin, params and functs
-                                // owned by a particular named instance
+    hal_constructor_t ctor;     // NULL for non-instantiable legacy comps
+    hal_destructor_t dtor;      // may be NULL
+                                // the default destructor will be called regardless
+                                // after any custom destructor, and will delete any
+                                // pin, params and functs
+                                // owned by a particular instance
+                                // hal_exit() will delete any pins/params/functs
+                                // directlly owned by the component (i.e. not an inst)
 
     int insmod_args;		/* args passed to insmod when loaded */
     int userarg1;	        /* interpreted by using layer */
     int userarg2;	        /* interpreted by using layer */
 } hal_comp_t;
+
+static inline int is_instantiable(const hal_comp_t *comp) {
+    return ((comp != NULL) &&
+	    (comp->type == TYPE_RT) &&
+	    (comp->ctor != NULL));
+}
 
 // HAL instance data structure
 // An instance has a name, and a unique ID
