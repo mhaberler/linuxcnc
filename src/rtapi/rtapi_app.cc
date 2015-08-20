@@ -174,116 +174,7 @@ static int init_actions(int instance);
 static void exit_actions(int instance);
 static int harden_rt(void);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
-
-// instparams are set on each instantiation, but must be set
-// to default values before applying new instance params
-// because the old ones will remain in place, overriding defaults.
-//
-static int record_instparms(char *fname, modinfo_t &mi)
-{
-    if (rpath == NULL)
-	return -1;
-
-    void *section = NULL;
-    int csize = -1;
-    size_t i;
-    vector<string> tokens;
-    string pn;
-    string rp(rpath);
-
-    // find the location of the shared library - the dlopen()
-    // handle wont tell us the pathname
-    // so walk the rpath and stat
-    boost::split(tokens, rp, boost::is_any_of(":"),
-			 boost::algorithm::token_compress_on);
-
-    for(i = 0; i < tokens.size() && csize < 0; i++) {
-	pn = tokens[i]+ "/" + fname;
-	struct stat sb;
-	if (stat(pn.c_str(), &sb))
-	    continue;
-	// found it. get the params section.
-	csize = get_elf_section(pn.c_str(), ".rtapi_export" , &section);
-    }
-    if (csize < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "cant open %s\n", fname);
-	return -1;
-    }
-
-    char *s;
-    vector<string> symbols;
-    string sym;
-    for (s = (char *)section;
-	 s < ((char *)section + csize);
-	 s += strlen(s) + 1)
-	if (strlen(s))
-	    symbols.push_back(string(s));
-
-    // walk the symbols, and extract the instparam names.
-    string pat(RTAPI_IP_SYMPREFIX "address_");
-    vector<string> instparms;
-
-    for (i = 0; i < symbols.size(); i++) {
-	string ip(symbols[i]);
-	if (boost::starts_with(ip, pat)) {
-	    boost::replace_first(ip, pat,"");
-	    char **type = DLSYM<char**>(mi.handle,
-					RTAPI_IP_SYMPREFIX "type_" +
-					ip);
-	    void *addr = DLSYM<void*>(mi.handle,
-				      RTAPI_IP_SYMPREFIX "address_" +
-				      ip);
-	    // char **desc = DLSYM<char**>(mi.handle,
-	    // 				RTAPI_IP_SYMPREFIX "description_" +
-	    // 				ip);
-	    int i;
-	    unsigned u;
-	    long l;
-	    char *s;
-	    char buffer[100];
-	    string tmp;
-	    if (strlen(*type) == 1) {
-		switch (**type) {
-		case 'i':
-		    i = **((int **) addr);
-		    snprintf(buffer, sizeof(buffer),"%s=%d", ip.c_str(),i);
-		    *mi.iparm.Add() = buffer;
-		    break;
-		case 'u':
-		    u = **((unsigned **) addr);
-		    snprintf(buffer, sizeof(buffer),"%s=%u", ip.c_str(),u);
-		    *mi.iparm.Add() = buffer;
-		    break;
-		case 'l':
-		    l = **((long **) addr);
-		    snprintf(buffer, sizeof(buffer),"%s=%ld", ip.c_str(),l);
-		    *mi.iparm.Add() = buffer;
-		    break;
-		case 's':
-		    s = **(char ***) addr;
-		    snprintf(buffer, sizeof(buffer),"%s=\"%s\"", ip.c_str(),s);
-		    *mi.iparm.Add() = buffer;
-		    break;
-		default:
-		    rtapi_print_msg(RTAPI_MSG_ERR,
-				    "%s: unhandled instance param type '%c'",
-				    fname, **type);
-		}
-	    } else {
-		// TBD: arrays
-	    }
-	    // rtapi_print_msg(RTAPI_MSG_INFO,
-	    // 		    "--inst param '%s' at %p type='%s' descr='%s'",
-	    // 		    ip.c_str(), addr,*type, *desc);
-	}
-
-    }
-    rtapi_print_msg(RTAPI_MSG_DBG,
-		    "%s default iparms: '%s'", fname,
-		    pbconcat(mi.iparm).c_str());
-    free(section);
-    return 0;
-}
+static int record_instparms(char *fname, modinfo_t &mi);
 
 static int do_one_item(char item_type_char,
 		       const string &param_name,
@@ -544,7 +435,8 @@ static int do_newinst_cmd(int instance,
 
 	string s = pbconcat(mi.iparm);
 
-	// set the default instance parameters
+	// set the default instance parameters which were recorded during
+	// initial load with record_instanceparams()
 	retval = do_module_args(mi, mi.iparm, RTAPI_IP_SYMPREFIX, pbreply);
 	if (retval < 0) {
 	    note_printf(pbreply,
@@ -1804,3 +1696,123 @@ static void remove_module(std::string name)
     std::vector<string>::iterator invalid;
     invalid = remove( loading_order.begin(), loading_order.end(), name );
 }
+
+// instparams are set on each instantiation, but must be set
+// to default values before applying new instance params
+// because the old ones will remain in place, overriding defaults.
+//
+// the basic idea is:
+// once a module is loaded, it is scanned for instance parameter defaults
+// as stored in the .rtapi_export section.
+//
+// those are retrieved, and recorded in the per-module modinfo
+// in the same format as received via zeromq/protobuf from halcmd/cython.
+//
+// in do_newinst_cmd(), apply those defaults before the actual parameters
+// are applied.
+static int record_instparms(char *fname, modinfo_t &mi)
+{
+    if (rpath == NULL)
+	return -1;
+
+    void *section = NULL;
+    int csize = -1;
+    size_t i;
+    vector<string> tokens;
+    string pn;
+    string rp(rpath);
+
+    // find the location of the shared library - the dlopen()
+    // handle wont tell us the pathname
+    // so walk the rpath and stat
+    boost::split(tokens, rp, boost::is_any_of(":"),
+			 boost::algorithm::token_compress_on);
+
+    for(i = 0; i < tokens.size() && csize < 0; i++) {
+	pn = tokens[i]+ "/" + fname;
+	struct stat sb;
+	if (stat(pn.c_str(), &sb))
+	    continue;
+	// found it. get the params section.
+	csize = get_elf_section(pn.c_str(), ".rtapi_export" , &section);
+    }
+    if (csize < 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR, "cant open %s\n", fname);
+	return -1;
+    }
+
+    char *s;
+    vector<string> symbols;
+    string sym;
+    for (s = (char *)section;
+	 s < ((char *)section + csize);
+	 s += strlen(s) + 1)
+	if (strlen(s))
+	    symbols.push_back(string(s));
+
+    // walk the symbols, and extract the instparam names.
+    string pat(RTAPI_IP_SYMPREFIX "address_");
+    vector<string> instparms;
+
+    for (i = 0; i < symbols.size(); i++) {
+	string ip(symbols[i]);
+	if (boost::starts_with(ip, pat)) {
+	    boost::replace_first(ip, pat,"");
+	    char **type = DLSYM<char**>(mi.handle,
+					RTAPI_IP_SYMPREFIX "type_" +
+					ip);
+	    void *addr = DLSYM<void*>(mi.handle,
+				      RTAPI_IP_SYMPREFIX "address_" +
+				      ip);
+	    // char **desc = DLSYM<char**>(mi.handle,
+	    // 				RTAPI_IP_SYMPREFIX "description_" +
+	    // 				ip);
+	    int i;
+	    unsigned u;
+	    long l;
+	    char *s;
+	    char buffer[100];
+	    string tmp;
+	    if (strlen(*type) == 1) {
+		switch (**type) {
+		case 'i':
+		    i = **((int **) addr);
+		    snprintf(buffer, sizeof(buffer),"%s=%d", ip.c_str(),i);
+		    *mi.iparm.Add() = buffer;
+		    break;
+		case 'u':
+		    u = **((unsigned **) addr);
+		    snprintf(buffer, sizeof(buffer),"%s=%u", ip.c_str(),u);
+		    *mi.iparm.Add() = buffer;
+		    break;
+		case 'l':
+		    l = **((long **) addr);
+		    snprintf(buffer, sizeof(buffer),"%s=%ld", ip.c_str(),l);
+		    *mi.iparm.Add() = buffer;
+		    break;
+		case 's':
+		    s = **(char ***) addr;
+		    snprintf(buffer, sizeof(buffer),"%s=\"%s\"", ip.c_str(),s);
+		    *mi.iparm.Add() = buffer;
+		    break;
+		default:
+		    rtapi_print_msg(RTAPI_MSG_ERR,
+				    "%s: unhandled instance param type '%c'",
+				    fname, **type);
+		}
+	    } else {
+		// TBD: arrays
+	    }
+	    // rtapi_print_msg(RTAPI_MSG_INFO,
+	    // 		    "--inst param '%s' at %p type='%s' descr='%s'",
+	    // 		    ip.c_str(), addr,*type, *desc);
+	}
+
+    }
+    rtapi_print_msg(RTAPI_MSG_DBG,
+		    "%s default iparms: '%s'", fname,
+		    pbconcat(mi.iparm).c_str());
+    free(section);
+    return 0;
+}
+
