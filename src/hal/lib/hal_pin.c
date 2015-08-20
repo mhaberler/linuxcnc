@@ -115,7 +115,8 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 		     name, dir);
     }
 
-    HALDBG("creating pin '%s'", name);
+    HALDBG("creating pin '%s' %s %s",
+	   name, hals_type(type), hals_pindir(dir));
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
