@@ -1497,6 +1497,9 @@ lutnv2c-objs := hal/icomp-example/lutnv2c.o
 obj-m += plug.o
 plug-objs := hal/icomp-example/plug.o
 
+obj-m += random.o
+random-objs := hal/icomp-example/random.o
+
 obj-m += ufdemo.o
 ufdemo-objs := hal/userfunct-example/ufdemo.o
 
@@ -1684,6 +1687,7 @@ $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
 $(RTLIBDIR)/iring$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(iring-objs))
 $(RTLIBDIR)/plug$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(plug-objs))
+$(RTLIBDIR)/random$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(random-objs))
 #$(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
 $(RTLIBDIR)/lutnv2c$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutnv2c-objs))
 
