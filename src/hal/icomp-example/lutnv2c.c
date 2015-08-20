@@ -53,6 +53,9 @@ RTAPI_IP_UINT(functn, "lookup function - see man lut5");
 static int pincount = 2;
 RTAPI_IP_INT(pincount, "number of input pins, in0..inN");
 
+static char *foo = "fasel";
+RTAPI_IP_STRING(foo, "famous foo param");
+
 static int lutn(void *arg, const hal_funct_args_t *fa)
 {
     // using the extended thread function export call makes the following
@@ -102,8 +105,8 @@ static int instantiate_lutn(const char *name,
 				   (void **)&ip)) < 0)
 	return -1;
 
-    HALDBG("name='%s' pincount=%d functn=0x%x ip=%p",
-	   name, pincount, functn, ip);
+    HALDBG("name='%s' pincount=%d functn=0x%x ip=%p foo='%s'",
+	   name, pincount, functn, ip, foo);
 
     // record instance params
     ip->pincount = pincount;
