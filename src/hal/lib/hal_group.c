@@ -326,9 +326,9 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		  (cg->group->userarg2 &  GROUP_MONITOR_ALL_MEMBERS)))
 		continue;
 	    ho.any = SHMPTR(cg->member[i]->sig_ptr);
-	    switch (ho.sig->type) {
+	    switch (sig_type(ho.sig)) {
 	    case HAL_BIT:
-		halbit = get_bit_sig(ho.bitsig);
+		halbit = _get_bit_sig(ho.sig);
 		if (get_bit_value(&cg->tracking[m]) != halbit) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -336,7 +336,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    case HAL_FLOAT:
-		halfloat = get_float_sig(ho.floatsig);
+		halfloat = _get_float_sig(ho.sig);
 		delta = HAL_FABS(halfloat - get_float_value(&cg->tracking[m]));
 		if (delta > hal_data->epsilon[cg->member[i]->eps_index]) {
 		    nchanged++;
@@ -345,7 +345,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    case HAL_S32:
-		hals32 = get_s32_sig(ho.s32sig);
+		hals32 = _get_s32_sig(ho.sig);
 		if (get_s32_value(&cg->tracking[m]) != hals32) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -353,7 +353,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    case HAL_U32:
-		halu32 = get_u32_sig(ho.u32sig);
+		halu32 = _get_u32_sig(ho.sig);
 		if (get_u32_value(&cg->tracking[m]) != halu32) {
 		    nchanged++;
 		    RTAPI_BIT_SET(cg->changed, i);
@@ -362,7 +362,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		break;
 	    default:
 		HALERR("BUG: detect_changes(%s): invalid type for signal %s: %d",
-		       ho_name(cg->group), ho_name(ho.sig), ho.sig->type);
+		       ho_name(cg->group), ho_name(ho.sig), sig_type(ho.sig));
 		return -EINVAL;
 	    }
 	    m++;

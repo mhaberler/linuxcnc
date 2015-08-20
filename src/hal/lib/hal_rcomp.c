@@ -252,17 +252,17 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
     hal_s32_t hals32;
     hal_u32_t halu32;
     hal_float_t halfloat,delta;
-    hal_object_ptr hp;
+    const hal_pin_t *hp;
 
     assert(cc->magic ==  CCOMP_MAGIC);
     RTAPI_ZERO_BITMAP(cc->changed, cc->n_pins);
 
     for (i = 0; i < cc->n_pins; i++) {
-	hp.pin = cc->pin[i];
+	hp = cc->pin[i];
 
-	switch (hp.pin->type) {
+	switch (pin_type(hp)) {
 	case HAL_BIT:
-	    halbit = get_bit_pin(hp.bitpin);
+	    halbit = _get_bit_pin(hp);
 	    if (get_bit_value(&cc->tracking[i]) != halbit) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
@@ -271,16 +271,16 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 
 	case HAL_FLOAT:
-	    halfloat = get_float_pin(hp.floatpin);
+	    halfloat = _get_float_pin(hp);
 	    delta = HAL_FABS(halfloat - get_float_value(&cc->tracking[i]));
-	    if (delta > hal_data->epsilon[hp.pin->eps_index]) {
+	    if (delta > hal_data->epsilon[hp->eps_index]) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
 		set_float_value(&cc->tracking[i], halfloat);
 	    }
 	    break;
 	case HAL_S32:
-	    hals32 = get_s32_pin(hp.s32pin);
+	    hals32 = _get_s32_pin(hp);
 	    if (get_s32_value(&cc->tracking[i]) != hals32) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
@@ -288,7 +288,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    }
 	    break;
 	case HAL_U32:
-	    halu32 = get_u32_pin(hp.u32pin);
+	    halu32 = _get_u32_pin(hp);
 	    if (get_u32_value(&cc->tracking[i]) != halu32) {
 		nchanged++;
 		RTAPI_BIT_SET(cc->changed, i);
@@ -298,7 +298,7 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 
 	default:
 	    HALERR("BUG: hal_ccomp_match(%s): invalid type for pin %s: %d",
-		   ho_name(cc->comp), ho_name(hp.pin), pin_type(hp.pin));
+		   ho_name(cc->comp), ho_name(hp), pin_type(hp));
 	    return -EINVAL;
 	}
     }

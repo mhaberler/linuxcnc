@@ -343,8 +343,6 @@ int halg_link(const int use_hal_mutex,
 
 	    const hal_data_u *hdu = pin_value(pin);
 
-	    hal_object_ptr hs = { .any_ptr = hal_off(sig) };
-
 	    // assure proper typing on assignment, assigning a hal_data_u is
 	    // a surefire cause for memory corrupion as hal_data_u is larger
 	    // than hal_bit_t, hal_s32_t, and hal_u32_t - this works only for 
@@ -354,28 +352,23 @@ int halg_link(const int use_hal_mutex,
 
 	    switch (pin->type) {
 	    case HAL_BIT:
-		set_bit_sig(hs.bitsig, get_bit_value(hdu));
-		// *((hal_bit_t *) data_addr) = pin->dummysig.b;
+		_set_bit_sig(sig, get_bit_value(hdu));
 		break;
 
 	    case HAL_S32:
-		set_s32_sig(hs.s32sig, get_s32_value(hdu));
-
-		//*((hal_s32_t *) data_addr) = pin->dummysig.s;
+		_set_s32_sig(sig, get_s32_value(hdu));
 		break;
 
 	    case HAL_U32:
-		set_u32_sig(hs.u32sig, get_u32_value(hdu));
-		// *((hal_u32_t *) data_addr) = pin->dummysig.u;
+		_set_u32_sig(sig, get_u32_value(hdu));
 		break;
 
 	    case HAL_FLOAT:
-		set_float_sig(hs.floatsig, get_float_value(hdu));
-		// *((hal_float_t *) data_addr) = pin->dummysig.f;
+		_set_float_sig(sig, get_float_value(hdu));
 		break;
 	    default:
 		HALBUG("pin '%s' has invalid type %d !!\n",
-		       ho_name(pin), pin->type);
+		       ho_name(pin), pin_type(pin));
 		return -EINVAL;
 	    }
 	}
