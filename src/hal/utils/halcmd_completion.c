@@ -395,71 +395,7 @@ static char *setp_generator(const char *text, int state)
     return cargs.result;
 }
 
-////////////////////////////////////////////////////////////////////////
 
-static int yield_ucompstrname(hal_object_ptr o, foreach_args_t *args)
-{
-size_t len;
-
-    if(o.comp->type == TYPE_USER)
-        {
-        len = strlen(args->user_ptr1);
-        if(strncmp(args->user_ptr1, hh_get_name(&o.comp->hdr), len) == 0 )
-            {
-            args->result = strdup(hh_get_name(&o.comp->hdr));
-            return 1;
-            }
-        }
-    return 0;
-}
-
-
-static char *usrcomp_generator(const char *text, int state) {
-    
-    if (!state) 
-        {
-        zero_foreach_args(&cargs);
-        cargs.type = HAL_COMPONENT;
-        cargs.user_ptr1 = (char *) text;
-        }
-    halg_yield(0, &cargs, yield_ucompstrname);
-    return cargs.result;
-
-}
-
-////////////////////////////////////////////////////////////////////////
-
-static int yield_icompstrname(hal_object_ptr o, foreach_args_t *args)
-{
-size_t len;
-
-    if (is_instantiable(o.comp))
-        {
-        len = strlen(args->user_ptr1);
-        if(strncmp(args->user_ptr1, hh_get_name(&o.comp->hdr), len) == 0 )
-            {
-            args->result = strdup(hh_get_name(&o.comp->hdr));
-            return 1;
-            }
-        }
-    return 0;
-}
-
-// return names of loaded comps which are instantiable
-static char *icomp_generator(const char *text, int state) {
-
-    if (!state) 
-        {
-        zero_foreach_args(&cargs);
-        cargs.type = HAL_COMPONENT;
-        cargs.user_ptr1 = (char *) text;
-        }
-    halg_yield(0, &cargs, yield_icompstrname);
-    return cargs.result;
-
-}
-
-////////////////////////////////////////////////////////////////////////
 
 static char *comp_generator(const char *text, int state) {
     return object_generator(text, state, HAL_COMPONENT);
@@ -467,35 +403,86 @@ static char *comp_generator(const char *text, int state) {
 
 ////////////////////////////////////////////////////////////////////////
 
-static int yield_compstrname(hal_object_ptr o, foreach_args_t *args)
+#define T_RT 0
+#define T_USER 1
+#define T_INST 2
+    
+static int yield_typecompstrname(hal_object_ptr o, foreach_args_t *args)
 {
 size_t len;
 
-    if(o.comp->type == TYPE_RT)
+    switch(args->user_arg1)
         {
-        len = strlen(args->user_ptr1);
-        if(strncmp(args->user_ptr1, hh_get_name(&o.comp->hdr), len) == 0 )
-            {
-            args->result = strdup(hh_get_name(&o.comp->hdr));
-            return 1;
-            }
+        case T_USER:
+            if(o.comp->type == TYPE_USER)
+                {
+                len = strlen(args->user_ptr1);
+                if(strncmp(args->user_ptr1, hh_get_name(&o.comp->hdr), len) == 0 )
+                    {
+                    args->result = strdup(hh_get_name(&o.comp->hdr));
+                    return 1;
+                    }
+                }
+            break;
+        case T_INST:
+            if (is_instantiable(o.comp))
+                {
+                len = strlen(args->user_ptr1);
+                if(strncmp(args->user_ptr1, hh_get_name(&o.comp->hdr), len) == 0 )
+                    {
+                    args->result = strdup(hh_get_name(&o.comp->hdr));
+                    return 1;
+                    }
+                }
+            break;
+        case T_RT:
+            if(o.comp->type == TYPE_RT)
+                {
+                len = strlen(args->user_ptr1);
+                if(strncmp(args->user_ptr1, hh_get_name(&o.comp->hdr), len) == 0 )
+                    {
+                    args->result = strdup(hh_get_name(&o.comp->hdr));
+                    return 1;
+                    }
+                }
+            break;
+        default:  // out of range error
+            return -1;
         }
+        
     return 0;
-}
+}    
+        
 
-static char *rtcomp_generator(const char *text, int state) {
 
+static char *typecomp_generator(const char *text, int state, int type) {
+    
     if (!state) 
         {
         zero_foreach_args(&cargs);
         cargs.type = HAL_COMPONENT;
         cargs.user_ptr1 = (char *) text;
+        cargs.user_arg1 =  type;
         }
-    halg_yield(0, &cargs, yield_compstrname);
-
+    halg_yield(0, &cargs, yield_typecompstrname);
     return cargs.result;
+
 }
 
+static char *usrcomp_generator(const char *text, int state) 
+{
+    return typecomp_generator(text, state, T_USER);
+}
+
+static char *icomp_generator(const char *text, int state) 
+{
+    return typecomp_generator(text, state, T_INST);
+}
+
+static char *rtcomp_generator(const char *text, int state) 
+{
+    return typecomp_generator(text, state, T_RT);
+}
 ////////////////////////////////////////////////////////////////////////
 
 static int yield_pinstrname(hal_object_ptr o, foreach_args_t *args)
