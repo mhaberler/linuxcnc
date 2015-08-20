@@ -325,6 +325,9 @@ EXPORT_SYMBOL(halx_pin_bit_newf);
 EXPORT_SYMBOL(halx_pin_float_newf);
 EXPORT_SYMBOL(halx_pin_u32_newf);
 EXPORT_SYMBOL(halx_pin_s32_newf);
+EXPORT_SYMBOL(hals_pindir);
+EXPORT_SYMBOL(hals_type);
+EXPORT_SYMBOL(hal_typefailure);
 
 // hal_comp.c:
 EXPORT_SYMBOL(hal_init);

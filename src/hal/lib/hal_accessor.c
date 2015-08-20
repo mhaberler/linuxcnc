@@ -65,7 +65,7 @@ const char *hals_pindir(const hal_pin_dir_t dir)
     case HAL_IO:
 	return "I/O";
     default:
-	return "???";
+	return "*invalid*";
     }
 }
 
@@ -81,6 +81,20 @@ const char *hals_type(const hal_type_t type)
     case HAL_U32:
 	return "u32";
     default:
-	return "undef";
+	return "*invalid*";
     }
+}
+
+
+void hal_typefailure(const char *file,
+		     const int line,
+		     const int object_type,
+		     const int value_type)
+{
+    rtapi_print_msg(RTAPI_MSG_ERR,
+		    "%s:%d TYPE VIOLATION: object type=%s value type=%s",
+		    file,
+		    line,
+		    hals_type(object_type),
+		    hals_type(value_type));
 }
