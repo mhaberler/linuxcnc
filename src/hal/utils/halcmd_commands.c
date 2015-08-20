@@ -3309,7 +3309,7 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
     char *s;
     unsigned long mode = 0; // defaults
     int i = 0;
-    int retval;
+    int retval = 0;
     char *cp;
 
 
@@ -3410,7 +3410,7 @@ static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
 {
     ringheader_t *rh = rb->header;
     size_t size;
-    size_t nr = 0, nb = 0, tfc = 0, fc;
+    size_t nr = 0, nb = 0, tfc = 0, fc = 0;
     const void *data;
     ringiter_t ri;
     int result;
@@ -3731,38 +3731,6 @@ int do_newcomp_cmd(char *comp, char *opt[])
     return 0;
 }
 
-#if 0
-int do_ready_cmd(char *comp_name, char *tokens[])
-{
-    int retval, comp_id;
-    hal_comp_t *comp;
-
-    rtapi_mutex_get(&(hal_data->mutex));
-    comp = halpr_find_comp_by_name(comp_name);
-
-    if(!comp) {
-        halcmd_error( "No such component: %s\n", comp_name);
-	rtapi_mutex_give(&(hal_data->mutex));
-        return -ENOENT;
-    }
-    if(comp->type != TYPE_REMOTE) {
-        halcmd_error( "%s is not a remote component\n", comp_name);
-	rtapi_mutex_give(&(hal_data->mutex));
-        return -ENOSYS;
-    }
-    comp_id = comp->comp_id;
-    rtapi_mutex_give(&(hal_data->mutex));
-
-    retval = hal_ready(comp_id);
-    if (retval < 0) {
-	halcmd_error("ready: cant hal_ready component '%s':  %s\n",
-		     comp_name, strerror(-comp_id));
-	return -EINVAL;
-    }
-    return 0;
-}
-#endif
-
 int do_ready_cmd(char *comp_name, char *tokens[])
 {
     int retval;
@@ -3861,13 +3829,16 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 		return -EINVAL;
 	    }
 	}
+#ifdef RCOMP_V1_PINS
 	// hal_malloc wants the mutex but we're holding it so use halg_malloc
 	if ((p = halg_malloc(0, sizeof(void *))) == NULL) {
 	    halcmd_error("cant allocate memory for pin '%s'\n", pin_name);
 	    return -EINVAL;
 	}
 	memset(p, 0, sizeof(void *));
-
+#else
+	p = NULL;
+#endif
 	// same here - use unlocked pin_new
 	pin  = halg_pin_newf(0, type, dir, p, ho_id(comp), pin_name);
 	if (pin == NULL) {
