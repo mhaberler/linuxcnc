@@ -176,7 +176,18 @@ typedef struct hal_ring hal_ring_t;
 typedef struct hal_plug hal_plug_t;
 
 
-extern int _halerrno; // set by methods not returning an int
+// works like
+// extern int _halerrno;
+//  _halerrno is only set by the library, never cleared
+// cleared only by calling hal_errorcount(1) which returns
+// the number of errors logged since last call.
+int *_halerrno_location(void);
+#define _halerrno (*_halerrno_location())
+
+// bumped by every internal error
+// optionally clear _halerrno
+int hal_errorcount(int clear);
+
 
 /***********************************************************************
 *                   GENERAL PURPOSE FUNCTIONS                          *
