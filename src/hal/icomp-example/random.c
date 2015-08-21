@@ -65,11 +65,15 @@ static char *compname = "random";
 
 struct inst_data {
     int wantfloat;
-    int low, high;
-    bool scaled;
     struct lran2_st status;
+
     s32_pin_ptr sout;
+    s32_pin_ptr supper;
+    s32_pin_ptr slower;
+
     float_pin_ptr fout;
+    float_pin_ptr fupper;
+    float_pin_ptr flower;
 };
 
 static int random(void *arg, const hal_funct_args_t *fa)
@@ -77,8 +81,7 @@ static int random(void *arg, const hal_funct_args_t *fa)
     struct inst_data *ip = arg;
     long r = lran2(&ip->status);
 
-    if (ip->scaled) {
-    }
+
     if (ip->wantfloat)
 	set_float_pin(ip->fout, (hal_float_t)r);
     else
@@ -94,35 +97,36 @@ static int instantiate_random(const char *name,
     struct inst_data *ip;
     int inst_id;
 
-    if ((inst_id = hal_inst_create(name, comp_id,
-				   sizeof(struct inst_data),
-				   (void **)&ip)) < 0)
-	return -1;
+    inst_id = hal_inst_create(name, comp_id,
+			      sizeof(struct inst_data),
+			      (void **)&ip);
+    hal_errorcount(1); // clear HAL error counter
 
     ip->wantfloat = (type != 0);
-    ip->low = low;
-    ip->high = high;
-    ip->scaled = (high !=0)||(low != 0);
+
 
     if (ip->wantfloat) {
+	ip->fupper = halxd_pin_float_newf(HAL_IN, inst_id, 1.0, "%s.max", name);
+	ip->flower = halxd_pin_float_newf(HAL_IN, inst_id, 0.0, "%s.min", name);
 	ip->fout = halx_pin_float_newf(HAL_OUT, inst_id, "%s.out", name);
-	if (float_pin_null(ip->fout))
-	    return _halerrno;
     } else {
+	ip->supper = halxd_pin_s32_newf(HAL_IN, inst_id, LRAN2_MAX, "%s.max", name);
+	ip->slower = halxd_pin_s32_newf(HAL_IN, inst_id, 0, "%s.min", name);
 	ip->sout = halx_pin_s32_newf(HAL_OUT, inst_id, "%s.out", name);
-	if (s32_pin_null(ip->sout))
-	    return _halerrno;
     }
     lran2_init(&ip->status, (long) rtapi_get_clocks());
     hal_export_xfunct_args_t xfunct_args = {
         .type = FS_XTHREADFUNC,
         .funct.x = random,
         .arg = ip,
-        .uses_fp = 0,
+        .uses_fp = ip->wantfloat,
         .reentrant = 0,
         .owner_id = inst_id
     };
-    return hal_export_xfunctf(&xfunct_args, "%s.funct", name);
+    hal_export_xfunctf(&xfunct_args, "%s.funct", name);
+    if (hal_errorcount(0)) // uh oh
+	return -EINVAL;
+    return 0;
 }
 
 
