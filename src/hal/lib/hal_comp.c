@@ -437,7 +437,7 @@ int free_comp_struct(hal_comp_t * comp)
     // now work the legacy pins and params which are
     // directly owned by the comp.
     foreach_args_t pinargs =  {
-	// wipe params owned by this comp
+	// wipe pins owned by this comp
 	.type = HAL_PIN,
 	.owner_id  = ho_id(comp),
     };
@@ -535,8 +535,6 @@ int init_hal_data(void)
 	    return -1;
 	}
     }
-    /* no, we need to init it, grab the mutex unconditionally */
-    //    rtapi_mutex_try(&(hal_data->mutex));
 
     // some heaps contain garbage, like xenomai
     memset(hal_data, 0, global_data->hal_size);
@@ -573,13 +571,10 @@ int init_hal_data(void)
 	hal_data->epsilon[i] = 0.0;
     hal_data->epsilon[0] = DEFAULT_EPSILON;
 
-    // HAL heap
+    // initialize the HAL heap
     rtapi_heap_init(&hal_data->heap, "hal heap");
     rtapi_heap_setflags(&hal_data->heap, global_data->hal_heap_flags);
     hal_heap_addmem((size_t) (global_data->hal_size / HAL_HEAP_INITIAL));
-
-    /* done, release mutex */
-    //    rtapi_mutex_give(&(hal_data->mutex));
 
     return 0;
 }
