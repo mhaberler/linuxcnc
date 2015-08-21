@@ -600,7 +600,9 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 			  const hal_pin_dir_t dir,
 			  void **data_ptr_addr,
 			  const int owner_id,
+			  const hal_data_u defval,
 			  const char *fmt, va_list ap);
+
 
 // generic printf-style version of halg_pin_newfv()
 hal_pin_t *halg_pin_newf(const int use_hal_mutex,

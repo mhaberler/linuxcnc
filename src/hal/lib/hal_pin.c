@@ -16,8 +16,11 @@ int hal_pin_bit_newf(hal_pin_dir_t dir,
 {
     va_list ap;
     void *p;
+    hal_data_u defval = {._b = 0};
+
     va_start(ap, fmt);
-    p = halg_pin_newfv(1, HAL_BIT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, HAL_BIT, dir, (void**)data_ptr_addr,
+		       owner_id, defval, fmt, ap);
     va_end(ap);
     return p ? 0 : _halerrno;
 }
@@ -27,8 +30,10 @@ int hal_pin_float_newf(hal_pin_dir_t dir,
 {
     va_list ap;
     void *p;
+    hal_data_u defval = {._f = 0.0};
     va_start(ap, fmt);
-    p = halg_pin_newfv(1, HAL_FLOAT, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, HAL_FLOAT, dir, (void**)data_ptr_addr,
+		       owner_id, defval,  fmt, ap);
     va_end(ap);
     return p ? 0 : _halerrno;
 }
@@ -38,8 +43,10 @@ int hal_pin_u32_newf(hal_pin_dir_t dir,
 {
     va_list ap;
     void *p;
+    hal_data_u defval = {._u = 0};
     va_start(ap, fmt);
-    p = halg_pin_newfv(1, HAL_U32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, HAL_U32, dir, (void**)data_ptr_addr, owner_id,
+		       defval,  fmt, ap);
     va_end(ap);
     return p ? 0 : _halerrno;
 }
@@ -49,10 +56,29 @@ int hal_pin_s32_newf(hal_pin_dir_t dir,
 {
     va_list ap;
     void *p;
+    hal_data_u defval = {._s = 0};
     va_start(ap, fmt);
-    p = halg_pin_newfv(1,HAL_S32, dir, (void**)data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1,HAL_S32, dir, (void**)data_ptr_addr,
+		       owner_id, defval,  fmt, ap);
     va_end(ap);
     return p ? 0 : _halerrno;
+}
+
+static int zero_hal_data_u(const int type, hal_data_u *u)
+{
+    switch (type) {
+    case HAL_BIT:
+	u->_b = 0; break;
+    case HAL_FLOAT:
+	u->_f = 0.0; break;
+    case HAL_S32:
+	u->_s = 0; break;
+    case HAL_U32:
+	u->_u = 0; break;
+    default:
+	HALFAIL_RC(EINVAL,"invalid hal_data_u type %d", type);
+    }
+    return 0;
 }
 
 // printf-style version of hal_pin_new()
@@ -64,8 +90,12 @@ int hal_pin_newf(hal_type_t type,
 {
     va_list ap;
     void *p;
+    hal_data_u defval;
+    zero_hal_data_u(type, &defval);
+
     va_start(ap, fmt);
-    p = halg_pin_newfv(1, type, dir, data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(1, type, dir, data_ptr_addr,
+		       owner_id, defval, fmt, ap);
     va_end(ap);
     return p ? 0 : _halerrno;
 }
@@ -80,8 +110,11 @@ hal_pin_t *halg_pin_newf(const int use_hal_mutex,
 {
     va_list ap;
     hal_pin_t *p;
+    hal_data_u defval;
+    zero_hal_data_u(type, &defval);
     va_start(ap, fmt);
-    p = halg_pin_newfv(use_hal_mutex, type, dir, data_ptr_addr, owner_id, fmt, ap);
+    p = halg_pin_newfv(use_hal_mutex, type, dir, data_ptr_addr,
+		       owner_id, defval, fmt, ap);
     va_end(ap);
     return p;
 }
@@ -92,6 +125,7 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 			  const hal_pin_dir_t dir,
 			  void **data_ptr_addr,
 			  const int owner_id,
+			  const hal_data_u defval,
 			  const char *fmt, va_list ap)
 {
     PCHECK_HALDATA();
@@ -170,7 +204,7 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 	new->type = type;
 	new->dir = dir;
 	new->_signal = 0;
-	memset(&new->dummysig, 0, sizeof(hal_data_u));
+	memcpy(&new->dummysig, (void *)&defval, sizeof(hal_data_u));
 	if (is_legacy) {
 	    hh_set_legacy(&new->hdr);
 	    new->_data_ptr_addr = SHMOFF(data_ptr_addr);

@@ -296,5 +296,30 @@ s32_pin_ptr halx_pin_s32_newf(const hal_pin_dir_t dir,
 			      const char *fmt, ...)
     __attribute__((format(printf,3,4)));
 
+// as above, but with explicit default value as 3rd argument
+bit_pin_ptr halxd_pin_bit_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_bit_t defval,
+			       const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
+float_pin_ptr halxd_pin_float_newf(const hal_pin_dir_t dir,
+				   const int owner_id,
+				   const hal_float_t defval,
+				   const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
+u32_pin_ptr halxd_pin_u32_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_u32_t defval,
+			       const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
+s32_pin_ptr halxd_pin_s32_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_s32_t defval,
+			       const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
 RTAPI_END_DECLS
 #endif // HAL_ACCESSOR_H
