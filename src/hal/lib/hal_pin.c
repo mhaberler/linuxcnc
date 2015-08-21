@@ -148,9 +148,12 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 	HALFAIL_NULL(EINVAL,"pin '%s': pin direction not one of HAL_IN, HAL_OUT, or HAL_IO (%d)",
 		     name, dir);
     }
-
-    HALDBG("creating pin '%s' %s %s",
-	   name, hals_type(type), hals_pindir(dir));
+    {
+	char value[100];
+	hals_value(value, sizeof(value), type, &defval);
+	HALDBG("creating pin '%s' %s %s %s",
+	       name, hals_type(type), hals_pindir(dir), value);
+    }
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
 
