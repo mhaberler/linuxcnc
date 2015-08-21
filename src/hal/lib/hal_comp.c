@@ -309,6 +309,8 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	HALDBG("_halerrno=%d", _halerrno);
 #ifdef RTAPI
 	report_memory_usage();
+	// just assure everything still intact
+	HALDBG("hal_sweep: %d objects freed", hal_sweep());
 #endif
 	/* release RTAPI resources */
 	retval = rtapi_shmem_delete(lib_mem_id, comp_id);
