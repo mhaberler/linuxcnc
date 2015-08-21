@@ -272,6 +272,13 @@ static inline bool float_sig_null(const float_sig_ptr s) {
 
 // convert hal type to string
 const char *hals_type(const hal_type_t type);
+
+// convert hal_data_u to string
+int hals_value(char *buffer,
+	       const size_t s,
+	       const hal_type_t type,
+	       const hal_data_u *u);
+
 // convert pin direction to string
 const char *hals_pindir(const hal_pin_dir_t dir);
 

@@ -332,6 +332,7 @@ EXPORT_SYMBOL(halxd_pin_s32_newf);
 
 EXPORT_SYMBOL(hals_pindir);
 EXPORT_SYMBOL(hals_type);
+EXPORT_SYMBOL(hals_value);
 EXPORT_SYMBOL(hal_typefailure);
 
 // hal_comp.c:

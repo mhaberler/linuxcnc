@@ -160,6 +160,25 @@ const char *hals_type(const hal_type_t type)
     }
 }
 
+int hals_value(char *buffer,
+	       const size_t s,
+	       const hal_type_t type,
+	       const hal_data_u *u)
+{
+    switch (type) {
+    case HAL_BIT:
+	return rtapi_snprintf(buffer, s, "%s", u->_b ? "true" : "false");
+    case HAL_FLOAT:
+	return rtapi_snprintf(buffer, s, "%f", u->_f);
+    case HAL_S32:
+	return rtapi_snprintf(buffer, s, "%d", u->_s);
+    case HAL_U32:
+	return rtapi_snprintf(buffer, s, "%u", u->_u);
+    default:
+	HALFAIL_RC(EINVAL, "invalid type %d", type);
+    }
+}
+
 
 void hal_typefailure(const char *file,
 		     const int line,
