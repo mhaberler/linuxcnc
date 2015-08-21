@@ -53,7 +53,7 @@ static const char *command_table[] = {
     "loadrt", "loadusr", "unload", "lock", "unlock",
     "linkps", "linksp", "linkpp", "unlinkp",
     "net", "newsig", "delsig", "getp", "gets", "setp", "sets", "sete", "ptype", "stype",
-    "addf", "delf", "show", "list", "status", "save", "source",
+    "addf", "delf", "show", "list", "status", "save", "source","sweep",
     "start", "stop", "quit", "exit", "help",
     "newg"," delg", "newm", "delm",
     "newring","delring","ringdump","ringwrite","ringflush",
