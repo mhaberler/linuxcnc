@@ -64,7 +64,7 @@ int hal_pin_s32_newf(hal_pin_dir_t dir,
     return p ? 0 : _halerrno;
 }
 
-static int zero_hal_data_u(const int type, hal_data_u *u)
+int zero_hal_data_u(const int type, hal_data_u *u)
 {
     switch (type) {
     case HAL_BIT:
