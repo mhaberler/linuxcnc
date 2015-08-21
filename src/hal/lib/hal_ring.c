@@ -57,8 +57,7 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 		newfmt = "stream-%d";
 		break;
 	    default:
-		HALERR("invalid ring type: 0x%x", mode & RINGTYPE_MASK);
-		_halerrno = -EINVAL;
+		HALFAIL(EINVAL, "invalid ring type: 0x%x", mode & RINGTYPE_MASK);
 		goto FAIL;
 	    }
 	    name =  fmt_args(buf, sizeof(buf), newfmt, ring_id);
@@ -73,8 +72,7 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 	// make sure no such ring name already exists
 	rptr = halg_find_object_by_name(0, HAL_RING, name).ring;
 	if (rptr != NULL) {
-	    HALERR("ring '%s' already exists", name);
-	    _halerrno = -EEXIST;
+	    HALFAIL(EEXIST, "ring '%s' already exists", name);
 	    goto FAIL;
 	}
 
@@ -93,9 +91,8 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 	if (rptr->flags & ALLOC_HALMEM) {
 	    void *ringmem = shmalloc_desc(rptr->total_size);
 	    if (ringmem == NULL) {
-		HALERR("ring '%s' size %d - insufficient HAL memory for ring",
+		HALFAIL(ENOMEM, "ring '%s' size %d - insufficient HAL memory for ring",
 		       name,rptr->total_size);
-		_halerrno = -ENOMEM;
 		goto FAIL;
 	    }
 	    rptr->ring_offset = SHMOFF(ringmem);
@@ -109,18 +106,16 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 	    // allocate an RTAPI shm segment owned by HAL_LIB_xxx
 	    if ((shmid = rtapi_shmem_new(rptr->ring_shmkey, lib_module_id,
 					 rptr->total_size)) < 0) {
-		HALERR("rtapi_shmem_new(0x%8.8x,%d) failed: %d",
+		HALFAIL(shmid, "rtapi_shmem_new(0x%8.8x,%d) failed: %d",
 		       rptr->ring_shmkey, lib_module_id,
 		       rptr->total_size);
-		_halerrno = shmid;
 		goto FAIL;
 	    }
 	    // map the segment now so we can fill in the ringheader details
 	    if ((retval = rtapi_shmem_getptr(shmid,
 					     (void **)&rhptr, 0)) < 0) {
-		HALERR("rtapi_shmem_getptr for %d failed %d",
+		HALFAIL(retval, "rtapi_shmem_getptr for %d failed %d",
 		       shmid, retval);
-		_halerrno = retval;
 		goto FAIL;
 	    }
 	}
@@ -160,22 +155,19 @@ int free_ring_struct(hal_ring_t *hrptr)
 					  rtapi_instance, lib_module_id,
 					  0 )) < 0) {
 	    if (shmid != -EEXIST)  {
-		HALERR("ring '%s': rtapi_shmem_new_inst() failed %d",
+		HALFAIL_RC(shmid, "ring '%s': rtapi_shmem_new_inst() failed %d",
 		       ho_name(hrptr), shmid);
-		return shmid;
 	    }
 	}
 	if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr, 0))) {
-	    HALERR("ring '%s': rtapi_shmem_getptr %d failed %d",
+	    HALFAIL_RC(ENOMEM, "ring '%s': rtapi_shmem_getptr %d failed %d",
 		   ho_name(hrptr), shmid, retval);
-	    return -ENOMEM;
 	}
     }
     // assure attach/detach balance is zero:
     if (rhptr->refcount) {
-	HALERR("ring '%s' still attached - refcount=%d",
+	HALFAIL_RC(EBUSY, "ring '%s' still attached - refcount=%d",
 	       ho_name(hrptr), rhptr->refcount);
-	return -EBUSY;
     }
 
     HALDBG("deleting ring '%s'", ho_name(hrptr));
@@ -185,9 +177,8 @@ int free_ring_struct(hal_ring_t *hrptr)
 	shmfree_desc(rhptr);
     } else {
 	if ((retval = rtapi_shmem_delete(shmid, lib_module_id)) < 0)  {
-	    HALERR("ring '%s': rtapi_shmem_delete(%d,%d) failed: %d",
+	    HALFAIL_RC(retval, "ring '%s': rtapi_shmem_delete(%d,%d) failed: %d",
 		   ho_name(hrptr), shmid, lib_module_id, retval);
-	    return retval;
 	}
     }
     // free descriptor. May return -EBUSY if ring referenced.
@@ -215,8 +206,7 @@ int halg_ring_deletefv(const int use_hal_mutex,
 	// ring must exist
 	hal_ring_t *rptr = halg_find_object_by_name(0, HAL_RING, name).ring;
 	if (rptr  == NULL) {
-	    HALERR("ring '%s' not found", name);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "ring '%s' not found", name);
 	}
 	free_ring_struct(rptr);
     }
@@ -243,8 +233,7 @@ int halg_ring_attachfv(const int use_hal_mutex,
 
 	hal_ring_t *rptr = halg_find_object_by_name(0, HAL_RING, name).ring;
 	if (rptr == NULL) {
-	    HALERR("no such ring '%s'", name);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "no such ring '%s'", name);
 	}
 
 	// calling hal_ring_attach(name, NULL, NULL) is a way to determine
@@ -267,9 +256,8 @@ int halg_ring_attachfv(const int use_hal_mutex,
 					       rtapi_instance, lib_module_id,
 					   0 )) < 0) {
 		if (retval != -EEXIST)  {
-		    HALERR("ring '%s': rtapi_shmem_new_inst() failed %d",
+		    HALFAIL_RC(retval, "ring '%s': rtapi_shmem_new_inst() failed %d",
 			   name, retval);
-		    return retval;
 		}
 		// tried to map shm again. May happen in halcmd_commands:print_ring_info().
 		// harmless.
@@ -278,9 +266,8 @@ int halg_ring_attachfv(const int use_hal_mutex,
 
 	    // make it accessible
 	    if ((retval = rtapi_shmem_getptr(shmid, (void **)&rhptr, 0))) {
-		HALERR("ring '%s': rtapi_shmem_getptr %d failed %d",
+		HALFAIL_RC(ENOMEM, "ring '%s': rtapi_shmem_getptr %d failed %d",
 		       name, shmid, retval);
-		return -ENOMEM;
 	    }
 	}
 	// record usage in ringheader
@@ -304,9 +291,7 @@ int halg_ring_detach(const int use_hal_mutex,
     CHECK_LOCK(HAL_LOCK_CONFIG);
 
     if ((rbptr == NULL) || (rbptr->magic != RINGBUFFER_MAGIC)) {
-	HALERR("invalid ringbuffer at %p", rbptr);
-	_halerrno = -EINVAL;
-	return -EINVAL;
+	HALFAIL_RC(EINVAL, "invalid ringbuffer at %p", rbptr);
     }
     {
 	WITH_HAL_MUTEX_IF(use_hal_mutex);
@@ -340,11 +325,13 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 	    owner = halg_find_object_by_id(0, 0, args->owner_id);
 	if (owner.any == NULL) {
 	    if (args->owner_name)
-		HALERR("object '%s' does not exist", args->owner_name);
+		HALFAIL_NULL(EINVAL,
+			     "object '%s' does not exist",
+			     args->owner_name);
 	    else
-		HALERR("object with id=%d does not exist", args->owner_id);
-	    _halerrno = -ENOENT;
-	    return NULL;
+		HALFAIL_NULL(EINVAL,
+			     "object with id=%d does not exist",
+			     args->owner_id);
 	}
 
 	// make sure the ring exists, and obtain descriptor
@@ -362,8 +349,7 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 				  hh_get_name(owner.hdr),
 				  tag);
 	if (plugname == NULL) {
-	    HALERR("name too long");
-	    _halerrno = -EINVAL;
+	    HALFAIL(EINVAL, "name too long");
 	    goto FAIL;
 	}
 
@@ -371,8 +357,7 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 	hal_plug_t *e = halg_find_object_by_name(0, HAL_PLUG,
 						 plugname).plug;
 	if (e != NULL) {
-	    HALERR("plug '%s' already exists", plugname);
-	    _halerrno = -EEXIST;
+	    HALFAIL(EEXIST, "plug '%s' already exists", plugname);
 	    goto FAIL;
 	}
 
@@ -385,9 +370,8 @@ hal_plug_t *halg_plug_new(const int use_hal_mutex,
 	unsigned ring_is = ring->flags & RINGTYPE_MASK;
 	if ((wanted != RINGTYPE_ANY) &&
 	    (wanted != ring_is)) {
-	    HALERR("ring types incompatible: plug wants '%s', ring is '%s'",
+	    HALFAIL(ENOENT, "ring types incompatible: plug wants '%s', ring is '%s'",
 		   ringtypes[wanted], ringtypes[ring_is]);
-	    _halerrno = -ENOENT;
 	    goto FAIL;
 	}
 
@@ -452,16 +436,12 @@ int halg_plug_delete(const int use_hal_mutex,
 
 	// make sure it's a valid HAL object:
 	if (!(hh_is_valid(&plug->hdr))) {
-	    HALERR("object at %p not valid", plug);
-	    _halerrno = -EINVAL;
-	    return _halerrno;
+	    HALFAIL_RC(EINVAL, "object at %p not valid", plug);
 	}
 	// and it actually is a plug:
 	if (hh_get_object_type(&plug->hdr) != HAL_PLUG) {
-	    HALERR("object at %p not a plug but a %s", plug,
+	    HALFAIL_RC(EINVAL, "object at %p not a plug but a %s", plug,
 		   hal_object_typestr(hh_get_object_type(&plug->hdr)));
-	    _halerrno = -EINVAL;
-	    return _halerrno;
 	}
 	// do not fail if called after a half-done init:
 	if (plug->rb.header != NULL) {
@@ -506,22 +486,16 @@ static int next_ring_id(void)
 	    return i;
 	}
     }
-    HALERR("out of ring id's, HAL_MAX_RINGS = %d",HAL_MAX_RINGS);
-    _halerrno = -ENOENT;
-    return - _halerrno; // no more slots available
+    HALFAIL_RC(EINVAL, "out of ring id's, HAL_MAX_RINGS = %d",HAL_MAX_RINGS);
 }
 
 static int free_ring_id(const int id)
 {
     if ((id < 0) || (id >HAL_MAX_RINGS)) {
-	HALERR("invalid ring id: %d", id);
-	_halerrno = -EINVAL;
-	return - _halerrno; // no more slots available
+	HALFAIL_RC(EINVAL, "invalid ring id: %d", id);
     }
     if (!RTAPI_BIT_TEST(hal_data->rings,id)) {
-	HALERR("unused ring id: %d", id);
-	_halerrno = -EINVAL;
-	return - _halerrno; // no more slots available
+	HALFAIL_RC(EINVAL, "unused ring id: %d", id);
     }
     RTAPI_BIT_CLEAR(hal_data->rings, id);
     return 0;

@@ -65,9 +65,7 @@ int hal_heap_addmem(size_t click)
     if (rtapi_heap_addmem(&hal_data->heap,
 			  SHMPTR(hal_data->shmem_bot),
 			  actual)) {
-	HALERR("rtapi_heap_addmem(%zu) failed", actual);
-	_halerrno = -ENOMEM;
-	return -ENOMEM;
+	HALFAIL_RC(ENOMEM, "rtapi_heap_addmem(%zu) failed", actual);
     }
     hal_data->shmem_bot += actual;
     return 0;
@@ -84,8 +82,8 @@ void *shmalloc_desc(size_t size)
 
 	retval = rtapi_calloc(&hal_data->heap, 1, size);
 	if (retval == NULL)
-	    HALERR("giving up - can't allocate %zu bytes", size);
-	_halerrno = -ENOMEM;
+	    HALFAIL_NULL(ENOMEM,
+			 "giving up - can't allocate %zu bytes", size);
     }
     return retval;
 }
@@ -134,9 +132,7 @@ void *shmalloc_rt(size_t size)
     /* is there enough memory available? */
     if (tmp_top < hal_data->shmem_bot) {
 	/* no */
-	HALERR("giving up - can't allocate %zu bytes", size);
-	_halerrno = -ENOMEM;
-	return 0;
+	HALFAIL_NULL(ENOMEM, "giving up - can't allocate %zu bytes", size);
     }
     size_t waste = hal_data->shmem_top - tmp_top - size;
     hal_data->rt_alignment_loss += waste;

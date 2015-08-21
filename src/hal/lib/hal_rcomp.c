@@ -29,18 +29,15 @@ int halg_bind(const int use_hal_mutex, const char *comp_name)
 	comp = halpr_find_comp_by_name(comp_name);
 
 	if (comp == NULL) {
-	    HALERR("no such component '%s'", comp_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "no such component '%s'", comp_name);
 	}
 	if (comp->type != TYPE_REMOTE) {
-	    HALERR("component '%s' not a remote component (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s' not a remote component (%d)",
 		   comp_name, comp->type);
-	    return -EINVAL;
 	}
 	if (comp->state != COMP_UNBOUND) {
-	    HALERR("component '%s': state not unbound (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s': state not unbound (%d)",
 		   comp_name, comp->state);
-	    return -EINVAL;
 	}
 	comp->state = COMP_BOUND;
 	comp->last_bound = (long int) time(NULL);
@@ -58,18 +55,15 @@ int halg_unbind(const int use_hal_mutex, const char *comp_name)
 
 	comp = halpr_find_comp_by_name(comp_name);
 	if (comp == NULL) {
-	    HALERR("no such component '%s'", comp_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "no such component '%s'", comp_name);
 	}
 	if (comp->type != TYPE_REMOTE) {
-	    HALERR("component '%s' not a remote component (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s' not a remote component (%d)",
 		   comp_name, comp->type);
-	    return -EINVAL;
 	}
 	if (comp->state != COMP_BOUND) {
-	    HALERR("component '%s': state not bound (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s': state not bound (%d)",
 		   comp_name, comp->state);
-	    return -EINVAL;
 	}
 	comp->state = COMP_UNBOUND;
 	comp->last_unbound = (long int) time(NULL);
@@ -87,18 +81,15 @@ int halg_acquire(const int use_hal_mutex, const char *comp_name, int pid)
 
 	comp = halpr_find_comp_by_name(comp_name);
 	if (comp == NULL) {
-	    HALERR("no such component '%s'", comp_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "no such component '%s'", comp_name);
 	}
 	if (comp->type != TYPE_REMOTE) {
-	    HALERR("component '%s' not a remote component (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s' not a remote component (%d)",
 		   comp_name, comp->type);
-	    return -EINVAL;
 	}
 	if (comp->state == COMP_BOUND) {
-	    HALERR("component '%s': cant reown a bound component (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s': cant reown a bound component (%d)",
 		   comp_name, comp->state);
-	    return -EINVAL;
 	}
 	// let a comp be 'adopted away' from the RT environment
 	// this is a tad hacky, should separate owner pid from RT/user distinction
@@ -106,9 +97,8 @@ int halg_acquire(const int use_hal_mutex, const char *comp_name, int pid)
 	    (comp->pid != global_data->rtapi_app_pid))
 
 	    {
-		HALERR("component '%s': already owned by pid %d",
+		HALFAIL_RC(EINVAL, "component '%s': already owned by pid %d",
 		       comp_name, comp->pid);
-		return -EINVAL;
 	    }
 	comp->pid = pid;
 	ho_incref(comp); // prevent deletion
@@ -126,24 +116,20 @@ int halg_release(const int use_hal_mutex, const char *comp_name)
 
 	comp = halpr_find_comp_by_name(comp_name);
 	if (comp == NULL) {
-	    HALERR("no such component '%s'", comp_name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "no such component '%s'", comp_name);
 	}
 	if (comp->type != TYPE_REMOTE) {
-	    HALERR("component '%s' not a remote component (%d)",
+	    HALFAIL_RC(EINVAL, "component '%s' not a remote component (%d)",
 		   comp_name, comp->type);
-	    return -EINVAL;
 	}
 	if (comp->pid == 0) {
-	    HALERR("component '%s': component already disowned",
+	    HALFAIL_RC(EINVAL, "component '%s': component already disowned",
 			    comp_name);
-	    return -EINVAL;
 	}
 
 	if (comp->pid != getpid()) {
-	    HALERR("component '%s': component owned by pid %d",
+	    HALFAIL_RC(EINVAL, "component '%s': component owned by pid %d",
 			    comp_name, comp->pid);
-	    // return -EINVAL;
 	}
 	comp->pid = 0;
 	ho_decref(comp); // enable deletion if last ref
@@ -184,8 +170,7 @@ int halg_compile_comp(const int use_hal_mutex,
        int n;
 
        if ((comp = halpr_find_comp_by_name(name)) == NULL) {
-	    HALERR("no such component '%s'", name);
-	   return -EINVAL;
+	   HALFAIL_RC(EINVAL, "no such component '%s'", name);
        }
 
        // array sizing: count pins owned by this component
@@ -202,13 +187,12 @@ int halg_compile_comp(const int use_hal_mutex,
        n = args.user_arg2;
 
        if (n == 0) {
-	   HALERR("component %s has no pins to watch for changes",
+	   HALFAIL_RC(EINVAL, "component %s has no pins to watch for changes",
 		  name);
-	   return -EINVAL;
        }
        // a compiled comp is a userland/per process memory object
        if ((tc = malloc(sizeof(hal_compiled_comp_t))) == NULL)
-	   return -ENOMEM;
+	   NOMEM("allocating a compiled comp struct");
 
        memset(tc, 0, sizeof(hal_compiled_comp_t));
        tc->comp = comp;
@@ -216,15 +200,15 @@ int halg_compile_comp(const int use_hal_mutex,
 
        // alloc pin array
        if ((tc->pin = malloc(sizeof(hal_pin_t *) * tc->n_pins)) == NULL)
-	   return -ENOMEM;
+	   NOMEM("allocating a pin reference array");
        // alloc tracking value array
        if ((tc->tracking =
 	    malloc(sizeof(hal_data_u) * tc->n_pins )) == NULL)
-	   return -ENOMEM;
+	   NOMEM("allocating a array of tracking values");
        // alloc change bitmap
        if ((tc->changed =
 	    malloc(RTAPI_BITMAP_BYTES(tc->n_pins))) == NULL)
-	    return -ENOMEM;
+	   NOMEM("allocating change bitmap");
 
        memset(tc->pin, 0, sizeof(hal_pin_t *) * tc->n_pins);
        memset(tc->tracking, 0, sizeof(hal_data_u) * tc->n_pins);
@@ -297,9 +281,8 @@ int hal_ccomp_match(hal_compiled_comp_t *cc)
 	    break;
 
 	default:
-	    HALERR("BUG: hal_ccomp_match(%s): invalid type for pin %s: %d",
+	    HALFAIL_RC(EINVAL, "BUG: hal_ccomp_match(%s): invalid type for pin %s: %d",
 		   ho_name(cc->comp), ho_name(hp), pin_type(hp));
-	    return -EINVAL;
 	}
     }
     return nchanged;

@@ -367,9 +367,8 @@ int halg_link(const int use_hal_mutex,
 		_set_float_sig(sig, get_float_value(hdu));
 		break;
 	    default:
-		HALBUG("pin '%s' has invalid type %d !!\n",
+		HALFAIL_RC(EINVAL, "BUG: pin '%s' has invalid type %d !!\n",
 		       ho_name(pin), pin_type(pin));
-		return -EINVAL;
 	    }
 	}
 	/* update the signal's reader/writer/bidir counts */

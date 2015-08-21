@@ -24,27 +24,25 @@ int halg_inst_create(const int use_hal_mutex,
 
 	// comp must exist
 	if ((comp = halg_find_object_by_id(0, HAL_COMPONENT, comp_id).comp) == 0) {
-	    HALERR("comp %d not found", comp_id);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "comp %d not found", comp_id);
 	}
 
 	// inst may not exist
 	if ((inst = halg_find_object_by_name(0, HAL_INST, name).inst) != NULL) {
-	    HALERR("instance '%s' already exists", name);
-	    return -EEXIST;
+	    HALFAIL_RC(EEXIST, "instance '%s' already exists", name);
 	}
 
 	// allocate instance descriptor
 	if ((inst = halg_create_objectf(0, sizeof(hal_inst_t),
 					HAL_INST, ho_id(comp), name)) == NULL)
-	    return -ENOMEM;
+	    return _halerrno;
 
 	if (size > 0) {
 	    // the instance data is likely to contain pins so
 	    // allocate in 'rt' memory for cache friendliness
 	    m = shmalloc_rt(size);
 	    if (m == NULL)
-		NOMEM(" instance %s: cant allocate %d bytes", name, size);
+		HALFAIL_RC(ENOMEM, " instance %s: cant allocate %d bytes", name, size);
 	    memset(m, 0, size);
 	}
 
@@ -80,8 +78,7 @@ int halg_inst_delete(const int use_hal_mutex, const char *name)
 
 	// inst must exist
 	if ((inst = halg_find_object_by_name(0, HAL_INST, name).inst) == NULL) {
-	    HALERR("instance '%s' does not exist", name);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "instance '%s' does not exist", name);
 	}
 	// this does most of the heavy lifting
 	free_inst_struct(inst);

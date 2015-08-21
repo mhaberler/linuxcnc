@@ -117,23 +117,20 @@ int hal_create_xthread(const hal_threadargs_t *args)
 	   args->uses_fp);
 
     if (args->period_nsec == 0) {
-	hal_print_msg(RTAPI_MSG_ERR,
-			"HAL: ERROR: create_thread called "
-			"with period of zero");
-	return -EINVAL;
+	HALFAIL_RC(EINVAL,"create_thread called "
+		   "with period of zero");
     }
     {
 	WITH_HAL_MUTEX();
 
 	if (halg_find_object_by_name(0, HAL_THREAD, args->name).thread) {
-	    HALERR("duplicate thread name %s", args->name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "duplicate thread name %s", args->name);
 	}
 
 	// allocate thread descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_thread_t),
 				       HAL_THREAD, 0, args->name)) == NULL)
-	    return -ENOMEM;
+	    return _halerrno;
 
 	dlist_init_entry(&(new->funct_list));
 
@@ -152,15 +149,13 @@ int hal_create_xthread(const hal_threadargs_t *args)
 		/* not running, start it */
 		curr_period = rtapi_clock_set_period(args->period_nsec);
 		if (curr_period < 0) {
-		    HALERR("clock_set_period returned %ld",
+		    HALFAIL_RC(EINVAL, "clock_set_period returned %ld",
 				    curr_period);
-		    return -EINVAL;
 		}
 	    }
 	    /* make sure period <= desired period (allow 1% roundoff error) */
 	    if (curr_period > (args->period_nsec + (args->period_nsec / 100))) {
-		HALERR("clock period too long: %ld", curr_period);
-		return -EINVAL;
+		HALFAIL_RC(EINVAL, "clock period too long: %ld", curr_period);
 	    }
 	    if(hal_data->exact_base_period) {
 		hal_data->base_period = args->period_nsec;
@@ -181,17 +176,15 @@ int hal_create_xthread(const hal_threadargs_t *args)
 	    prev_priority = tptr->priority;
 	}
 	if ( args->period_nsec < hal_data->base_period) {
-	    HALERR("new thread period %ld is less than clock period %ld",
+	    HALFAIL_RC(EINVAL, "new thread period %ld is less than clock period %ld",
 		   args->period_nsec, hal_data->base_period);
-	    return -EINVAL;
 	}
 	/* make period an integer multiple of the timer period */
 	n = (args->period_nsec + hal_data->base_period / 2) / hal_data->base_period;
 	new->period = hal_data->base_period * n;
 	if ( new->period < prev_period ) {
-	    HALERR("new thread period %ld is less than existing thread period %ld",
+	    HALFAIL_RC(EINVAL, "new thread period %ld is less than existing thread period %ld",
 		   args->period_nsec, prev_period);
-	    return -EINVAL;
 	}
 	/* make priority one lower than previous */
 	new->priority = rtapi_prio_next_lower(prev_priority);
@@ -211,8 +204,7 @@ int hal_create_xthread(const hal_threadargs_t *args)
 	};
 	retval = rtapi_task_new(&rargs);
 	if (retval < 0) {
-	    HALERR("could not create task for thread %s", args->name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "could not create task for thread %s", args->name);
 	}
 	new->task_id = retval;
 
@@ -223,8 +215,7 @@ int hal_create_xthread(const hal_threadargs_t *args)
 	/* start task */
 	retval = rtapi_task_start(new->task_id, new->period);
 	if (retval < 0) {
-	    HALERR("could not start task for thread %s: %d", args->name, retval);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "could not start task for thread %s: %d", args->name, retval);
 	}
 	/* insert new structure at head of list */
 	dlist_add_before(&new->thread, &hal_data->threads);
@@ -275,8 +266,7 @@ int halg_exit_thread(const int use_hal_mutex, const char *name)
 	};
 	int ret = halg_foreach(0, &args, delete_thread_cb);
 	if (name && (ret == 0)) {
-	    HALERR("thread '%s' not found",   name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "thread '%s' not found",   name);
 	}
 	HALDBG("%d thread%s exited", ret, ret == 1 ? "":"s");
 	// all threads stopped & deleted

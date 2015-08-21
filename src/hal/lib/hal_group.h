@@ -94,7 +94,7 @@ extern int hal_unref_group(const char *group);
 static inline int hal_cgroup_timer(hal_compiled_group_t *cgroup)
 {
     if (!cgroup || !cgroup->group)
-	return -EINVAL;
+	HALFAIL_RC(EINVAL, "invalid cgroup");
     return cgroup->group->userarg1;
 }
 extern int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup);

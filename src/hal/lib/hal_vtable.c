@@ -32,14 +32,13 @@ int halg_export_vtable(const int use_hal_mutex,
 
 	// make sure no such vtable name already exists
 	if ((vt = halg_find_vtable_by_name(0, name, version)) != 0) {
-	    HALERR("vtable '%s' already exists", name);
-	    return -EEXIST;
+	    HALFAIL_RC(EEXIST, "vtable '%s' already exists", name);
 	}
 
 	// allocate vtable descriptor
 	if ((vt = halg_create_objectf(0, sizeof(hal_vtable_t),
 				      HAL_VTABLE, comp_id, name)) == NULL)
-	    return -ENOMEM;
+	    return _halerrno;
 
 	vt->vtable  =  vtref;
 	vt->version =  version;
@@ -71,15 +70,12 @@ int halg_remove_vtable(const int use_hal_mutex, const int vtable_id)
 
 	// make sure no such vtable name already exists
 	if ((vt = halpr_find_vtable_by_id(vtable_id)) == NULL) {
-	    HALERR("vtable %d not found", vtable_id);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "vtable %d not found", vtable_id);
 	}
 	// still referenced?
 	if (ho_referenced(vt)) {
-	    HALERR("vtable %d busy (refcount=%d)",
+	    HALFAIL_RC(ENOENT, "vtable %d busy (refcount=%d)",
 		   vtable_id, ho_refcnt(vt));
-	    return -ENOENT;
-
 	}
 	HALDBG("vtable %s/%d version %d removed",
 	       hh_get_name(&vt->hdr), vtable_id,  vt->version);
@@ -106,8 +102,7 @@ int halg_reference_vtable(const int use_hal_mutex,
 
 	// make sure no such vtable name already exists
 	if ((vt = halpr_find_vtable_by_name(name, version)) == NULL) {
-	    HALERR("vtable '%s' version %d not found", name, version);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "vtable '%s' version %d not found", name, version);
 	}
 
 	// make sure it's in the proper context
@@ -117,10 +112,9 @@ int halg_reference_vtable(const int use_hal_mutex,
 	int context = getpid(); // in per-process memory, no shareable code
 #endif
 	if (vt->context != context) {
-	    HALERR("vtable %s version %d: "
+	    HALFAIL_RC(ENOENT, "vtable %s version %d: "
 		   "context mismatch - found context %d",
 		   name, version, vt->context);
-	    return -ENOENT;
 	}
 
 	ho_incref(vt);
@@ -144,8 +138,7 @@ int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
 
 	// make sure no such vtable name already exists
 	if ((vt = halpr_find_vtable_by_id(vtable_id)) == NULL) {
-	    HALERR("vtable %d not found", vtable_id);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "vtable %d not found", vtable_id);
 	}
 
 	// make sure it's in the proper context
@@ -155,10 +148,9 @@ int halg_unreference_vtable(const int use_hal_mutex, int vtable_id)
 	int context = getpid(); // in per-process memory, no shareable code
 #endif
 	if (vt->context != context) {
-	    HALERR("vtable %s/%d: "
+	    HALFAIL_RC(ENOENT, "vtable %s/%d: "
 		   "context mismatch - calling context %d vtable context %d",
 		   hh_get_name(&vt->hdr), vtable_id, context, vt->context);
-	    return -ENOENT;
 	}
 	ho_decref(vt);
 	HALDBG("vtable %s/%d refcount=%d",

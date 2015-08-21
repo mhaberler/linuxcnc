@@ -24,13 +24,12 @@ int halg_group_new(const int use_hal_mutex,const char *name, int arg1, int arg2)
 
 	hal_group_t *group = halpr_find_group_by_name(name);
 	if (group != 0) {
-	    HALERR("group '%s' already defined", name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "group '%s' already defined", name);
 	}
 
 	if ((group = halg_create_objectf(0, sizeof(hal_group_t),
 					 HAL_GROUP, 0, name)) == NULL)
-	    return -ENOMEM;
+	    return _halerrno;
 
 	group->userarg1 = arg1;
 	group->userarg2 = arg2;
@@ -52,13 +51,11 @@ int halg_group_delete(const int use_hal_mutex,const char *name)
 
 	hal_group_t *group = halpr_find_group_by_name(name);
 	if (group == NULL) {
-	    HALERR("group '%s' not found", name);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT,"group '%s' not found", name);
 	}
 	if (ho_referenced(group)) {
-	    HALERR("cannot delete group '%s' (still used: %d)",
+	    HALFAIL_RC(EBUSY,"cannot delete group '%s' (still used: %d)",
 		   name, ho_refcnt(group));
-	    return -EBUSY;
 	}
 	// NB: freeing any members is done in free_group_struct
 	free_group_struct(group);
@@ -71,7 +68,7 @@ int hal_ref_group(const char *name)
     WITH_HAL_MUTEX();
     hal_group_t *group  = halpr_find_group_by_name(name);
     if (group == NULL)
-	return -ENOENT;
+	HALFAIL_RC(ENOENT,"group '%s' not found", name);
     ho_incref(group);
     return 0;
 }
@@ -81,7 +78,7 @@ int hal_unref_group(const char *name)
     WITH_HAL_MUTEX();
     hal_group_t *group = halpr_find_group_by_name(name);
     if (group == NULL)
-	return -ENOENT;
+	HALFAIL_RC(ENOENT,"group '%s' not found", name);
     ho_decref(group);
     return 0;
 }
@@ -104,33 +101,29 @@ int halg_member_new(const int use_hal_mutex,const char *group, const char *membe
 
 	hal_group_t *grp = halg_find_object_by_name(0, HAL_GROUP, group).group;
 	if (!grp) {
-	    HALERR("no such group '%s'", group);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "no such group '%s'", group);
 	}
 
 	// fail if group referenced
 	if (ho_referenced(grp)) {
-	    HALERR("cannot change referenced group '%s', refcount=%d",
+	    HALFAIL_RC(EBUSY, "cannot change referenced group '%s', refcount=%d",
 		   group, ho_refcnt(grp));
-	    return -EBUSY;
 	}
 
 	if ((sig = halg_find_object_by_name(0, HAL_SIGNAL, member).sig) == NULL) {
-	    HALERR("no such signal '%s'", member);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "no such signal '%s'", member);
 	}
 
 	// detect duplicate insertion
 	new = halg_find_object_by_name(0, HAL_MEMBER, member).member;
 	if (new != NULL) {
-	    HALERR("group '%s' already has signal '%s' as member", group, member);
-	    return -EBUSY;
+	    HALFAIL_RC(EBUSY, "group '%s' already has signal '%s' as member", group, member);
 	}
 
 	HALDBG("adding signal '%s' to group '%s'",  member, group);
 	if ((new = halg_create_objectf(0, sizeof(hal_member_t),
 				       HAL_MEMBER, ho_id(grp), member)) == NULL)
-	    return -ENOMEM;
+	    return _halerrno;
 
 	ho_incref(sig); // prevent deletion
 
@@ -159,25 +152,21 @@ int halg_member_delete(const int use_hal_mutex,const char *group, const char *me
 
 	grp = halpr_find_group_by_name(group);
 	if (!grp) {
-	    HALERR("no such group '%s'", group);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "no such group '%s'", group);
 	}
 	// fail if group referenced
 	if (ho_referenced(grp)) {
 
-	    HALERR("cannot change referenced group '%s', refcount=%d",
+	    HALFAIL_RC(EBUSY, "cannot change referenced group '%s', refcount=%d",
 		   group,  ho_refcnt(grp));
-	    return -EBUSY;
 	}
 	mptr = halg_find_object_by_name(0, HAL_MEMBER, member).member;
 	if (!mptr) {
-	    HALERR("no such member '%s'", member);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT, "no such member '%s'", member);
 	}
 
 	if ((sig = halpr_find_sig_by_name(member)) == NULL) {
-	    HALBUG("no such signal '%s' ??", member);
-	    return -ENOENT;
+	    HALFAIL_RC(ENOENT," BUG: no such signal '%s' ??", member);
 	} else {
 	    // drop refcnt on signal
 	    ho_decref(sig); // permit deletion if 0
@@ -228,8 +217,7 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
     CHECK_STR(name);
 
     if ((grp = halpr_find_group_by_name(name)) == NULL) {
-	HALERR("no such group '%s'", name);
-	return -EINVAL;
+	HALFAIL_RC(EINVAL, "no such group '%s'", name);
     }
 
     // a compiled group is a userland memory object
@@ -266,9 +254,8 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
     // definition will never trigger a report:
     if ((grp->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS)) &&
 	(tc->n_monitored  == 0)) {
-	HALERR("changed-monitored group '%s' with no members to check",
+	HALFAIL_RC(EINVAL, "changed-monitored group '%s' with no members to check",
 	       name);
-	return -EINVAL;
     }
 
     // set up value tracking if either the whole group is to be monitored for changes
@@ -277,11 +264,11 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
 	(tc->n_monitored  > 0)) {
 	if ((tc->tracking =
 	     malloc(sizeof(hal_data_u) * tc->n_monitored )) == NULL)
-	    return -ENOMEM;
+	    NOMEM("allocating tracking values");
 	memset(tc->tracking, 0, sizeof(hal_data_u) * tc->n_monitored);
 	if ((tc->changed =
 	     malloc(RTAPI_BITMAP_BYTES(tc->n_members))) == NULL)
-	    return -ENOMEM;
+	    NOMEM("allocating change bitmap");
 	RTAPI_ZERO_BITMAP(tc->changed, tc->n_members);
     } else {
 	// nothing to track
@@ -310,7 +297,7 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
     hal_u32_t halu32;
     hal_float_t halfloat,delta;
 
-    HAL_ASSERT(cg->magic ==  CGROUP_MAGIC);
+    HAL_ASSERT(cg->magic == CGROUP_MAGIC);
 
     // scan for changes if needed
     monitor = (cg->group->userarg2 & (GROUP_REPORT_ON_CHANGE|GROUP_REPORT_CHANGED_MEMBERS))
@@ -361,9 +348,8 @@ int hal_cgroup_match(hal_compiled_group_t *cg)
 		}
 		break;
 	    default:
-		HALERR("BUG: detect_changes(%s): invalid type for signal %s: %d",
+		HALFAIL_RC(EINVAL, "BUG: detect_changes(%s): invalid type for signal %s: %d",
 		       ho_name(cg->group), ho_name(ho.sig), sig_type(ho.sig));
-		return -EINVAL;
 	    }
 	    m++;
 	}
@@ -404,7 +390,7 @@ int hal_cgroup_report(hal_compiled_group_t *cg,
 int hal_cgroup_free(hal_compiled_group_t *cgroup)
 {
     if (cgroup == NULL)
-	return -ENOENT;
+	HALFAIL_RC(ENOENT, "null cgroup");
     if (cgroup->tracking)
 	free(cgroup->tracking);
     if (cgroup->changed)

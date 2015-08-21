@@ -27,6 +27,14 @@ void hal_print_loc(const int level,
 	return -(rc);						\
     } while (0)
 
+// same as above - sets _halerrno but does not return
+#define HALFAIL(rc, fmt, ...)					\
+    do {							\
+	hal_print_loc(RTAPI_MSG_ERR,__FUNCTION__,__LINE__-1,	\
+		      "HAL error:", fmt, ## __VA_ARGS__);	\
+	_halerrno = -(rc);					\
+    } while (0)
+
 // use HALFAIL_NULL for methods which return a pointer on success or
 // a NULL to indicate failure.
 // set _halerror to -rc, and return NULL
@@ -69,6 +77,7 @@ void hal_print_loc(const int level,
 			    __FUNCTION__,__LINE__,		\
 			    "HAL error:",			\
 			    "ASSERTION VIOLATED: '%s'", #x);	\
+	    _halerrno = -EINVAL;				\
 	}							\
     } while(0)
 
@@ -80,6 +89,7 @@ void hal_print_loc(const int level,
 			    __FUNCTION__,__LINE__,	\
 			    "HAL error:",		\
 			    "called before init");	\
+	    _halerrno = -EINVAL;			\
 	    return -EINVAL;				\
 	}						\
     } while (0)
@@ -102,6 +112,7 @@ void hal_print_loc(const int level,
 	    hal_print_loc(RTAPI_MSG_ERR,			\
 			    __FUNCTION__,__LINE__,"HAL error:",	\
 			    #p  " is NULL");			\
+	    _halerrno = -EINVAL;				\
 	    return -EINVAL;					\
 	}							\
     } while (0)
@@ -124,6 +135,7 @@ void hal_print_loc(const int level,
 			    __FUNCTION__, __LINE__,"HAL error:",	\
 			    "called while HAL is locked (%d)",		\
 			    ll);					\
+	    _halerrno = -EPERM;						\
 	    return -EPERM;						\
 	}								\
     } while(0)
@@ -190,6 +202,7 @@ void hal_print_loc(const int level,
 			__FUNCTION__, __LINE__,"HAL error:",	\
 			" insufficient memory for: "  fmt,	\
 			## __VA_ARGS__);			\
+	_halerrno = -ENOMEM;					\
 	return -ENOMEM;						\
     } while(0)
 

@@ -21,9 +21,8 @@ static int hal_param_newfv(hal_type_t type,
     int sz;
     sz = rtapi_vsnprintf(name, sizeof(name), fmt, ap);
     if(sz == -1 || sz > HAL_NAME_LEN) {
-        HALERR("length %d invalid too long for name starting '%s'\n",
+        HALFAIL_RC(ENOMEM, "length %d invalid too long for name starting '%s'\n",
 	       sz, name);
-	return -ENOMEM;
     }
     return hal_param_new(name, type, dir, (void *) data_addr, owner_id);
 }
@@ -241,19 +240,16 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
 	hal_param_t *param = halpr_find_param_by_name(name);
 	if (param == 0) {
 	    /* parameter not found */
-	    HALERR("parameter '%s' not found\n", name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, ("parameter '%s' not found\n", name);
 	}
 	/* found it, is type compatible? */
 	if (param->type != type) {
-	    HALERR("parameter '%s': type mismatch %d != %d\n",
+	    HALFAIL_RC(EINVAL, "parameter '%s': type mismatch %d != %d\n",
 		   name, param->type, type);
-	    return -EINVAL;
 	}
 	/* is it read only? */
 	if (param->dir == HAL_RO) {
-	    HALERR("parameter '%s': param is not writable\n", name);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "parameter '%s': param is not writable\n", name);
 	}
 	/* everything is OK, set the value */
 	d_ptr = SHMPTR(param->data_ptr);
@@ -276,9 +272,8 @@ int hal_param_set(const char *name, hal_type_t type, void *value_addr)
 	    break;
 	default:
 	    /* Shouldn't get here, but just in case... */
-	    HALERR("parameter '%s': bad type %d setting param\n",
+	    HALFAIL_RC(EINVAL, "parameter '%s': bad type %d setting param\n",
 		   name, param->type);
-	    return -EINVAL;
 	}
     }
     return 0;

@@ -41,9 +41,11 @@ char *fmt_args(char *buffer,
 // return number of pins in a component, legacy or all-insts
 int halpr_pin_count(const char *name)
 {
+    CHECK_NULL(name);
+    CHECK_HALDATA();
     hal_comp_t *comp = halpr_find_comp_by_name(name);
     if (comp == 0)
-	return -ENOENT;
+	HALFAIL_RC(ENOENT, "no such comp: '%s'", name);
 
     foreach_args_t args =  {
 	.type = HAL_PIN,
@@ -56,9 +58,11 @@ int halpr_pin_count(const char *name)
 int
 halpr_param_count(const char *name)
 {
+    CHECK_NULL(name);
+    CHECK_HALDATA();
     hal_comp_t *comp = halpr_find_comp_by_name(name);
     if (comp == 0)
-	return -ENOENT;
+	HALFAIL_RC(ENOENT, "no such comp: '%s'", name);
 
     foreach_args_t args =  {
 	.type = HAL_PARAM,
@@ -71,6 +75,8 @@ halpr_param_count(const char *name)
 hal_pin_t *
 hal_find_pin_by_name(const char *name)
 {
+    PCHECK_NULL(name);
+    PCHECK_HALDATA();
     WITH_HAL_MUTEX();
     return halpr_find_pin_by_name(name);
 }
@@ -81,6 +87,6 @@ hal_comp_state_by_name(const char *name)
     WITH_HAL_MUTEX();
     hal_comp_t *comp = halpr_find_comp_by_name(name);
     if (comp == NULL)
-	return -ENOENT;
+	HALFAIL_RC(ENOENT, "no such comp: '%s'", name);
     return comp->state;
 }

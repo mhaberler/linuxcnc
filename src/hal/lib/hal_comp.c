@@ -280,8 +280,7 @@ int halg_exit(const int use_hal_mutex, int comp_id)
 	hal_comp_t *comp = halpr_find_comp_by_id(comp_id);
 
 	if (comp == NULL) {
-	    HALERR("no such component with id %d", comp_id);
-	    return -EINVAL;
+	    HALFAIL_RC(EINVAL, "no such component with id %d", comp_id);
 	}
 
 	HALDBG("removing component %d '%s'", comp_id, ho_name(comp));
@@ -342,14 +341,12 @@ int halg_ready(const int use_hal_mutex, int comp_id)
 
     hal_comp_t *comp = halpr_find_comp_by_id(comp_id);
     if (comp == NULL) {
-	HALERR("component %d not found", comp_id);
-	return -EINVAL;
+	HALFAIL_RC(EINVAL, "component %d not found", comp_id);
     }
 
     if(comp->state > COMP_INITIALIZING) {
-	HALERR("component '%s' id %d already ready (state %d)",
+	HALFAIL_RC(EINVAL, "component '%s' id %d already ready (state %d)",
 	       ho_name(comp), ho_id(comp), comp->state);
-        return -EINVAL;
     }
     comp->state = (comp->type == TYPE_REMOTE ?  COMP_UNBOUND : COMP_READY);
     return 0;
@@ -400,9 +397,8 @@ int free_comp_struct(hal_comp_t * comp)
     // dont exit if the comp is still reference, eg a remote comp
     // served by haltalk:
     if (ho_referenced(comp)) {
-	HALERR("not exiting comp %s - still referenced (refcnt=%d)",
+	HALFAIL_RC(EBUSY, "not exiting comp %s - still referenced (refcnt=%d)",
 	       ho_name(comp), ho_refcnt(comp));
-	return -EBUSY;
     }
 
     /* can't delete the component until we delete its "stuff" */
@@ -478,25 +474,21 @@ static int create_instance(const hal_funct_args_t *fa)
 #endif
 
     if (argc < 2) {
-	HALERR("need component name and instance name");
-	return -EINVAL;
+	HALFAIL_RC(EINVAL, "need component name and instance name");
     }
     const char *cname = argv[0];
     const char *iname = argv[1];
 
     hal_comp_t *comp = halpr_find_comp_by_name(cname);
     if (!comp) {
-	HALERR("no such component '%s'", cname);
-	return -EINVAL;
+	HALFAIL_RC(EINVAL,"no such component '%s'", cname);
     }
     if (!comp->ctor) {
-	HALERR("component '%s' not instantiable", cname);
-	return -EINVAL;
+	HALFAIL_RC(EINVAL,"component '%s' not instantiable", cname);
     }
     hal_inst_t *inst = halpr_find_inst_by_name(iname);
     if (inst) {
-	HALERR("instance '%s' already exists", iname);
-	return -EBUSY;
+	HALFAIL_RC(EBUSY,"instance '%s' already exists", iname);
     }
     return comp->ctor(iname, argc - 2, &argv[2]);
 }
@@ -512,8 +504,7 @@ static int delete_instance(const hal_funct_args_t *fa)
     for (i = 0; i < argc; i++)
 	HALDBG("    argv[%d] = \"%s\"", i, argv[i]);
     if (argc < 1) {
-	HALERR("no instance name given");
-	return -EINVAL;
+	HALFAIL_RC(EINVAL,"no instance name given");
     }
     return halg_inst_delete(1, argv[0]);
 }
