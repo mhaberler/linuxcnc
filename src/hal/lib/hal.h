@@ -184,8 +184,9 @@ typedef struct hal_plug hal_plug_t;
 int *_halerrno_location(void);
 #define _halerrno (*_halerrno_location())
 
-// bumped by every internal error
+// bumped by every reference to _halerrno (lvalue or rvalue)
 // optionally clear _halerrno
+// semi-useful
 int hal_errorcount(int clear);
 
 

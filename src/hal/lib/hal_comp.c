@@ -305,6 +305,8 @@ int halg_exit(const int use_hal_mutex, int comp_id)
     // for other processes
     if (comptype == TYPE_HALLIB) {
 	int retval;
+	HALDBG("hal_errorcount()=%d", hal_errorcount(0));
+	HALDBG("_halerrno=%d", _halerrno);
 #ifdef RTAPI
 	report_memory_usage();
 #endif
