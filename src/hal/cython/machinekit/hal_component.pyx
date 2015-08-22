@@ -23,7 +23,7 @@ cdef class Component(HALObject):
                     raise RuntimeError("Failed to create component '%s': - %s" %
                                        (name, hal_lasterror()))
                 if not noexit:
-                    _comps.append(id)  # to exit list
+                    _comps.append(hh_get_id(&self._o.comp.hdr))  # to exit list
             else:
                 self._o.comp = halg_find_object_by_name(0, hal_const.HAL_COMPONENT,
                                                         name).comp
@@ -168,12 +168,12 @@ cdef class Component(HALObject):
             rc = halg_compile_comp(1, self.name, &self._cc)
             if rc < 0:
                 raise RuntimeError("Failed to compile component '%s' - %d : %d - %s" %
-                                   (self.name, self.id,
+                                   (self.name, self.oid,
                                     rc, hal_lasterror()))
         nchanged = hal_ccomp_match(self._cc)
         if nchanged < 0:
                 raise RuntimeError("hal_ccomp_match failed '%s' - %d : %d - %s" %
-                                   (self.name, self.id,
+                                   (self.name, self.oid,
                                     rc, hal_lasterror()))
         if nchanged == 0 and not report_all:
             return 0
