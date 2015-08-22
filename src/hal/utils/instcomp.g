@@ -149,6 +149,8 @@ deprecated = ['s32', 'u32']
 
 global funct_
 funct_ = False
+global funct_name
+funct_name = ""
 
 def initialize():
     global functions, instanceparams, moduleparams, pins, pin_ptrs, rings, options, comp_name, names, docs, variables, userdef_types
@@ -259,9 +261,9 @@ def function(name, fp, doc):
     ## even if default'_' is chosen by author
     if name == '_':
         global funct_
-        name = "%s%s" % (comp_name, name)
+        global funct_name
+        funct_name = "%s%s" % (comp_name, name)
         funct_ = True
-#        print "name of _ changed to %s" % name
     functions.append((name, fp))
 
 def option(name, value):
@@ -642,9 +644,14 @@ def prologue(f):
         print >>f, "static char *iprefix = \"\";"
 
     for name, fp in functions:
+        global funct_name
+        global funct_
         if names.has_key(name):
             Error("Duplicate item name: %s" % name)
-        print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % to_c(name)
+        if funct_ :
+            print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % funct_name
+        else :
+            print >>f, "static int %s(void *arg, const hal_funct_args_t *fa);\n" % to_c(name)
         names[name] = 1
 
     print >>f, "static int instantiate(const char *name, const int argc, const char**argv);\n"
@@ -804,7 +811,10 @@ def prologue(f):
         print >>f, "    hal_export_xfunct_args_t %s_xf = " % to_c(name)
         print >>f, "        {"
         print >>f, "        .type = FS_XTHREADFUNC,"
-        print >>f, "        .funct.x = %s," % to_c(name)
+        if funct_ :
+            print >>f, "        .funct.x = %s," % funct_name
+        else:
+            print >>f, "        .funct.x = %s," % to_c(name)
         print >>f, "        .arg = ip,"
         print >>f, "        .uses_fp = %d," % int(fp)
         print >>f, "        .reentrant = 0,"
@@ -990,11 +1000,9 @@ def prologue(f):
 
     print >>f
     if not options.get("no_convenience_defines"):
-        global funct_
         print >>f, "#undef FUNCTION"
-#        print " funct_ value is %d" % funct_
-        if funct_ :  # only one function already renamed to comp_name_
-            print >>f, "#define FUNCTION(name) static int %s_(void *arg, const hal_funct_args_t *fa)" % comp_name
+        if funct_ :  
+            print >>f, "#define FUNCTION(name) static int %s(void *arg, const hal_funct_args_t *fa)" % funct_name
         else :
             print >>f, "#define FUNCTION(name) static int name(void *arg, const hal_funct_args_t *fa)"
         if options.get("extra_inst_setup"):
