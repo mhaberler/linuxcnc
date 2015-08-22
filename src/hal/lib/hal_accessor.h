@@ -2,7 +2,7 @@
 #define  HAL_ACCESSOR_H
 #include "config.h"
 #include <rtapi.h>
-//#undef HAVE_CK
+#undef HAVE_CK
 
 RTAPI_BEGIN_DECLS
 
@@ -52,15 +52,27 @@ void hal_typefailure(const char *file,
 #define BITCAST    (char *) // (hal_bit_t *)
 #define S32CAST    (int  *) //(hal_s32_t *)
 #define U32CAST    (unsigned *) //(hal_u32_t *)
+
+// issue on arm - pr*64 defined, but not pr_*double
+// see https://github.com/concurrencykit/ck/issues/59
+#if defined(CK_F_PR_LOAD_DOUBLE) && defined(CK_F_PR_STORE_DOUBLE)
 #define FLOATCAST  (double *) //(hal_float_t *)
+#define FLOATSTORE pr_store_double
+#define FLOATLOAD  pr_load_double
+#else
+// fallback on gcc intrinsics
+#define FLOATCAST
+#define FLOATSTORE __atomic_store_8
+#define FLOATLOAD  __atomic_load_8
+#endif
+
 #define BITSTORE   pr_store_char
 #define S32STORE   pr_store_int
 #define U32STORE   pr_store_uint
-#define FLOATSTORE pr_store_double
+
 #define BITLOAD    pr_load_char
 #define S32LOAD    pr_load_int
 #define U32LOAD    pr_load_uint
-#define FLOATLOAD  pr_load_double
 
 #define _STORE(dest, value, op, cast) ck_##op(cast dest, value)
 #define _LOAD(src, op, cast)          ck_##op(cast src)
