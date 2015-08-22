@@ -26,7 +26,7 @@ $(HALNGMKDIR)/hal.c: $(wildcard 	\
 	$(wildcard hal/lib/*.h)		\
 	$(wildcard rtapi/*.h)
 
-ifeq (1,1)
+ifeq (1,0)
 # test module to experiment with bindings
 TESTSO_CSRCS := $(addprefix $(HALNGMKDIR)/, \
 	test.c )
