@@ -2,6 +2,7 @@
 #define  HAL_ACCESSOR_H
 #include "config.h"
 #include <rtapi.h>
+//#undef HAVE_CK
 
 RTAPI_BEGIN_DECLS
 
@@ -35,7 +36,6 @@ void hal_typefailure(const char *file,
     } while (0)
 #endif
 
-
 #if CHECK_ACCESSOR_TYPE
 // optionally compiled-in runtime check on type compatibility
 // when using raw descriptors
@@ -47,12 +47,40 @@ void hal_typefailure(const char *file,
 #endif
 
 
-#ifdef HAVE_CK  // use concurrencykit.org primitives
-#define _STORE(dest, value, op, type) ck_##op((type *)dest, value)
-#define _LOAD(src, op, cast) ck_##op((cast *)src)
-#else // use gcc intrinsics
+
+#ifdef HAVE_CK
+#define BITCAST    (char *) // (hal_bit_t *)
+#define S32CAST    (int  *) //(hal_s32_t *)
+#define U32CAST    (unsigned *) //(hal_u32_t *)
+#define FLOATCAST  (double *) //(hal_float_t *)
+#define BITSTORE   pr_store_char
+#define S32STORE   pr_store_int
+#define U32STORE   pr_store_uint
+#define FLOATSTORE pr_store_double
+#define BITLOAD    pr_load_char
+#define S32LOAD    pr_load_int
+#define U32LOAD    pr_load_uint
+#define FLOATLOAD  pr_load_double
+
+#define _STORE(dest, value, op, cast) ck_##op(cast dest, value)
+#define _LOAD(src, op, cast)          ck_##op(cast src)
+
+#else
+#define BITCAST   // (hal_bit_t *)
+#define S32CAST   // (hal_s32_t *)
+#define U32CAST   // (hal_u32_t *)
+#define FLOATCAST // (hal_float_t *)
+#define BITSTORE   __atomic_store_1
+#define S32STORE   __atomic_store_4
+#define U32STORE   __atomic_store_4
+#define FLOATSTORE __atomic_store_8
+#define BITLOAD    __atomic_load_1
+#define S32LOAD    __atomic_load_4
+#define U32LOAD    __atomic_load_4
+#define FLOATLOAD  __atomic_load_8
+
 #define _STORE(dest, value, op, type) op(dest, value, RTAPI_MEMORY_MODEL)
-#define _LOAD(src, op, cast) op(src, RTAPI_MEMORY_MODEL)
+#define _LOAD(src, op, cast)          op(src, RTAPI_MEMORY_MODEL)
 #endif
 
 
@@ -106,18 +134,12 @@ void hal_typefailure(const char *file,
     return value;							\
     }
 
+
 // emit typed pin setters
-#ifdef HAVE_CK
-PINSETTER(bit,   HAL_BIT,   b, pr_store_8,  uint8_t)
-PINSETTER(s32,   HAL_S32,   s, pr_store_32, uint32_t)
-PINSETTER(u32,   HAL_U32,   u, pr_store_32, uint32_t)
-PINSETTER(float, HAL_FLOAT, f, pr_store_64, uint64_t)
-#else
-PINSETTER(bit,   HAL_BIT,   b, __atomic_store_1,)
-PINSETTER(s32,   HAL_S32,   s, __atomic_store_4,)
-PINSETTER(u32,   HAL_U32,   u, __atomic_store_4,)
-PINSETTER(float, HAL_FLOAT, f, __atomic_store_8,)
-#endif
+PINSETTER(bit,   HAL_BIT,   b, BITSTORE,   BITCAST);
+PINSETTER(s32,   HAL_S32,   s, S32STORE,   S32CAST);
+PINSETTER(u32,   HAL_U32,   u, U32STORE,   U32CAST);
+PINSETTER(float, HAL_FLOAT, f, FLOATSTORE, FLOATCAST);
 
 
 #define PINGETTER(type, otype, letter, op, cast)			\
@@ -140,17 +162,11 @@ PINSETTER(float, HAL_FLOAT, f, __atomic_store_8,)
 
 
 // emit typed pin getters
-#ifdef HAVE_CK
-PINGETTER(bit,   HAL_BIT,   b, pr_load_8,  uint8_t)
-PINGETTER(s32,   HAL_S32,   s, pr_load_32, uint32_t)
-PINGETTER(u32,   HAL_U32,   u, pr_load_32, uint32_t)
-PINGETTER(float, HAL_FLOAT, f, pr_load_64, uint64_t)
-#else
-PINGETTER(bit,   HAL_BIT,   b, __atomic_load_1,)
-PINGETTER(s32,   HAL_S32,   s, __atomic_load_4,)
-PINGETTER(u32,   HAL_U32,   u, __atomic_load_4,)
-PINGETTER(float, HAL_FLOAT, f, __atomic_load_8,)
-#endif
+PINGETTER(bit,   HAL_BIT,   b, BITLOAD,   BITCAST);
+PINGETTER(s32,   HAL_S32,   s, S32LOAD,   S32CAST);
+PINGETTER(u32,   HAL_U32,   u, U32LOAD,   U32CAST);
+PINGETTER(float, HAL_FLOAT, f, FLOATLOAD, FLOATCAST);
+
 
 #define PIN_INCREMENTER(type, tag)					\
     static inline const hal_##type##_t					\
@@ -190,17 +206,10 @@ PIN_INCREMENTER(u32, u)
     }
 
 // emit typed signal getters
-#ifdef HAVE_CK
-SIGGETTER(bit,   HAL_BIT,   b, pr_load_8,  uint8_t)
-SIGGETTER(s32,   HAL_S32,   s, pr_load_32, uint32_t)
-SIGGETTER(u32,   HAL_U32,   u, pr_load_32, uint32_t)
-SIGGETTER(float, HAL_FLOAT, f, pr_load_64, uint64_t)
-#else
-SIGGETTER(bit,   HAL_BIT,   b, __atomic_load_1,)
-SIGGETTER(s32,   HAL_S32,   s, __atomic_load_4,)
-SIGGETTER(u32,   HAL_U32,   u, __atomic_load_4,)
-SIGGETTER(float, HAL_FLOAT, f, __atomic_load_8,)
-#endif
+SIGGETTER(bit,   HAL_BIT,   b, BITLOAD,   BITCAST);
+SIGGETTER(s32,   HAL_S32,   s, S32LOAD,   S32CAST);
+SIGGETTER(u32,   HAL_U32,   u, U32LOAD,   U32CAST);
+SIGGETTER(float, HAL_FLOAT, f, FLOATLOAD, FLOATCAST);
 
 // signal setters - halcmd, python bindings use only (like setting initial value)
 #define _SIGSET(OFFSET, TAG, VALUE, OP, TYPE)				\
@@ -229,18 +238,10 @@ SIGGETTER(float, HAL_FLOAT, f, __atomic_load_8,)
 
 
 // emit typed signal setters
-#ifdef HAVE_CK
-SIGSETTER(bit,   HAL_BIT,   b, pr_store_8,  uint8_t)
-SIGSETTER(s32,   HAL_S32,   s, pr_store_32, uint32_t)
-SIGSETTER(u32,   HAL_U32,   u, pr_store_32, uint32_t)
-SIGSETTER(float, HAL_FLOAT, f, pr_store_64, uint64_t)
-#else
-SIGSETTER(bit,   HAL_BIT,   b, __atomic_store_1,)
-SIGSETTER(s32,   HAL_S32,   s, __atomic_store_4,)
-SIGSETTER(u32,   HAL_U32,   u, __atomic_store_4,)
-SIGSETTER(float, HAL_FLOAT, f, __atomic_store_8,)
-#endif
-
+SIGSETTER(bit,   HAL_BIT,   b, BITSTORE,   BITCAST);
+SIGSETTER(s32,   HAL_S32,   s, S32STORE,   S32CAST);
+SIGSETTER(u32,   HAL_U32,   u, U32STORE,   U32CAST);
+SIGSETTER(float, HAL_FLOAT, f, FLOATSTORE, FLOATCAST);
 
 
 // typed validity tests for pins and signals
