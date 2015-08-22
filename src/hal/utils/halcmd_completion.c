@@ -53,7 +53,7 @@ static const char *command_table[] = {
     "loadrt", "loadusr", "unload", "lock", "unlock",
     "linkps", "linksp", "linkpp", "unlinkp",
     "net", "newsig", "delsig", "getp", "gets", "setp", "sets", "sete", "ptype", "stype",
-    "addf", "delf", "show", "list", "status", "save", "source","sweep",
+    "addf", "call", "delf", "show", "list", "status", "save", "source","sweep",
     "start", "stop", "quit", "exit", "help",
     "newg"," delg", "newm", "delm",
     "newring","delring","ringdump","ringwrite","ringflush",
@@ -363,23 +363,23 @@ static int yield_setpp(hal_object_ptr o, foreach_args_t *args)
 {
     size_t len = strlen(args->user_ptr1);
     if (len && strncmp(hh_get_name(o.hdr),    // prefix match
-               args->user_ptr1,
-               len))
-    return 0;
+		       args->user_ptr1,
+		       len))
+	return 0;
 
     switch (hh_get_object_type(o.hdr)) {
     case HAL_PARAM:
-    if (o.param->dir != HAL_RO) {
-        args->result = strdup(hh_get_name(o.hdr));
-        return 1;
-    }
-    break;
+	if (o.param->dir != HAL_RO) {
+	    args->result = strdup(hh_get_name(o.hdr));
+	    return 1;
+	}
+	break;
     case HAL_PIN:
-    if (o.pin->dir != HAL_OUT && pin_is_linked(o.pin)) {
-        args->result = strdup(hh_get_name(o.hdr));
-        return 1;
-    }
-    break;
+	if (o.pin->dir != HAL_OUT && !pin_is_linked(o.pin)) {
+	    args->result = strdup(hh_get_name(o.hdr));
+	    return 1;
+	}
+	break;
     default: ;
     }
     return 0;
@@ -388,8 +388,8 @@ static int yield_setpp(hal_object_ptr o, foreach_args_t *args)
 static char *setp_generator(const char *text, int state)
 {
     if (!state) {
-    zero_foreach_args(&cargs);
-    cargs.user_ptr1 = (char *) text;
+	zero_foreach_args(&cargs);
+	cargs.user_ptr1 = (char *) text;
     }
     halg_yield(0, &cargs, yield_setpp);
     return cargs.result;
