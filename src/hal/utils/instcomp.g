@@ -147,6 +147,9 @@ typemap = {'signed': 's32', 'unsigned': 'u32'}
 deprmap = {'s32': 'signed', 'u32': 'unsigned'}
 deprecated = ['s32', 'u32']
 
+global funct_
+funct_ = False
+
 def initialize():
     global functions, instanceparams, moduleparams, pins, pin_ptrs, rings, options, comp_name, names, docs, variables, userdef_types
     global modparams, userdef_includes
@@ -252,6 +255,13 @@ def function(name, fp, doc):
     check_name_ok(name)
     docs.append(('funct', name, fp, doc))
     names[name] = None
+    ## debugging feature request that functions be uniquely named
+    ## even if default'_' is chosen by author
+    if name == '_':
+        global funct_
+        name = "%s%s" % (comp_name, name)
+        funct_ = True
+#        print "name of _ changed to %s" % name
     functions.append((name, fp))
 
 def option(name, value):
@@ -980,8 +990,13 @@ def prologue(f):
 
     print >>f
     if not options.get("no_convenience_defines"):
+        global funct_
         print >>f, "#undef FUNCTION"
-        print >>f, "#define FUNCTION(name) static int name(void *arg, const hal_funct_args_t *fa)"
+#        print " funct_ value is %d" % funct_
+        if funct_ :  # only one function already renamed to comp_name_
+            print >>f, "#define FUNCTION(name) static int %s_(void *arg, const hal_funct_args_t *fa)" % comp_name
+        else :
+            print >>f, "#define FUNCTION(name) static int name(void *arg, const hal_funct_args_t *fa)"
         if options.get("extra_inst_setup"):
             print >>f, "// if the extra_inst_setup returns non zero it will abort the module creation"
             print >>f, "#undef EXTRA_INST_SETUP"
