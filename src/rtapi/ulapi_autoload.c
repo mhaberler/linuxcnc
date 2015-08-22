@@ -314,7 +314,7 @@ static int ulapi_load(rtapi_switch_t **ulapi_switch)
 
     // call the ulapi init method, passing in the global segment
     if ((retval = ulapi_main_ref(rtapi_instance,
-				 flavor->id, global_data)) < 0) {
+				 flavor->flavor_id, global_data)) < 0) {
 	// check shmdrv, permissions
 	rtapi_print_msg(RTAPI_MSG_ERR,
 		"HAL_LIB: FATAL - cannot attach to instance %d"
@@ -324,10 +324,10 @@ static int ulapi_load(rtapi_switch_t **ulapi_switch)
     }
 
     // pretty bad - we loaded the wrong ulapi.so
-    if (flavor->id != rtapi_switch->thread_flavor_id) {
+    if (flavor->flavor_id != rtapi_switch->thread_flavor_id) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "HAL_LIB: BUG: thread flavors disagree:"
 			" hal_lib.c=%d rtapi=%d\n",
-		flavor->id, rtapi_switch->thread_flavor_id);
+		flavor->flavor_id, rtapi_switch->thread_flavor_id);
     }
 
     // sanity check - may be harmless

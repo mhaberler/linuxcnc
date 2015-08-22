@@ -462,18 +462,18 @@ static int flavor_and_kernel_compatible(flavor_ptr f)
 {
     int retval = 1;
 
-    if (f->id == RTAPI_POSIX_ID)
+    if (f->flavor_id == RTAPI_POSIX_ID)
 	return 1; // no prerequisites
 
     if (kernel_is_xenomai()) {
-	if (f->id == RTAPI_RT_PREEMPT_ID) {
+	if (f->flavor_id == RTAPI_RT_PREEMPT_ID) {
 	    fprintf(stderr,
 		    "MSGD:%d Warning: starting %s RTAPI on a Xenomai kernel\n",
 		    rtapi_instance, f->name);
 	    return 1;
 	}
-	if ((f->id != RTAPI_XENOMAI_ID) &&
-	    (f->id != RTAPI_XENOMAI_KERNEL_ID)) {
+	if ((f->flavor_id != RTAPI_XENOMAI_ID) &&
+	    (f->flavor_id != RTAPI_XENOMAI_KERNEL_ID)) {
 	    fprintf(stderr,
 		    "MSGD:%d ERROR: trying to start %s RTAPI on a Xenomai kernel\n",
 		    rtapi_instance, f->name);
@@ -482,14 +482,14 @@ static int flavor_and_kernel_compatible(flavor_ptr f)
     }
 
     if (kernel_is_rtai() &&
-	(f->id != RTAPI_RTAI_KERNEL_ID)) {
+	(f->flavor_id != RTAPI_RTAI_KERNEL_ID)) {
 	fprintf(stderr, "MSGD:%d ERROR: trying to start %s RTAPI on an RTAI kernel\n",
 		    rtapi_instance, f->name);
 	return 0;
     }
 
     if (kernel_is_rtpreempt() &&
-	(f->id != RTAPI_RT_PREEMPT_ID)) {
+	(f->flavor_id != RTAPI_RT_PREEMPT_ID)) {
 	fprintf(stderr, "MSGD:%d ERROR: trying to start %s RTAPI on an RT PREEMPT kernel\n",
 		rtapi_instance, f->name);
 	return 0;
@@ -904,7 +904,7 @@ int main(int argc, char **argv)
     }
 
     // catch installation error: user not in xenomai group
-    if (flavor->id == RTAPI_XENOMAI_ID) {
+    if (flavor->flavor_id == RTAPI_XENOMAI_ID) {
 	int retval = user_in_xenomai_group();
 
 	switch (retval) {
@@ -1015,7 +1015,7 @@ int main(int argc, char **argv)
     // gets initialized - no reinitialization from elsewhere
     if (init_global_data(global_data,
 			 actual_global_size,
-			 flavor->id,
+			 flavor->flavor_id,
 			 rtapi_instance,
 			 halsize,
 			 rt_msglevel,

@@ -1466,7 +1466,7 @@ static int harden_rt()
 	}
     }
 
-    if (flavor->id == RTAPI_XENOMAI_ID) {
+    if (flavor->flavor_id == RTAPI_XENOMAI_ID) {
 	int retval = user_in_xenomai_group();
 
 	switch (retval) {
