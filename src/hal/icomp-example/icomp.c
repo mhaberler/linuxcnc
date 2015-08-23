@@ -13,6 +13,8 @@ static int comp_id;
 static char *compname = "icomp";
 
 struct inst_data {
+    int argc;      // newinstance args
+    char **argv;
     hal_float_t *out; // pins
     hal_float_t *in;
     hal_s32_t    iter; // a param
@@ -117,6 +119,10 @@ static int instantiate(const char *name, const int argc, const char**argv)
     HALDBG("instance parms: repeat=%d prefix='%s'", repeat, prefix);
     HALDBG("module parms: answer=%d text='%s'", answer, text);
 
+    // retain instance args
+    ip->argc = argc;
+    ip->argv = (char **)argv;
+
     // these pins/params/functs will be owned by the instance,
     // and can be separately exited 'halcmd delinst <instancename>'
     int retval = export_halobjs(ip, inst_id, name);
@@ -148,10 +154,16 @@ static int instantiate(const char *name, const int argc, const char**argv)
 //   destructor returns
 static int delete(const char *name, void *inst, const int inst_size)
 {
+    struct inst_data *ip = inst;
+    int n;
 
-    HALERR("inst=%s size=%d %p\n", name, inst_size, inst);
-    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
-    HALERR("module parms: answer=%d text='%s'", answer, text);
+    HALDBG("inst=%s size=%d %p\n", name, inst_size, inst);
+    HALDBG("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALDBG("module parms: answer=%d text='%s'", answer, text);
+    HALDBG("original instance args: %d'", ip->argc);
+
+    for(n = 0; n < ip->argc; n++)
+        HALDBG("argv[%d] = '%s'", n, ip->argv[n]);
 
     return 0;
 }
