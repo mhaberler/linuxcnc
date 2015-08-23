@@ -499,6 +499,8 @@ typedef _Bool hal_bool;
 typedef volatile hal_bool hal_bit_t;
 typedef volatile __u32 hal_u32_t;
 typedef volatile __s32 hal_s32_t;
+typedef volatile __s64 hal_s64_t;
+typedef volatile __u64 hal_u64_t;
 typedef double real_t __attribute__((aligned(8)));
 typedef __u64 ireal_t __attribute__((aligned(8))); // integral type as wide as real_t / hal_float_t
 #define hal_float_t volatile real_t
@@ -511,7 +513,20 @@ typedef union {
     hal_bit_t _b;
     hal_s32_t _s;
     hal_u32_t _u;
+    hal_s64_t _s64;
+    hal_u64_t _u64;
     hal_float_t _f;
+
+    // debuging & regression test use
+    struct {
+	hal_u32_t _u1;
+	hal_u32_t _u2;
+    } _uints;
+    __u8 _bytes[8];
+    struct {
+	float _fs;
+	__u32 _extra;
+    } _single;
 } hal_data_u;
 
 /***********************************************************************
