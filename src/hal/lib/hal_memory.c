@@ -181,34 +181,67 @@ void report_memory_usage(void)
 
 // Added ArcEye 11082015 for use with instanceparam strings
 
-char *halg_strdup(const int use_hal_mutex, const char *paramptr)
+char *halg_strdup(const int use_hal_mutex, const char *s)
 {
-char buf[80];
-
-    int sz = rtapi_snprintf(buf, sizeof(buf), paramptr);
-    if(sz == -1 || sz > sizeof(buf)) {
-        HALFAIL_NULL(ENOMEM, "Invalid length %d  when duplicating %s'", sz, paramptr);
+    PCHECK_STRLEN(s, HAL_MAX_NAME_LEN);
+    PCHECK_NULL(s);
+    size_t sz = strlen(s);
+    char *p = rtapi_calloc(global_heap, 1, sz + 1); // include trailing zero
+    if (p == NULL) {
+        HALFAIL_NULL(ENOMEM,
+		     "out of memory allocating %d bytes for '%s'",
+		     sz+1, s);
     }
-    char *s = shmalloc_desc(sz + 1); // include trailing zero
-    if (s == NULL) {
-        HALFAIL_NULL(ENOMEM, "out of memory allocating %d bytes for '%s'",
-		     sz+1, buf);
-    }
-    strcpy(s, buf);
+    strcpy(p, s);
     hal_data->str_alloc += (sz + 1);
-    
-    return s;
-
+    return p;
 }
 
 int halg_free_str(char *s)
 {
-    if (s == NULL) 
-        {
-        HALFAIL_RC(ENOMEM, "NULL pointer passed");
-        }
-    else
-        shmfree_desc(s);
-    
+    CHECK_NULL(s);
+    hal_data->str_freed += strlen(s) + 1;
+    rtapi_free(global_heap, s);
+    return 0;
+}
+
+
+char **halg_dupargv(const bool use_hal_mutex,
+		    const int argc,
+		    const char **argv)
+{
+    int i;
+    if (argc > MAX_ARGC)
+	HALFAIL_NULL(EINVAL,"argv too large: argc=%d", argc);
+
+    if (argv == NULL)
+	return 0;
+
+    char **nargv =  rtapi_calloc(global_heap, sizeof(char *), argc + 1);
+    if (nargv == NULL)
+	HALFAIL_NULL(ENOMEM, "argc=%d", argc);
+
+    for (i = 0; i < argc - 1; i++) {
+	nargv[i] = strdup(argv[i]);
+	if (nargv[i] == NULL)
+	    HALFAIL_NULL(ENOMEM, "i=%d",i);
+    }
+    nargv[argc] = NULL;
+    return nargv;
+}
+
+int halg_free_argv(const bool use_hal_mutex,
+		   char **argv)
+{
+    WITH_HAL_MUTEX_IF(use_hal_mutex);
+
+    if (argv == NULL)
+	return 0;
+    char **s = argv;
+    while (*s) {
+	halg_free_str(*s);
+	s++;
+    }
+    rtapi_free(global_heap, argv);
     return 0;
 }

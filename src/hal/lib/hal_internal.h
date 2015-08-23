@@ -72,6 +72,12 @@ char *halg_strdup(const int use_hal_mutex, const char *paramptr);
 int halg_free_str(char *s);
 int zero_hal_data_u(const int type, hal_data_u *u);
 
+int halg_free_argv(const bool use_hal_mutex,
+		    char **argv);
+char **halg_dupargv(const bool use_hal_mutex,
+		     const int argc,
+		     const char **argv);
+
 RTAPI_END_DECLS
 
 #endif /* HAL_INTERNAL_H */
