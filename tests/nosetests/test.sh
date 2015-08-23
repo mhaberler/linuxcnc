@@ -8,5 +8,5 @@ if [ "$nt" == "" ]; then
 fi
 for t in $EMC2_HOME/nosetests/*.py
 do
-    nosetests  $FLAGS  $t
+    nosetests  $FLAGS  $t || exit 1
 done
