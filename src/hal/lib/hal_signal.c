@@ -28,70 +28,12 @@ int halg_signal_new(const int use_hal_mutex,
 	if (halpr_find_sig_by_name(name) != 0) {
 	    HALFAIL_RC(EINVAL, "duplicate signal '%s'", name);
 	}
-	/* allocate memory for the signal value */
-#ifdef LEGACY_SIGNALS
-	void *data_addr;
-
-	switch (type) {
-	case HAL_BIT:
-	    data_addr = shmalloc_rt(sizeof(hal_bit_t));
-	    break;
-	case HAL_S32:
-	    data_addr = shmalloc_rt(sizeof(hal_u32_t));
-	    break;
-	case HAL_U32:
-	    data_addr = shmalloc_rt(sizeof(hal_s32_t));
-	    break;
-	case HAL_FLOAT:
-	    data_addr = shmalloc_rt(sizeof(hal_float_t));
-	    break;
-	default:
-	    HALFAIL_RC(EINVAL, "signal '%s': illegal signal type %d'", name, type);
-	    break;
-	}
-#endif
 	// allocate signal descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_sig_t),
 				       HAL_SIGNAL, 0, name)) == NULL) {
 	    return _halerrno;
 	}
 
-#ifdef SIG_DATA_PTR // retain legacy sig.data_ptr field
-#ifndef LEGACY_SIGNALS
-	switch (type) {
-	case HAL_BIT:
-	case HAL_S32:
-	case HAL_U32:
-	case HAL_FLOAT:
-	    data_addr = &new->value; // store value in descriptor
-	    break;
-	default:
-	    halg_free_object(0, (hal_object_ptr)new);
-	    HALFAIL_RC(EINVAL,"signal '%s': illegal signal type %d'", name, type);
-	    break;
-	}
-#else
-	hh_set_legacy(&new->hdr);
-#endif
-	/* initialize the signal value */
-	switch (type) {
-	case HAL_BIT:
-	    *((hal_bit_t *) data_addr) = 0;
-	    break;
-	case HAL_S32:
-	    *((hal_s32_t *) data_addr) = 0;
-	    break;
-	case HAL_U32:
-	    *((hal_u32_t *) data_addr) = 0;
-	    break;
-	case HAL_FLOAT:
-	    *((hal_float_t *) data_addr) = 0.0;
-	    break;
-	default:
-	    break;
-	}
-	new->data_ptr = SHMOFF(data_addr);
-#else
 	switch (type) {
 	case HAL_BIT:
 	    set_bit_value(&new->value, 0);
@@ -115,7 +57,6 @@ int halg_signal_new(const int use_hal_mutex,
 	    break;
 	}
 
-#endif
 	/* initialize the structure */
 	new->type = type;
 	new->readers = 0;
