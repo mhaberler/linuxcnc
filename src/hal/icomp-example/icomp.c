@@ -98,6 +98,11 @@ static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
 static int instantiate(const char *name, const int argc, const char**argv)
 {
     struct inst_data *ip;
+    int n;
+
+    for(n = 0; n < argc; n++)
+        HALDBG("argv[%d] = '%s'", n, argv[n]);
+
 
     // allocate a named instance, and some HAL memory for the instance data
     int inst_id = hal_inst_create(name, comp_id,
@@ -108,9 +113,9 @@ static int instantiate(const char *name, const int argc, const char**argv)
 
     // here ip is guaranteed to point to a blob of HAL memory
     // of size sizeof(struct inst_data).
-    HALERR("inst=%s argc=%d\n", name, argc);
-    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
-    HALERR("module parms: answer=%d text='%s'", answer, text);
+    HALDBG("inst=%s argc=%d\n", name, argc);
+    HALDBG("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALDBG("module parms: answer=%d text='%s'", answer, text);
 
     // these pins/params/functs will be owned by the instance,
     // and can be separately exited 'halcmd delinst <instancename>'
