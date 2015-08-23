@@ -7,10 +7,10 @@
 #include "hal_internal.h"
 
 int halg_inst_create(const int use_hal_mutex,
-		    const char *name,
-		    const int comp_id,
-		    const int size,
-		    void **inst_data)
+		     const char *name,
+		     const int comp_id,
+		     const int size,
+		     void **inst_data)
 {
     CHECK_HALDATA();
     CHECK_STR(name);
@@ -48,6 +48,7 @@ int halg_inst_create(const int use_hal_mutex,
 
 	inst->inst_data_ptr = SHMOFF(m);
 	inst->inst_size = size;
+	inst->frozen_argv = NULL; // set in create_instance post-call
 
 	HALDBG("%s: creating instance '%s' size %d",
 #ifdef RTAPI
@@ -147,6 +148,10 @@ void free_inst_struct(hal_inst_t * inst)
     args.type = HAL_PLUG;
     halg_foreach(0, &args, yield_free);  // free plugs
 
+    // free frozen argv if any
+    if (inst->frozen_argv) {
+	halg_free_argv(0, inst->frozen_argv);
+    }
     // now we can delete the instance itself
     halg_free_object(false, (hal_object_ptr) inst);
 }
