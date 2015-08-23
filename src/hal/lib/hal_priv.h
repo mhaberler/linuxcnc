@@ -327,6 +327,9 @@ typedef struct hal_inst {
     halhdr_t hdr;		// common HAL object header
     int inst_data_ptr;          // offset of instance data in HAL shm segment
     int inst_size;              // size of instdata blob
+    char **frozen_argv;         // copy of the newinst argument vectors
+                                // lives in global heap
+                                // destroyed in free_inst_struct
 } hal_inst_t;
 
 /** HAL 'pin' data structure.
