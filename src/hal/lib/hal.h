@@ -135,6 +135,7 @@ RTAPI_BEGIN_DECLS
 #define HAL_NAME_LEN     41	// legacy length limit
 #define HAL_MAX_NAME_LEN 127	// actual limit at HAL layer (new-style halg_* methods)
 #define HAL_DEFAULT_RINGSIZE    1024
+#define MAX_ARGC         30     // realistic max argc count for module/inst params
 
 /** These locking codes define the state of HAL locking, are used by most functions */
 /** The functions locked will return a -EPERM error message **/
@@ -1140,17 +1141,20 @@ int hal_call_usrfunct(const char *name, const int argc, const char **argv, int *
 // comp_id) is now called owner_id, and can either originate from
 // a hal_init/hal_xinit call, or a hal_inst_create call.
 // returns < 0 on error.
+
 int halg_inst_create(const int use_hal_mutex,
-		    const char *name,
-		    const int comp_id,
-		    const int size,
-		    void **inst_data);
+				   const char *name,
+				   const int comp_id,
+				   const int size,
+		     void **inst_data);
+
 static inline int hal_inst_create(const char *name,
 				  const int comp_id,
 				  const int size,
 				  void **inst_data) {
     return halg_inst_create(1, name, comp_id, size, inst_data);
 }
+
 
 // delete a named instance.
 // unlinks & deletes all pins owned by this instance
