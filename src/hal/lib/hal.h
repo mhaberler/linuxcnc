@@ -455,7 +455,10 @@ typedef enum {
     HAL_BIT = 1,
     HAL_FLOAT = 2,
     HAL_S32 = 3,
-    HAL_U32 = 4
+    HAL_U32 = 4,
+    HAL_S64 = 5,
+    HAL_U64 = 6,
+    HAL_TYPE_MAX
 } hal_type_t;
 
 /** HAL pins have a direction attribute.  A pin may be an input to
