@@ -422,7 +422,7 @@ EXPORT_SYMBOL(hal_print_msg);
 EXPORT_SYMBOL(hal_print_error);
 EXPORT_SYMBOL(hal_print_loc);
 EXPORT_SYMBOL(hal_lasterror);
-EXPORT_SYMBOL(_halerrno);
+//EXPORT_SYMBOL(_halerrno);
 EXPORT_SYMBOL(_halerrno_location);
 EXPORT_SYMBOL(hal_errorcount);
 EXPORT_SYMBOL(hal_shmem_base);
