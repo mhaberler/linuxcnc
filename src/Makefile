@@ -1778,9 +1778,13 @@ cscope/man/:
 	bash -c 'for f in `find ./ -name "cscope.*out"`;do rm $$f;done'
 
 NOSETESTS := $(wildcard ../nosetests/*.py)
+NOSETEST_FLAGS := -v
 nosetest:
-	$(foreach var,$(NOSETESTS),nosetests -v $(var);)
+	for n in $(NOSETESTS); do \
+		nosetests $(NOSETEST_FLAGS) $$n; \
+	done;
 
+nosetests: nosetest
 
 TEMPDIR := $(shell mktemp -u)
 # disassemble a .so and create interspersed C/disassembly
