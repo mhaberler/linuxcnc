@@ -20,6 +20,7 @@
 int main()
 {
     printf("int = %zu\n", sizeof(int));
+    printf("bool = %zu\n", sizeof(bool));
     printf("size_t = %zu\n", sizeof(size_t));
     printf("void* = %zu\n", sizeof(void *));
     printf("ptrdiff_t = %zu\n", sizeof(ptrdiff_t));
