@@ -189,7 +189,7 @@ char *halg_strdup(const int use_hal_mutex, const char *s)
     char *p = rtapi_calloc(global_heap, 1, sz + 1); // include trailing zero
     if (p == NULL) {
         HALFAIL_NULL(ENOMEM,
-		     "out of memory allocating %d bytes for '%s'",
+		     "out of memory allocating %zu bytes for '%s'",
 		     sz+1, s);
     }
     strcpy(p, s);
