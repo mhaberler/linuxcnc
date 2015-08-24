@@ -25,7 +25,7 @@ def test_loadrt_ringmods():
     l.log()
     rt.loadrt("ringwrite", "ring=ring_2")
     l.log()
-    rt.loadrt("charge_pump")
+    rt.newinst("charge_pump", "charge-pump")
     l.log()
 
 def test_net():

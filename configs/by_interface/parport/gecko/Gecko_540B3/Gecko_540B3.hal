@@ -9,7 +9,7 @@ loadrt probe_parport
 loadrt hal_parport cfg="0x378 out  "
 setp parport.0.reset-time 1000
 loadrt stepgen step_type=0,0,0
-loadrt charge_pump
+newinst charge_pump charge-pump
 net estop-out charge-pump.enable iocontrol.0.user-enable-out
 net charge-pump <= charge-pump.out
 
