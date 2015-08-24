@@ -513,20 +513,26 @@ typedef union {
     hal_bit_t _b;
     hal_s32_t _s;
     hal_u32_t _u;
-    hal_s64_t _s64;
-    hal_u64_t _u64;
     hal_float_t _f;
 
+    hal_s64_t _ls;
+    hal_u64_t _lu;
+    // access for atomics
     // debuging & regression test use
     struct {
 	hal_u32_t _u1;
 	hal_u32_t _u2;
-    } _uints;
+    } _uint;
     __u8 _bytes[8];
     struct {
 	float _fs;
 	__u32 _extra;
     } _single;
+    // aliases for atomic access
+    __u8  _u8;
+    __u32 _u32;
+    __u64 _u64;
+    __s64 _s64;
 } hal_data_u;
 
 /***********************************************************************
@@ -561,16 +567,20 @@ extern unsigned char hal_get_lock(void);
 
 // context-independent - use offsets
 
-typedef struct { shmoff_t _bp; } bit_pin_ptr;
-typedef struct { shmoff_t _sp; } s32_pin_ptr;
-typedef struct { shmoff_t _up; } u32_pin_ptr;
-typedef struct { shmoff_t _fp; } float_pin_ptr;
+typedef struct { shmoff_t _bp;   } bit_pin_ptr;
+typedef struct { shmoff_t _sp;   } s32_pin_ptr;
+typedef struct { shmoff_t _up;   } u32_pin_ptr;
+typedef struct { shmoff_t _lsp;  } s64_pin_ptr;
+typedef struct { shmoff_t _lup;  } u64_pin_ptr;
+typedef struct { shmoff_t _fp;   } float_pin_ptr;
 
 // same trick for signals
-typedef struct { shmoff_t _bs; } bit_sig_ptr;
-typedef struct { shmoff_t _ss; } s32_sig_ptr;
-typedef struct { shmoff_t _us; } u32_sig_ptr;
-typedef struct { shmoff_t _fs; } float_sig_ptr;
+typedef struct { shmoff_t _bs;   } bit_sig_ptr;
+typedef struct { shmoff_t _ss;   } s32_sig_ptr;
+typedef struct { shmoff_t _us;   } u32_sig_ptr;
+typedef struct { shmoff_t _lss;  } s64_sig_ptr;
+typedef struct { shmoff_t _lus;  } u64_sig_ptr;
+typedef struct { shmoff_t _fs;   } float_sig_ptr;
 
 #if 0
 // params are on the way out, so dont bother

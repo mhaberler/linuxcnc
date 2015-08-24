@@ -179,12 +179,16 @@ typedef union {
     bit_pin_ptr  bitpin;
     s32_pin_ptr  s32pin;
     u32_pin_ptr  u32pin;
+    s64_pin_ptr  s64pin;
+    u64_pin_ptr  u64pin;
     float_pin_ptr floatpin;
 
     // type aliases for signal access
     bit_sig_ptr    bitsig;
     s32_sig_ptr    s32sig;
     u32_sig_ptr    u32sig;
+    s64_sig_ptr    s64sig;
+    u64_sig_ptr    u64sig;
     float_sig_ptr  floatsig;
 
 #if 0  // params are deprecated
