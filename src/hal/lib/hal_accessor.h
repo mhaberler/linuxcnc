@@ -144,16 +144,6 @@ void __atomic_store (type *ptr, type *val, int memorder)
     return rv.TAG
 
 
-// atomically increment a value (integral types only)
-// unclear how to do the equivalent of an __atomic_add_fetch
-// with ck, so use gcc intrinsics for now:
-#define _INCREMENT(U, DESC, TYPE, TAG, VALUE)				\
-    TYPE rvalue = __atomic_add_fetch(&U->TAG, VALUE,			\
-				     RTAPI_MEMORY_MODEL);		\
-    if (unlikely(hh_get_wmb(&DESC->hdr)))				\
-	rtapi_smp_wmb();						\
-    return rvalue;
-
 
 // export context-independent setters which are strongly typed,
 // and context-dependent accessors with a descriptor argument,
@@ -214,7 +204,19 @@ PINGETTER(u32,   HAL_U32,   u,   _u,  U32LOAD,   U32CAST);
 PINGETTER(float, HAL_FLOAT, f,   _f,  FLOATLOAD, FLOATCAST);
 PINGETTER(u64,   HAL_U64,   lu,  _lu, U64LOAD,   U64CAST);
 PINGETTER(s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
+
 #if 0
+
+// atomically increment a value (integral types only)
+// unclear how to do the equivalent of an __atomic_add_fetch
+// with ck, so use gcc intrinsics for now:
+#define _INCREMENT(U, DESC, TYPE, TAG, VALUE)				\
+    TYPE rvalue = __atomic_add_fetch(&U->TAG, VALUE,			\
+				     RTAPI_MEMORY_MODEL);		\
+    if (unlikely(hh_get_wmb(&DESC->hdr)))				\
+	rtapi_smp_wmb();						\
+    return rvalue;
+
 #define PIN_INCREMENTER(type, tag)					\
     static inline const hal_##type##_t					\
 	 incr_##type##_pin(type##_pin_ptr p,				\
@@ -236,7 +238,6 @@ PIN_INCREMENTER(s32, s)
 PIN_INCREMENTER(u32, u)
 #endif
 
-#if 1
 // signal getters
 #define SIGGETTER(TYPE, OTYPE, LETTER, ACCESS, OP, CAST)		\
     static inline const hal_##TYPE##_t					\
@@ -261,20 +262,6 @@ SIGGETTER(u32,   HAL_U32,   u,   _u,  U32LOAD,   U32CAST);
 SIGGETTER(float, HAL_FLOAT, f,   _f,  FLOATLOAD, FLOATCAST);
 SIGGETTER(u64,   HAL_U64,   lu,  _lu, U64LOAD,   U64CAST);
 SIGGETTER(s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
-
-#endif
-
-#if 1
-/* SIGGETTER(bit,   HAL_BIT,   b, BITLOAD,   BITCAST); */
-/* SIGGETTER(s32,   HAL_S32,   s, S32LOAD,   S32CAST); */
-/* SIGGETTER(u32,   HAL_U32,   u, U32LOAD,   U32CAST); */
-/* SIGGETTER(float, HAL_FLOAT, f, FLOATLOAD, FLOATCAST); */
-
-/* // signal setters - halcmd, python bindings use only (like setting initial value) */
-/* #define _SIGSET(OFFSET, TAG, VALUE, OP, TYPE)				\ */
-/*     _STORE(&u->TAG, VALUE, OP, TYPE);					\ */
-/*     if (unlikely(hh_get_wmb(&sig->hdr)))				\ */
-/* 	rtapi_smp_wmb(); */
 
 #define SIGSETTER(TYPE, OTYPE, LETTER, ACCESS, OP, CAST)		\
     static inline const hal_##TYPE##_t					\
@@ -305,38 +292,28 @@ SIGSETTER(u64,   HAL_U64,   lu,  _lu, U64STORE,   U64CAST);
 SIGSETTER(s64,   HAL_S64,   ls,  _ls, S64STORE,   S64CAST);
 SIGSETTER(float, HAL_FLOAT, f,   _f,  FLOATSTORE, FLOATCAST);
 
-/* SIGSETTER(bit,   HAL_BIT,   b, BITSTORE,   BITCAST); */
-/* SIGSETTER(s32,   HAL_S32,   s, S32STORE,   S32CAST); */
-/* SIGSETTER(u32,   HAL_U32,   u, U32STORE,   U32CAST); */
-/* SIGSETTER(float, HAL_FLOAT, f, FLOATSTORE, FLOATCAST); */
+// typed NULL tests for pins and signals
+#define PINNULL(TYPE, FIELD)						\
+    static inline bool TYPE##_pin_null(const TYPE##_pin_ptr p) {	\
+	return p.FIELD == 0;						\
+}
+PINNULL(bit,  _bp)
+PINNULL(s32,  _sp)
+PINNULL(u32,  _up)
+PINNULL(u64,  _lup)
+PINNULL(s64,  _lsp)
+PINNULL(float,_fp)
 
-#endif
-
-// typed validity tests for pins and signals
-static inline bool bit_pin_null(const bit_pin_ptr b) {
-    return b._bp == 0;
+#define SIGNULL(TYPE, FIELD)						\
+    static inline bool TYPE##_sig_null(const TYPE##_sig_ptr s) {	\
+	return s.FIELD == 0;						\
 }
-static inline bool s32_pin_null(const s32_pin_ptr b) {
-    return b._sp == 0;
-}
-static inline bool u32_pin_null(const u32_pin_ptr b) {
-    return b._up == 0;
-}
-static inline bool float_pin_null(const float_pin_ptr b) {
-    return b._fp == 0;
-}
-static inline bool bit_sig_null(const bit_sig_ptr s) {
-    return s._bs == 0;
-}
-static inline bool s32_sig_null(const s32_sig_ptr s) {
-    return s._ss == 0;
-}
-static inline bool u32_sig_null(const u32_sig_ptr s) {
-    return s._us == 0;
-}
-static inline bool float_sig_null(const float_sig_ptr s) {
-    return s._fs == 0;
-}
+SIGNULL(bit,  _bs)
+SIGNULL(s32,  _ss)
+SIGNULL(u32,  _us)
+SIGNULL(u64,  _lus)
+SIGNULL(s64,  _lss)
+SIGNULL(float,_fs)
 
 
 // convert hal type to string
