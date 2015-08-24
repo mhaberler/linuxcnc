@@ -222,7 +222,7 @@ char **halg_dupargv(const bool use_hal_mutex,
 	HALFAIL_NULL(ENOMEM, "argc=%d", argc);
 
     for (i = 0; i < argc - 1; i++) {
-	nargv[i] = strdup(argv[i]);
+	nargv[i] = halg_strdup(0, argv[i]);
 	if (nargv[i] == NULL)
 	    HALFAIL_NULL(ENOMEM, "i=%d",i);
     }
