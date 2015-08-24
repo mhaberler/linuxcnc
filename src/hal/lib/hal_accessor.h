@@ -158,25 +158,25 @@ void __atomic_store (type *ptr, type *val, int memorder)
 // export context-independent setters which are strongly typed,
 // and context-dependent accessors with a descriptor argument,
 // and an optional runtime type check
-#define PINSETTER(type, otype, tag, access, op, cast)			\
-    static inline const hal_##type##_t					\
-    set_##type##_pin(type##_pin_ptr p,					\
-		     const hal_##type##_t value) {			\
+#define PINSETTER(TYPE, OTYPE, LETTER, ACCESS, OP, CAST)			\
+    static inline const hal_##TYPE##_t					\
+    set_##TYPE##_pin(TYPE##_pin_ptr p,					\
+		     const hal_##TYPE##_t value) {			\
     hal_pin_t *pin =							\
-	(hal_pin_t *)hal_ptr(p._##tag##p);				\
+	(hal_pin_t *)hal_ptr(p._##LETTER##p);				\
     hal_data_u *u =							\
 	(hal_data_u *)hal_ptr(pin->data_ptr);				\
-    _SETVALUE(pin, access, value, op, cast);				\
+    _SETVALUE(pin, ACCESS, value, OP, CAST);				\
     return value;							\
     }									\
 									\
-    static inline const hal_##type##_t					\
-    _set_##type##_pin(hal_pin_t *pin,					\
-		      const hal_##type##_t value) {			\
+    static inline const hal_##TYPE##_t					\
+    _set_##TYPE##_pin(hal_pin_t *pin,					\
+		      const hal_##TYPE##_t value) {			\
     hal_data_u *u =							\
 	(hal_data_u *)hal_ptr(pin->data_ptr);				\
-    _CHECK(pin_type(pin), otype);					\
-    _SETVALUE(pin, access, value, op, cast);				\
+    _CHECK(pin_type(pin), OTYPE);					\
+    _SETVALUE(pin, ACCESS, value, OP, CAST);				\
     return value;							\
     }
 
@@ -264,43 +264,51 @@ SIGGETTER(s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
 
 #endif
 
-#if 0
+#if 1
 /* SIGGETTER(bit,   HAL_BIT,   b, BITLOAD,   BITCAST); */
 /* SIGGETTER(s32,   HAL_S32,   s, S32LOAD,   S32CAST); */
 /* SIGGETTER(u32,   HAL_U32,   u, U32LOAD,   U32CAST); */
 /* SIGGETTER(float, HAL_FLOAT, f, FLOATLOAD, FLOATCAST); */
 
-// signal setters - halcmd, python bindings use only (like setting initial value)
-#define _SIGSET(OFFSET, TAG, VALUE, OP, TYPE)				\
-    _STORE(&u->TAG, VALUE, OP, TYPE);					\
-    if (unlikely(hh_get_wmb(&sig->hdr)))				\
-	rtapi_smp_wmb();
+/* // signal setters - halcmd, python bindings use only (like setting initial value) */
+/* #define _SIGSET(OFFSET, TAG, VALUE, OP, TYPE)				\ */
+/*     _STORE(&u->TAG, VALUE, OP, TYPE);					\ */
+/*     if (unlikely(hh_get_wmb(&sig->hdr)))				\ */
+/* 	rtapi_smp_wmb(); */
 
-#define SIGSETTER(type, otype, letter, op, cast)				\
-    static inline const hal_##type##_t					\
-    set_##type##_sig(type##_sig_ptr s,					\
-		     const hal_##type##_t value) {			\
+#define SIGSETTER(TYPE, OTYPE, LETTER, ACCESS, OP, CAST)		\
+    static inline const hal_##TYPE##_t					\
+    set_##TYPE##_sig(TYPE##_sig_ptr s,					\
+		     const hal_##TYPE##_t value) {			\
 	hal_sig_t *sig =						\
-	    (hal_sig_t *)hal_ptr(s._##letter##s);			\
+	    (hal_sig_t *)hal_ptr(s._##LETTER##s);			\
 	hal_data_u *u = &sig->value;					\
-	_SETVALUE(u, sig, _##letter, value, op, cast);			\
+	_SETVALUE(sig, ACCESS, value, OP, CAST);			\
 	return value;							\
     }									\
 									\
-    static inline const hal_##type##_t					\
-    _set_##type##_sig(hal_sig_t *sig,					\
-		      const hal_##type##_t value) {			\
+    static inline const hal_##TYPE##_t					\
+    _set_##TYPE##_sig(hal_sig_t *sig,					\
+		      const hal_##TYPE##_t value) {			\
 	hal_data_u *u = &sig->value;					\
-	_SETVALUE(u, sig, _##letter, value, op, cast);			\
+	_CHECK(sig_type(sig), OTYPE);					\
+	_SETVALUE(sig, ACCESS, value, OP, CAST);			\
 	return value;							\
     }
 
 
 // emit typed signal setters
-SIGSETTER(bit,   HAL_BIT,   b, BITSTORE,   BITCAST);
-SIGSETTER(s32,   HAL_S32,   s, S32STORE,   S32CAST);
-SIGSETTER(u32,   HAL_U32,   u, U32STORE,   U32CAST);
-SIGSETTER(float, HAL_FLOAT, f, FLOATSTORE, FLOATCAST);
+SIGSETTER(bit,   HAL_BIT,   b,   _b,  BITSTORE,   BITCAST);
+SIGSETTER(s32,   HAL_S32,   s,   _s,  S32STORE,   S32CAST);
+SIGSETTER(u32,   HAL_U32,   u,   _u,  U32STORE,   U32CAST);
+SIGSETTER(u64,   HAL_U64,   lu,  _lu, U64STORE,   U64CAST);
+SIGSETTER(s64,   HAL_S64,   ls,  _ls, S64STORE,   S64CAST);
+SIGSETTER(float, HAL_FLOAT, f,   _f,  FLOATSTORE, FLOATCAST);
+
+/* SIGSETTER(bit,   HAL_BIT,   b, BITSTORE,   BITCAST); */
+/* SIGSETTER(s32,   HAL_S32,   s, S32STORE,   S32CAST); */
+/* SIGSETTER(u32,   HAL_U32,   u, U32STORE,   U32CAST); */
+/* SIGSETTER(float, HAL_FLOAT, f, FLOATSTORE, FLOATCAST); */
 
 #endif
 
