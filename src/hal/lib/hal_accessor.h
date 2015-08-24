@@ -37,7 +37,7 @@ void hal_typefailure(const char *file,
     } while (0)
 #endif
 
-#if CHECK_ACCESSOR_TYPE
+#if defined(CHECK_ACCESSOR_TYPE)
 // optionally compiled-in runtime check on type compatibility
 // when using raw descriptors
 #define _CHECK(otype, vtype)			\
@@ -61,10 +61,10 @@ void hal_typefailure(const char *file,
 #define S32STORE   ck_pr_store_32
 #define U32STORE   ck_pr_store_32
 
-#define _STORE8(dest, value, op, cast) op(cast dest, value)
-#define _STORE32(dest, value, op, cast) op(cast dest, value)
-#define _LOAD8(src, op, cast)         op(cast src)
-#define _LOAD32(src, op, cast)         op(cast src)
+#define _STORE8(dest,  value, op, cast)  op(cast dest, value)
+#define _STORE32(dest, value, op, cast)  op(cast dest, value)
+#define _LOAD8(src,    op, cast)         op(cast src)
+#define _LOAD32(src,   op, cast)         op(cast src)
 
 // issue on x86 - ck currently has no 64bit ops
 // so fallback on gcc intrinsics
