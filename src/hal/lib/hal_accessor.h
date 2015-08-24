@@ -59,16 +59,32 @@ void hal_typefailure(const char *file,
 #define BITSTORE   pr_store_8
 #define S32STORE   pr_store_32
 #define U32STORE   pr_store_32
+
+// issue on x86 - ck currently has no 64bit ops
+#if defined(CK_F_PR_LOAD_64)
 #define S64STORE   pr_store_64
 #define U64STORE   pr_store_64
 #define FLOATSTORE pr_store_64
+#else
+#define S64STORE   __atomic_store_n
+#define U64STORE   __atomic_store_n
+#define FLOATSTORE __atomic_store_n
+#endif
+
 
 #define BITLOAD    pr_load_8
 #define S32LOAD    pr_load_32
 #define U32LOAD    pr_load_32
+// x86
+#if defined(CK_F_PR_STORE_64)
 #define S64LOAD    pr_load_64
 #define U64LOAD    pr_load_64
 #define FLOATLOAD  pr_load_64
+#else
+#define S64LOAD    __atomic_load_n
+#define U64LOAD    __atomic_load_n
+#define FLOATLOAD  __atomic_load_n
+#endif
 
 #define _STORE(dest, value, op, cast) ck_##op(cast dest, value)
 #define _LOAD(src, op, cast)          ck_##op(cast src)
