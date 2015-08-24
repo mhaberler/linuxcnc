@@ -47,36 +47,6 @@ void hal_typefailure(const char *file,
 #define _CHECK(otype, vtype)
 #endif
 
-#if 0
-     void     ck_pr_store_64(uint64_t *target, uint64_t value);
-     void     ck_pr_store_32(uint32_t *target, uint32_t value);
-     void     ck_pr_store_16(uint16_t *target, uint16_t value);
-     void     ck_pr_store_8(uint8_t *target, uint8_t value);
-
-static inline const hal_bit_t set_bit_pin(bit_pin_ptr p, const hal_bit_t value)
-{
-    hal_pin_t *pin = (hal_pin_t *)hal_ptr(p._bp);
-    hal_data_u *u = (hal_data_u *)hal_ptr(pin->data_ptr);
-    ck_pr_store_8((char *) &u->_b, value);
-    if (__builtin_expect(!!(hh_get_wmb(&pin->hdr)), 0)) ck_pr_fence_store();;
-    return value;
-}
-
-
-     uint64_t ck_pr_load_64(const uint64_t *target);
-     uint32_t ck_pr_load_32(const uint32_t *target);
-     uint16_t ck_pr_load_16(const uint16_t *target);
-     uint8_t  ck_pr_load_8(const uint8_t *target);
-
-type __atomic_load_n (type *ptr, int memorder);
-void __atomic_load (type *ptr, type *ret, int memorder)
-// It returns the contents of *ptr in *ret.
-void __atomic_store_n (type *ptr, type val, int memorder)
-//This built-in function implements an atomic store operation. It writes val into *ptr.
-void __atomic_store (type *ptr, type *val, int memorder)
-#endif
-
-//#undef HAVE_CK
 
 #ifdef HAVE_CK
 #define BITCAST    (uint8_t *)
