@@ -2496,14 +2496,15 @@ static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
 		     tptr->flags & TF_NONRT ? "posix ":"",
 		     tptr->flags & TF_NOWAIT ? "nowait":"");
 	halcmd_output(((scriptmode == 0) ?
-		       "%11ld  %-3s %-2d   %-20s ( %8ld, %8ld ) %s\n" :
-		       "%ld %s %d %s %ld %ld"),
+		       "%11ld  %-3s %-2d   %-20s ( %8u, %8u ) %s\n" :
+		       "%ld %s %d %s %u %u"),
 		      tptr->period,
 		      (tptr->uses_fp ? "YES" : "NO"),
 		      tptr->cpu_id,
 		      ho_name(tptr),
-		      (long)tptr->runtime,
-		      (long)tptr->maxtime, flags);
+		      get_s32_pin(tptr->runtime),
+		      get_s32_pin(tptr->maxtime),
+		      flags);
 
 	hal_list_t *list_root = &(tptr->funct_list);
 	hal_list_t *list_entry = dlist_next(list_root);

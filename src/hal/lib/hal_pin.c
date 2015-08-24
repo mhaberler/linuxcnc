@@ -184,10 +184,13 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 		HALFAIL_NULL(EINVAL, "pin '%s': data_ptr_addr not in shared memory", name);
 	    }
 	}
+
+#ifdef UNNECESSARY
 	// this will be 0 for legacy comps which use comp_id to
 	// refer to a comp - pins owned by an instance will refer
 	// to an instance:
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
+
 	int inst_id = (inst ? ho_id(inst) : 0);
 
 	// instances may create pins post hal_ready
@@ -196,6 +199,7 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
 	    HALFAIL_NULL(EINVAL, "pin '%s': hal_pin_new called after hal_ready (%d)",
 		   name, comp->state);
 	}
+#endif
 
 	// allocate pin descriptor
 	if ((new = halg_create_objectf(0, sizeof(hal_pin_t),
@@ -299,6 +303,8 @@ void unlink_pin(hal_pin_t * pin)
 
 void free_pin_struct(hal_pin_t * pin)
 {
+    if (pin == NULL)
+	return;
     unlink_pin(pin);
     halg_free_object(false, (hal_object_ptr) pin);
 }

@@ -87,9 +87,10 @@ static void thread_task(void *arg)
 		fa.start_time = end_time;
 	    }
 	    /* update thread execution time */
-	    thread->runtime = (hal_s32_t)(end_time - fa.thread_start_time);
-	    if (thread->runtime > thread->maxtime) {
-		thread->maxtime = thread->runtime;
+	    hal_s32_t rt = (end_time - fa.thread_start_time);
+	    set_s32_pin(thread->runtime, rt);
+	    if (rt > get_s32_pin(thread->maxtime)) {
+		set_s32_pin(thread->maxtime, rt);
 	    }
 	}
 	/* wait until next period */
@@ -207,10 +208,12 @@ int hal_create_xthread(const hal_threadargs_t *args)
 	    HALFAIL_RC(EINVAL, "could not create task for thread %s", args->name);
 	}
 	new->task_id = retval;
-
-	/* init time logging variables */
-	new->runtime = 0;
-	new->maxtime = 0;
+	new->runtime._sp = hal_off_safe(halg_pin_newf(0, HAL_S32, HAL_OUT,
+						      NULL, lib_module_id,
+						      "%s.time", args->name));
+	new->maxtime._sp = hal_off_safe(halg_pin_newf(0, HAL_S32, HAL_IO, NULL,
+						  lib_module_id,
+						  "%s.tmax", args->name));
 
 	/* start task */
 	retval = rtapi_task_start(new->task_id, new->period);
@@ -246,6 +249,8 @@ int hal_create_thread(const char *name, unsigned long period_nsec,
 
 static int delete_thread_cb(hal_object_ptr o, foreach_args_t *args)
 {
+    free_pin_struct(hal_ptr(o.thread->runtime._sp));
+    free_pin_struct(hal_ptr(o.thread->maxtime._sp));
     free_thread_struct(o.thread);
     return 0;
 }

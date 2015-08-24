@@ -131,8 +131,8 @@ static int halg_export_xfunctfv(const int use_hal_mutex,
     switch (xf->type) {
     case FS_LEGACY_THREADFUNC:
     case FS_XTHREADFUNC:
-	nf->f_runtime = halx_pin_s32_newf(HAL_OUT,xf->owner_id,"%s.time",name);
-	nf->f_maxtime = halx_pin_s32_newf(HAL_OUT,xf->owner_id,"%s.tmax",name);
+	nf->f_runtime = halx_pin_s32_newf(HAL_OUT, xf->owner_id,"%s.time",name);
+	nf->f_maxtime = halx_pin_s32_newf(HAL_IO, xf->owner_id,"%s.tmax",name);
 	nf->f_maxtime_increased =
 	    halx_pin_bit_newf(HAL_OUT,xf->owner_id,"%s.tmax-inc",name);
 	// TBD: check success of above

@@ -616,8 +616,8 @@ typedef struct hal_thread {
     long int period;		/* period of the thread, in nsec */
     int priority;		/* priority of the thread */
     int task_id;		/* ID of the task that runs this thread */
-    hal_s32_t runtime;		/* duration of last run, in nsec */
-    hal_s32_t maxtime;		/* duration of longest run, in nsec */
+    s32_pin_ptr runtime;         // owned by hal_lib during thread lifetime
+    s32_pin_ptr maxtime;
     hal_list_t funct_list;	/* list of functions to run */
     hal_list_t thread;          // list of threads in ascending priority
                                 // root: hal_data.threads
