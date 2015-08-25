@@ -25,14 +25,12 @@ pin in bit force = false     "FALSE->TRUE transition forces message redisplay";
 pin io bit edge = true "Selects desired edge: TRUE = falling, FALSE = rising";
 pin in s32 message_num = 0   "Required message number";
 
-instanceparam string messages[4] "series of comma separated messages, NO spaces";
-
 variable hal_bit_t prev_trigger = false;
 variable hal_bit_t prev_force = true;
 variable hal_bit_t prev_edge = true;
 
 option extra_inst_setup yes;
- 
+
 function _ nofp "Display a message when triggered";
 
 license "GPL v2";
@@ -61,26 +59,25 @@ hal_bit_t show = false;
         if(trigger == edge)
             show = true;
         }
-    // once in the component function, print our local copy of the messages
-    if(show && (local_messages(message_num) != 0))
-        rtapi_print_msg(RTAPI_MSG_ERR, "%s\n", (char *)local_messages(message_num));
-    
+    if(show && message_num < local_argc)
+        {
+        rtapi_print_msg(RTAPI_MSG_ERR, "%s", local_argv(message_num));
+        }
+        
     return 0;
 }
- 
+
 EXTRA_INST_SETUP()
 {
-hal_s32_t i = 0;
+int i;
+    
+    // demonstrate that both argv and local_argv hold same
+    
+    for(i = 0; i < local_argc; i++)
+        rtapi_print_msg(RTAPI_MSG_ERR, "%s", argv[i]);
+       
+    for(i = 0; i < local_argc; i++)
+        rtapi_print_msg(RTAPI_MSG_ERR, "%s", local_argv(i));
 
-    // If there is a problem with messages abort creation
-    if(messages[0] == 0)
-        {
-        rtapi_print_msg(RTAPI_MSG_ERR, "No messages in array - aborted load of message component\n");
-        return -1;
-        }
-    // otherwise print the instanceparam copies of the messages to log    
-    for(i; messages[i] != 0 ; i++)
-        rtapi_print_msg(RTAPI_MSG_DBG, "String %d is %s\n",i, (char *)messages[i]);
-      
     return 0;
 }
