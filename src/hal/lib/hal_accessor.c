@@ -14,7 +14,8 @@ bit_pin_ptr halx_pin_bit_newf(const hal_pin_dir_t dir,
     va_list ap;
     bit_pin_ptr p;
     hal_data_u defval;
-    zero_hal_data_u(HAL_BIT, &defval);
+    memset((void *)&defval, 0, sizeof(defval));
+
     va_start(ap, fmt);
     p._bp = hal_off_safe(halg_pin_newfv(1, HAL_BIT, dir, NULL,
 					owner_id, defval, fmt, ap));
@@ -29,7 +30,7 @@ float_pin_ptr halx_pin_float_newf(const hal_pin_dir_t dir,
     va_list ap;
     float_pin_ptr p;
     hal_data_u defval;
-    zero_hal_data_u(HAL_FLOAT, &defval);
+    memset((void *)&defval, 0, sizeof(defval));
     va_start(ap, fmt);
     p._fp = hal_off_safe(halg_pin_newfv(1, HAL_FLOAT, dir, NULL,
 					owner_id, defval, fmt, ap));
@@ -44,7 +45,8 @@ u32_pin_ptr halx_pin_u32_newf(const hal_pin_dir_t dir,
     va_list ap;
     u32_pin_ptr p;
     hal_data_u defval;
-    zero_hal_data_u(HAL_U32, &defval);
+    memset((void *)&defval, 0, sizeof(defval));
+
     va_start(ap, fmt);
     p._up = hal_off_safe(halg_pin_newfv(1, HAL_U32, dir, NULL,
 					owner_id, defval, fmt, ap));
@@ -59,7 +61,8 @@ s32_pin_ptr halx_pin_s32_newf(const hal_pin_dir_t dir,
     va_list ap;
     s32_pin_ptr p;
     hal_data_u defval;
-    zero_hal_data_u(HAL_U32, &defval);
+    memset((void *)&defval, 0, sizeof(defval));
+
     va_start(ap, fmt);
     p._sp = hal_off_safe(halg_pin_newfv(1,HAL_S32, dir, NULL,
 					owner_id, defval, fmt, ap));

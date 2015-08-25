@@ -85,6 +85,7 @@ void *shmalloc_desc(size_t size)
 	    HALFAIL_NULL(ENOMEM,
 			 "giving up - can't allocate %zu bytes", size);
     }
+    memset(retval, 0, size);
     return retval;
 }
 

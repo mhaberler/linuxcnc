@@ -91,7 +91,7 @@ int hal_pin_newf(hal_type_t type,
     va_list ap;
     void *p;
     hal_data_u defval;
-    zero_hal_data_u(type, &defval);
+    memset((void *)&defval, 0, sizeof(defval));
 
     va_start(ap, fmt);
     p = halg_pin_newfv(1, type, dir, data_ptr_addr,
@@ -111,7 +111,8 @@ hal_pin_t *halg_pin_newf(const int use_hal_mutex,
     va_list ap;
     hal_pin_t *p;
     hal_data_u defval;
-    zero_hal_data_u(type, &defval);
+    memset((void *)&defval, 0, sizeof(defval));
+
     va_start(ap, fmt);
     p = halg_pin_newfv(use_hal_mutex, type, dir, data_ptr_addr,
 		       owner_id, defval, fmt, ap);
