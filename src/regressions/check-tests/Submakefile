@@ -1,0 +1,37 @@
+
+ifeq ($(USE_CHECK),yes)
+
+INCLUDES += $(CHECK_TESTS)
+
+../include/%.h: ./$(CHECK_DIR)/%.h
+	cp $^ $@
+
+$(call TOOBJSDEPS, $(HALTALK_SRCS)) : EXTRAFLAGS += $(HALTALK_CXXFLAGS)
+
+TESTS = check_mk
+check_PROGRAMS = ../bin/check_mk
+check_mk_SOURCES = $(addprefix $(CHECK_TESTS)/, \
+	checkmain.c)
+
+check_mk_CFLAGS = $(CHECK_CFLAGS)
+check_mk_LDADD = ../lib/libmtalk.so.0 \
+	../lib/libmkprotobuf.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcncini.so.0
+
+$(call TOOBJSDEPS, $(check_mk_SOURCES)) : EXTRAFLAGS += \
+	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
+
+TARGETS += $(check_PROGRAMS)
+
+CHECKS  += $(check_PROGRAMS) # for make check
+C_CHECKS  += $(check_PROGRAMS)
+
+#../bin/check_mk: $(check_mk_SOURCES)
+
+../bin/check_mk: $(call TOOBJS, $(check_mk_SOURCES)) \
+	$(check_mk_LDADD)
+	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread
+
+USERSRCS += $(check_mk_SOURCES)
+endif
