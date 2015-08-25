@@ -173,6 +173,13 @@ PYTARGETS :=
 # Add to this list directories to be created during 'make install'
 INSTALL_DIRS :=
 
+# location of regression tests using the check package
+# see http://check.sourceforge.net/
+# apt-get install check
+CHECK_TESTS := regressions/check-tests
+
+CHECKS := # runtests nosetests
+
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
 	\
@@ -254,6 +261,7 @@ SUBDIRS := \
 	module_helper \
 	\
 	po \
+	$(CHECK_TESTS)
 
 
 # moved to src/rtapi/Submakefile
@@ -1780,11 +1788,18 @@ cscope/man/:
 NOSETESTS := $(wildcard ../nosetests/*.py)
 NOSETEST_FLAGS := -v
 nosetest:
-	for n in $(NOSETESTS); do \
+	@for n in $(NOSETESTS); do \
 		nosetests $(NOSETEST_FLAGS) $$n; \
 	done;
 
 nosetests: nosetest
+
+# run all tests in the CHECKS list
+check: $(C_CHECKS)
+	@for check in $(CHECKS); do \
+		 $$check; \
+	done;
+
 
 TEMPDIR := $(shell mktemp -u)
 # disassemble a .so and create interspersed C/disassembly

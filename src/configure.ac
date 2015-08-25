@@ -566,6 +566,7 @@ XENO_CONFIG=
 # - Common shared memory driver                                              #
 # - Parport I/O mode (portable or inb/outb)                                  #
 # - emcweb UI                                                                #
+# - the check regression test package                                        #
 ##############################################################################
 
 # Platform:
@@ -1041,6 +1042,16 @@ AC_ARG_ENABLE(nml,
       BUILD_NMLDEP=no
     ])
 
+# if the check regression test package is installed and usable:
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.0],
+    [
+        AC_DEFINE(HAVE_CHECK, [], [check package available])
+	USE_CHECK=yes
+    ],
+    [
+	AC_MSG_RESULT([chec not installed])
+	USE_CHECK=no
+    ])
 ##############################################################################
 # Subsection 2.3.2                                                           #
 # Dependencies for mkwrapper                                                 #
@@ -1797,6 +1808,10 @@ fi
 
 AC_SUBST([CZMQ_CFLAGS])
 AC_SUBST([CZMQ_LIBS])
+
+AC_SUBST([CHECK_CFLAGS])
+AC_SUBST([CHECK_LIBS])
+AC_SUBST([USE_CHECK])
 
 AC_SUBST([PROTOBUF_CFLAGS])
 AC_SUBST([PROTOBUF_LIBS])
