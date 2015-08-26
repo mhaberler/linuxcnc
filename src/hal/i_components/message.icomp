@@ -69,7 +69,7 @@ hal_bit_t show = false;
 
 EXTRA_INST_SETUP()
 {
-int i;
+hal_s32_t i;
     
     // demonstrate that both argv and local_argv hold same
     
