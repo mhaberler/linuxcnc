@@ -8,8 +8,8 @@
 #include <ck_pr.h>
 #include <rtapi.h>
 
-#define OP_COUNT 100000
-#define MAXTHREADS 100
+#define OP_COUNT 10000
+#define MAXTHREADS 4
 
 static bool start;
 
@@ -102,8 +102,9 @@ START_TEST(test_smp_increment)
 {
     struct test t;
     t.value = 0;
-    t.thcnt = 4;
-    t.count = 10000000;
+    t.thcnt = MAXTHREADS;
+    t.count = OP_COUNT;
+    fprintf(stderr, "%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
 
     t.op = INCR;
     testrun("legacy IO pin increment", test_increment, &t);
@@ -128,6 +129,8 @@ START_TEST(test_smp_increment)
     t.op = GCC_ATOMIC_CAS;
     testrun("gcc intrinsics CAS loop", test_increment, &t);
     ck_assert_int_eq(t.value,  t.count * t.thcnt);
+    fprintf(stderr, "\n");
+
 }
 END_TEST
 

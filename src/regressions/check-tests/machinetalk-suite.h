@@ -16,7 +16,6 @@ Suite * machinetalk_suite(void)
     s = suite_create("machinetalk");
 
     tc_core = tcase_create("machinetalk");
-    tcase_add_unchecked_fixture(tc_core, setup, teardown);
 
     tcase_add_test(tc_core, test_machinetalk);
     suite_add_tcase(s, tc_core);

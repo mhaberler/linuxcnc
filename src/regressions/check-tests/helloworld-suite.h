@@ -1,3 +1,6 @@
+// example test suite.
+// if hal is needed, include in check_hal.c, else check_other.c
+
 #ifndef _TEST_HELLO_WORLD_SUITE
 #define _TEST_HELLO_WORLD_SUITE
 
@@ -20,7 +23,6 @@ Suite * hello_world_suite(void)
     s = suite_create("helloWorld");
 
     tc_core = tcase_create("Core");
-    //NB : no setup/teardown
     tcase_add_test(tc_core, test_hello_world);
     tcase_add_test(tc_core, test_goodbye_world);
     suite_add_tcase(s, tc_core);
