@@ -89,7 +89,8 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 	rptr->total_size = ring_memsize( rptr->flags, size, sp_size);
 
 	if (rptr->flags & ALLOC_HALMEM) {
-	    void *ringmem = shmalloc_desc(rptr->total_size);
+	    void *ringmem = shmalloc_desc_aligned(rptr->total_size,
+						  RTAPI_CACHELINE);
 	    if (ringmem == NULL) {
 		HALFAIL(ENOMEM, "ring '%s' size %d - insufficient HAL memory for ring",
 		       name,rptr->total_size);
@@ -118,6 +119,8 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 		       shmid, retval);
 		goto FAIL;
 	    }
+	    HAL_ASSERT(is_aligned(rhptr, RTAPI_CACHELINE));
+
 	}
 
 	HALDBG("created ring '%s' in %s, total_size=%d",
