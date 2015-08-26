@@ -79,7 +79,9 @@ typedef __s32 rrecsize_t;
 typedef __u32 ringsize_t;
 
 typedef struct {
-    size_t tail __attribute__((aligned(16)));
+    ringsize_t tail __attribute__((aligned(RTAPI_CACHELINE)));
+    char __tailpad[RTAPI_CACHELINE - sizeof(ringsize_t)];
+    // offset 64:
     __u8 scratchpad_buf[0];  // actual scratchpad storage
 } ringtrailer_t;
 
@@ -128,6 +130,8 @@ typedef struct {
     size_t  size;           // common to stream and record mode
     size_t  head __attribute__((aligned(16)));
     __u64   generation;
+    ringsize_t  head __attribute__((aligned(RTAPI_CACHELINE)));
+    char __headpad[RTAPI_CACHELINE - sizeof(ringsize_t)];
     __u8    buf[0];         // actual ring storage without scratchpad
 } ringheader_t;
 
