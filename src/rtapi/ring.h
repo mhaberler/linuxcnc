@@ -183,16 +183,14 @@ typedef struct {
 } ringvec_t;
 
 
-#define RB_ALIGN 8
-
 // record ring buffer size must be aligned on dword boundaries
 // macro variant of size_aligned() for allocating at compile time
-#define SIZE_ALIGN(x)  (x + (-x & (RB_ALIGN - 1)))
+#define RB_ALIGN 8
 
 // Round up X to closest upper alignment boundary
-static inline ring_size_t size_aligned(const ring_size_t x)
+static inline ringsize_t size_aligned(const rrecsize_t x)
 {
-    return x + (-x & (RB_ALIGN - 1));
+    return RTAPI_ALIGN(x, RB_ALIGN);
 }
 
 // compute the next highest power of 2 of 32-bit v
@@ -208,30 +206,32 @@ static unsigned inline next_power_of_two(unsigned v) {
     return v;
 }
 
-static inline size_t ring_storage_alloc(int flags, size_t size)
+// always cache-align the ring storage so ringtrailer_t lies on a
+// cacheline boundary
+static inline ringsize_t ring_storage_alloc(int flags, ringsize_t size)
 {
     if  ((flags & RINGTYPE_MASK) == RINGTYPE_STREAM) {
 	// stream mode buffers need to be a power of two sized
-	return next_power_of_two(size);
+	return RTAPI_CACHE_ALIGN(next_power_of_two(size));
     } else {
 	// default to /* RINGTYPE_RECORD */
 	// round up buffer size to closest upper alignment boundary
-	return  size_aligned(size);
+	return  RTAPI_CACHE_ALIGN(size_aligned(size));
     }
 }
 
-static inline size_t ring_trailer_alloc(size_t sp_size)
+static inline ringsize_t ring_trailer_alloc(ringsize_t sp_size)
 {
     return size_aligned(sizeof(ringtrailer_t) + sp_size);
 }
 
 // the total size of the ringbuffer header plus storage for the ring
 // and scratchpad
-static inline size_t ring_memsize(int flags, size_t size, size_t  sp_size)
+static inline ringsize_t ring_memsize(int flags, ringsize_t size, ringsize_t  sp_size)
 {
-    return sizeof(ringheader_t) +
-	ring_storage_alloc(flags,  size) +
-	ring_trailer_alloc(sp_size);
+    return (ringsize_t) (sizeof(ringheader_t) +
+			 ring_storage_alloc(flags,  size) +
+			 ring_trailer_alloc(sp_size));
 }
 
 static inline int ring_refcount(ringheader_t *ringheader)
@@ -241,19 +241,20 @@ static inline int ring_refcount(ringheader_t *ringheader)
 
 static inline ringtrailer_t *_trailer_from_header(const ringheader_t *ringheader)
 {
-    return (ringtrailer_t *) ((char *)ringheader->buf + ringheader->size);
+    return (ringtrailer_t *) ((char *)ringheader->buf +
+			      RTAPI_CACHE_ALIGN(ringheader->size));
 }
 
-static inline size_t ring_scratchpad_size(ringbuffer_t *ring)
+static inline ringsize_t ring_scratchpad_size(ringbuffer_t *ring)
 {
-    return ring->header->trailer_size - sizeof(ringtrailer_t);
+    return ring->header->trailer_size - (ringsize_t) sizeof(ringtrailer_t);
 }
 
 // initialize a ringbuffer header and storage as already allocated
 // with a size of ring_memsize(flags, size, sp_size)
 // this will not clear the storage allocated.
 static inline void ringheader_init(ringheader_t *ringheader, int flags,
-					 size_t size, size_t  sp_size)
+				   ringsize_t size, ringsize_t  sp_size)
 {
     ringtrailer_t *t;
 
@@ -307,7 +308,7 @@ static inline void ringbuffer_init(ringheader_t *ringheader, ringbuffer_t *ring)
 //
 // an RB_ALIGN aligned sequence of records:
 // struct record {
-//    ring_size_t size;  // a int32_t
+//    rrecsize_t size;  // a int32_t
 //    char data[0];
 // }
 // zero-length records are ok.
@@ -319,16 +320,16 @@ static inline void ringbuffer_init(ringheader_t *ringheader, ringbuffer_t *ring)
 
 
 // returns pointer to size field at a given offset
-static inline ring_size_t * _size_at(const ringbuffer_t *ring, const size_t off)
+static inline rrecsize_t * _size_at(const ringbuffer_t *ring, const ringsize_t off)
 {
-    return (ring_size_t *) (ring->buf + off);
+    return (rrecsize_t *) (ring->buf + off);
 }
 
 // for a record of a given size, return space used in a record ring buffer.
 // used to dimension record rings
-static inline size_t record_usage(const size_t record_size)
+static inline ringsize_t record_usage(const ringsize_t record_size)
 {
-    return size_aligned(record_size + sizeof(ring_size_t));
+    return size_aligned(record_size + sizeof(rrecsize_t));
 }
 
 /* record_write_begin():
@@ -356,12 +357,12 @@ static inline size_t record_usage(const size_t record_size)
  * record_write_end() uses the 'data' field to decide if the decision was to
  * wrap or not.
  */
-static inline int record_write_begin(ringbuffer_t *ring, void ** data, size_t sz)
+static inline int record_write_begin(ringbuffer_t *ring, void ** data, ringsize_t sz)
 {
-    size_t free;
+    ringsize_t free;
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
-    size_t a = size_aligned(sz + sizeof(ring_size_t));
+    ringsize_t a = size_aligned(sz + sizeof(rrecsize_t));
 
      // record too large for ring?
     if (a > h->size)
@@ -397,12 +398,12 @@ static inline int record_write_begin(ringbuffer_t *ring, void ** data, size_t sz
  * the corresponding record_write_begin().
  * 'data' must be the pointer returned by record_write_begin().
  */
-static inline int record_write_end(ringbuffer_t *ring, void * data, size_t sz)
+static inline int record_write_end(ringbuffer_t *ring, void * data, ringsize_t sz)
 {
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
-    size_t a = size_aligned(sz + sizeof(ring_size_t));
+    ringsize_t a = size_aligned(sz + sizeof(rrecsize_t));
 
     // was the write at the beginning of the buffer?
     if (data == _size_at(ring, 0) + 1) {
@@ -433,7 +434,8 @@ static inline int record_write_end(ringbuffer_t *ring, void * data, size_t sz)
  * return EAGAIN if there is currently insufficient space
  * return ERANGE if the write size exceeds the ringbuffer size.
  */
-static inline int record_write(ringbuffer_t *ring, void * data, size_t sz)
+static inline int record_write(ringbuffer_t *ring, void * data,
+			       ringsize_t sz)
 {
     void * ptr;
     int r = record_write_begin(ring, &ptr, sz);
@@ -447,10 +449,10 @@ static inline int record_write(ringbuffer_t *ring, void * data, size_t sz)
  * returns size and data address of the record at 'offset',
  * or EAGAIN if empty at 'offset'.
  */
-static inline int _ring_read_at(const ringbuffer_t *ring, size_t offset,
-				const void **data, size_t *size)
+static inline int _ring_read_at(const ringbuffer_t *ring, ringsize_t offset,
+				const void **data, ringsize_t *size)
 {
-    ring_size_t *sz;
+    rrecsize_t *sz;
     ringtrailer_t *t = ring->trailer;
 
     if (offset == t->tail)
@@ -465,8 +467,8 @@ static inline int _ring_read_at(const ringbuffer_t *ring, size_t offset,
 	// return size/data of record at start of ring
         return _ring_read_at(ring, 0, data, size);
 
-    // non-wrapping case
-    *size = *sz;
+    // non-wrapping case, sz >= 0:
+    *size = (ringsize_t)*sz;
     *data = sz + 1;
     return 0;
 }
@@ -482,7 +484,9 @@ static inline int _ring_read_at(const ringbuffer_t *ring, size_t offset,
  * Note this is a 'peek' operation, it does not advance the read pointer to the next
  * record. To actually consume the record, call record_shift() after processing.
  */
-static inline int record_read(const ringbuffer_t *ring,  const void **data, size_t *size)
+static inline int record_read(const ringbuffer_t *ring,
+			      const void **data,
+			      ringsize_t *size)
 {
     return _ring_read_at(ring, ring->header->head, data, size);
 }
@@ -495,7 +499,7 @@ static inline int record_read(const ringbuffer_t *ring,  const void **data, size
 static inline const void *record_next(ringbuffer_t *ring)
 {
     const void *data;
-    size_t size;
+    ringsize_t size;
     if (record_read(ring, &data, &size)) return 0;
     return data;
 }
@@ -507,10 +511,10 @@ static inline const void *record_next(ringbuffer_t *ring)
  *
  * Note that zero-length records are supported and valid.
  */
-static inline ring_size_t record_next_size(ringbuffer_t *ring)
+static inline rrecsize_t record_next_size(ringbuffer_t *ring)
 {
     const void *data;
-    size_t size;
+    ringsize_t size;
     if (record_read(ring, &data, &size)) return -1;
     return size;
 }
@@ -526,7 +530,7 @@ static inline ring_size_t record_next_size(ringbuffer_t *ring)
  * by records larger than returned by record_write_space() (i.e. many small
  * writes may be possible which are in sum larger than the value returned here).
  */
-static inline size_t record_write_space(const ringheader_t *h)
+static inline ringsize_t record_write_space(const ringheader_t *h)
 {
     int avail = 0;
     ringtrailer_t *t =  _trailer_from_header(h);
@@ -548,16 +552,17 @@ static inline size_t record_write_space(const ringheader_t *h)
  *
  * (to be on the safe side, add some headroom to that)
  */
-static inline size_t record_space(size_t element)
+static inline ringsize_t record_space(ringsize_t element)
 {
-    return size_aligned(element + sizeof(ring_size_t));
+    return size_aligned(element + sizeof(rrecsize_t));
 }
 
 
 /* internal function */
-static inline ring_size_t _ring_shift_offset(const ringbuffer_t *ring, size_t offset)
+static inline rrecsize_t _ring_shift_offset(const ringbuffer_t *ring,
+					    ringsize_t offset)
 {
-    ring_size_t size;
+    rrecsize_t size;
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
@@ -572,7 +577,7 @@ static inline ring_size_t _ring_shift_offset(const ringbuffer_t *ring, size_t of
     size = *_size_at(ring, offset);
     if (size < 0)
 	return _ring_shift_offset(ring, 0);
-    size = size_aligned(size + sizeof(ring_size_t));
+    size = size_aligned(size + sizeof(rrecsize_t));
     return (offset + size) % h->size;
 }
 
@@ -587,7 +592,7 @@ static inline ring_size_t _ring_shift_offset(const ringbuffer_t *ring, size_t of
  * example processing loop:
  *
  * void *data;
- * size_t size;
+ * rrecsize_t size;
  *
  * while (record_read(ring, &data, &size) == 0) {
  *    // process(data,size)
@@ -599,7 +604,7 @@ static inline ring_size_t _ring_shift_offset(const ringbuffer_t *ring, size_t of
  */
 static inline int record_shift(ringbuffer_t *ring)
 {
-    ring_size_t off = _ring_shift_offset(ring, ring->header->head);
+    rrecsize_t off = _ring_shift_offset(ring, ring->header->head);
     if (off < 0) return EAGAIN;
     ring->header->generation++;
     ring->header->head = off;
@@ -668,7 +673,7 @@ static inline int record_iter_invalid(const ringiter_t *iter)
 
 static inline int record_iter_shift(ringiter_t *iter)
 {
-    ring_size_t off;
+    rrecsize_t off;
 
     if (record_iter_invalid(iter)) return EINVAL;
     off = _ring_shift_offset(iter->ring, iter->offset);
@@ -679,7 +684,7 @@ static inline int record_iter_shift(ringiter_t *iter)
 }
 
 static inline int record_iter_read(const ringiter_t *iter,
-				   const void **data, size_t *size)
+				   const void **data, ringsize_t *size)
 {
     if (record_iter_invalid(iter)) return EINVAL;
 
@@ -808,12 +813,12 @@ static inline int ring_use_rmutex(ringbuffer_t *ring)
  * the readable data is in one segment the second segment has zero
  * length.
  */
-static inline size_t stream_get_read_vector(const ringbuffer_t *ring,
-				ringvec_t *vec)
+static inline ringsize_t stream_get_read_vector(const ringbuffer_t *ring,
+						ringvec_t *vec)
 {
-    size_t free_cnt;
-    size_t cnt2;
-    size_t w, r;
+    ringsize_t free_cnt;
+    ringsize_t cnt2;
+    ringsize_t w, r;
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
@@ -852,9 +857,9 @@ static inline size_t stream_get_read_vector(const ringbuffer_t *ring,
 static inline void stream_get_write_vector(const ringbuffer_t *ring,
 				 ringvec_t *vec)
 {
-    size_t free_cnt;
-    size_t cnt2;
-    size_t w, r;
+    ringsize_t free_cnt;
+    ringsize_t cnt2;
+    ringsize_t w, r;
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
@@ -890,9 +895,9 @@ static inline void stream_get_write_vector(const ringbuffer_t *ring,
  * number of bytes in front of the read pointer and behind the write
  * pointer.
  */
-static inline size_t stream_read_space(const ringheader_t *h)
+static inline ringsize_t stream_read_space(const ringheader_t *h)
 {
-    size_t w, r;
+    ringsize_t w, r;
     ringtrailer_t *t =  _trailer_from_header(h);
 
     w = t->tail;
@@ -907,12 +912,12 @@ static inline size_t stream_read_space(const ringheader_t *h)
 /* The copying data reader.  Copy at most `cnt' bytes from `ring' to
  * `dest'.  Returns the actual number of bytes copied.
  */
-static inline size_t stream_read(ringbuffer_t *ring, char *dest, size_t cnt)
+static inline ringsize_t stream_read(ringbuffer_t *ring, char *dest, ringsize_t cnt)
 {
-    size_t free_cnt;
-    size_t cnt2;
-    size_t to_read;
-    size_t n1, n2;
+    ringsize_t free_cnt;
+    ringsize_t cnt2;
+    ringsize_t to_read;
+    ringsize_t n1, n2;
     ringheader_t *h = ring->header;
 
     if ((free_cnt = stream_read_space (h)) == 0) {
@@ -942,13 +947,13 @@ static inline size_t stream_read(ringbuffer_t *ring, char *dest, size_t cnt)
  * `cnt' bytes from `ring' to `dest'.  Returns the actual number of bytes
  * copied.
  */
-static inline size_t stream_peek(ringbuffer_t *ring, char *dest, size_t cnt)
+static inline ringsize_t stream_peek(ringbuffer_t *ring, char *dest, ringsize_t cnt)
 {
-    size_t free_cnt;
-    size_t cnt2;
-    size_t to_read;
-    size_t n1, n2;
-    size_t tmp_head;
+    ringsize_t free_cnt;
+    ringsize_t cnt2;
+    ringsize_t to_read;
+    ringsize_t n1, n2;
+    ringsize_t tmp_head;
     ringheader_t *h = ring->header;
 
     tmp_head = h->head;
@@ -975,9 +980,9 @@ static inline size_t stream_peek(ringbuffer_t *ring, char *dest, size_t cnt)
 
 
 /* Advance the read pointer `cnt' places. */
-static inline void stream_read_advance(ringbuffer_t *ring, size_t cnt)
+static inline void stream_read_advance(ringbuffer_t *ring, ringsize_t cnt)
 {
-    size_t tmp;
+    ringsize_t tmp;
     ringheader_t *h = ring->header;
 
     /* ensure that previous reads (copies out of the ring buffer) are always
@@ -994,9 +999,9 @@ static inline void stream_read_advance(ringbuffer_t *ring, size_t cnt)
  *
  * return number of bytes flushed.
  */
-static inline size_t stream_flush(ringbuffer_t *ring)
+static inline ringsize_t stream_flush(ringbuffer_t *ring)
 {
-    size_t left = stream_read_space(ring->header);
+    ringsize_t left = stream_read_space(ring->header);
     if (left > 0)
 	stream_read_advance(ring, left);
     return left;
@@ -1006,9 +1011,9 @@ static inline size_t stream_flush(ringbuffer_t *ring)
  * number of bytes in front of the write pointer and behind the read
  * pointer.
  */
-static inline size_t stream_write_space(const ringheader_t *h)
+static inline ringsize_t stream_write_space(const ringheader_t *h)
 {
-    size_t w, r;
+    ringsize_t w, r;
     ringtrailer_t *t =  _trailer_from_header(h);
 
     w = t->tail;
@@ -1025,13 +1030,13 @@ static inline size_t stream_write_space(const ringheader_t *h)
 /* The copying data writer.  Copy at most `cnt' bytes to `ring' from
  * `src'.  Returns the actual number of bytes copied.
  */
-static inline size_t stream_write(ringbuffer_t *ring, const char *src,
-			size_t cnt)
+static inline ringsize_t stream_write(ringbuffer_t *ring, const char *src,
+			ringsize_t cnt)
 {
-    size_t free_cnt;
-    size_t cnt2;
-    size_t to_write;
-    size_t n1, n2;
+    ringsize_t free_cnt;
+    ringsize_t cnt2;
+    ringsize_t to_write;
+    ringsize_t n1, n2;
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
@@ -1057,9 +1062,9 @@ static inline size_t stream_write(ringbuffer_t *ring, const char *src,
 }
 
 /* Advance the write pointer `cnt' places. */
-static inline void stream_write_advance(ringbuffer_t *ring, size_t cnt)
+static inline void stream_write_advance(ringbuffer_t *ring, ringsize_t cnt)
 {
-    size_t tmp;
+    ringsize_t tmp;
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
