@@ -139,7 +139,6 @@ RTAPI_BEGIN_DECLS
 #define UINTPTR long
 #endif
 
-#define RTAPI_ALIGN(x,boundary)  (x + (-x & (boundary - 1)))
 
 static inline int is_aligned(const void *pointer, size_t byte_count) {
     return (UINTPTR)pointer % byte_count == 0;
