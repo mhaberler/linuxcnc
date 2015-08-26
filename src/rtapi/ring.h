@@ -120,18 +120,31 @@ typedef struct {
     __u8    alloc_halmem : 1;
 
     __u32   userflags : 27;  // not interpreted by ringbuffer code
-
+    // offset 4:
     __s32   refcount;        // number of referencing entities (modules, threads..)
+    // offset 8:
     __s32   reader, writer;  // HAL comp or instance id's - informational
+    // offset 16:
     __s32   reader_instance, writer_instance; // RTAPI instance id's
+    // offset 24:
     rtapi_atomic_type rmutex, wmutex; // optional use - if used by multiple readers/writers
-    size_t  trailer_size;   // sizeof(ringtrailer_t) + scratchpad size
-    size_t  size_mask;      // stream mode only
-    size_t  size;           // common to stream and record mode
-    size_t  head __attribute__((aligned(16)));
+    // offset 32:
+    ringsize_t trailer_size;   // sizeof(ringtrailer_t) + scratchpad size
+    // offset 36:
+    ringsize_t size_mask;      // stream mode only
+    // offset 40:
+    // this is the size of the actual ring buffer. There might be
+    // padding between the ring storage and the ringtrailer_t due to the alignment
+    // of the trailer (64) so the tail pointer is cache-aligned.
+    ringsize_t size;           // common to stream and record mode
+    // offset 44 - 4 bytes left:
+    __u32 __unused1;
+    // offset 48:
     __u64   generation;
+    // offset 56:
     ringsize_t  head __attribute__((aligned(RTAPI_CACHELINE)));
     char __headpad[RTAPI_CACHELINE - sizeof(ringsize_t)];
+    // offset 128:
     __u8    buf[0];         // actual ring storage without scratchpad
 } ringheader_t;
 
@@ -159,14 +172,14 @@ static inline int ringbuffer_attached(ringbuffer_t *rb)
 // using layer data structures
 typedef struct {
     const ringbuffer_t *ring;
+    ringsize_t offset;
     __u64   generation;
-    size_t offset;
 } ringiter_t;
 
 typedef struct {
     const void *rv_base;
-    size_t      rv_len;
     __u32       rv_flags; // meaningful only for multiframe ringvec_t's
+    ringsize_t rv_len;
 } ringvec_t;
 
 
