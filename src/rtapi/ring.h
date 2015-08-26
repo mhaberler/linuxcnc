@@ -70,8 +70,13 @@
 #define MAXIMUM(x, y) (((x) > (y))?(x):(y))
 #endif
 
-// record mode: Negative numbers are needed for skips
-typedef __s32 ring_size_t;
+// size of a record in a record ring - in record mode,
+// negative numbers are needed for skips
+typedef __s32 rrecsize_t;
+
+// use 32bit uints for ring indices and size fields
+// so we can use 32bit atomics throughout (size_t on amd64 is 64bits)
+typedef __u32 ringsize_t;
 
 typedef struct {
     size_t tail __attribute__((aligned(16)));
