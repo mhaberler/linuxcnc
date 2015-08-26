@@ -16,7 +16,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ********************************************************************/
 
-#include "config.h" //  BUILD_CACHEFRIENDLY
+#include "config.h"
 #include "rtapi.h"
 #include "rtapi_heap.h"
 #include "rtapi_heap_private.h"
@@ -68,13 +68,6 @@ void *_rtapi_malloc(struct rtapi_heap *h, size_t nbytes)
 {
     return _rtapig_malloc(1, h, nbytes);
 }
-
-#ifndef  BUILD_CACHEFRIENDLY
-void  *_rtapi_malloc_aligned(struct rtapi_heap *h, size_t nbytes, size_t align)
-{
-    return NULL;
-}
-#else
 
 void  *_rtapi_malloc_aligned(struct rtapi_heap *h, size_t nbytes, size_t align)
 {
@@ -129,7 +122,6 @@ void  *_rtapi_malloc_aligned(struct rtapi_heap *h, size_t nbytes, size_t align)
     }
     return result;
 }
-#endif
 
 void _rtapi_free(struct rtapi_heap *h, void *);
 
@@ -182,7 +174,6 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
     rtapi_malloc_hdr_t *bp, *p;
     rtapi_malloc_hdr_t *freep =  heap_ptr(h,h->free_p);
 
-#ifdef  BUILD_CACHEFRIENDLY
     rtapi_malloc_tag_t *rt = (rtapi_malloc_tag_t *) ap - 1;
 
     // a block with non-standard alignment?
@@ -196,7 +187,6 @@ static void _rtapi_unlocked_free(struct rtapi_heap *h, void *ap)
 		       __FUNCTION__, ap, base, _rtapi_allocsize(h, base));
 	ap = base;
     }
-#endif
 
     bp = (rtapi_malloc_hdr_t *)ap - 1;	// point to block header
     size_t alloc = bp->s.tag.size;
@@ -256,13 +246,12 @@ void _rtapi_free(struct rtapi_heap *h,void *ap)
 // might be a bit larger than requested) due to chunk alignent)
 size_t _rtapi_allocsize(struct rtapi_heap *h, const void *ap)
 {
-#ifdef  BUILD_CACHEFRIENDLY
     rtapi_malloc_tag_t *rt = ((rtapi_malloc_tag_t *) ap) - 1;
 
     if (rt->attr & ATTR_ALIGNED) {
 	ap = heap_ptr(h, rt->size);
     }
-#endif
+
     rtapi_malloc_hdr_t *p = ((rtapi_malloc_hdr_t *) ap) - 1;
     return (p->s.tag.size -1) * sizeof (rtapi_malloc_hdr_t);
 }
