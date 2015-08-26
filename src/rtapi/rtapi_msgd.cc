@@ -62,6 +62,7 @@ using namespace std;
 
 #include <czmq.h>
 #include <mk-service.hh>
+#include <libwebsockets.h>  // version tags only
 
 #include <google/protobuf/text_format.h>
 #include <machinetalk/generated/message.pb.h>
@@ -1051,21 +1052,32 @@ int main(int argc, char **argv)
     int major, minor, patch;
     zmq_version (&major, &minor, &patch);
     syslog_async(LOG_DEBUG,
-		 "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d atomics=%s %s %s\n",
+		 "ØMQ=%d.%d.%d czmq=%d.%d.%d protobuf=%d.%d.%d atomics=%s %s %s "
+		 " libwebsockets=%s %s\n",
 		 major, minor, patch,
 		 CZMQ_VERSION_MAJOR, CZMQ_VERSION_MINOR,CZMQ_VERSION_PATCH,
 		 GOOGLE_PROTOBUF_VERSION / 1000000,
 		 (GOOGLE_PROTOBUF_VERSION / 1000) % 1000,
 		 GOOGLE_PROTOBUF_VERSION % 1000,
 #ifdef HAVE_CK
-		 "concurrencykit", CK_VERSION, CK_GIT_SHA
+		 "concurrencykit", CK_VERSION, CK_GIT_SHA,
 #else
 #ifdef __clang__
-		 "clang intrinsics", "", ""
+		 "clang intrinsics", "", "",
 #endif
 #ifdef   __GNUC__
-		 "gcc intrinsics", "", ""
+		 "gcc intrinsics", "", "",
 #endif
+#endif
+#ifdef LWS_LIBRARY_VERSION
+		 LWS_LIBRARY_VERSION,
+#else
+		 "<no version symbol>",
+#endif
+#ifdef LWS_BUILD_HASH
+		 LWS_BUILD_HASH
+#else
+		 ""
 #endif
 		 );
     syslog_async(LOG_INFO,"configured: sha=%s", GIT_CONFIG_SHA);
