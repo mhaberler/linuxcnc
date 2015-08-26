@@ -119,14 +119,7 @@ static int rt_msglevel = RTAPI_MSG_INFO ;
 static int halsize;
 static int hal_thread_stack_size = HAL_STACKSIZE;
 static size_t message_ring_size = MESSAGE_RING_SIZE;
-
-#ifdef BUILD_CACHEFRIENDLY
-static int hal_descriptor_alignment = RTAPI_CACHELINE;
-#else
 static int hal_descriptor_alignment = 0;
-#endif
-
-
 static int global_segment_size = MESSAGE_RING_SIZE + GLOBAL_HEAP_SIZE + sizeof(global_data_t);
 static int actual_global_size; // as returned by create_global_segment()
 static int hal_heap_flags    =  RTAPIHEAP_TRIM;
@@ -635,7 +628,6 @@ static int
 message_poll_cb(zloop_t *loop, int  timer_id, void *args)
 {
     rtapi_msgheader_t *msg;
-    size_t msg_size;
     size_t payload_length;
     int retval;
     char *cp;
@@ -656,6 +648,7 @@ message_poll_cb(zloop_t *loop, int  timer_id, void *args)
     }
 
     size_t n_msgs = 0, n_bytes = 0;
+    ringsize_t msg_size;
 
     while ((retval = record_read(&rtapi_msg_buffer,
 				 (const void **) &msg, &msg_size)) == 0) {
