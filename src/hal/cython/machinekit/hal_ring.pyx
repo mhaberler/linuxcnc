@@ -73,7 +73,7 @@ cdef class Ring:
 
     def read(self):
         cdef const void * ptr
-        cdef size_t size
+        cdef ringsize_t size
 
         cdef int r = record_read(&self._rb, &ptr, &size)
         if r:
@@ -139,7 +139,7 @@ cdef class RingIter:
 
     def read(self):
         cdef const void * ptr
-        cdef size_t size
+        cdef ringsize_t size
         cdef int r = record_iter_read(&self._iter, &ptr, &size)
         if r:
             if r != EAGAIN:

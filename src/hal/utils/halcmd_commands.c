@@ -3252,7 +3252,7 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	case RINGTYPE_MULTIPART: rtype = "multi"; break;
 	case RINGTYPE_STREAM:    rtype = "stream"; break;
 	}
-	halcmd_output("%-5d %-14.14s %-10zu %-6.6s %d/%d %d/%d %-3d",
+	halcmd_output("%-5d %-14.14s %-10u %-6.6s %d/%d %d/%d %-3d",
 		      ho_id(rptr),
 		      ho_name(rptr),
 		      rh->size,
@@ -3265,13 +3265,13 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	if (rh->use_wmutex )
 	    halcmd_output(" wmutex");
 	if (rh->type == RINGTYPE_STREAM)
-	    halcmd_output(" free:%zu ",
+	    halcmd_output(" free:%u ",
 			  stream_write_space(rh));
 	else
-	    halcmd_output(" recmax:%zu ",
+	    halcmd_output(" recmax:%u ",
 			  record_write_space(rh));
 	if (ring_scratchpad_size(&ringbuffer))
-	    halcmd_output(" scratchpad:%zu ", ring_scratchpad_size(&ringbuffer));
+	    halcmd_output(" scratchpad:%u ", ring_scratchpad_size(&ringbuffer));
 	halcmd_output("\n");
 	if ((retval = halg_ring_detach(0,  &ringbuffer)) < 0) {
 	    halcmd_error("%s: rtapi_ring_detach(%d) failed ",
@@ -3410,7 +3410,7 @@ static void hdprinter(int level, const char *fmt, ...)
 static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
 {
     ringheader_t *rh = rb->header;
-    size_t size;
+    ringsize_t size;
     size_t nr = 0, nb = 0, tfc = 0, fc = 0;
     const void *data;
     ringiter_t ri;
@@ -3442,7 +3442,7 @@ static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
 		if (rh->type == RINGTYPE_RECORD) {
 		    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
 					 16, 1, data, size, true,
-					 hdprinter, "%6zu ", size);
+					 hdprinter, "%6u ", size);
 		    halcmd_output("\n");
 		} else {
 		    // multiframe
@@ -3462,7 +3462,7 @@ static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
 				      mp->f.eor ? "eor":"");
 			rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
 					     16, 1, rv.rv_base, rv.rv_len, true,
-					     hdprinter, "%6zu ", rv.rv_len);
+					     hdprinter, "%6u ", rv.rv_len);
 			frame_shift(&mrb);
 			fc++;
 		    }
@@ -3480,7 +3480,7 @@ static int ringdump(const char *name, ringbuffer_t *rb, void *arg)
 
     case RINGTYPE_STREAM:
 	size = stream_read_space(rh);
-	halcmd_output("%s: stream ring, %zu bytes unread\n", name, size);
+	halcmd_output("%s: stream ring, %u bytes unread\n", name, size);
 	if (size) {
 	    void *data = malloc(size);
 	    if (!data) return -ENOMEM;

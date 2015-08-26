@@ -69,7 +69,7 @@ static int update(void *arg, const hal_funct_args_t *fa)
 {
     struct inst_data *ip = arg;
     struct imsg *im = NULL;;
-    size_t size = 0;
+    ringsize_t size = 0;
 
     // retrieve apply all messages. Could be optimized.
     while (record_read(&ip->ir->rb, (const void**)&im, &size) == 0) {

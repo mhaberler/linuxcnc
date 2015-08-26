@@ -239,7 +239,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 				    self->from_rt_name);
 		}
 		const void *data;
-		size_t size;
+		ringsize_t size;
 		mflag_t flags;
 		if (frame_read(&self->from_rt_mframe,
 			       &data, &size, &flags.u) == 0) {
@@ -247,7 +247,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
 					     16,1, data, (size > 16) ? 16: size, 1,
 					     NULL,
-					     "%s->%s size=%zu msgid=%d format=%d: ",
+					     "%s->%s size=%u msgid=%d format=%d: ",
 					     self->from_rt_name,self->name, size,
 					     flags.f.msgid, flags.f.format);
 		    pb_ostream_t sstream, ostream;

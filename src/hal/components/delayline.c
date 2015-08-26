@@ -288,7 +288,7 @@ static void read_sample_from_ring(void *arg, long period)
     ringbuffer_t *rb = (ringbuffer_t *) arg;
     hal_delayline_t *hd = rb->scratchpad;
     const sample_t *s;
-    size_t size;
+    ringsize_t size;
 
     // detect rising edge on abort pin, and flush rb if so
     if (*(hd->abort) && (*(hd->abort) ^ hd->last_abort)) {

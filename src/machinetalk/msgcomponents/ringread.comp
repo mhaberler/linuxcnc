@@ -27,7 +27,7 @@ static char *name = "ringread";
 
 FUNCTION(_) {
     ringvec_t vec[2];
-    ring_size_t rsize;
+    rrecsize_t rsize;
     const void *data;
 
     if (rb.header->type == RINGTYPE_STREAM) {
@@ -59,7 +59,7 @@ FUNCTION(_) {
 	if (circular) {
 	    char buf[MAXSIZE];
 	    int result;
-	    size_t size;
+	    ringsize_t size;
 
 	    result = record_iter_read(&ri, &data, &size);
 	    switch (result) {
@@ -81,7 +81,7 @@ FUNCTION(_) {
 		}
 		// good to consume buffer
 		rtapi_print_msg(RTAPI_MSG_ERR,
-				"circular: %s(%s): reclen=%zu '%.*s', writer=%d\n",
+				"circular: %s(%s): reclen=%u '%.*s', writer=%d\n",
 				name, ring, size, (int) size, buf,
 				rb.header->writer);
 		break;
@@ -128,8 +128,8 @@ int rtapi_app_main(void)
     }
 
     rtapi_print_msg(RTAPI_MSG_INFO,
-		    "%s: attached ring '%s' size=%zu type=%d"
-		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%zu\n",
+		    "%s: attached ring '%s' size=%u type=%d"
+		    " rmutex=%d wmutex=%d reader=%d writer=%d scratchpad=%u\n",
 		    name, ring, rb.header->size,
 		    rb.header->type,
 		    ring_use_rmutex(&rb), ring_use_wmutex(&rb),

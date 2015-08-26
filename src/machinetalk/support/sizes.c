@@ -51,6 +51,7 @@ int main()
     printf("hal_plug_t = %zu\n", sizeof(hal_plug_t));
 
     printf("ringheader_t = %zu (without storage)\n", sizeof(ringheader_t));
+    printf("ringtrailer_t = %zu (without scratchpad storage)\n", sizeof(ringtrailer_t));
     printf("ringbuffer_t = %zu\n", sizeof(ringbuffer_t));
     printf("msgbuffer_t = %zu\n", sizeof(msgbuffer_t));
 
