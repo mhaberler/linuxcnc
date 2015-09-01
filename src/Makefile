@@ -599,7 +599,7 @@ HEADERS := \
     rtapi/ring.h \
     rtapi/multiframe.h \
     rtapi/multiframe_flag.h \
-    rtapi/rtapi_mbarrier.h \
+    rtapi/rtapi_atomics.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
 
