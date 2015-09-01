@@ -165,8 +165,10 @@ static inline int msg_write_abort(msgbuffer_t *mb)
 }
 
 // read a frame without consuming,  discrete args style
-static inline int frame_read(msgbuffer_t *mb, const void ** data,
-			     ringsize_t *size, __u32 * flags)
+static inline int frame_read(msgbuffer_t *mb,
+			     const void ** data,
+			     ringsize_t *size,
+			     __u32 * flags)
 {
     if (!mb->_read) {
 	int r = record_read(mb->ring, &mb->_read, &mb->read_size);
