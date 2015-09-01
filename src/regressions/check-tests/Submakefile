@@ -6,12 +6,14 @@ INCLUDES += $(CHECK_TESTS)
 ../include/%.h: ./$(CHECK_DIR)/%.h
 	cp $^ $@
 
-$(call TOOBJSDEPS, $(HALTALK_SRCS)) : EXTRAFLAGS += $(HALTALK_CXXFLAGS)
 
 TESTS = check_hal
 check_PROGRAMS = ../bin/check_hal 
 check_hal_SOURCES = $(addprefix $(CHECK_TESTS)/, \
+	timers.c \
+	check-util.c \
 	check_hal.c)
+
 
 check_hal_CFLAGS = $(CHECK_CFLAGS)
 check_hal_LDADD = ../lib/libmtalk.so.0 \

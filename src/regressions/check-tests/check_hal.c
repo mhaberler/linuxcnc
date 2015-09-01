@@ -2,7 +2,18 @@
 // does not fork.
 
 #include <stdlib.h>
+#include <getopt.h>
 #include <check.h>
+#include "timers.h"
+#include "check-util.h"
+
+#include "rtapi.h"
+#include "ring.h"
+
+
+
+int verbose, timing, debug, delta, hop;
+static struct affinity a;
 
 #include "machinetalk-suite.h"
 #include "hal-suite.h"
@@ -18,12 +29,13 @@ int comp_id;
 
 void hal_setup(void)
 {
+    //    printf("number of cores=%d\n", cores);
     comp_id = hal_init("testme");
-    hal_ready(comp_id);
     if (hal_data == NULL) {
 	fprintf(stderr, "ERROR: could not connect to HAL\n");
 	exit(1);
     }
+    hal_ready(comp_id);
 }
 
 void hal_teardown(void)
@@ -34,8 +46,46 @@ void hal_teardown(void)
     }
 }
 
+
+static struct option long_options[] = {
+    {"help",  no_argument,          0, 'h'},
+    {"delta",  required_argument,   0, 'D'},
+    {"verbose",  no_argument,   0, 'v'},
+    {"timing",  no_argument,   0, 't'},
+    {"hop",  required_argument,   0, 'H'},
+    {0, 0, 0, 0}
+};
 int main(int argc, char **argv)
 {
+    int c;
+
+    while (1) {
+	int option_index = 0;
+	c = getopt_long (argc, argv, "hD:vt",
+			 long_options, &option_index);
+	if (c == -1)
+	    break;
+
+	switch (c)	{
+	case 'D':
+	    delta = a.delta = atoi(optarg);
+	    break;
+
+	case 'd':
+	    debug++;
+	    break;
+	case 'v':
+	    verbose++;
+	    break;
+	case 't':
+	    timing++;
+	    break;
+	case 'H':
+	    hop = atoi(optarg);
+	    break;
+	}
+    }
+
     int number_failed;
     Suite *s;
     SRunner *sr;
@@ -51,8 +101,10 @@ int main(int argc, char **argv)
 #ifdef EXAMPLE_TEST
     srunner_add_suite(sr, hello_world_suite());
 #endif
-
-    srunner_run_all(sr, CK_NORMAL);
+    {
+	WITH_WALL_TIME("all tests", RES_MS);
+	srunner_run_all(sr, CK_NORMAL);
+    }
     number_failed = srunner_ntests_failed(sr);
     srunner_free(sr);
     hal_teardown();

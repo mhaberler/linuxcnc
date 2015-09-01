@@ -105,30 +105,40 @@ START_TEST(test_smp_increment)
     t.thcnt = MAXTHREADS;
     t.count = OP_COUNT;
     fprintf(stderr, "%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
-
-    t.op = INCR;
-    testrun("legacy IO pin increment", test_increment, &t);
-
-    t.op = INCR_MB;
-    testrun("increment + read/write barriers", test_increment, &t);
-
-    t.op = CK_ATOMIC_INCR;
-    testrun("concurrencykit atomic increment", test_increment, &t);
-    ck_assert_int_eq(t.value,  t.count * t.thcnt);
-
-    t.op = GCC_ATOMIC_INCR;
-
-    testrun("gcc intrinsics atomic increment", test_increment, &t);
-    ck_assert_int_eq(t.value,  t.count * t.thcnt);
-
-
-    t.op = CK_ATOMIC_CAS;
-    testrun("concurrencykit CAS loop", test_increment, &t);
-    ck_assert_int_eq(t.value,  t.count * t.thcnt);
-
-    t.op = GCC_ATOMIC_CAS;
-    testrun("gcc intrinsics CAS loop", test_increment, &t);
-    ck_assert_int_eq(t.value,  t.count * t.thcnt);
+    {
+	WITH_PROCESS_CPUTIME_N("legacy IO pin incr", OP_COUNT *MAXTHREADS, RES_NS);
+	t.op = INCR;
+	testrun("legacy IO pin increment", test_increment, &t);
+    }
+    {
+	WITH_PROCESS_CPUTIME_N("incr + barriers", OP_COUNT *MAXTHREADS, RES_NS);
+	t.op = INCR_MB;
+	testrun("increment + read/write barriers", test_increment, &t);
+    }
+    {
+	WITH_PROCESS_CPUTIME_N("ck atomic incr", OP_COUNT *MAXTHREADS, RES_NS);
+	t.op = CK_ATOMIC_INCR;
+	testrun("concurrencykit atomic increment", test_increment, &t);
+	ck_assert_int_eq(t.value,  t.count * t.thcnt);
+    }
+    {
+	WITH_PROCESS_CPUTIME_N("gcc atomic incr", OP_COUNT *MAXTHREADS, RES_NS);
+	t.op = GCC_ATOMIC_INCR;
+	testrun("gcc intrinsics atomic increment", test_increment, &t);
+	ck_assert_int_eq(t.value,  t.count * t.thcnt);
+    }
+    {
+	WITH_PROCESS_CPUTIME_N("ck CAS loop", OP_COUNT *MAXTHREADS, RES_NS);
+	t.op = CK_ATOMIC_CAS;
+	testrun("concurrencykit CAS loop", test_increment, &t);
+	ck_assert_int_eq(t.value,  t.count * t.thcnt);
+    }
+    {
+	WITH_PROCESS_CPUTIME_N("gcc CAS loop", OP_COUNT *MAXTHREADS, RES_NS);
+	t.op = GCC_ATOMIC_CAS;
+	testrun("gcc intrinsics CAS loop", test_increment, &t);
+	ck_assert_int_eq(t.value,  t.count * t.thcnt);
+    }
     fprintf(stderr, "\n");
 
 }
@@ -143,6 +153,8 @@ Suite * atomic_suite(void)
 
     tc = tcase_create("increment");
     tcase_set_timeout(tc, 30.0);
+
+
     tcase_add_test(tc, test_smp_increment);
     suite_add_tcase(s, tc);
 
