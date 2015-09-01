@@ -136,8 +136,10 @@ hal_ring_t *halg_ring_newfv(const int use_hal_mutex,
 
     FAIL:
 	free_ring_id(ring_id);
-	if (rptr)
-	    shmfree_desc(rptr);
+	if (rptr) {
+	    hal_object_ptr o = {.any = rptr};
+	    halg_free_object(0, o);
+	}
 	return NULL;
     } // automatic unlock by scope exit
 }
