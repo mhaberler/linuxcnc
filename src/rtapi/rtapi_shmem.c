@@ -464,8 +464,8 @@ int _rtapi_shmem_delete_inst(int shmem_id, int instance, int module_id) {
 	retval = shm_common_detach(shmem->size, shmem_addr_array[shmem_id]);
 	if (retval) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "ULAPI:%d ERROR: shm_common_detach(%02d) failed: %s\n",
-			    rtapi_instance, shmem_id, strerror(-retval));
+			    "ULAPI:%d ERROR: shm_common_detach(%02d) failed: %d\n",
+			    rtapi_instance, shmem_id, retval);
 	}
     }
     /* unmap the block */

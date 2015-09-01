@@ -77,8 +77,8 @@ int ulapi_main(int instance, int flavor, global_data_t *global)
 				     rtapi_instance, (void **) &rtapi_data, 0))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "ULAPI:%d ERROR: cannot attach rtapi"
-			    " segment key=0x%x %s\n",
-			    rtapi_instance, rtapikey, strerror(-retval));
+			    " segment key=0x%x %d\n",
+			    rtapi_instance, rtapikey, retval);
 	}
 	if (size != sizeof(rtapi_data_t)) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
@@ -119,8 +119,8 @@ int ulapi_exit(int instance)
 	if (retval) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 			    "ULAPI:%d ERROR: shm_common_detach(rtapi_data)"
-			    " failed: %s\n",
-			    rtapi_instance,  strerror(-retval));
+			    " failed: %d\n",
+			    rtapi_instance, retval);
 	}
 	rtapi_data = NULL;
     }
