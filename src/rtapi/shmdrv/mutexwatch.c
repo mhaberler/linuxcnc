@@ -82,13 +82,14 @@ int main(int argc, char **argv)
 {
     int globalkey,rtapikey,halkey,retval;
     int size;
+    int quit = 0;
 
     page_size = sysconf(_SC_PAGESIZE);
     shmdrv_loaded = shmdrv_available();
 
     while (1) {
 	int option_index = 0;
-	int c = getopt_long (argc, argv, ":i:",
+	int c = getopt_long (argc, argv, ":i:q",
 			 long_options, &option_index);
 	if (c == -1)
 	    break;
@@ -96,6 +97,9 @@ int main(int argc, char **argv)
 	    //	case -1:
 	    // break;
 	case 0:
+	    break;
+	case 'q':
+	    quit++;
 	    break;
 	case 'i':
 	    rtapi_instance = atoi(optarg);
@@ -183,6 +187,8 @@ int main(int argc, char **argv)
 	     hal_data->heap.mutex = halheapmutex;
 	 }
     }
+    if (quit)
+	exit(0);
 
     if (!(MMAP_OK(global_data) || MMAP_OK(rtapi_data) || MMAP_OK(hal_data))) {
 	printf("nothing to attach to!\n");
