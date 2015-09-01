@@ -10,9 +10,9 @@
 #if defined(BUILD_SYS_USER_DSO)
 #define __KERNEL_STRICT_NAMES
 # include <linux/types.h>
-#if !defined(__GNUC__) && defined(__STRICT_ANSI__)
+// #if !defined(__GNUC__) && defined(__STRICT_ANSI__)
 # include <stdint.h>
-#endif
+// #endif
 # include <string.h>
 typedef __u8		u8;
 typedef __u16		u16;
