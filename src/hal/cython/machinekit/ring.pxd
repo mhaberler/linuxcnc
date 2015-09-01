@@ -14,7 +14,7 @@ cdef extern from "ring.h":
     int USE_WMUTEX
     int ALLOC_HALMEM
 
-    ctypedef int32_t  rrecsize_t
+    #ctypedef int32_t  rrecsize_t
     ctypedef uint32_t ringsize_t
 
     ctypedef struct ringheader_t:
@@ -59,7 +59,7 @@ cdef extern from "ring.h":
         ringsize_t rv_len
 
     int ringbuffer_attached(ringbuffer_t *rb)
-    ringsize_t size_aligned(const rrecsize_t x)
+    #ringsize_t size_aligned(const rrecsize_t x)
     ringsize_t ring_memsize(int flags, ringsize_t size, ringsize_t  sp_size)
     int ring_refcount(ringheader_t *ringheader)
     ringsize_t ring_scratchpad_size(ringbuffer_t *ring)
@@ -70,14 +70,14 @@ cdef extern from "ring.h":
 
     # record-oriented ring operations: frame boundaries are preserved
 
-    int record_write_begin(ringbuffer_t *ring, void ** data, rrecsize_t size)
+    int record_write_begin(ringbuffer_t *ring, void ** data, ringsize_t size)
     int record_write_end(ringbuffer_t *ring, void * data, ringsize_t size)
     int record_write(ringbuffer_t *ring, const void * data, ringsize_t size)
 
     int record_read(const ringbuffer_t *ring, const void **data, ringsize_t *size)
     int record_shift(ringbuffer_t *ring)
     void *record_next(ringbuffer_t *ring)
-    rrecsize_t record_next_size(ringbuffer_t *ring)
+    ringsize_t record_next_size(ringbuffer_t *ring)
 
     size_t record_write_space(const ringheader_t *h)
     int record_shift(ringbuffer_t *ring)
