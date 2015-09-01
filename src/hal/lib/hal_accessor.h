@@ -1,7 +1,8 @@
 #ifndef  HAL_ACCESSOR_H
 #define  HAL_ACCESSOR_H
 #include "config.h"
-#include <rtapi.h>
+#include "rtapi.h"
+#include "rtapi_atomics.h"
 
 
 
@@ -204,8 +205,6 @@ PINGETTER(64, float, HAL_FLOAT, f,   _u64,  FLOATLOAD, FLOATCAST);
 PINGETTER(64, u64,   HAL_U64,   lu,  _lu, U64LOAD,   U64CAST);
 PINGETTER(64, s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
 
-#if 0
-
 // atomically increment a value (integral types only)
 // unclear how to do the equivalent of an __atomic_add_fetch
 // with ck, so use gcc intrinsics for now:
@@ -235,7 +234,7 @@ PINGETTER(64, s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
 // typed pin incrementers
 PIN_INCREMENTER(s32, s)
 PIN_INCREMENTER(u32, u)
-#endif
+
 
 // signal getters
 #define SIGGETTER(SIZE, TYPE, OTYPE, LETTER, ACCESS, OP, CAST)		\
