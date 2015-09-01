@@ -18,6 +18,7 @@
 
 #include "config.h"
 #include "rtapi.h"
+#include "rtapi_int.h"
 #include "rtapi_heap.h"
 #include "rtapi_heap_private.h"
 #include "rtapi_export.h"
