@@ -117,7 +117,8 @@ int _rtapi_shmem_new_inst(int userkey, int instance, int module_id, unsigned lon
     // a non-zero size was given but it didn match what we found:
     if (size && (actual_size != size)) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
-			"rtapi_shmem_new:%d 0x8.8%x: requested size %ld and actual size %d dont match\n",
+			"rtapi_shmem_new:%d 0x8.8%x: requested size %ld"
+			" and actual size %d dont match\n",
 			instance, key, size, actual_size);
     }
     /* Touch each page by either zeroing the whole mem (if it's a new
