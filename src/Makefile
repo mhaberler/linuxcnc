@@ -1127,7 +1127,7 @@ include $(BASEPWD)/hal/userfunct-example/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
 include $(BASEPWD)/rtapi/rtapi_math/Submakefile
-include $(BASEPWD)/hal/accessor
+#include $(BASEPWD)/hal/accessor
 endif # KERNELRELEASE non-empty
 
 # $(BASEPWD) is used here, instead of relative paths, because that's
