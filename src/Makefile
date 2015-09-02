@@ -1,3 +1,4 @@
+#MAKEFLAGS += w --warn-undefined-variables
 # see http://www.cmcrossroads.com/ask-mr-make/6535-tracing-rule-execution-in-gnu-make
 # to trace make execution of make in more detail:
 #     make VV=1
@@ -1515,6 +1516,9 @@ obj-m += iring.o
 iring-objs := hal/iring-example/iring.o
 
 
+obj-cpp += cpptest.o
+cpptest-objs := hal/icomp-example/cpptest.o
+
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \
 	tc.o 		\
@@ -1539,10 +1543,14 @@ ifeq ($(BUILD_SYS)+$(BUILD_THREAD_MODULES),user-dso+yes)
 EXTRA_CFLAGS += -fPIC
 
 RTOBJS := $(sort $(foreach mod,$(obj-m),$(call TORTOBJS,$(mod))))
+CXXRTOBJS := $(sort $(foreach mod,$(obj-cpp),$(call TORTOBJS,$(mod))))
 
 RTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(RTOBJS)))
+CXXRTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(CXXRTOBJS)))
+
 IS_POWERPC = test `uname -m` = ppc -o `uname -m` = ppc64
-modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m))
+modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m)) $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-cpp))
+
 $(RTLIBDIR)/%.so:
 	$(ECHO) Linking $@
 	@mkdir -p $(dir $@)
@@ -1564,12 +1572,26 @@ $(sort $(RTDEPS)): $(DEPDIR)/%.d: %.c
 		$(patsubst depends/%.d,objects/%.o,$@),$@,$(OPT) \
 		$(DEBUG) $(EXTRA_CFLAGS) $<)
 
+$(sort $(CXXRTDEPS)): $(DEPDIR)/%.d: %.cc
+	@mkdir -p $(dir $@)
+	$(ECHO) Depending $<
+	$(Q)$(call DEP,$(CXX),$@ \
+		$(patsubst depends/%.d,objects/%.o,$@),$@,$(OPT) \
+		$(DEBUG) $(EXTRA_CFLAGS) $<)
+
 # Rules to make .o (object) files
 $(sort $(RTOBJS)) : $(OBJDIR)/%.o : %.c $(DEPDIR)/%.d
 	$(ECHO) Compiling realtime $<
 	@rm -f $@
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) -c $(OPT) $(DEBUG) $(EXTRA_CFLAGS) $< -o $@
+
+# Rules to make .o (object) files from .cc
+$(sort $(CXXRTOBJS)) : $(OBJDIR)/%.o : %.cc $(DEPDIR)/%.d
+	$(ECHO) Compiling realtime++ $<
+	@rm -f $@
+	@mkdir -p $(dir $@)
+	$(Q)$(CXX) -c $(OPT) $(DEBUG) $(EXTRA_CFLAGS) $< -o $@
 
 endif # end BUILD_SYS=user-dso
 
@@ -1693,6 +1715,7 @@ $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
+$(RTLIBDIR)/cpptest$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(cpptest-objs))
 $(RTLIBDIR)/iring$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(iring-objs))
 $(RTLIBDIR)/plug$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(plug-objs))
 $(RTLIBDIR)/random$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(random-objs))
@@ -1700,8 +1723,8 @@ $(RTLIBDIR)/random$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(random-objs))
 $(RTLIBDIR)/lutnv2c$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutnv2c-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
-READ_RTDEPS = $(wildcard $(RTDEPS))
-$(shell echo 1>&2 Reading $(words $(READ_RTDEPS))/$(words $(RTDEPS)) realtime dependency files)
+READ_RTDEPS = $(wildcard $(RTDEPS) $(CXXRTDEPS))
+$(shell echo 1>&2 Reading $(words $(READ_RTDEPS))/$(words $(RTDEPS) $(CXXRTDEPS)) realtime dependency files)
 -include $(READ_RTDEPS)
 $(shell echo 1>&2 Done reading realtime dependencies)
 endif
