@@ -208,6 +208,12 @@ static void write_sample_to_ring(void *arg, long period)
 		case HAL_U32:
 		    set_u32_value(hd->pins_out[j], get_u32_value(hd->pins_in[j]));
 		    break;
+		case HAL_S64:
+		    set_s64_value(hd->pins_out[j], get_s64_value(hd->pins_in[j]));
+		    break;
+		case HAL_U64:
+		    set_u64_value(hd->pins_out[j], get_u64_value(hd->pins_in[j]));
+		    break;
 		case HAL_TYPE_UNSPECIFIED:
 		    // an error - should fail loudly TBD
 		    ;
@@ -239,6 +245,12 @@ static void write_sample_to_ring(void *arg, long period)
 		break;
 	    case HAL_U32:
 		set_u32_value(&s->value[j], get_u32_value(hd->pins_in[j]));
+		break;
+	    case HAL_S64:
+		set_s64_value(&s->value[j], get_s64_value(hd->pins_in[j]));
+		break;
+	    case HAL_U64:
+		set_u64_value(&s->value[j], get_u64_value(hd->pins_in[j]));
 		break;
 	    case HAL_TYPE_UNSPECIFIED:
 		// an error - should fail loudly TBD
@@ -275,6 +287,12 @@ static inline void apply(const sample_t *s, const hal_delayline_t *hd)
 	    break;
 	case HAL_U32:
 	    set_u32_value(hd->pins_out[i], get_u32_value(&s->value[i]));
+	    break;
+	case HAL_S64:
+	    set_s64_value(hd->pins_out[i], get_s64_value(&s->value[i]));
+	    break;
+	case HAL_U64:
+	    set_u64_value(hd->pins_out[i], get_u64_value(&s->value[i]));
 	    break;
 	case HAL_TYPE_UNSPECIFIED:
 	    // an error - should fail loudly TBD
@@ -430,12 +448,16 @@ static int export_delayline(int n)
 	    type = HAL_FLOAT;
 	    break;
 	case 's':
-	case 'S':
 	    type = HAL_S32;
 	    break;
 	case 'u':
-	case 'U':
 	    type = HAL_U32;
+	    break;
+	case 'S':
+	    type = HAL_S64;
+	    break;
+	case 'U':
+	    type = HAL_U64;
 	    break;
 	default:
 	    hal_print_msg(RTAPI_MSG_ERR,

@@ -1,28 +1,12 @@
-from .hal_priv cimport MAX_EPSILON, hal_data_u,pin_is_linked, signal_of
+from .hal_priv cimport MAX_EPSILON, hal_data_u,pin_is_linked, signal_of, hals_type, hals_pindir
 from .hal_util cimport shmptr, py2hal,hal2py
 
 
 def describe_hal_type(haltype):
-    if haltype == HAL_FLOAT:
-        return 'float'
-    elif haltype == HAL_BIT:
-        return 'bit'
-    elif haltype == HAL_U32:
-        return 'u32'
-    elif haltype == HAL_S32:
-        return 's32'
-    else:
-        return 'unknown'
+    return hals_type(haltype)
 
 def describe_hal_dir(haldir):
-    if haldir == HAL_IN:
-        return 'in'
-    elif haldir == HAL_OUT:
-        return 'out'
-    elif haldir == HAL_IO:
-        return 'io'
-    else:
-        return 'unknown'
+    return hals_pindir(haldir)
 
 
 cdef class _Pin(HALObject):

@@ -598,7 +598,7 @@ static int first = 1;
 static char *data_value(int type, void *valptr)
 {
     char *value_str;
-    static char buf[25];
+    static char buf[100];
 
     switch (type) {
     case HAL_BIT:
@@ -608,16 +608,23 @@ static char *data_value(int type, void *valptr)
 	    value_str = "TRUE";
 	break;
     case HAL_FLOAT:
-	snprintf(buf, 14, "%.7g", (double)*((hal_float_t *) valptr));
+	snprintf(buf, sizeof(buf), "%.7g", (double)*((hal_float_t *) valptr));
 	value_str = buf;
 	break;
     case HAL_S32:
-	snprintf(buf, 24, "%10ld", (long)*((hal_s32_t *) valptr));
+	snprintf(buf, sizeof(buf), "%10ld", (long)*((hal_s32_t *) valptr));
 	value_str = buf;
 	break;
     case HAL_U32:
-	snprintf(buf, 24, "%10lu (0x%08lX)", (unsigned long)*((hal_u32_t *) valptr),
-	    *((unsigned long *) valptr));
+	snprintf(buf, sizeof(buf), "%10lu", (unsigned long)*((hal_u32_t *) valptr));
+	value_str = buf;
+	break;
+    case HAL_S64:
+	snprintf(buf, sizeof(buf), "%1ld", (long long)*((hal_s64_t *) valptr));
+	value_str = buf;
+	break;
+    case HAL_U64:
+	snprintf(buf, sizeof(buf), "%1lu", (unsigned long long)*((hal_u64_t *) valptr));
 	value_str = buf;
 	break;
     default:

@@ -326,6 +326,14 @@ int hals_value(char *buffer,
 // convert pin direction to string
 const char *hals_pindir(const hal_pin_dir_t dir);
 
+
+// test if dir is in [HAL_IN, HAL_OUT, HAL_IO]
+const int hal_valid_dir(const hal_pin_dir_t dir);
+
+// test if dir is in [HAL_BIT,...]
+const int hal_valid_type(const hal_type_t type);
+
+
 // pin allocators, in hal_accessor.c
 bit_pin_ptr halx_pin_bit_newf(const hal_pin_dir_t dir,
 			      const int owner_id,

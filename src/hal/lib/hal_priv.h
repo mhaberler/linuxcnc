@@ -462,6 +462,14 @@ static inline const hal_u32_t set_u32_value(hal_data_u *h, const hal_u32_t value
     h->_u = value;
     return h->_u;
 }
+static inline const hal_s64_t set_s64_value(hal_data_u *h, const hal_s64_t value) {
+    h->_s = value;
+    return h->_s64;
+}
+static inline const hal_u64_t set_u64_value(hal_data_u *h, const hal_u64_t value) {
+    h->_u = value;
+    return h->_u64;
+}
 static inline const hal_float_t set_float_value(hal_data_u *h, const hal_float_t value) {
     h->_f = value;
     return h->_f;
@@ -473,6 +481,12 @@ static inline const hal_s32_t get_s32_value(const hal_data_u *h) {
     return h->_s;
 }
 static inline const hal_u32_t get_u32_value(const hal_data_u *h) {
+    return h->_u;
+}
+static inline const hal_s64_t get_s64_value(const hal_data_u *h) {
+    return h->_s;
+}
+static inline const hal_u64_t get_u64_value(const hal_data_u *h) {
     return h->_u;
 }
 static inline const hal_float_t get_float_value(const hal_data_u *h) {

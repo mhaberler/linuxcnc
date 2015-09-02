@@ -21,6 +21,8 @@ cdef extern from "hal.h":
         HAL_FLOAT
         HAL_S32
         HAL_U32
+        HAL_S64
+        HAL_U64
 
     ctypedef enum hal_pin_dir_t:
         HAL_DIR_UNSPECIFIED
