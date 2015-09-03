@@ -38,6 +38,7 @@
 #include <stdlib.h>		// exit()
 
 #include "rtapi.h"		// RTAPI realtime OS API
+#include "ring.h"		// RTAPI realtime OS API
 #include "rtapi/shmdrv/shmdrv.h" // common shared memory API
 #include "rtapi_compat.h"	// flavor support
 

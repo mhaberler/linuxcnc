@@ -266,6 +266,16 @@ int set_channel_source(int chan_num, int type, char *name)
 	chan->min_index = -2;
 	chan->max_index = 30;
 	break;
+    case HAL_S64:
+	chan->data_len = sizeof(hal_s64_t);
+	chan->min_index = -2;
+	chan->max_index = 30;
+	break;
+    case HAL_U64:
+	chan->data_len = sizeof(hal_u64_t);
+	chan->min_index = -2;
+	chan->max_index = 30;
+	break;
     default:
 	/* Shouldn't get here, but just in case... */
 	chan->data_len = 0;

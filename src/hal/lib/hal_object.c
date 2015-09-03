@@ -2,7 +2,7 @@
 //  inlined accessors are in hal_object.h
 #include "config.h"
 #include "rtapi.h"
-#include "rtapi_mbarrier.h"
+#include "rtapi_atomics.h"
 #include "hal.h"
 #include "hal_priv.h"
 #include "hal_object.h"

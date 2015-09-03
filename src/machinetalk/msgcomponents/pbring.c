@@ -159,7 +159,7 @@ static int update_pbring(void *arg, const hal_funct_args_t *fa)
 {
     pbring_inst_t *p = (pbring_inst_t *) arg;
 
-    rrecsize_t cmdsize = record_next_size(plug_rb(p->to_rt_rb));
+    ringsize_t cmdsize = record_next_size(plug_rb(p->to_rt_rb));
     if (cmdsize < 0) {
 	// command ring empty
 	set_u32_pin(p->underrun, get_u32_pin(p->underrun) + 1);

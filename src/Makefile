@@ -370,7 +370,7 @@ DEBUG := -g -Wall -funwind-tables -fno-omit-frame-pointer
 PROFILE_CFLAGS :=
 PROFILE_LDFLAGS :=
 
-CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) -DULAPI $(call cc-option,-std=gnu99 -fgnu89-inline)
+CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) -DULAPI $(call cc-option,-std=gnu11)
 
 # enable runtime comparison of GIT_CONFIG_SHA (config.h) and GIT_BUILD_SHA
 CFLAGS += -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
@@ -599,7 +599,7 @@ HEADERS := \
     rtapi/ring.h \
     rtapi/multiframe.h \
     rtapi/multiframe_flag.h \
-    rtapi/rtapi_mbarrier.h \
+    rtapi/rtapi_atomics.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
 
@@ -1127,7 +1127,7 @@ include $(BASEPWD)/hal/userfunct-example/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
 include $(BASEPWD)/rtapi/rtapi_math/Submakefile
-include $(BASEPWD)/hal/accessor
+#include $(BASEPWD)/hal/accessor
 endif # KERNELRELEASE non-empty
 
 # $(BASEPWD) is used here, instead of relative paths, because that's

@@ -35,6 +35,7 @@
 #include <sys/utsname.h>
 #include <limits.h>		/* PATH_MAX */
 #include <stdlib.h>		/* exit() */
+#include <string.h>		/* exit() */
 #include <grp.h>                // getgroups
 
 #include <elf.h>                // get_rpath()

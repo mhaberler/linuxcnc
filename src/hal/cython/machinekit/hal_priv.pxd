@@ -196,13 +196,38 @@ cdef extern from "hal_priv.h":
     int pin_linked_to(const hal_pin_t *pin, const hal_sig_t *sig)
     bint pin_is_linked(const hal_pin_t *pin)
 
+    # test if dir is in [HAL_IN, HAL_OUT, HAL_IO]
+    const int hal_valid_dir(const hal_pin_dir_t dir)
+
+    # test if dir is in [HAL_BIT,...]
+    const int hal_valid_type(const hal_type_t type)
+
+
+    # string-returning or converting accessors
+    # type -> "bit", "s32" etc
+    const char *hals_type(const hal_type_t type)
+
+    # convert hal_data_u to string
+    int hals_value(char *buffer,
+                   const size_t s,
+                   const hal_type_t type,
+                   const hal_data_u *u)
+
+    # convert pin direction to string ("IN", "OUT", "IO")
+    const char *hals_pindir(const hal_pin_dir_t dir)
+
+
     # hal_data_u *accessors
     hal_bit_t set_bit_value(hal_data_u *h, const hal_bit_t value)
     hal_s32_t set_s32_value(hal_data_u *h, const hal_s32_t value)
     hal_u32_t set_u32_value(hal_data_u *h, const hal_u32_t value)
     hal_float_t set_float_value(hal_data_u *h, const hal_float_t value)
+    hal_s64_t set_s64_value(hal_data_u *h, const hal_s64_t value)
+    hal_u64_t set_u64_value(hal_data_u *h, const hal_u64_t value)
 
     hal_bit_t get_bit_value(const hal_data_u *h)
     hal_s32_t get_s32_value(const hal_data_u *h)
     hal_u32_t get_u32_value(const hal_data_u *h)
     hal_float_t get_float_value(const hal_data_u *h)
+    hal_s64_t get_s64_value(const hal_data_u *h)
+    hal_u64_t get_u64_value(const hal_data_u *h)

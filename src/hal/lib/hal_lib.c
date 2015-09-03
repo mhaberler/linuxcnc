@@ -334,6 +334,8 @@ EXPORT_SYMBOL(hals_pindir);
 EXPORT_SYMBOL(hals_type);
 EXPORT_SYMBOL(hals_value);
 EXPORT_SYMBOL(hal_typefailure);
+EXPORT_SYMBOL(hal_valid_dir);
+EXPORT_SYMBOL(hal_valid_type);
 
 // hal_comp.c:
 EXPORT_SYMBOL(hal_init);

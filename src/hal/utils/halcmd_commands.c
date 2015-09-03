@@ -593,6 +593,10 @@ int do_newsig_cmd(char *name, char *type)
 	retval = hal_signal_new(name, HAL_U32);
     } else if (strcasecmp(type, "s32") == 0) {
 	retval = hal_signal_new(name, HAL_S32);
+    } else if (strcasecmp(type, "u64") == 0) {
+	retval = hal_signal_new(name, HAL_U64);
+    } else if (strcasecmp(type, "s64") == 0) {
+	retval = hal_signal_new(name, HAL_S64);
     } else {
 	halcmd_error("Unknown signal type '%s'\n", type);
 	retval = -EINVAL;
@@ -610,6 +614,8 @@ static int set_common(hal_type_t type, void *d_ptr, char *value) {
     double fval;
     long lval;
     unsigned long ulval;
+    unsigned long long ullval;
+    long long llval;
     char *cp = value;
 
     switch (type) {
@@ -652,6 +658,26 @@ static int set_common(hal_type_t type, void *d_ptr, char *value) {
 	    retval = -EINVAL;
 	} else {
 	    *((hal_u32_t *) (d_ptr)) = ulval;
+	}
+	break;
+    case HAL_S64:
+	llval = strtoll(value, &cp, 0);
+	if ((*cp != '\0') && (!isspace(*cp))) {
+	    /* invalid chars in string */
+	    halcmd_error("value '%s' invalid for S64\n", value);
+	    retval = -EINVAL;
+	} else {
+	    *((hal_s64_t *) (d_ptr)) = llval;
+	}
+	break;
+    case HAL_U64:
+	ullval = strtoull(value, &cp, 0);
+	if ((*cp != '\0') && (!isspace(*cp))) {
+	    /* invalid chars in string */
+	    halcmd_error("value '%s' invalid for U64\n", value);
+	    retval = -EINVAL;
+	} else {
+	    *((hal_u64_t *) (d_ptr)) = ullval;
 	}
 	break;
     default:
@@ -938,6 +964,8 @@ static int get_type(char ***patterns) {
     if(strcmp(typestr, "bit") == 0) return HAL_BIT;
     if(strcmp(typestr, "s32") == 0) return HAL_S32;
     if(strcmp(typestr, "u32") == 0) return HAL_U32;
+    if(strcmp(typestr, "s64") == 0) return HAL_S64;
+    if(strcmp(typestr, "u64") == 0) return HAL_U64;
     if(strcmp(typestr, "signed") == 0) return HAL_S32;
     if(strcmp(typestr, "unsigned") == 0) return HAL_U32;
     return -1;
@@ -2747,6 +2775,12 @@ static const char *data_type(int type)
     case HAL_U32:
 	type_str = "u32  ";
 	break;
+    case HAL_S64:
+	type_str = "s64  ";
+	break;
+    case HAL_U64:
+	type_str = "u64  ";
+	break;
     default:
 	/* Shouldn't get here, but just in case... */
 	type_str = "undef";
@@ -2756,26 +2790,7 @@ static const char *data_type(int type)
 
 static const char *data_type2(int type)
 {
-    const char *type_str;
-
-    switch (type) {
-    case HAL_BIT:
-	type_str = "bit";
-	break;
-    case HAL_FLOAT:
-	type_str = "float";
-	break;
-    case HAL_S32:
-	type_str = "s32";
-	break;
-    case HAL_U32:
-	type_str = "u32";
-	break;
-    default:
-	/* Shouldn't get here, but just in case... */
-	type_str = "undef";
-    }
-    return type_str;
+    return hals_type(type);
 }
 
 /* Switch function for pin direction for the print_*_list functions  */
@@ -2887,6 +2902,14 @@ static char *data_value(int type, void *valptr)
 	break;
     case HAL_U32:
 	snprintf(buf, 14, "  0x%08lX", (unsigned long)*((hal_u32_t *) valptr));
+	value_str = buf;
+	break;
+    case HAL_S64:
+	snprintf(buf, 14, "  %lld", (long long)*((hal_s64_t *) valptr));
+	value_str = buf;
+	break;
+    case HAL_U64:
+	snprintf(buf, 14, "  %llu", (unsigned long long)*((hal_u64_t *) valptr));
 	value_str = buf;
 	break;
     default:
@@ -3794,6 +3817,10 @@ int do_newpin_cmd(char *comp_name, char *pin_name, char *type_name, char *args[]
 	    type = HAL_U32;
 	} else if (strcasecmp(type_name, "s32") == 0) {
 	    type = HAL_S32;
+	} else if (strcasecmp(type_name, "u64") == 0) {
+	    type = HAL_U64;
+	} else if (strcasecmp(type_name, "s64") == 0) {
+	    type = HAL_S64;
 	} else {
 	    halcmd_error("Unknown pin type '%s'\n", type_name);
 	    retval = -EINVAL;
@@ -4451,7 +4478,7 @@ int do_help_cmd(char *command)
     } else if (strcmp(command, "newsig") == 0) {
 	printf("newsig signame type\n");
 	printf("  Creates a new signal called 'signame'.  Type\n");
-	printf("  is 'bit', 'float', 'u32', or 's32'.\n");
+	printf("  is 'bit', 'float', 'u32', 's32', 'u64', or 's64'.\n");
     } else if (strcmp(command, "delsig") == 0) {
 	printf("delsig signame\n");
 	printf("  Deletes signal 'signame'.  If 'signame is 'all',\n");

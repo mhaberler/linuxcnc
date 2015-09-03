@@ -18,6 +18,7 @@
 #include "rtapi.h"
 #include "rtapi_common.h"
 #include "rtapi_compat.h"
+#include "ring.h"
 
 #ifndef MODULE
 #include <stdlib.h>		/* strtol() */

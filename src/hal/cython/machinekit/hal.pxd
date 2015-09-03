@@ -1,6 +1,7 @@
 # vim: sts=4 sw=4 et
 cimport libcpp
 cimport hal_const
+from libc.stdint cimport uint64_t, int64_t
 
 # Copyright Pavel Shramov, 4/2014
 # see http://psha.org.ru/cgit/psha/emc2.git/commit/?h=wip-cython
@@ -28,6 +29,8 @@ cdef extern from "hal.h":
     ctypedef float hal_float_t
     ctypedef int hal_s32_t
     ctypedef unsigned hal_u32_t
+    ctypedef uint64_t hal_u64_t
+    ctypedef int64_t hal_s64_t
 
     int hal_signal_new(const char *sig, hal_const.hal_type_t)
     int halg_signal_new(const int use_hal_mutex,

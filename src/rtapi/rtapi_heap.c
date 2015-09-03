@@ -18,10 +18,12 @@
 
 #include "config.h"
 #include "rtapi.h"
+#include "rtapi_int.h"
 #include "rtapi_heap.h"
 #include "rtapi_heap_private.h"
 #include "rtapi_export.h"
 #include "rtapi_bitops.h"
+#include "rtapi_string.h"
 #ifdef ULAPI
 #include <stdio.h>
 #include <sys/types.h>

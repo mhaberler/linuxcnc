@@ -140,12 +140,12 @@ hal_pin_t *halg_pin_newfv(const int use_hal_mutex,
     hal_pin_t *new;
     bool is_legacy = false;
 
-    if (type != HAL_BIT && type != HAL_FLOAT && type != HAL_S32 && type != HAL_U32) {
+    if (!hal_valid_type(type)) {
 	HALFAIL_NULL(EINVAL,
-		     "pin '%s': pin type not one of HAL_BIT, HAL_FLOAT, HAL_S32 or HAL_U32 (%d)",
+		     "pin '%s': pin type not a legit HAL type (%d)",
 		     name, type);
     }
-    if (dir != HAL_IN && dir != HAL_OUT && dir != HAL_IO) {
+    if (!hal_valid_dir(dir)) {
 	HALFAIL_NULL(EINVAL,"pin '%s': pin direction not one of HAL_IN, HAL_OUT, or HAL_IO (%d)",
 		     name, dir);
     }

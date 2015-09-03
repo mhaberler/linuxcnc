@@ -2,7 +2,7 @@
 
 #include "config.h"
 #include "rtapi.h"		/* RTAPI realtime OS API */
-#include "rtapi_mbarrier.h"	// memory barrier primitives
+#include "rtapi_atomics.h"
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"

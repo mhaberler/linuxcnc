@@ -28,6 +28,7 @@
 #include "config.h"		// build configuration
 #include "rtapi.h"		// these functions
 #include "rtapi_common.h"	// RTAPI macros and decls
+#include "ring.h"
 #include "rtapi_heap.h"
 #include "rtapi/shmdrv/shmdrv.h"
 

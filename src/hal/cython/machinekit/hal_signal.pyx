@@ -1,5 +1,5 @@
-from .hal_priv cimport hal_data_u
-from .hal_util cimport hal2py, py2hal, shmptr, valid_dir, valid_type
+from .hal_priv cimport hal_data_u, hal_valid_dir, hal_valid_type
+from .hal_util cimport hal2py, py2hal, shmptr
 
 cdef int _pin_by_signal_cb(hal_pin_t *pin,
                            hal_sig_t *sig,
@@ -203,8 +203,8 @@ cdef modifier_name(hal_sig_t *sig, int dir):
     return names
 
 
-cdef _newsig(char *name, int type, init=None):
-    if not valid_type(type):
+cdef _newsig(char *name, hal_type_t type, init=None):
+    if not hal_valid_type(type):
         raise TypeError("newsig: %s - invalid type %d " % (name, type))
     return Signal(name, type=type, init=init, wrap=False)
 

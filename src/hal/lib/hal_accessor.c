@@ -158,8 +158,39 @@ const char *hals_type(const hal_type_t type)
 	return "s32";
     case HAL_U32:
 	return "u32";
+    case HAL_S64:
+	return "s64";
+    case HAL_U64:
+	return "u64";
     default:
 	return "*invalid*";
+    }
+}
+
+const int hal_valid_type(const hal_type_t type)
+{
+    switch (type) {
+    case HAL_BIT:
+    case HAL_FLOAT:
+    case HAL_S32:
+    case HAL_U32:
+    case HAL_S64:
+    case HAL_U64:
+	return 1;
+    default:
+	return 0;
+    }
+}
+
+const int hal_valid_dir(const hal_pin_dir_t dir)
+{
+    switch (dir) {
+    case HAL_IN:
+    case HAL_OUT:
+    case HAL_IO:
+	return 1;
+    default:
+	return 0;
     }
 }
 
@@ -177,6 +208,10 @@ int hals_value(char *buffer,
 	return rtapi_snprintf(buffer, s, "%d", u->_s);
     case HAL_U32:
 	return rtapi_snprintf(buffer, s, "%u", u->_u);
+    case HAL_S64:
+	return rtapi_snprintf(buffer, s, "%lld", u->_s64);
+    case HAL_U64:
+	return rtapi_snprintf(buffer, s, "%llu", u->_u64);
     default:
 	HALFAIL_RC(EINVAL, "invalid type %d", type);
     }
