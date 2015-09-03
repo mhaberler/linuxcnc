@@ -4,6 +4,7 @@
 #include "hal.h"
 #include "hal_priv.h"
 #include "hal_accessor.h"
+#include <stdarg.h>
 
 using namespace std;
 
@@ -11,25 +12,48 @@ class Pin
 {
 
 public:
-    void *operator new(size_t size);
-    void operator delete(void *p);
-    void *operator new[](size_t size);
-    void operator delete[](void *p);
+    void *operator new(size_t size)    { throw; };
+    void operator delete(void *p)      { throw; };
+    void *operator new[](size_t size)  { throw; }
+    void operator delete[](void *p)    { throw; };
 
-    //constructor
-    // Pin(hal_pin_t &p) : pin(p) {};
+
     Pin(hal_pin_t *p) :  pin(p) {};
 
-    // value retrieval
-    // hal_s32_t operator=(const Pin& that);
-    //    Pin operator=(const hal_s32_t& value);
+    Pin(const hal_pin_dir_t dir, const int owner_id, hal_s32_t defval, const char *fmt, ...) {
+	hal_data_u u;
+	u._s = defval;
+	va_list ap;
+	va_start(ap, fmt);
+	pin = halg_pin_newfv(1, HAL_S32, dir, NULL, owner_id, u, fmt, ap);
+	va_end(ap);
+    }
 
-    operator hal_s32_t() const { return  _get_s32_pin(pin); }
+    // conversions
+    inline operator hal_s32_t() const { return  _get_s32_pin(pin); }
 
-    
-    //overloaded operations +, -, * and /
-    Pin operator+(const Pin &);
-      Pin operator+(const int &);
+
+    // compound assignment +=
+    inline Pin operator+=(const Pin &rhs) {
+    	_incr_s32_pin(this->pin, _get_s32_pin(rhs.pin));
+    	return *this;
+    }
+    inline Pin operator+=(const hal_s32_t& value) {
+	_incr_s32_pin(this->pin, value);
+	return *this;
+    };
+    inline Pin operator+=(const int& value) {
+	_incr_s32_pin(this->pin, value);
+	return *this;
+    };
+
+
+    inline hal_s32_t operator+(const Pin &rhs) {
+    	return _get_s32_pin(this->pin) + _get_s32_pin(rhs.pin);
+    }
+    inline hal_s32_t operator+(const int &rhs) {
+	return _get_s32_pin(this->pin) + rhs;
+    }
     // Pin operator-(const Pin &);
     // Pin operator*(const Pin &);
     // Pin operator/(const Pin &);
