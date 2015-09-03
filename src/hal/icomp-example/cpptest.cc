@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <string>
 using namespace std;
+#include <pin.hh>
+#define CPPINS
 
 MODULE_AUTHOR("Michael Haberler");
 MODULE_DESCRIPTION("instantiable lookup table component with configurable number of pins");
@@ -43,6 +45,7 @@ static int comp_id;
 static const char *compname = "cpptest";
 
 struct inst_data {
+    Pin p;
     int pincount;
     hal_u32_t functn;
     bit_pin_ptr out;
@@ -80,6 +83,11 @@ static int lutn(void *arg, const hal_funct_args_t *fa)
 	if (get_bit_pin(ip->in[i])) shift += (1 << i);
 
     set_bit_pin(ip->out, (ip->functn & (1 << shift)) != 0);
+
+#ifdef CPPINS
+    ip->p = ip->p + 1;
+    hal_s32_t foo  = ip->p;
+#endif
     return 0;
 }
 
@@ -111,6 +119,7 @@ static int instantiate_lutn(const char *name,
     HALDBG("name='%s' pincount=%d functn=0x%x ip=%p foo='%s'",
 	   name, pincount, functn, ip, foo);
 
+
     // record instance params
     ip->pincount = pincount;
     ip->functn = functn;
@@ -126,17 +135,30 @@ static int instantiate_lutn(const char *name,
 	return _halerrno;
 
 
+#ifdef CPPINS
+    // ((hal_pin_t *) hal_ptr(ip->out._bp));
+
+
+    //    hal_pin_t *pp =
+
+    
+    ip->p = Pin(halg_pin_newf(1, HAL_S32, HAL_OUT, NULL, inst_id, "%s.test", name));
+    HALDBG("sizeof(Pin) = %zu", sizeof(Pin));
+		    //    ip->p = Pin(pp);
+    //    delete ip->p;
+#endif
+
     // exporting 'lutn' as an extended thread function
     // this has the advantage of better context exposure in the thread function
     // (e.g thread and funct name, timing information etc)
     // it is fully backwards compatible and the recommened way of doing an export
     hal_export_xfunct_args_t xf = {};
-        xf.type = FS_XTHREADFUNC;
-        xf.funct.x = lutn;
-        xf.arg = ip;
-        xf.uses_fp = 0;
-        xf.reentrant = 0;
-        xf.owner_id = inst_id;
+    xf.type = FS_XTHREADFUNC;
+    xf.funct.x = lutn;
+    xf.arg = ip;
+    xf.uses_fp = 0;
+    xf.reentrant = 0;
+    xf.owner_id = inst_id;
     return hal_export_xfunctf(&xf, "%s.funct", name);
 }
 

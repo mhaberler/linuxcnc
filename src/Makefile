@@ -1148,6 +1148,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(INCLUDE_PREFIX)/protobuf/nanopb \
 	-I$(INCLUDE_PREFIX)/rtapi \
 	-I$(INCLUDE_PREFIX)/hal/lib \
+	-I$(INCLUDE_PREFIX)/hal/icomp-example \
 	-I$(INCLUDE_PREFIX)/emc/nml_intf \
 	-I$(INCLUDE_PREFIX)/emc/kinematics \
 	-I$(INCLUDE_PREFIX)/emc/motion \
@@ -1518,6 +1519,7 @@ iring-objs := hal/iring-example/iring.o
 
 obj-cpp += cpptest.o
 cpptest-objs := hal/icomp-example/cpptest.o
+cpptest-objs += hal/icomp-example/pin.o
 
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \
@@ -1544,6 +1546,8 @@ EXTRA_CFLAGS += -fPIC
 
 RTOBJS := $(sort $(foreach mod,$(obj-m),$(call TORTOBJS,$(mod))))
 CXXRTOBJS := $(sort $(foreach mod,$(obj-cpp),$(call TORTOBJS,$(mod))))
+#$(warning $(CXXRTOBJS))
+#$(CXXRTOBJS)
 
 RTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(RTOBJS)))
 CXXRTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(CXXRTOBJS)))
