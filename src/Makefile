@@ -1519,7 +1519,7 @@ iring-objs := hal/iring-example/iring.o
 
 obj-cpp += cpptest.o
 cpptest-objs := hal/icomp-example/cpptest.o
-cpptest-objs += hal/icomp-example/pin.o
+#cpptest-objs += hal/icomp-example/pin.o
 
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \

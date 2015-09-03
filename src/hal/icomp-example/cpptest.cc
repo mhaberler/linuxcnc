@@ -85,7 +85,7 @@ static int lutn(void *arg, const hal_funct_args_t *fa)
     set_bit_pin(ip->out, (ip->functn & (1 << shift)) != 0);
 
 #ifdef CPPINS
-    ip->p = ip->p + 1;
+    ip->p += 100;
     hal_s32_t foo  = ip->p;
 #endif
     return 0;
@@ -136,16 +136,8 @@ static int instantiate_lutn(const char *name,
 
 
 #ifdef CPPINS
-    // ((hal_pin_t *) hal_ptr(ip->out._bp));
-
-
-    //    hal_pin_t *pp =
-
-    
-    ip->p = Pin(halg_pin_newf(1, HAL_S32, HAL_OUT, NULL, inst_id, "%s.test", name));
+    ip->p =  Pin(HAL_OUT, inst_id, 12345, "%s.test", name);
     HALDBG("sizeof(Pin) = %zu", sizeof(Pin));
-		    //    ip->p = Pin(pp);
-    //    delete ip->p;
 #endif
 
     // exporting 'lutn' as an extended thread function
