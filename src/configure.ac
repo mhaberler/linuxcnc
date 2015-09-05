@@ -2719,6 +2719,33 @@ LIBS=$LIBS_hold
 
 AH_BOTTOM(#endif
 )
+# Checks for typedefs, structures, and compiler characteristics
+AC_C_INLINE
+AC_TYPE_INT8_T
+AC_TYPE_INT16_T
+AC_TYPE_INT32_T
+AC_TYPE_INT64_T
+AC_TYPE_INTMAX_T
+AC_TYPE_INTPTR_T
+AC_TYPE_UINT8_T
+AC_TYPE_UINT16_T
+AC_TYPE_UINT32_T
+AC_TYPE_UINT64_T
+AC_TYPE_UINTMAX_T
+AC_TYPE_UINTPTR_T
+AC_TYPE_OFF_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
+
+# Checks for header files
+AC_HEADER_STDBOOL
+
+# for faking the uintptr_t if not available
+AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(unsigned long)
+AC_CHECK_SIZEOF(unsigned long long)
+
 
 ##############################################################################
 # Section 5 - Generate rtapi.ini.sh.in                                       #
