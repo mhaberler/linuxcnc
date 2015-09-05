@@ -325,10 +325,14 @@ EXPORT_SYMBOL(halx_pin_bit_newf);
 EXPORT_SYMBOL(halx_pin_float_newf);
 EXPORT_SYMBOL(halx_pin_u32_newf);
 EXPORT_SYMBOL(halx_pin_s32_newf);
+EXPORT_SYMBOL(halx_pin_u64_newf);
+EXPORT_SYMBOL(halx_pin_s64_newf);
 EXPORT_SYMBOL(halxd_pin_bit_newf);
 EXPORT_SYMBOL(halxd_pin_float_newf);
 EXPORT_SYMBOL(halxd_pin_u32_newf);
 EXPORT_SYMBOL(halxd_pin_s32_newf);
+EXPORT_SYMBOL(halxd_pin_u64_newf);
+EXPORT_SYMBOL(halxd_pin_s64_newf);
 
 EXPORT_SYMBOL(hals_pindir);
 EXPORT_SYMBOL(hals_type);
@@ -361,11 +365,15 @@ EXPORT_SYMBOL(hal_pin_bit_new);
 EXPORT_SYMBOL(hal_pin_float_new);
 EXPORT_SYMBOL(hal_pin_u32_new);
 EXPORT_SYMBOL(hal_pin_s32_new);
+EXPORT_SYMBOL(hal_pin_u64_new);
+EXPORT_SYMBOL(hal_pin_s64_new);
 
 EXPORT_SYMBOL(hal_pin_bit_newf);
 EXPORT_SYMBOL(hal_pin_float_newf);
 EXPORT_SYMBOL(hal_pin_u32_newf);
 EXPORT_SYMBOL(hal_pin_s32_newf);
+EXPORT_SYMBOL(hal_pin_u64_newf);
+EXPORT_SYMBOL(hal_pin_s64_newf);
 
 // hal_signal.c:
 EXPORT_SYMBOL(halg_signal_new);

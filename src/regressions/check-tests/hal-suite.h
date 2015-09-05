@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 extern int comp_id;
-
+static hal_float_t c = 42.0;
 
 START_TEST(test_hal_comp)
 {
@@ -34,7 +34,10 @@ START_TEST(test_hal_comp)
     for (int i = 1; i < 8; i++)
 	ck_assert_int_eq(u->_bytes[i], 0);
 
-    //ck_assert_int_eq(1, 0);
+    float_pin_ptr fo = halx_pin_float_newf(HAL_OUT, comp_id, "testme.fout");
+    set_float_pin(fo, c);
+    hal_float_t value = get_float_pin(fo);
+    ck_assert_msg(abs(value - c) < 1e-9, "float get/setpin do not agree: %f %f", value, c);
 }
 END_TEST
 

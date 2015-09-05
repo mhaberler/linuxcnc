@@ -620,11 +620,11 @@ static char *data_value(int type, void *valptr)
 	value_str = buf;
 	break;
     case HAL_S64:
-	snprintf(buf, sizeof(buf), "%1ld", (long long)*((hal_s64_t *) valptr));
+	snprintf(buf, sizeof(buf), "%lld", (long long)*((hal_s64_t *) valptr));
 	value_str = buf;
 	break;
     case HAL_U64:
-	snprintf(buf, sizeof(buf), "%1lu", (unsigned long long)*((hal_u64_t *) valptr));
+	snprintf(buf, sizeof(buf), "%llu", (unsigned long long)*((hal_u64_t *) valptr));
 	value_str = buf;
 	break;
     default:

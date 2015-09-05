@@ -64,6 +64,32 @@ int hal_pin_s32_newf(hal_pin_dir_t dir,
     return p ? 0 : _halerrno;
 }
 
+int hal_pin_u64_newf(hal_pin_dir_t dir,
+    hal_u64_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
+{
+    va_list ap;
+    void *p;
+    hal_data_u defval = {._u = 0};
+    va_start(ap, fmt);
+    p = halg_pin_newfv(1, HAL_U64, dir, (void**)data_ptr_addr, owner_id,
+		       defval,  fmt, ap);
+    va_end(ap);
+    return p ? 0 : _halerrno;
+}
+
+int hal_pin_s64_newf(hal_pin_dir_t dir,
+    hal_s64_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
+{
+    va_list ap;
+    void *p;
+    hal_data_u defval = {._s = 0};
+    va_start(ap, fmt);
+    p = halg_pin_newfv(1,HAL_S64, dir, (void**)data_ptr_addr,
+		       owner_id, defval,  fmt, ap);
+    va_end(ap);
+    return p ? 0 : _halerrno;
+}
+
 int zero_hal_data_u(const int type, hal_data_u *u)
 {
     switch (type) {

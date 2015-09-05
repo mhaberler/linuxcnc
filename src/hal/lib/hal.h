@@ -677,7 +677,14 @@ static inline int hal_pin_s32_new(const char *name, hal_pin_dir_t dir,
 				  hal_s32_t ** data_ptr_addr, int owner_id) {
     return hal_pin_new(name, HAL_S32, dir, (void **) data_ptr_addr, owner_id);
 }
-
+static inline int hal_pin_u64_new(const char *name, hal_pin_dir_t dir,
+				  hal_u64_t ** data_ptr_addr, int owner_id) {
+    return hal_pin_new(name, HAL_U64, dir, (void **) data_ptr_addr, owner_id);
+}
+static inline int hal_pin_s64_new(const char *name, hal_pin_dir_t dir,
+				  hal_s64_t ** data_ptr_addr, int owner_id) {
+    return hal_pin_new(name, HAL_S64, dir, (void **) data_ptr_addr, owner_id);
+}
 /** The hal_pin_XXX_newf family of functions are similar to
     hal_pin_XXX_new except that they also do printf-style formatting to compute
     the pin name
@@ -696,7 +703,12 @@ extern int hal_pin_u32_newf(hal_pin_dir_t dir,
 extern int hal_pin_s32_newf(hal_pin_dir_t dir,
     hal_s32_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
 	__attribute__((format(printf,4,5)));
-
+extern int hal_pin_u64_newf(hal_pin_dir_t dir,
+    hal_u64_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
+	__attribute__((format(printf,4,5)));
+extern int hal_pin_s64_newf(hal_pin_dir_t dir,
+    hal_s64_t ** data_ptr_addr, int owner_id, const char *fmt, ...)
+	__attribute__((format(printf,4,5)));
 /** 'halg_pin_newf()' creates a new 'pin' object.  It is a generic
     version of the eight functions above.  It is provided ONLY for
     those special cases where a generic function is needed.  It is
