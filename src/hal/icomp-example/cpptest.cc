@@ -86,7 +86,14 @@ static int lutn(void *arg, const hal_funct_args_t *fa)
 
 #ifdef CPPINS
     ip->p += 100;
-    hal_s32_t foo  = ip->p;
+    hal_s32_t foo = ip->p;
+    if (foo <= ip->p)
+	HALDBG("true");
+
+    if (123 <= ip->p)
+	HALDBG("true");
+
+    ip->p |= 0x0f; // ip->p;
 #endif
     return 0;
 }

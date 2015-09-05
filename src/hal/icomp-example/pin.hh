@@ -17,9 +17,7 @@ public:
     void *operator new[](size_t size)  { throw; }
     void operator delete[](void *p)    { throw; };
 
-
     Pin(hal_pin_t *p) :  pin(p) {};
-
     Pin(const hal_pin_dir_t dir, const int owner_id, hal_s32_t defval, const char *fmt, ...) {
 	hal_data_u u;
 	u._s = defval;
@@ -32,7 +30,6 @@ public:
     // conversions
     inline operator hal_s32_t() const { return  _get_s32_pin(pin); }
 
-
     // compound assignment +=
     inline Pin operator+=(const Pin &rhs) {
     	_incr_s32_pin(this->pin, _get_s32_pin(rhs.pin));
@@ -43,30 +40,59 @@ public:
 	return *this;
     };
     inline Pin operator+=(const int& value) {
-	_incr_s32_pin(this->pin, value);
-	return *this;
+	return this->pin += (hal_s32_t) value;
     };
+
+    // compound logic
+    inline Pin operator|=(const uint32_t& value) {
+	if (unlikely(hh_get_rmb(&this->pin->hdr)))
+	    rtapi_smp_rmb();
+	hal_data_u *u = (hal_data_u *)hal_ptr(this->pin->data_ptr);
+	ck_pr_or_32((uint32_t *)&u->_u, value);
+    	_incr_s32_pin(this->pin, value);
+	if (unlikely(hh_get_wmb(&this->pin->hdr)))
+	    rtapi_smp_wmb();
+    	return *this;
+    };
+
+    //unary minus
+    inline hal_s32_t operator-() {
+    	return -_get_s32_pin(this->pin);
+    }
 
 
     inline hal_s32_t operator+(const Pin &rhs) {
     	return _get_s32_pin(this->pin) + _get_s32_pin(rhs.pin);
     }
-    inline hal_s32_t operator+(const int &rhs) {
+    inline hal_s32_t operator+(const hal_s32_t &rhs) {
 	return _get_s32_pin(this->pin) + rhs;
     }
     // Pin operator-(const Pin &);
     // Pin operator*(const Pin &);
     // Pin operator/(const Pin &);
- 
-    //overloaded relational operators
-    // bool operator>(Pin &) const;
-    // bool operator>=(Pin &) const;
-    // bool operator<(Pin &) const;
-    // bool operator<=(Pin &) const;
-    // bool operator==(Pin &) const;
-    // bool operator!=(Pin &) const;
+
+    // not needed, hal_s32_t conversion takes care of that
+    // //overloaded relational operators
+    // bool operator>(Pin &rhs) const  {
+    // 	return _get_s32_pin(this->pin) - _get_s32_pin(rhs.pin) > 0;
+    // }
+    // bool operator>=(Pin &rhs) const  {
+    // 	return _get_s32_pin(this->pin) - _get_s32_pin(rhs.pin) >= 0;
+    // }
+    // bool operator<(Pin &rhs) const  {
+    // 	return _get_s32_pin(this->pin) < _get_s32_pin(rhs.pin);
+    // }
+    // bool operator<=(Pin &rhs) const  {
+    // 	return _get_s32_pin(this->pin) <= _get_s32_pin(rhs.pin);
+    // }
+    // bool operator==(Pin &rhs) const  {
+    // 	return _get_s32_pin(this->pin) == _get_s32_pin(rhs.pin);
+    // }
+    // bool operator!=(Pin &rhs) const  {
+    // 	return _get_s32_pin(this->pin) != _get_s32_pin(rhs.pin);
+    // }
+
 private:
-    //    hal_pin_t &pin;
     hal_pin_t *pin;
 };
 
