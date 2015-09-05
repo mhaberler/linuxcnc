@@ -133,15 +133,16 @@ RTAPI_BEGIN_DECLS
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #endif
 
-#ifdef HAVE_UINTPTR_T
-#define UINTPTR uintptr_t
+#if SIZEOF_VOID_P == SIZEOF_UNSIGNED_LONG
+typedef unsigned long rtapi_uintptr_t;
+#elif SIZEOF_VOID_P == SIZEOF_UNSIGNED_LONG_LONG
+typedef unsigned long long rtapi_uintptr_t;
 #else
-#define UINTPTR long
+#error "failed to define type for rtapi_uintptr_t"
 #endif
 
-
 static inline int is_aligned(const void *pointer, size_t byte_count) {
-    return (UINTPTR)pointer % byte_count == 0;
+    return (rtapi_uintptr_t)pointer % byte_count == 0;
 }
 
 #define RTAPI_DECONST_PTR(X)  CK_CC_DECONST_PTR(X)
