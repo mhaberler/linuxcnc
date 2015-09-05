@@ -56,7 +56,7 @@ void hal_typefailure(const char *file,
 #define U32CAST    (uint32_t *)
 #define U64CAST    (uint64_t *)
 #define S64CAST    (uint64_t *)
-#define FLOATCAST  (uint64_t *)
+#define FLOATCAST  (double *)
 
 #define BITSTORE   ck_pr_store_8
 #define S32STORE   ck_pr_store_32
@@ -73,7 +73,7 @@ void hal_typefailure(const char *file,
 #define _STORE64(dest, value, op, cast)  op(cast dest, value)
 #define S64STORE   ck_pr_store_64
 #define U64STORE   ck_pr_store_64
-#define FLOATSTORE ck_pr_store_64
+#define FLOATSTORE ck_pr_store_double
 #else
 #define _STORE64(dest, value, op, cast)  op(dest, value, RTAPI_MEMORY_MODEL)
 #define S64STORE   __atomic_store_n
@@ -90,7 +90,7 @@ void hal_typefailure(const char *file,
 #define _LOAD64(src, op, cast)          op(cast src)
 #define S64LOAD    ck_pr_load_64
 #define U64LOAD    ck_pr_load_64
-#define FLOATLOAD  ck_pr_load_64
+#define FLOATLOAD  ck_pr_load_double
 #else
 #define _LOAD64(src, op, cast)          op(src, RTAPI_MEMORY_MODEL)
 #define S64LOAD    __atomic_load_n
@@ -175,7 +175,7 @@ PINSETTER(32, s32,   HAL_S32,   s,   _s,  S32STORE,   S32CAST);
 PINSETTER(32, u32,   HAL_U32,   u,   _u,  U32STORE,   U32CAST);
 PINSETTER(64, u64,   HAL_U64,   lu,  _lu, U64STORE,   U64CAST);
 PINSETTER(64, s64,   HAL_S64,   ls,  _ls, S64STORE,   S64CAST);
-PINSETTER(64, float, HAL_FLOAT, f,   _u64,FLOATSTORE, FLOATCAST);
+PINSETTER(64, float, HAL_FLOAT, f,   _f,  FLOATSTORE, FLOATCAST);
 
 
 #define PINGETTER(SIZE, TYPE, OTYPE, LETTER, ACCESS, OP, CAST)		\
@@ -200,8 +200,7 @@ PINSETTER(64, float, HAL_FLOAT, f,   _u64,FLOATSTORE, FLOATCAST);
 PINGETTER(8, bit,   HAL_BIT,   b,   _b,  BITLOAD,   BITCAST);
 PINGETTER(32, s32,   HAL_S32,   s,   _s,  S32LOAD,   S32CAST);
 PINGETTER(32, u32,   HAL_U32,   u,   _u,  U32LOAD,   U32CAST);
-// access via _u64 to avoid implicit type conversion uint64_t > double:
-PINGETTER(64, float, HAL_FLOAT, f,   _u64,  FLOATLOAD, FLOATCAST);
+PINGETTER(64, float, HAL_FLOAT, f,   _f,  FLOATLOAD,  FLOATCAST);
 PINGETTER(64, u64,   HAL_U64,   lu,  _lu, U64LOAD,   U64CAST);
 PINGETTER(64, s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
 
@@ -257,7 +256,7 @@ PIN_INCREMENTER(u32, u)
 SIGGETTER(8,  bit,   HAL_BIT,   b,   _b,  BITLOAD,   BITCAST);
 SIGGETTER(32, s32,   HAL_S32,   s,   _s,  S32LOAD,   S32CAST);
 SIGGETTER(32, u32,   HAL_U32,   u,   _u,  U32LOAD,   U32CAST);
-SIGGETTER(64, float, HAL_FLOAT, f,   _u64,  FLOATLOAD, FLOATCAST);
+SIGGETTER(64, float, HAL_FLOAT, f,   _f,  FLOATLOAD, FLOATCAST);
 SIGGETTER(64, u64,   HAL_U64,   lu,  _lu, U64LOAD,   U64CAST);
 SIGGETTER(64, s64,   HAL_S64,   ls,  _ls, S64LOAD,   S64CAST);
 
@@ -288,7 +287,7 @@ SIGSETTER(32, s32,   HAL_S32,   s,   _s,  S32STORE,   S32CAST);
 SIGSETTER(32, u32,   HAL_U32,   u,   _u,  U32STORE,   U32CAST);
 SIGSETTER(64, u64,   HAL_U64,   lu,  _lu, U64STORE,   U64CAST);
 SIGSETTER(64, s64,   HAL_S64,   ls,  _ls, S64STORE,   S64CAST);
-SIGSETTER(64, float, HAL_FLOAT, f,   _u64,FLOATSTORE, FLOATCAST);
+SIGSETTER(64, float, HAL_FLOAT, f,   _f,FLOATSTORE,  FLOATCAST);
 
 // typed NULL tests for pins and signals
 #define PINNULL(TYPE, FIELD)						\
