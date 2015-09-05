@@ -64,7 +64,7 @@ hal_s32_t b, running_total;
 	if (!hold) 
 		{
 		running_total = offset;
-		for (b=0 ; b < localpincount ; b++) 
+		for (b=0 ; b < local_pincount ; b++) 
 			{
 			if (in(b)) 
 				running_total += weight(b);

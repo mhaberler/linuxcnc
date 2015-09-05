@@ -113,7 +113,8 @@ ULAPI_AUTOLOAD_SRCS := \
 	rtapi/ulapi_autoload.c \
 	rtapi/rtapi_compat.c \
 	rtapi/rtapi_hexdump.c \
-	rtapi/rtapi_support.c
+	rtapi/rtapi_support.c \
+	machinetalk/lib/syslog_async.c
 
 USERSRCS += $(ULAPI_AUTOLOAD_SRCS)
 
@@ -166,7 +167,7 @@ $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcncshm.so \
 	../lib/libmtalk.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/librtapi_math.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
@@ -264,6 +265,7 @@ TARGETS += ../libexec/kdetect
 RTAPI_MSGD_SRCS =  \
 	rtapi/rtapi_msgd.cc \
 	rtapi/rtapi_heap.c \
+	rtapi/rtapi_support.c \
 	rtapi/rtapi_compat.c
 
 RTAPI_MSGD_OBJS := $(call TOOBJS, $(RTAPI_MSGD_SRCS))
@@ -284,7 +286,7 @@ $(call TOOBJSDEPS, $(RTAPI_MSGD_SRCS)): \
 	../lib/liblinuxcncshm.so \
 	../lib/liblinuxcncini.so \
 	../lib/libmtalk.so.0 \
-	../lib/liblinuxcnc-pb2++.so
+	../lib/libmkprotobuf.so
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ $(RTAPI_MSGD_LDFLAGS) -lrt
@@ -303,6 +305,19 @@ FLAVOR_SRCS =  rtapi/flavor.c rtapi/rtapi_compat.c
 
 USERSRCS += $(FLAVOR_SRCS)
 TARGETS += ../libexec/flavor
+
+$(call TOOBJSDEPS, rtapi/shmdrv/mutexwatch.c)): \
+	EXTRAFLAGS +=  $(RTAPI_MSGD_CFLAGS) \
+	-DTHREADS_HEADERS=\"rtapi/rt-preempt.h\"
+
+../bin/mutexwatch: $(call TOOBJS, rtapi/shmdrv/mutexwatch.c) \
+		../lib/liblinuxcncshm.so ../lib/liblinuxcncini.so
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p $(dir $@)
+	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ -lrt
+
+USERSRCS += rtapi/shmdrv/mutexwatch.c
+TARGETS += ../bin/mutexwatch
 
 ##################################################################
 #                     rtapi.ini config file

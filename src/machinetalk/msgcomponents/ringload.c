@@ -25,8 +25,7 @@ static int comp_id;		/* component ID */
 
 int rtapi_app_main(void)
 {
-    int n, retval;
-    char ringname[HAL_NAME_LEN + 1];
+    int n;
     int flags = 0;
 
     comp_id = hal_init("ringload");
@@ -41,15 +40,11 @@ int rtapi_app_main(void)
 	flags |= ALLOC_HALMEM;
 
     for (n = 0; n < num_rings; n++) {
-	snprintf(ringname, HAL_NAME_LEN, "ring_%d",n);
-	if ((retval = hal_ring_new(ringname, size, spsize,flags))) {
+	if (halg_ring_newf(1, size, spsize,flags, "ring_%d",n) == NULL) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "ringload: failed to create new ring %s: %d\n",
-			    ringname, retval);
+			    "ringload: failed to create new ring: %d\n",
+			     _halerrno);
 	}
-	rtapi_print_msg(RTAPI_MSG_DBG,
-			"ringload: ring '%s' %s mode created\n",
-			ringname, mode ? "stream":"record");
     }
     hal_ready(comp_id);
     return 0;
@@ -58,14 +53,12 @@ int rtapi_app_main(void)
 void rtapi_app_exit(void)
 {
     int retval, n;
-    char ringname[HAL_NAME_LEN + 1];
 
     for (n = 0; n < num_rings; n++) {
-	snprintf(ringname, HAL_NAME_LEN, "ring_%d",n);
-	if ((retval = hal_ring_delete(ringname))) {
+	if ((retval = halg_ring_deletef(1, "ring_%d",n))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR,
-			    "ringload: failed to delete ring %s: %d\n",
-			    ringname, retval);
+			    "ringload: failed to delete ring, rc=%d",
+			    retval);
 	}
     }
     hal_exit(comp_id);

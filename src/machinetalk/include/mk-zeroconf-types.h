@@ -16,6 +16,8 @@
 #define MSGBUSCMD_DNSSD_SUBTYPE       "_mbcmd._sub."
 #define MSGBUSRESP_DNSSD_SUBTYPE      "_mbresp._sub."
 #define REDIS_DNSSD_SUBTYPE           "_redis._sub."
+#define RINGXPUB_DNSSD_SUBTYPE        "_ring_xpub._sub."
+#define RINGROUTER_DNSSD_SUBTYPE      "_ring_router._sub."
 
 
 

@@ -81,7 +81,7 @@ mainloop( wtself_t *self)
 
     do {
 	retval = zloop_start(self->netopts.z_loop);
-    } while  (!(retval || self->interrupted));
+    } while  (self->cfg->trap_signals && !(retval || self->interrupted));
 
     if (self->service_timer)
 	zloop_timer_end (self->netopts.z_loop, self->service_timer);

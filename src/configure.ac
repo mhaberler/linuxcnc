@@ -566,6 +566,7 @@ XENO_CONFIG=
 # - Common shared memory driver                                              #
 # - Parport I/O mode (portable or inb/outb)                                  #
 # - emcweb UI                                                                #
+# - the check regression test package                                        #
 ##############################################################################
 
 # Platform:
@@ -810,6 +811,7 @@ AC_ARG_ENABLE(examples,
       BUILD_EXAMPLES=no
     ])
 
+
 # protobuf-to-Javascript generator from  https://github.com/dcodeIO/ProtoBuf.js/wiki
 AC_PATH_PROG(PROTO2JS,proto2js, none)
 AC_SUBST([PROTO2JS])
@@ -902,9 +904,46 @@ AC_ARG_ENABLE(dev,
 
 ##############################################################################
 # Subsection 2.3.1                                                           #
-# protobuf, zmq, websockets, json, uriparse, avahi-client packages           #
+# ck, protobuf, czmq, websockets, json, uriparse, avahi-client packages      #
 # NML
 ##############################################################################
+
+DEFAULT_USE_CK=yes
+AC_ARG_DISABLE(ck, [  --disable-ck
+		        disable concurrencykit use]
+		        descriptor storage], USE_CK)
+if test "x$USE_CK" = "xyes"; then
+
+   AC_MSG_CHECKING(if concurrencykit is installed)
+	# package detection
+	PKG_CHECK_MODULES([CK], [ck >= 0.4.6],
+    	[
+		AC_DEFINE(HAVE_CK, [], [concurrencykit.org support available])
+		# needed for kbuild:
+		CK_INCLUDE=`pkg-config --cflags-only-I ck`
+		USE_CK=yes
+	],
+    	[
+		# eventually fail here with AC_MSG_ERROR(...)
+		AC_MSG_RESULT([concurrencykit not found - package not installed?])
+		CK_INCLUDE=""
+		USE_CK=no
+        ])
+fi
+
+AC_MSG_CHECKING(whether to enable accessor test)
+AC_ARG_ENABLE(accessor-test,
+    [  --enable-accessor-test      enable accessor test code],
+    [
+        AC_DEFINE(HAVE_ACCESSOR_TEST, [], [enable accessor test code])
+	ACCESSOR_TEST=yes
+        AC_MSG_RESULT([configuring enable  accessor test code])
+    ],
+    [
+      AC_MSG_RESULT([not generating  accessor test code])
+      ACCESSOR_TEST=no
+    ])
+AC_SUBST([ACCESSOR_TEST])
 
 PKG_CHECK_MODULES([CZMQ], [libczmq > 2.0],
     [
@@ -968,6 +1007,14 @@ PKG_CHECK_MODULES([AVAHI], [avahi-client > 0.6],
 	USE_AVAHI=yes
     ],)
 
+# optional - if present, build protobuf XML I/O
+PKG_CHECK_MODULES([TINYXML], [tinyxml >= 2.6.2],
+    [
+        AC_DEFINE(HAVE_TINYXML, [], [tinyxml library available])
+	USE_TINYXML=yes
+    ],
+    [ AC_MSG_RESULT([tinyxml not installed - XML protobuf support will not be available])])
+
 AC_MSG_CHECKING(whether to enable NML-using parts)
 AC_ARG_ENABLE(nml,
     [  --enable-nml      enable NML-using parts],
@@ -980,6 +1027,16 @@ AC_ARG_ENABLE(nml,
       BUILD_NMLDEP=no
     ])
 
+# if the check regression test package is installed and usable:
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.0],
+    [
+        AC_DEFINE(HAVE_CHECK, [], [check package available])
+	USE_CHECK=yes
+    ],
+    [
+	AC_MSG_RESULT([chec not installed])
+	USE_CHECK=no
+    ])
 ##############################################################################
 # Subsection 2.3.2                                                           #
 # Dependencies for mkwrapper                                                 #
@@ -1732,6 +1789,10 @@ fi
 AC_SUBST([CZMQ_CFLAGS])
 AC_SUBST([CZMQ_LIBS])
 
+AC_SUBST([CHECK_CFLAGS])
+AC_SUBST([CHECK_LIBS])
+AC_SUBST([USE_CHECK])
+
 AC_SUBST([PROTOBUF_CFLAGS])
 AC_SUBST([PROTOBUF_LIBS])
 
@@ -1753,6 +1814,11 @@ AC_SUBST([SSL_LIBS])
 AC_SUBST([UUID_CFLAGS])
 AC_SUBST([UUID_LIBS])
 
+AC_SUBST([TINYXML_CFLAGS])
+AC_SUBST([TINYXML_LIBS])
+
+AC_SUBST([USE_CK])
+AC_SUBST([CK_INCLUDE])
 AC_SUBST([USE_CZMQ])
 AC_SUBST([USE_PROTOBUF])
 AC_SUBST([USE_JANSSON])
@@ -1761,6 +1827,7 @@ AC_SUBST([USE_URIPARSER])
 AC_SUBST([USE_AVAHI])
 AC_SUBST([USE_SSL])
 AC_SUBST([USE_UUID])
+AC_SUBST([USE_TINYXML])
 
 if test "$with_usermode_pci" = yes; then
    AC_DEFINE([USERMODE_PCI], [], [build PCI drivers with usermode PCI support])
@@ -2584,10 +2651,6 @@ AH_TOP([/********************************************************************
 
 #define MAX_INSTANCES           16
 
-// default size of the HAL data segment
-// can be overridden by the rtapi.so/ko module param hal_size=<n>
-#define HAL_SIZE                262000
-
 // minimum memlock limit
 // see http://wiki.linuxcnc.org/cgi-bin/wiki.pl?LockedMemory
 // edit /etc/security/limits.conf to read:
@@ -2608,6 +2671,14 @@ AH_TOP([/********************************************************************
 // pass: RUNDIR, rtapi_instance, service name, uuid
 // service name is: log, rtapi, halrcomp etc
 #define ZMQIPC_FORMAT "ipc://%s/%d.%s.%s"
+
+// deprecation warning attribute
+// off by default
+#ifdef DEPRECATION_WARNINGS
+#define  MK_DEPRECATED __attribute__ ((deprecated))
+#else
+#define  MK_DEPRECATED
+#endif
 
 ]
 // flavor IDs for the various threads systems

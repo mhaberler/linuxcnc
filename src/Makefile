@@ -1,3 +1,4 @@
+#MAKEFLAGS += w --warn-undefined-variables
 # see http://www.cmcrossroads.com/ask-mr-make/6535-tracing-rule-execution-in-gnu-make
 # to trace make execution of make in more detail:
 #     make VV=1
@@ -173,12 +174,20 @@ PYTARGETS :=
 # Add to this list directories to be created during 'make install'
 INSTALL_DIRS :=
 
+# location of regression tests using the check package
+# see http://check.sourceforge.net/
+# apt-get install check
+CHECK_TESTS := regressions/check-tests
+
+CHECKS := # runtests nosetests
+
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
 	\
 	machinetalk \
 	machinetalk/support \
 	machinetalk/messagebus \
+	machinetalk/msginfo \
 	machinetalk/msgcomponents \
 	machinetalk/lib \
 	machinetalk/config-service \
@@ -210,6 +219,9 @@ SUBDIRS := \
 	hal/i_components \
 	hal/components \
 	hal/vtable-example \
+	hal/icomp-example \
+	hal/icomp-example/C++_userspace_comp \
+	hal/iring-example \
 	hal/userfunct-example \
 	hal/drivers \
 	hal/user_comps/devices \
@@ -225,6 +237,7 @@ SUBDIRS := \
 	hal/drivers/hal_pru_generic \
 	hal/simdrivers \
 	hal/cython \
+	hal/accessor \
 	\
 	emc/usr_intf/axis \
 	emc/usr_intf/touchy \
@@ -250,6 +263,7 @@ SUBDIRS := \
 	module_helper \
 	\
 	po \
+	$(CHECK_TESTS)
 
 
 # moved to src/rtapi/Submakefile
@@ -354,16 +368,20 @@ $(info $(shell  ../scripts/check-build-vs-configure-sha))
 # Compilation options.	Perhaps some of these should come from Makefile.inc? (CXXFLAGS now does)
 INTEGER_OVERFLOW_FLAGS := $(call cc-option,-fwrapv) $(call cc-option, -fno-strict-overflow)
 OPT :=  $(INTEGER_OVERFLOW_FLAGS)
-DEBUG := -g -Wall -funwind-tables
+DEBUG := -g -Wall -funwind-tables -fno-omit-frame-pointer
 PROFILE_CFLAGS :=
 PROFILE_LDFLAGS :=
 
-CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) -DULAPI $(call cc-option,-std=gnu99 -fgnu89-inline)
+CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) -DULAPI $(call cc-option,-std=gnu11)
 
 # enable runtime comparison of GIT_CONFIG_SHA (config.h) and GIT_BUILD_SHA
 CFLAGS += -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
 
+# make ck_pr.h happy:
+CFLAGS += $(CK_CFLAGS)
+
 CXXFLAGS := $(INCLUDE) $(CXXFLAGS) \
+	$(CK_CFLAGS) \
 	 -DULAPI $(DEBUG) $(OPT) \
 	$(PROFILE_CFLAGS) \
 	 -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
@@ -494,16 +512,25 @@ HEADERS := \
     hal/lib/hal_group.h \
     hal/lib/hal.h \
     hal/lib/hal_internal.h \
-    hal/lib/hal_iter.h \
+    hal/lib/hal_accessor.h \
+    hal/lib/hal_object.h \
+    hal/lib/hal_object_selectors.h \
     hal/lib/hal_list.h \
     hal/lib/hal_logging.h \
     hal/lib/hal_parport.h \
     hal/lib/hal_priv.h \
     hal/lib/hal_rcomp.h \
     hal/lib/hal_ring.h \
+    hal/lib/hal_iring.h \
     hal/lib/vtable.h \
     hal/drivers/hal_gpiomap.h \
     hal/drivers/hal_spi.h \
+    machinetalk/include/msginfo.h \
+    machinetalk/include/pb-machinekit.h \
+    machinetalk/nanopb/pb.h \
+    machinetalk/nanopb/pb_decode.h \
+    machinetalk/nanopb/pb_encode.h \
+    machinetalk/nanopb/pb_common.h \
     libnml/buffer/locmem.hh \
     libnml/buffer/memsem.hh \
     libnml/buffer/phantom.hh \
@@ -573,7 +600,8 @@ HEADERS := \
     rtapi/rtapi_heap_private.h \
     rtapi/ring.h \
     rtapi/multiframe.h \
-    rtapi/rtapi_mbarrier.h \
+    rtapi/multiframe_flag.h \
+    rtapi/rtapi_atomics.h \
     rtapi/$(THREADS_SOURCE).h \
     rtapi/shmdrv/shmdrv.h
 
@@ -709,6 +737,7 @@ clean: depclean modclean
 	    rm -rf ../lib/$$flav; \
 	done
 	-rm -rf ../rtlib ../libexec
+	-rm -rf machinetalk/generated
 	rm -f ../etc/linuxcnc/rtapi.ini
 	-rm -f $(COPY_CONFIGS)
 	-rm -f $(RTLIBDIR)/*.$(MODULE_EXT)
@@ -1090,14 +1119,17 @@ INCLUDE_PREFIX = $(BASEPWD)
 # module's obj-m and foo-objs definitions may remain in the Submakefile
 include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
+include $(BASEPWD)/machinetalk/msginfo/Submakefile
+include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
+include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/i_components/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/vtable-example/Submakefile
 include $(BASEPWD)/hal/userfunct-example/Submakefile
-include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
 include $(BASEPWD)/rtapi/rtapi_math/Submakefile
+#include $(BASEPWD)/hal/accessor
 endif # KERNELRELEASE non-empty
 
 # $(BASEPWD) is used here, instead of relative paths, because that's
@@ -1117,11 +1149,15 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(INCLUDE_PREFIX)/protobuf/nanopb \
 	-I$(INCLUDE_PREFIX)/rtapi \
 	-I$(INCLUDE_PREFIX)/hal/lib \
+	-I$(INCLUDE_PREFIX)/hal/icomp-example \
 	-I$(INCLUDE_PREFIX)/emc/nml_intf \
 	-I$(INCLUDE_PREFIX)/emc/kinematics \
 	-I$(INCLUDE_PREFIX)/emc/motion \
 	-I$(INCLUDE_PREFIX)/emc/tp \
 	-I$(INCLUDE_PREFIX)/machinetalk/nanopb \
+	-I$(INCLUDE_PREFIX)/machinetalk/include \
+	-I$(INCLUDE_PREFIX)/machinetalk/msgcomponents \
+	$(CK_INCLUDE) \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
@@ -1466,12 +1502,24 @@ motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 obj-m += icomp.o
 icomp-objs := hal/icomp-example/icomp.o
 
-# clashes with component in i_components
-#obj-m += lutn.o
-#lutn-objs := hal/icomp-example/lutn.o
+obj-m += lutnv2c.o
+lutnv2c-objs := hal/icomp-example/lutnv2c.o
+
+obj-m += plug.o
+plug-objs := hal/icomp-example/plug.o
+
+obj-m += random.o
+random-objs := hal/icomp-example/random.o
 
 obj-m += ufdemo.o
 ufdemo-objs := hal/userfunct-example/ufdemo.o
+
+obj-m += iring.o
+iring-objs := hal/iring-example/iring.o
+
+
+obj-cpp += cpptest.o
+cpptest-objs := hal/icomp-example/cpptest.o
 
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \
@@ -1497,10 +1545,14 @@ ifeq ($(BUILD_SYS)+$(BUILD_THREAD_MODULES),user-dso+yes)
 EXTRA_CFLAGS += -fPIC
 
 RTOBJS := $(sort $(foreach mod,$(obj-m),$(call TORTOBJS,$(mod))))
+CXXRTOBJS := $(sort $(foreach mod,$(obj-cpp),$(call TORTOBJS,$(mod))))
 
 RTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(RTOBJS)))
+CXXRTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(CXXRTOBJS)))
+
 IS_POWERPC = test `uname -m` = ppc -o `uname -m` = ppc64
-modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m))
+modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m)) $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-cpp))
+
 $(RTLIBDIR)/%.so:
 	$(ECHO) Linking $@
 	@mkdir -p $(dir $@)
@@ -1522,12 +1574,26 @@ $(sort $(RTDEPS)): $(DEPDIR)/%.d: %.c
 		$(patsubst depends/%.d,objects/%.o,$@),$@,$(OPT) \
 		$(DEBUG) $(EXTRA_CFLAGS) $<)
 
+$(sort $(CXXRTDEPS)): $(DEPDIR)/%.d: %.cc
+	@mkdir -p $(dir $@)
+	$(ECHO) Depending $<
+	$(Q)$(call DEP,$(CXX),$@ \
+		$(patsubst depends/%.d,objects/%.o,$@),$@,$(OPT) \
+		$(DEBUG) $(EXTRA_CFLAGS) $<)
+
 # Rules to make .o (object) files
-$(sort $(RTOBJS)) : $(OBJDIR)/%.o : %.c
+$(sort $(RTOBJS)) : $(OBJDIR)/%.o : %.c $(DEPDIR)/%.d
 	$(ECHO) Compiling realtime $<
 	@rm -f $@
 	@mkdir -p $(dir $@)
 	$(Q)$(CC) -c $(OPT) $(DEBUG) $(EXTRA_CFLAGS) $< -o $@
+
+# Rules to make .o (object) files from .cc
+$(sort $(CXXRTOBJS)) : $(OBJDIR)/%.o : %.cc $(DEPDIR)/%.d
+	$(ECHO) Compiling realtime++ $<
+	@rm -f $@
+	@mkdir -p $(dir $@)
+	$(Q)$(CXX) -c $(OPT) $(DEBUG) $(EXTRA_CFLAGS) $< -o $@
 
 endif # end BUILD_SYS=user-dso
 
@@ -1651,11 +1717,16 @@ $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
-$(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
+$(RTLIBDIR)/cpptest$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(cpptest-objs))
+$(RTLIBDIR)/iring$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(iring-objs))
+$(RTLIBDIR)/plug$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(plug-objs))
+$(RTLIBDIR)/random$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(random-objs))
+#$(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
+$(RTLIBDIR)/lutnv2c$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutnv2c-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
-READ_RTDEPS = $(wildcard $(RTDEPS))
-$(shell echo 1>&2 Reading $(words $(READ_RTDEPS))/$(words $(RTDEPS)) realtime dependency files)
+READ_RTDEPS = $(wildcard $(RTDEPS) $(CXXRTDEPS))
+$(shell echo 1>&2 Reading $(words $(READ_RTDEPS))/$(words $(RTDEPS) $(CXXRTDEPS)) realtime dependency files)
 -include $(READ_RTDEPS)
 $(shell echo 1>&2 Done reading realtime dependencies)
 endif
@@ -1740,5 +1811,23 @@ cscope/man/:
 	bash -c 'for f in `find ./ -name "cscope.*out"`;do rm $$f;done'
 
 NOSETESTS := $(wildcard ../nosetests/*.py)
+NOSETEST_FLAGS := -v
 nosetest:
-	$(foreach var,$(NOSETESTS),nosetests -v $(var);)
+	@for n in $(NOSETESTS); do \
+		nosetests $(NOSETEST_FLAGS) $$n; \
+	done;
+
+nosetests: nosetest
+
+# run all tests in the CHECKS list
+check: $(C_CHECKS)
+	@for check in $(CHECKS); do \
+		 $$check; \
+	done;
+
+
+TEMPDIR := $(shell mktemp -u)
+# disassemble a .so and create interspersed C/disassembly
+%.dis:  %.so
+	objdump -l -d -M $(shell arch) -S  $^  >  $@.tmp
+	@sh move-if-change $@.tmp $@

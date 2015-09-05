@@ -1010,6 +1010,12 @@ def generate_header(dependencies, headername, enums, messages, extensions, optio
     yield '/* helper macros for message type ids if set with */\n'
     yield '/* option (nanopb_msgopt).msgid = <id>; */\n\n'
 
+    # emit the msgid values as symbols if msgid set:
+    for msg in messages:
+        if hasattr(msg,'msgid'):
+            yield '#define %s_msgid %d\n' % (msg.name,msg.msgid)
+    yield '\n'
+
     yield '#ifdef PB_MSGID\n'
     for msg in messages:
         if hasattr(msg,'msgid'):

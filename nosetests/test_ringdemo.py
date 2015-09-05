@@ -4,8 +4,11 @@ import os,time,sys
 from nose import with_setup
 from machinekit.nosetests.realtime import setup_module,teardown_module
 from machinekit import rtapi,hal
+from machinekit.nosetests.rtapilog import Log
 
 import ConfigParser
+
+l = Log(level=rtapi.MSG_INFO,tag="nosetest")
 
 def test_rtapi_connect():
     global uuid, rt
@@ -15,10 +18,15 @@ def test_rtapi_connect():
     rt = rtapi.RTAPIcommand(uuid=uuid)
 
 def test_loadrt_ringmods():
+    l.log()
     rt.loadrt("ringload",   "num_rings=4", "size=16386")
+    l.log()
     rt.loadrt("ringread",  "ring=ring_2")
+    l.log()
     rt.loadrt("ringwrite", "ring=ring_2")
-    rt.loadrt("charge_pump")
+    l.log()
+    rt.newinst("charge_pump", "charge-pump")
+    l.log()
 
 def test_net():
     hal.net("square-wave","charge-pump.out","ringwrite.write")

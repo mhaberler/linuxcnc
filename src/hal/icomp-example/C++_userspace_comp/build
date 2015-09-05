@@ -1,0 +1,8 @@
+# !/bin/bash
+
+## adjust precise paths to suit
+
+g++ -Os -g -I. -I/usr/src/machinekit/include -I/usr/local/include -D_FORTIFY_SOURCE=0 \
+    -mhard-float -fno-fast-math -mieee-fp -fno-unsafe-math-optimizations -D_GNU_SOURCE \
+    -Wframe-larger-than=2560 -DULAPI -Os \
+     -o $1 $1.cpp -Wl,-rpath,/lib -L/lib -L/usr/src/machinekit/lib -llinuxcncini -llinuxcnchal -lnml -llinuxcnc -lposemath

@@ -21,6 +21,7 @@
 #ifndef RTAPI_COMPAT_H
 #define RTAPI_COMPAT_H
 
+#include "rtapi_bitops.h"
 
 /***********************************************************************
 *      basic features of thread flavors. Needed to init the flavor     *
@@ -62,7 +63,7 @@ typedef struct {
     const char *mod_ext;	// RTAPI module extensions, .ko/.so
     const char *so_ext;		// ulapi.so module extension
     const char *build_sys;
-    int id;
+    int flavor_id;
     unsigned long flags;
 } flavor_t, *flavor_ptr;
 

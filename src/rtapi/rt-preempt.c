@@ -158,8 +158,11 @@ static void rtapi_set_task(task_data *t) {
     pthread_once(&task_key_once, rtapi_key_alloc);
     pthread_setspecific(task_key, (void *)t);
 
-    // set this thread's name so it can be identified in ps/top
-    if (prctl(PR_SET_NAME, t->name) < 0) {
+    // set this thread's name so it can be identified in ps -L/top
+    // to see the thread in top, run 'top -H' (threads mode)
+    // to see the thread in ps:
+    // ps H -C rtapi:0 -o 'pid tid cmd comm'
+    if (prctl(PR_SET_NAME, t->name, 0, 0, 0) < 0) {
 	rtapi_print_msg(RTAPI_MSG_ERR,
 			"rtapi_set_task: prctl(PR_SETNAME,%s) failed: %s\n",
 			t->name,strerror(errno));

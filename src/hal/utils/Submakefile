@@ -12,7 +12,7 @@ $(call TOOBJSDEPS, hal/utils/halsh.c) : EXTRAFLAGS += $(TCL_CFLAGS)
 ../tcl/hal.so: $(call TOOBJS, $(HALSHSRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/libmtalk.so.0 \
 	../lib/librtapi_math.so.0
 	$(ECHO) Linking $(notdir $@)
@@ -25,7 +25,7 @@ $(call TOOBJSDEPS, $(HALCMDCCSRCS)) : EXTRAFLAGS =  \
 ../bin/halcmd: $(call TOOBJS, $(HALCMDSRCS))  $(call TOOBJS, $(HALCMDCCSRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/libmtalk.so.0 \
 	../lib/librtapi_math.so.0
 	$(ECHO) Linking $(notdir $@)
@@ -33,18 +33,20 @@ $(call TOOBJSDEPS, $(HALCMDCCSRCS)) : EXTRAFLAGS =  \
 	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) -lm -lstdc++
 TARGETS += ../bin/halcmd
 
-HALRMTSRCS := hal/utils/halrmt.c
-USERSRCS += $(HALRMTSRCS)
+# this has to go. soon.
+# HALRMTSRCS := hal/utils/halrmt.c
+# USERSRCS += $(HALRMTSRCS)
 
-../bin/halrmt: $(call TOOBJS, $(HALRMTSRCS)) ../lib/liblinuxcnchal.so.0
-	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) $(LDFLAGS) -o $@ $^ -lpthread
-TARGETS += ../bin/halrmt
+# ../bin/halrmt: $(call TOOBJS, $(HALRMTSRCS)) ../lib/liblinuxcnchal.so.0
+# 	$(ECHO) Linking $(notdir $@)
+# 	$(Q)$(CC) $(LDFLAGS) -o $@ $^ -lpthread
+# TARGETS += ../bin/halrmt
 
+#ifeq (1,0)
 ifneq ($(GTK_VERSION),)
 HALMETERSRCS := \
-    hal/utils/meter.c \
-    hal/utils/miscgtk.c
+     hal/utils/meter.c \
+     hal/utils/miscgtk.c
 
 USERSRCS += $(HALMETERSRCS)
 
@@ -53,14 +55,15 @@ USERSRCS += $(HALMETERSRCS)
 	$(Q)$(CC) $(LDFLAGS) -o $@ $^  $(GTK_LIBS)
 TARGETS += ../bin/halmeter
 
+#ifeq (1,0)
 HALSCOPESRCS := \
-    hal/utils/scope.c \
-    hal/utils/scope_horiz.c \
-    hal/utils/scope_vert.c \
-    hal/utils/scope_trig.c \
-    hal/utils/scope_disp.c \
-    hal/utils/scope_files.c \
-    hal/utils/miscgtk.c
+	hal/utils/scope.c \
+	hal/utils/scope_horiz.c \
+	hal/utils/scope_vert.c \
+	hal/utils/scope_trig.c \
+	hal/utils/scope_disp.c \
+	hal/utils/scope_files.c \
+	hal/utils/miscgtk.c
 
 USERSRCS += $(HALSCOPESRCS)
 
@@ -72,16 +75,18 @@ USERSRCS += $(HALSCOPESRCS)
 TARGETS += ../bin/halscope
 
 HALGTKSRCS := \
-    hal/utils/scope.c \
-    hal/utils/scope_horiz.c \
-    hal/utils/scope_vert.c \
-    hal/utils/scope_trig.c \
-    hal/utils/scope_disp.c \
-    hal/utils/scope_files.c \
-    hal/utils/meter.c \
-    hal/utils/miscgtk.c
+     hal/utils/scope.c \
+     hal/utils/scope_horiz.c \
+     hal/utils/scope_vert.c \
+     hal/utils/scope_trig.c \
+     hal/utils/scope_disp.c \
+     hal/utils/scope_files.c \
+     hal/utils/meter.c \
+     hal/utils/miscgtk.c
 $(call TOOBJSDEPS, $(HALGTKSRCS)) : EXTRAFLAGS = $(GTK_CFLAGS)
 $(call TOOBJS, $(HALGTKSRCS)): Makefile.inc
+
+#endif
 endif
 
 ifeq ($(BUILD_DRIVERS),yes)

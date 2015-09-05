@@ -14,7 +14,7 @@ author "Alexander Roessler";
 ;;
 FUNCTION(_)
 {
-    if ((sel >= 0) && (sel < localpincount))
+    if ((sel >= 0) && (sel < local_pincount))
     {
         out = in_(sel);
     }
