@@ -220,6 +220,7 @@ SUBDIRS := \
 	hal/components \
 	hal/vtable-example \
 	hal/icomp-example \
+	hal/icomp-example/C++_userspace_comp \
 	hal/iring-example \
 	hal/userfunct-example \
 	hal/drivers \
