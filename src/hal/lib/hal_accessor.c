@@ -70,6 +70,38 @@ s32_pin_ptr halx_pin_s32_newf(const hal_pin_dir_t dir,
     return p;
 }
 
+u64_pin_ptr halx_pin_u64_newf(const hal_pin_dir_t dir,
+		      const int owner_id,
+		      const char *fmt, ...)
+{
+    va_list ap;
+    u64_pin_ptr p;
+    hal_data_u defval;
+    memset((void *)&defval, 0, sizeof(defval));
+
+    va_start(ap, fmt);
+    p._lup = hal_off_safe(halg_pin_newfv(1, HAL_U64, dir, NULL,
+					owner_id, defval, fmt, ap));
+    va_end(ap);
+    return p;
+}
+
+s64_pin_ptr halx_pin_s64_newf(const hal_pin_dir_t dir,
+		      const int owner_id,
+		      const char *fmt, ...)
+{
+    va_list ap;
+    s64_pin_ptr p;
+    hal_data_u defval;
+    memset((void *)&defval, 0, sizeof(defval));
+
+    va_start(ap, fmt);
+    p._lsp = hal_off_safe(halg_pin_newfv(1,HAL_S64, dir, NULL,
+					owner_id, defval, fmt, ap));
+    va_end(ap);
+    return p;
+}
+
 // default value versions
 
 bit_pin_ptr halxd_pin_bit_newf(const hal_pin_dir_t dir,
@@ -127,6 +159,37 @@ s32_pin_ptr halxd_pin_s32_newf(const hal_pin_dir_t dir,
     hal_data_u defval = {._s = def};
     va_start(ap, fmt);
     p._sp = hal_off_safe(halg_pin_newfv(1,HAL_S32, dir, NULL,
+					owner_id, defval, fmt, ap));
+    va_end(ap);
+    return p;
+}
+
+
+u64_pin_ptr halxd_pin_u64_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_u64_t def,
+			       const char *fmt, ...)
+{
+    va_list ap;
+    u64_pin_ptr p;
+    hal_data_u defval = {._u64 = def};
+    va_start(ap, fmt);
+    p._lup = hal_off_safe(halg_pin_newfv(1, HAL_U64, dir, NULL,
+					owner_id, defval, fmt, ap));
+    va_end(ap);
+    return p;
+}
+
+s64_pin_ptr halxd_pin_s64_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_s64_t def,
+			       const char *fmt, ...)
+{
+    va_list ap;
+    s64_pin_ptr p;
+    hal_data_u defval = {._s64 = def};
+    va_start(ap, fmt);
+    p._lsp = hal_off_safe(halg_pin_newfv(1,HAL_S64, dir, NULL,
 					owner_id, defval, fmt, ap));
     va_end(ap);
     return p;

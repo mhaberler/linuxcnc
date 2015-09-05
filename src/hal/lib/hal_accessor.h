@@ -355,6 +355,16 @@ s32_pin_ptr halx_pin_s32_newf(const hal_pin_dir_t dir,
 			      const char *fmt, ...)
     __attribute__((format(printf,3,4)));
 
+u64_pin_ptr halx_pin_u64_newf(const hal_pin_dir_t dir,
+			      const int owner_id,
+			      const char *fmt, ...)
+    __attribute__((format(printf,3,4)));
+
+s64_pin_ptr halx_pin_s64_newf(const hal_pin_dir_t dir,
+			      const int owner_id,
+			      const char *fmt, ...)
+    __attribute__((format(printf,3,4)));
+
 // as above, but with explicit default value as 3rd argument
 bit_pin_ptr halxd_pin_bit_newf(const hal_pin_dir_t dir,
 			       const int owner_id,
@@ -377,6 +387,18 @@ u32_pin_ptr halxd_pin_u32_newf(const hal_pin_dir_t dir,
 s32_pin_ptr halxd_pin_s32_newf(const hal_pin_dir_t dir,
 			       const int owner_id,
 			       const hal_s32_t defval,
+			       const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
+u64_pin_ptr halxd_pin_u64_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_u64_t defval,
+			       const char *fmt, ...)
+    __attribute__((format(printf,4,5)));
+
+s64_pin_ptr halxd_pin_s64_newf(const hal_pin_dir_t dir,
+			       const int owner_id,
+			       const hal_s64_t defval,
 			       const char *fmt, ...)
     __attribute__((format(printf,4,5)));
 
