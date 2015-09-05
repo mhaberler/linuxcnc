@@ -1148,6 +1148,7 @@ EXTRA_CFLAGS = $(RTFLAGS) \
 	-I$(INCLUDE_PREFIX)/protobuf/nanopb \
 	-I$(INCLUDE_PREFIX)/rtapi \
 	-I$(INCLUDE_PREFIX)/hal/lib \
+	-I$(INCLUDE_PREFIX)/hal/icomp-example \
 	-I$(INCLUDE_PREFIX)/emc/nml_intf \
 	-I$(INCLUDE_PREFIX)/emc/kinematics \
 	-I$(INCLUDE_PREFIX)/emc/motion \
@@ -1516,6 +1517,9 @@ obj-m += iring.o
 iring-objs := hal/iring-example/iring.o
 
 
+obj-cpp += cpptest.o
+cpptest-objs := hal/icomp-example/cpptest.o
+
 obj-m += tp.o
 tp-objs := $(addprefix emc/tp/, \
 	tc.o 		\
@@ -1712,6 +1716,7 @@ $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
+$(RTLIBDIR)/cpptest$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(cpptest-objs))
 $(RTLIBDIR)/iring$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(iring-objs))
 $(RTLIBDIR)/plug$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(plug-objs))
 $(RTLIBDIR)/random$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(random-objs))
