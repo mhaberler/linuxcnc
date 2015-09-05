@@ -34,8 +34,8 @@ parser Hal:
 
     token END: ";;"
     token PINDIRECTION: "in|out|io"
-    token TYPE: "float|bit|signed|unsigned|u32|s32"
-    token MPTYPE: "int|string"
+    token TYPE: "float|bit|signed|unsigned|u32|s32|s64|u64"
+    token MPTYPE: "int|string|u32"
     token NAME: "[a-zA-Z_][a-zA-Z0-9_]*"
     token STARREDNAME: "[*]*[a-zA-Z_][a-zA-Z0-9_]*"
     token HALNAME: "[#a-zA-Z_][-#a-zA-Z0-9_.]*"
@@ -435,6 +435,7 @@ def prologue(f):
                 ipvlist.append(int(value))
 
         ## int instanceparams could be used an array size specifiers, so store them in iplist
+        ## ignore uint, will be just for hex2dec conversions etc. not array sizing
         else :
             if (mptype == 'int'):
                 iplist.append(name)
@@ -537,6 +538,12 @@ def prologue(f):
             else: v = value
             print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
             print >>f, "RTAPI_IP_INT(%s, \"%s\");\n" % (to_c(name), doc)
+        if (mptype == 'u32'):
+            if value == None: v = 0
+            else: v = value
+            print >>f, "static %s %s = %d;" % (mptype, to_c(name), int(v))
+            print >>f, "RTAPI_IP_UINT(%s, \"%s\");\n" % (to_c(name), doc)
+
 
 ################################################################################################
 #  Still process these but don't advertise them - possible future application in base component
@@ -602,12 +609,12 @@ def prologue(f):
 
     # if int instanceparam exists, echo its value in inst_data
     for name, mptype, doc, value in instanceparams:
-        if (mptype == 'int') and (name != "pincount"):
+        if ((mptype == 'int') or (mptype == "u32")) and (name != "pincount"):
             print >>f, "    int local_%s;" % to_c(name)
-            
+
     print >>f, "    int local_argc;"
     print >>f, "    const char **local_argv;"
-    
+
     ##local copy used in function and set to default value
     if have_numpins:
         print >>f, "    int local_pincount;"
@@ -772,11 +779,11 @@ def prologue(f):
 
     ## echo instanceparam int values into inst_data, except local_pincount, which is done explicitly
     for name, mptype, doc, value in instanceparams:
-        if (mptype == 'int') and (name != "pincount"):
+        if ((mptype == 'int') or (mptype == "u32")) and (name != "pincount"):
             print >>f, "    ip->local_%s = %s;" % (to_c(name), to_c(name))
     print >>f, "\n    ip->local_argv = argv;"
     print >>f, "    ip->local_argc = argc;\n"
-    
+
     for name, fp in functions:
         print >>f, "\n    // exporting an extended thread function:"
         print >>f, "    hal_export_xfunct_args_t %s_xf = " % to_c(name)
@@ -823,7 +830,7 @@ def prologue(f):
     print >>f, "    hal_print_msg(RTAPI_MSG_DBG,\"%s inst=%s argc=%d\",__FUNCTION__, name, argc);\n"
     print >>f, "// Debug print of params and values"
 
-   
+
     for name, mptype, doc, value in instanceparams:
         if (mptype == 'int'):
             strg = "    hal_print_msg(RTAPI_MSG_DBG,\"%s: int instance param: %s=%d\",__FUNCTION__,"
@@ -1009,7 +1016,7 @@ def prologue(f):
                     print >>f, "#define %s (ip->%s)" % (to_c(name), to_c(name) )
 
         for name, mptype, doc, value in instanceparams:
-            if (mptype == 'int') and (name != "pincount"):
+            if ((mptype == 'int') or (mptype == "u32")) and (name != "pincount"):
                 print >>f, "#undef local_%s" % to_c(name)
                 print >>f, "#define local_%s (ip->local_%s)" % (to_c(name), to_c(name))
         if have_numpins:
@@ -1018,10 +1025,10 @@ def prologue(f):
 
         print >>f, "#undef local_argc"
         print >>f, "#define local_argc (ip->local_argc)"
-        
+
         print >>f, "#undef local_argv"
         print >>f, "#define local_argv(i) (ip->local_argv[i])"
-        
+
         if (pin_ptrs):
             print >>f, "#undef gb"
             print >>f, "#define gb(pn1)  get_bit_pin(pn1)"
