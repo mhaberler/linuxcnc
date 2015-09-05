@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="generator" content="Asciidoctor 0.1.4">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>instcomp HAL Component Generator</title>
+<style>
+/* Asciidoctor default stylesheet | MIT License | http://asciidoctor.org */
+article, aside, details, figcaption, figure, footer, header, hgroup, main, nav, section, summary { display: block; }
+audio, canvas, video { display: inline-block; }
+audio:not([controls]) { display: none; height: 0; }
+[hidden] { display: none; }
+html { background: #fff; color: #000; font-family: sans-serif; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+a:focus { outline: thin dotted; }
+a:active, a:hover { outline: 0; }
+h1 { font-size: 2em; margin: 0.67em 0; }
+abbr[title] { border-bottom: 1px dotted; }
+b, strong { font-weight: bold; }
+dfn { font-style: italic; }
+hr { -moz-box-sizing: content-box; box-sizing: content-box; height: 0; }
+mark { background: #ff0; color: #000; }
+code, kbd, pre, samp { font-family: monospace, serif; font-size: 1em; }
+pre { white-space: pre-wrap; }
+q { quotes: "\201C" "\201D" "\2018" "\2019"; }
+small { font-size: 80%; }
+sub, sup { font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; }
+sup { top: -0.5em; }
+sub { bottom: -0.25em; }
+img { border: 0; }
+svg:not(:root) { overflow: hidden; }
+figure { margin: 0; }
+fieldset { border: 1px solid #c0c0c0; margin: 0 2px; padding: 0.35em 0.625em 0.75em; }
+legend { border: 0; padding: 0; }
+button, input, select, textarea { font-family: inherit; font-size: 100%; margin: 0; }
+button, input { line-height: normal; }
+button, select { text-transform: none; }
+button, html input[type="button"], input[type="reset"], input[type="submit"] { -webkit-appearance: button; cursor: pointer; }
+button[disabled], html input[disabled] { cursor: default; }
+input[type="checkbox"], input[type="radio"] { box-sizing: border-box; padding: 0; }
+input[type="search"] { -webkit-appearance: textfield; -moz-box-sizing: content-box; -webkit-box-sizing: content-box; box-sizing: content-box; }
+input[type="search"]::-webkit-search-cancel-button, input[type="search"]::-webkit-search-decoration { -webkit-appearance: none; }
+button::-moz-focus-inner, input::-moz-focus-inner { border: 0; padding: 0; }
+textarea { overflow: auto; vertical-align: top; }
+table { border-collapse: collapse; border-spacing: 0; }
+*, *:before, *:after { -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; }
+html, body { font-size: 100%; }
+body { background: white; color: #222222; padding: 0; margin: 0; font-family: "Helvetica Neue", "Helvetica", Helvetica, Arial, sans-serif; font-weight: normal; font-style: normal; line-height: 1; position: relative; cursor: auto; }
+a:hover { cursor: pointer; }
+a:focus { outline: none; }
+img, object, embed { max-width: 100%; height: auto; }
+object, embed { height: 100%; }
+img { -ms-interpolation-mode: bicubic; }
+#map_canvas img, #map_canvas embed, #map_canvas object, .map_canvas img, .map_canvas embed, .map_canvas object { max-width: none !important; }
+.left { float: left !important; }
+.right { float: right !important; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
+.text-center { text-align: center !important; }
+.text-justify { text-align: justify !important; }
+.hide { display: none; }
+.antialiased, body { -webkit-font-smoothing: antialiased; }
+img { display: inline-block; vertical-align: middle; }
+textarea { height: auto; min-height: 50px; }
+select { width: 100%; }
+p.lead, .paragraph.lead > p, #preamble > .sectionbody > .paragraph:first-of-type p { font-size: 1.21875em; line-height: 1.6; }
+.subheader, #content #toctitle, .admonitionblock td.content > .title, .exampleblock > .title, .imageblock > .title, .videoblock > .title, .listingblock > .title, .literalblock > .title, .openblock > .title, .paragraph > .title, .quoteblock > .title, .sidebarblock > .title, .tableblock > .title, .verseblock > .title, .dlist > .title, .olist > .title, .ulist > .title, .qlist > .title, .hdlist > .title, .tableblock > caption { line-height: 1.4; color: #7a2518; font-weight: 300; margin-top: 0.2em; margin-bottom: 0.5em; }
+div, dl, dt, dd, ul, ol, li, h1, h2, h3, #toctitle, .sidebarblock > .content > .title, h4, h5, h6, pre, form, p, blockquote, th, td { margin: 0; padding: 0; direction: ltr; }
+a { color: #005498; text-decoration: underline; line-height: inherit; }
+a:hover, a:focus { color: #00467f; }
+a img { border: none; }
+p { font-family: inherit; font-weight: normal; font-size: 1em; line-height: 1.6; margin-bottom: 1.25em; text-rendering: optimizeLegibility; }
+p aside { font-size: 0.875em; line-height: 1.35; font-style: italic; }
+h1, h2, h3, #toctitle, .sidebarblock > .content > .title, h4, h5, h6 { font-family: Georgia, "URW Bookman L", Helvetica, Arial, sans-serif; font-weight: normal; font-style: normal; color: #ba3925; text-rendering: optimizeLegibility; margin-top: 1em; margin-bottom: 0.5em; line-height: 1.2125em; }
+h1 small, h2 small, h3 small, #toctitle small, .sidebarblock > .content > .title small, h4 small, h5 small, h6 small { font-size: 60%; color: #e99b8f; line-height: 0; }
+h1 { font-size: 2.125em; }
+h2 { font-size: 1.6875em; }
+h3, #toctitle, .sidebarblock > .content > .title { font-size: 1.375em; }
+h4 { font-size: 1.125em; }
+h5 { font-size: 1.125em; }
+h6 { font-size: 1em; }
+hr { border: solid #dddddd; border-width: 1px 0 0; clear: both; margin: 1.25em 0 1.1875em; height: 0; }
+em, i { font-style: italic; line-height: inherit; }
+strong, b { font-weight: bold; line-height: inherit; }
+small { font-size: 60%; line-height: inherit; }
+code { font-family: Consolas, "Liberation Mono", Courier, monospace; font-weight: normal; color: #6d180b; }
+ul, ol, dl { font-size: 1em; line-height: 1.6; margin-bottom: 1.25em; list-style-position: outside; font-family: inherit; }
+ul, ol { margin-left: 1.5em; }
+ul li ul, ul li ol { margin-left: 1.25em; margin-bottom: 0; font-size: 1em; }
+ul.square li ul, ul.circle li ul, ul.disc li ul { list-style: inherit; }
+ul.square { list-style-type: square; }
+ul.circle { list-style-type: circle; }
+ul.disc { list-style-type: disc; }
+ul.no-bullet { list-style: none; }
+ol li ul, ol li ol { margin-left: 1.25em; margin-bottom: 0; }
+dl dt { margin-bottom: 0.3125em; font-weight: bold; }
+dl dd { margin-bottom: 1.25em; }
+abbr, acronym { text-transform: uppercase; font-size: 90%; color: #222222; border-bottom: 1px dotted #dddddd; cursor: help; }
+abbr { text-transform: none; }
+blockquote { margin: 0 0 1.25em; padding: 0.5625em 1.25em 0 1.1875em; border-left: 1px solid #dddddd; }
+blockquote cite { display: block; font-size: inherit; color: #555555; }
+blockquote cite:before { content: "\2014 \0020"; }
+blockquote cite a, blockquote cite a:visited { color: #555555; }
+blockquote, blockquote p { line-height: 1.6; color: #6f6f6f; }
+.vcard { display: inline-block; margin: 0 0 1.25em 0; border: 1px solid #dddddd; padding: 0.625em 0.75em; }
+.vcard li { margin: 0; display: block; }
+.vcard .fn { font-weight: bold; font-size: 0.9375em; }
+.vevent .summary { font-weight: bold; }
+.vevent abbr { cursor: auto; text-decoration: none; font-weight: bold; border: none; padding: 0 0.0625em; }
+@media only screen and (min-width: 768px) { h1, h2, h3, #toctitle, .sidebarblock > .content > .title, h4, h5, h6 { line-height: 1.4; }
+  h1 { font-size: 2.75em; }
+  h2 { font-size: 2.3125em; }
+  h3, #toctitle, .sidebarblock > .content > .title { font-size: 1.6875em; }
+  h4 { font-size: 1.4375em; } }
+.print-only { display: none !important; }
+@media print { * { background: transparent !important; color: #000 !important; box-shadow: none !important; text-shadow: none !important; }
+  a, a:visited { text-decoration: underline; }
+  a[href]:after { content: " (" attr(href) ")"; }
+  abbr[title]:after { content: " (" attr(title) ")"; }
+  .ir a:after, a[href^="javascript:"]:after, a[href^="#"]:after { content: ""; }
+  pre, blockquote { border: 1px solid #999; page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  tr, img { page-break-inside: avoid; }
+  img { max-width: 100% !important; }
+  @page { margin: 0.5cm; }
+  p, h2, h3, #toctitle, .sidebarblock > .content > .title { orphans: 3; widows: 3; }
+  h2, h3, #toctitle, .sidebarblock > .content > .title { page-break-after: avoid; }
+  .hide-on-print { display: none !important; }
+  .print-only { display: block !important; }
+  .hide-for-print { display: none !important; }
+  .show-for-print { display: inherit !important; } }
+table { background: white; margin-bottom: 1.25em; border: solid 1px #dddddd; }
+table thead, table tfoot { background: whitesmoke; font-weight: bold; }
+table thead tr th, table thead tr td, table tfoot tr th, table tfoot tr td { padding: 0.5em 0.625em 0.625em; font-size: inherit; color: #222222; text-align: left; }
+table tr th, table tr td { padding: 0.5625em 0.625em; font-size: inherit; color: #222222; }
+table tr.even, table tr.alt, table tr:nth-of-type(even) { background: #f9f9f9; }
+table thead tr th, table tfoot tr th, table tbody tr td, table tr td, table tfoot tr td { display: table-cell; line-height: 1.6; }
+.clearfix:before, .clearfix:after, .float-group:before, .float-group:after { content: " "; display: table; }
+.clearfix:after, .float-group:after { clear: both; }
+*:not(pre) > code { font-size: 0.9375em; padding: 1px 3px 0; white-space: nowrap; background-color: #f2f2f2; border: 1px solid #cccccc; -webkit-border-radius: 4px; border-radius: 4px; text-shadow: none; }
+pre, pre > code { line-height: 1.4; color: inherit; font-family: Consolas, "Liberation Mono", Courier, monospace; font-weight: normal; }
+kbd.keyseq { color: #555555; }
+kbd:not(.keyseq) { display: inline-block; color: #222222; font-size: 0.75em; line-height: 1.4; background-color: #F7F7F7; border: 1px solid #ccc; -webkit-border-radius: 3px; border-radius: 3px; -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 0 2px white inset; box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 0 2px white inset; margin: -0.15em 0.15em 0 0.15em; padding: 0.2em 0.6em 0.2em 0.5em; vertical-align: middle; white-space: nowrap; }
+kbd kbd:first-child { margin-left: 0; }
+kbd kbd:last-child { margin-right: 0; }
+.menuseq, .menu { color: #090909; }
+p a > code:hover { color: #561309; }
+#header, #content, #footnotes, #footer { width: 100%; margin-left: auto; margin-right: auto; margin-top: 0; margin-bottom: 0; max-width: 62.5em; *zoom: 1; position: relative; padding-left: 0.9375em; padding-right: 0.9375em; }
+#header:before, #header:after, #content:before, #content:after, #footnotes:before, #footnotes:after, #footer:before, #footer:after { content: " "; display: table; }
+#header:after, #content:after, #footnotes:after, #footer:after { clear: both; }
+#header { margin-bottom: 2.5em; }
+#header > h1 { color: black; font-weight: normal; border-bottom: 1px solid #dddddd; margin-bottom: -28px; padding-bottom: 32px; }
+#header span { color: #6f6f6f; }
+#header #revnumber { text-transform: capitalize; }
+#header br { display: none; }
+#header br + span { padding-left: 3px; }
+#header br + span:before { content: "\2013 \0020"; }
+#header br + span.author { padding-left: 0; }
+#header br + span.author:before { content: ", "; }
+#toc { border-bottom: 3px double #ebebeb; padding-bottom: 1.25em; }
+#toc > ul { margin-left: 0.25em; }
+#toc ul.sectlevel0 > li > a { font-style: italic; }
+#toc ul.sectlevel0 ul.sectlevel1 { margin-left: 0; margin-top: 0.5em; margin-bottom: 0.5em; }
+#toc ul { list-style-type: none; }
+#toctitle { color: #7a2518; }
+@media only screen and (min-width: 1280px) { body.toc2 { padding-left: 20em; }
+  #toc.toc2 { position: fixed; width: 20em; left: 0; top: 0; border-right: 1px solid #ebebeb; border-bottom: 0; z-index: 1000; padding: 1em; height: 100%; overflow: auto; }
+  #toc.toc2 #toctitle { margin-top: 0; }
+  #toc.toc2 > ul { font-size: .95em; }
+  #toc.toc2 ul ul { margin-left: 0; padding-left: 1.25em; }
+  #toc.toc2 ul.sectlevel0 ul.sectlevel1 { padding-left: 0; margin-top: 0.5em; margin-bottom: 0.5em; }
+  body.toc2.toc-right { padding-left: 0; padding-right: 20em; }
+  body.toc2.toc-right #toc.toc2 { border-right: 0; border-left: 1px solid #ebebeb; left: auto; right: 0; } }
+#content #toc { border-style: solid; border-width: 1px; border-color: #d9d9d9; margin-bottom: 1.25em; padding: 1.25em; background: #f2f2f2; border-width: 0; -webkit-border-radius: 4px; border-radius: 4px; }
+#content #toc > :first-child { margin-top: 0; }
+#content #toc > :last-child { margin-bottom: 0; }
+#content #toc a { text-decoration: none; }
+#content #toctitle { font-weight: bold; font-family: "Helvetica Neue", "Helvetica", Helvetica, Arial, sans-serif; font-size: 1em; padding-left: 0.125em; }
+#footer { max-width: 100%; background-color: #222222; padding: 1.25em; }
+#footer-text { color: #dddddd; line-height: 1.44; }
+.sect1 { padding-bottom: 1.25em; }
+.sect1 + .sect1 { border-top: 3px double #ebebeb; }
+#content h1 > a.anchor, h2 > a.anchor, h3 > a.anchor, #toctitle > a.anchor, .sidebarblock > .content > .title > a.anchor, h4 > a.anchor, h5 > a.anchor, h6 > a.anchor { position: absolute; width: 1em; margin-left: -1em; display: block; text-decoration: none; visibility: hidden; text-align: center; font-weight: normal; }
+#content h1 > a.anchor:before, h2 > a.anchor:before, h3 > a.anchor:before, #toctitle > a.anchor:before, .sidebarblock > .content > .title > a.anchor:before, h4 > a.anchor:before, h5 > a.anchor:before, h6 > a.anchor:before { content: '\00A7'; font-size: .85em; vertical-align: text-top; display: block; margin-top: 0.05em; }
+#content h1:hover > a.anchor, #content h1 > a.anchor:hover, h2:hover > a.anchor, h2 > a.anchor:hover, h3:hover > a.anchor, #toctitle:hover > a.anchor, .sidebarblock > .content > .title:hover > a.anchor, h3 > a.anchor:hover, #toctitle > a.anchor:hover, .sidebarblock > .content > .title > a.anchor:hover, h4:hover > a.anchor, h4 > a.anchor:hover, h5:hover > a.anchor, h5 > a.anchor:hover, h6:hover > a.anchor, h6 > a.anchor:hover { visibility: visible; }
+#content h1 > a.link, h2 > a.link, h3 > a.link, #toctitle > a.link, .sidebarblock > .content > .title > a.link, h4 > a.link, h5 > a.link, h6 > a.link { color: #ba3925; text-decoration: none; }
+#content h1 > a.link:hover, h2 > a.link:hover, h3 > a.link:hover, #toctitle > a.link:hover, .sidebarblock > .content > .title > a.link:hover, h4 > a.link:hover, h5 > a.link:hover, h6 > a.link:hover { color: #a53221; }
+.imageblock, .literalblock, .listingblock, .verseblock, .videoblock { margin-bottom: 1.25em; }
+.admonitionblock td.content > .title, .exampleblock > .title, .imageblock > .title, .videoblock > .title, .listingblock > .title, .literalblock > .title, .openblock > .title, .paragraph > .title, .quoteblock > .title, .sidebarblock > .title, .tableblock > .title, .verseblock > .title, .dlist > .title, .olist > .title, .ulist > .title, .qlist > .title, .hdlist > .title { text-align: left; font-weight: bold; }
+.tableblock > caption { text-align: left; font-weight: bold; white-space: nowrap; overflow: visible; max-width: 0; }
+table.tableblock #preamble > .sectionbody > .paragraph:first-of-type p { font-size: inherit; }
+.admonitionblock > table { border: 0; background: none; width: 100%; }
+.admonitionblock > table td.icon { text-align: center; width: 80px; }
+.admonitionblock > table td.icon img { max-width: none; }
+.admonitionblock > table td.icon .title { font-weight: bold; text-transform: uppercase; }
+.admonitionblock > table td.content { padding-left: 1.125em; padding-right: 1.25em; border-left: 1px solid #dddddd; color: #6f6f6f; }
+.admonitionblock > table td.content > :last-child > :last-child { margin-bottom: 0; }
+.exampleblock > .content { border-style: solid; border-width: 1px; border-color: #e6e6e6; margin-bottom: 1.25em; padding: 1.25em; background: white; -webkit-border-radius: 4px; border-radius: 4px; }
+.exampleblock > .content > :first-child { margin-top: 0; }
+.exampleblock > .content > :last-child { margin-bottom: 0; }
+.exampleblock > .content h1, .exampleblock > .content h2, .exampleblock > .content h3, .exampleblock > .content #toctitle, .sidebarblock.exampleblock > .content > .title, .exampleblock > .content h4, .exampleblock > .content h5, .exampleblock > .content h6, .exampleblock > .content p { color: #333333; }
+.exampleblock > .content h1, .exampleblock > .content h2, .exampleblock > .content h3, .exampleblock > .content #toctitle, .sidebarblock.exampleblock > .content > .title, .exampleblock > .content h4, .exampleblock > .content h5, .exampleblock > .content h6 { line-height: 1; margin-bottom: 0.625em; }
+.exampleblock > .content h1.subheader, .exampleblock > .content h2.subheader, .exampleblock > .content h3.subheader, .exampleblock > .content .subheader#toctitle, .sidebarblock.exampleblock > .content > .subheader.title, .exampleblock > .content h4.subheader, .exampleblock > .content h5.subheader, .exampleblock > .content h6.subheader { line-height: 1.4; }
+.exampleblock.result > .content { -webkit-box-shadow: 0 1px 8px #d9d9d9; box-shadow: 0 1px 8px #d9d9d9; }
+.sidebarblock { border-style: solid; border-width: 1px; border-color: #d9d9d9; margin-bottom: 1.25em; padding: 1.25em; background: #f2f2f2; -webkit-border-radius: 4px; border-radius: 4px; }
+.sidebarblock > :first-child { margin-top: 0; }
+.sidebarblock > :last-child { margin-bottom: 0; }
+.sidebarblock h1, .sidebarblock h2, .sidebarblock h3, .sidebarblock #toctitle, .sidebarblock > .content > .title, .sidebarblock h4, .sidebarblock h5, .sidebarblock h6, .sidebarblock p { color: #333333; }
+.sidebarblock h1, .sidebarblock h2, .sidebarblock h3, .sidebarblock #toctitle, .sidebarblock > .content > .title, .sidebarblock h4, .sidebarblock h5, .sidebarblock h6 { line-height: 1; margin-bottom: 0.625em; }
+.sidebarblock h1.subheader, .sidebarblock h2.subheader, .sidebarblock h3.subheader, .sidebarblock .subheader#toctitle, .sidebarblock > .content > .subheader.title, .sidebarblock h4.subheader, .sidebarblock h5.subheader, .sidebarblock h6.subheader { line-height: 1.4; }
+.sidebarblock > .content > .title { color: #7a2518; margin-top: 0; line-height: 1.6; }
+.exampleblock > .content > :last-child > :last-child, .exampleblock > .content .olist > ol > li:last-child > :last-child, .exampleblock > .content .ulist > ul > li:last-child > :last-child, .exampleblock > .content .qlist > ol > li:last-child > :last-child, .sidebarblock > .content > :last-child > :last-child, .sidebarblock > .content .olist > ol > li:last-child > :last-child, .sidebarblock > .content .ulist > ul > li:last-child > :last-child, .sidebarblock > .content .qlist > ol > li:last-child > :last-child { margin-bottom: 0; }
+.literalblock > .content pre, .listingblock > .content pre { background: none; border-width: 1px 0; border-style: dotted; border-color: #bfbfbf; -webkit-border-radius: 4px; border-radius: 4px; padding: 0.75em 0.75em 0.5em 0.75em; word-wrap: break-word; }
+.literalblock > .content pre.nowrap, .listingblock > .content pre.nowrap { overflow-x: auto; white-space: pre; word-wrap: normal; }
+.literalblock > .content pre > code, .listingblock > .content pre > code { display: block; }
+@media only screen { .literalblock > .content pre, .listingblock > .content pre { font-size: 0.8em; } }
+@media only screen and (min-width: 768px) { .literalblock > .content pre, .listingblock > .content pre { font-size: 0.9em; } }
+@media only screen and (min-width: 1280px) { .literalblock > .content pre, .listingblock > .content pre { font-size: 1em; } }
+.listingblock > .content { position: relative; }
+.listingblock:hover code[class*=" language-"]:before { text-transform: uppercase; font-size: 0.9em; color: #999; position: absolute; top: 0.375em; right: 0.375em; }
+.listingblock:hover code.asciidoc:before { content: "asciidoc"; }
+.listingblock:hover code.clojure:before { content: "clojure"; }
+.listingblock:hover code.css:before { content: "css"; }
+.listingblock:hover code.groovy:before { content: "groovy"; }
+.listingblock:hover code.html:before { content: "html"; }
+.listingblock:hover code.java:before { content: "java"; }
+.listingblock:hover code.javascript:before { content: "javascript"; }
+.listingblock:hover code.python:before { content: "python"; }
+.listingblock:hover code.ruby:before { content: "ruby"; }
+.listingblock:hover code.scss:before { content: "scss"; }
+.listingblock:hover code.xml:before { content: "xml"; }
+.listingblock:hover code.yaml:before { content: "yaml"; }
+.listingblock.terminal pre .command:before { content: attr(data-prompt); padding-right: 0.5em; color: #999; }
+.listingblock.terminal pre .command:not([data-prompt]):before { content: '$'; }
+table.pyhltable { border: 0; margin-bottom: 0; }
+table.pyhltable td { vertical-align: top; padding-top: 0; padding-bottom: 0; }
+table.pyhltable td.code { padding-left: .75em; padding-right: 0; }
+.highlight.pygments .lineno, table.pyhltable td:not(.code) { color: #999; padding-left: 0; padding-right: .5em; border-right: 1px solid #dddddd; }
+.highlight.pygments .lineno { display: inline-block; margin-right: .25em; }
+table.pyhltable .linenodiv { background-color: transparent !important; padding-right: 0 !important; }
+.quoteblock { margin: 0 0 1.25em; padding: 0.5625em 1.25em 0 1.1875em; border-left: 1px solid #dddddd; }
+.quoteblock blockquote { margin: 0 0 1.25em 0; padding: 0 0 0.5625em 0; border: 0; }
+.quoteblock blockquote > .paragraph:last-child p { margin-bottom: 0; }
+.quoteblock .attribution { margin-top: -.25em; padding-bottom: 0.5625em; font-size: inherit; color: #555555; }
+.quoteblock .attribution br { display: none; }
+.quoteblock .attribution cite { display: block; margin-bottom: 0.625em; }
+table thead th, table tfoot th { font-weight: bold; }
+table.tableblock.grid-all { border-collapse: separate; border-spacing: 1px; -webkit-border-radius: 4px; border-radius: 4px; border-top: 1px solid #dddddd; border-bottom: 1px solid #dddddd; }
+table.tableblock.frame-topbot, table.tableblock.frame-none { border-left: 0; border-right: 0; }
+table.tableblock.frame-sides, table.tableblock.frame-none { border-top: 0; border-bottom: 0; }
+table.tableblock td .paragraph:last-child p, table.tableblock td > p:last-child { margin-bottom: 0; }
+th.tableblock.halign-left, td.tableblock.halign-left { text-align: left; }
+th.tableblock.halign-right, td.tableblock.halign-right { text-align: right; }
+th.tableblock.halign-center, td.tableblock.halign-center { text-align: center; }
+th.tableblock.valign-top, td.tableblock.valign-top { vertical-align: top; }
+th.tableblock.valign-bottom, td.tableblock.valign-bottom { vertical-align: bottom; }
+th.tableblock.valign-middle, td.tableblock.valign-middle { vertical-align: middle; }
+p.tableblock.header { color: #222222; font-weight: bold; }
+td > div.verse { white-space: pre; }
+ol { margin-left: 1.75em; }
+ul li ol { margin-left: 1.5em; }
+dl dd { margin-left: 1.125em; }
+dl dd:last-child, dl dd:last-child > :last-child { margin-bottom: 0; }
+ol > li p, ul > li p, ul dd, ol dd, .olist .olist, .ulist .ulist, .ulist .olist, .olist .ulist { margin-bottom: 0.625em; }
+ul.unstyled, ol.unnumbered, ul.checklist, ul.none { list-style-type: none; }
+ul.unstyled, ol.unnumbered, ul.checklist { margin-left: 0.625em; }
+ul.checklist li > p:first-child > i[class^="icon-check"]:first-child, ul.checklist li > p:first-child > input[type="checkbox"]:first-child { margin-right: 0.25em; }
+ul.checklist li > p:first-child > input[type="checkbox"]:first-child { position: relative; top: 1px; }
+ul.inline { margin: 0 auto 0.625em auto; margin-left: -1.375em; margin-right: 0; padding: 0; list-style: none; overflow: hidden; }
+ul.inline > li { list-style: none; float: left; margin-left: 1.375em; display: block; }
+ul.inline > li > * { display: block; }
+.unstyled dl dt { font-weight: normal; font-style: normal; }
+ol.arabic { list-style-type: decimal; }
+ol.decimal { list-style-type: decimal-leading-zero; }
+ol.loweralpha { list-style-type: lower-alpha; }
+ol.upperalpha { list-style-type: upper-alpha; }
+ol.lowerroman { list-style-type: lower-roman; }
+ol.upperroman { list-style-type: upper-roman; }
+ol.lowergreek { list-style-type: lower-greek; }
+.hdlist > table, .colist > table { border: 0; background: none; }
+.hdlist > table > tbody > tr, .colist > table > tbody > tr { background: none; }
+td.hdlist1 { padding-right: .8em; font-weight: bold; }
+td.hdlist1, td.hdlist2 { vertical-align: top; }
+.literalblock + .colist, .listingblock + .colist { margin-top: -0.5em; }
+.colist > table tr > td:first-of-type { padding: 0 .8em; line-height: 1; }
+.colist > table tr > td:last-of-type { padding: 0.25em 0; }
+.qanda > ol > li > p > em:only-child { color: #00467f; }
+.thumb, .th { line-height: 0; display: inline-block; border: solid 4px white; -webkit-box-shadow: 0 0 0 1px #dddddd; box-shadow: 0 0 0 1px #dddddd; }
+.imageblock.left, .imageblock[style*="float: left"] { margin: 0.25em 0.625em 1.25em 0; }
+.imageblock.right, .imageblock[style*="float: right"] { margin: 0.25em 0 1.25em 0.625em; }
+.imageblock > .title { margin-bottom: 0; }
+.imageblock.thumb, .imageblock.th { border-width: 6px; }
+.imageblock.thumb > .title, .imageblock.th > .title { padding: 0 0.125em; }
+.image.left, .image.right { margin-top: 0.25em; margin-bottom: 0.25em; display: inline-block; line-height: 0; }
+.image.left { margin-right: 0.625em; }
+.image.right { margin-left: 0.625em; }
+a.image { text-decoration: none; }
+span.footnote, span.footnoteref { vertical-align: super; font-size: 0.875em; }
+span.footnote a, span.footnoteref a { text-decoration: none; }
+#footnotes { padding-top: 0.75em; padding-bottom: 0.75em; margin-bottom: 0.625em; }
+#footnotes hr { width: 20%; min-width: 6.25em; margin: -.25em 0 .75em 0; border-width: 1px 0 0 0; }
+#footnotes .footnote { padding: 0 0.375em; line-height: 1.3; font-size: 0.875em; margin-left: 1.2em; text-indent: -1.2em; margin-bottom: .2em; }
+#footnotes .footnote a:first-of-type { font-weight: bold; text-decoration: none; }
+#footnotes .footnote:last-of-type { margin-bottom: 0; }
+#content #footnotes { margin-top: -0.625em; margin-bottom: 0; padding: 0.75em 0; }
+.gist .file-data > table { border: none; background: #fff; width: 100%; margin-bottom: 0; }
+.gist .file-data > table td.line-data { width: 99%; }
+div.unbreakable { page-break-inside: avoid; }
+.big { font-size: larger; }
+.small { font-size: smaller; }
+.underline { text-decoration: underline; }
+.overline { text-decoration: overline; }
+.line-through { text-decoration: line-through; }
+.aqua { color: #00bfbf; }
+.aqua-background { background-color: #00fafa; }
+.black { color: black; }
+.black-background { background-color: black; }
+.blue { color: #0000bf; }
+.blue-background { background-color: #0000fa; }
+.fuchsia { color: #bf00bf; }
+.fuchsia-background { background-color: #fa00fa; }
+.gray { color: #606060; }
+.gray-background { background-color: #7d7d7d; }
+.green { color: #006000; }
+.green-background { background-color: #007d00; }
+.lime { color: #00bf00; }
+.lime-background { background-color: #00fa00; }
+.maroon { color: #600000; }
+.maroon-background { background-color: #7d0000; }
+.navy { color: #000060; }
+.navy-background { background-color: #00007d; }
+.olive { color: #606000; }
+.olive-background { background-color: #7d7d00; }
+.purple { color: #600060; }
+.purple-background { background-color: #7d007d; }
+.red { color: #bf0000; }
+.red-background { background-color: #fa0000; }
+.silver { color: #909090; }
+.silver-background { background-color: #bcbcbc; }
+.teal { color: #006060; }
+.teal-background { background-color: #007d7d; }
+.white { color: #bfbfbf; }
+.white-background { background-color: #fafafa; }
+.yellow { color: #bfbf00; }
+.yellow-background { background-color: #fafa00; }
+span.icon > [class^="icon-"], span.icon > [class*=" icon-"] { cursor: default; }
+.admonitionblock td.icon [class^="icon-"]:before { font-size: 2.5em; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); cursor: default; }
+.admonitionblock td.icon .icon-note:before { content: "\f05a"; color: #005498; color: #003f72; }
+.admonitionblock td.icon .icon-tip:before { content: "\f0eb"; text-shadow: 1px 1px 2px rgba(155, 155, 0, 0.8); color: #111; }
+.admonitionblock td.icon .icon-warning:before { content: "\f071"; color: #bf6900; }
+.admonitionblock td.icon .icon-caution:before { content: "\f06d"; color: #bf3400; }
+.admonitionblock td.icon .icon-important:before { content: "\f06a"; color: #bf0000; }
+.conum { display: inline-block; color: white !important; background-color: #222222; -webkit-border-radius: 100px; border-radius: 100px; text-align: center; width: 20px; height: 20px; font-size: 12px; font-weight: bold; line-height: 20px; font-family: Arial, sans-serif; font-style: normal; position: relative; top: -2px; letter-spacing: -1px; }
+.conum * { color: white !important; }
+.conum + b { display: none; }
+.conum:after { content: attr(data-value); }
+.conum:not([data-value]):empty { display: none; }
+.literalblock > .content > pre, .listingblock > .content > pre { -webkit-border-radius: 0; border-radius: 0; }
+
+</style>
+</head>
+<body class="article">
+<div id="header">
+<h1>instcomp HAL Component Generator</h1>
+</div>
+<div id="content">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p><a id="cha:instcomp-hal-component-generator"></a> </p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_introduction">Introduction</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>instcomp is the Machinekit component pre-processor and compiler for instantiable components (.icomp)</p>
+</div>
+<div class="paragraph">
+<p>This manual describes its operation in respect to how it differs from comp,
+the default inherited Linuxcnc component compiler.</p>
+</div>
+<div class="paragraph">
+<p>A familiarity with comp is therefore necessary and assumed.</p>
+</div>
+<div class="paragraph">
+<p>The essential difference between normal realtime components and instantiable components,
+is that <em>normal components</em> are loaded once only and have to create as many copies of the
+component as they need, all at once, there and then.</p>
+</div>
+<div class="paragraph">
+<p>Instantiable components load the <em>base component</em> and from that can create instances
+of the component whenever they are required.
+So instances can be created in separate hal files, on-the-fly or whatever.</p>
+</div>
+<div class="paragraph">
+<p>Amoungst many advantages, it opens up huge flexibility in configuration.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_naming_conventions">Naming Conventions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>All instantiable components are named to differentiate them from <em>normal components</em></p>
+</div>
+<div class="paragraph">
+<p>The component files have the extension <strong><em>.icomp</em></strong></p>
+</div>
+<div class="paragraph">
+<p>eg</p>
+</div>
+<div class="paragraph">
+<p><strong><em>ddt.icomp</em></strong>  is the component file</p>
+</div>
+<div class="paragraph">
+<p>produces a component called</p>
+</div>
+<div class="paragraph">
+<p><strong><em>ddt</em></strong></p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_definitions">Definitions</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_component">component -</h3>
+<div class="paragraph">
+<p>A component is a single real-time base module, which is loaded with <em>halcmd loadrt</em>.</p>
+</div>
+<div class="paragraph">
+<p>There are two parameters to <strong>loadrt</strong></p>
+</div>
+<div class="paragraph">
+<p><strong>count=N</strong>  where N is the number of numbered instances to create</p>
+</div>
+<div class="paragraph">
+<p><strong>names=name1,name2,name3</strong>  where the instances are named instead of numbered</p>
+</div>
+<div class="paragraph">
+<p>By default <strong>loadrt component</strong> with no params or args, will create a single instance named <strong>component.0</strong></p>
+</div>
+<div class="paragraph">
+<p>One <em>.icomp</em> file specifies one component.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_newinstance">newinstance -</h3>
+<div class="paragraph">
+<p>Each instance of a component created with a call to <strong><em>newinst</em></strong></p>
+</div>
+<div class="paragraph">
+<p>It is created roughly equal (they all have the same functions, and data)</p>
+</div>
+<div class="paragraph">
+<p>in basic configuration, but with greater or lesser numbers of pins or parameters, different names etc</p>
+</div>
+<div class="paragraph">
+<p>New instances can be created ad hoc, one for the use at this time and another differing instance created at a later stage.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_function">function -</h3>
+<div class="paragraph">
+<p>The function is the part of the code that is attached to a thread and called at every thread period</p>
+</div>
+<div class="paragraph">
+<p>You MUST declare at least one function in the declaration part of the icomp file above the <strong><em>;;</em></strong> delimiters</p>
+</div>
+<div class="paragraph">
+<p>In this instcomp differs from comp</p>
+</div>
+<div class="paragraph">
+<p>eg.</p>
+</div>
+<div class="paragraph">
+<p><strong><em>function _;</em></strong></p>
+</div>
+<div class="paragraph">
+<p><strong><em>;;</em></strong></p>
+</div>
+<div class="paragraph">
+<p>This is perfectly sufficient where there is just one function</p>
+</div>
+<div class="paragraph">
+<p>If there are more than one function, they must all be declared and uniquely named</p>
+</div>
+<div class="paragraph">
+<p>eg.</p>
+</div>
+<div class="paragraph">
+<p><strong><em>function read nofp;</em></strong>    ( specifying not a floating point thread - the default)</p>
+</div>
+<div class="paragraph">
+<p><strong><em>function write;</em></strong></p>
+</div>
+<div class="paragraph">
+<p><strong><em>;;</em></strong></p>
+</div>
+<div class="paragraph">
+<p>If unnamed the function will be called, <strong>component-name.0.funct</strong></p>
+</div>
+<div class="paragraph">
+<p>halcmd allows just the base component name to be added to a thread, to keep existing configs working</p>
+</div>
+<div class="paragraph">
+<p>So <strong>addf component-name servo-thread</strong> will work</p>
+</div>
+<div class="paragraph">
+<p>What it actually does however is add the <strong>.funct</strong> bit on the end.</p>
+</div>
+<div class="paragraph">
+<p>This is necessary to have unique naming of all pins, components and functions to assist in identifying when debugging.
+Otherwise the actual component and the function would have the same name.</p>
+</div>
+<div class="paragraph">
+<p>The function is exported as a xthread function.</p>
+</div>
+<div class="paragraph">
+<p>The following accessors are available within the function:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fa_period(fa) - formerly 'long period'"</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fa_thread_start_time(fa): _actual_ start time of thread invocation"</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fa_start_time(fa): _actual_ start time of function invocation"</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fa_thread_name(fa): name of the calling thread (char *)"</pre>
+</div>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>fa_funct_name(fa): name of the this called function (char *)"</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_instance_creation">Instance creation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><strong><em>newinst somecomponent somenewname &lt; pincount=0 &gt; &lt; other_instanceparam=xxx &gt; --- extra_arg1 extra_arg2 &#8230;&#8230;</em></strong></p>
+</div>
+<div class="paragraph">
+<p>Loads somecomponent and creates a new instance of somecomponent called somenewname</p>
+</div>
+<div class="paragraph">
+<p>eg</p>
+</div>
+<div class="paragraph">
+<p><strong><em>newinst somecomponent somenewcomp8 pincount=8</em></strong></p>
+</div>
+<div class="paragraph">
+<p>then</p>
+</div>
+<div class="paragraph">
+<p><strong><em>addf somecomp8 servo-thread</em></strong></p>
+</div>
+<div class="paragraph">
+<p>adds the function to a thread</p>
+</div>
+<div class="paragraph">
+<p>If you just want a component with the default number of pins, you can just use</p>
+</div>
+<div class="paragraph">
+<p><strong>newinst componentname newcomponentname</strong></p>
+</div>
+<div class="paragraph">
+<p>for a single named component instance with default pin numbers (if applicable)</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_instanceparams">Instanceparams</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>These are a type of RTAPI_IP_xxx kernel module parameter used for passing values to the instance</p>
+</div>
+<div class="paragraph">
+<p>Only types of RTAPI_IP_INT and RTAPI_IP_UINT are supported in instcomp.</p>
+</div>
+<div class="paragraph">
+<p>These are declared in the .icomp file as for example</p>
+</div>
+<div class="paragraph">
+<p><strong>instanceparam int pincount = 2;</strong></p>
+</div>
+<div class="paragraph">
+<p>or</p>
+</div>
+<div class="paragraph">
+<p><strong>instanceparam u32 functn = 255;</strong></p>
+</div>
+<div class="paragraph">
+<p>Any instanceparam used for counting index or scaling should normally be of type RTAPI_IP_INT  (signed int)</p>
+</div>
+<div class="paragraph">
+<p>The UINT variant is provided for situations where conversion between hex and dec values and bit shifting for instance, can result
+in incorrect returns using a signed integer</p>
+</div>
+<div class="paragraph">
+<p>Strings are not supported as instanceparams.  Unlimited strings accessed by argc / argv mechanism can be passed using the extra_arg parameters.</p>
+</div>
+<div class="paragraph">
+<p>The reason for this is that kernel module parameters were never envisaged to be used repeatedly by new instances.  Therefore they persist for the life of the
+<em>base component</em> and are volatile, meaning the next instance will overwrite the values used by the previous one.</p>
+</div>
+<div class="paragraph">
+<p>Saving a numerical value for use is quite simple, but saving a string which could be any length would involve allocating memory to duplicate it,
+making it a wasteful process and requiring the explicit freeing of that memory when the instance exits.</p>
+</div>
+<div class="paragraph">
+<p>For this reason, do not use the instanceparam value directly, access it through a copy in the inst_data struct which is named <strong>local_[instanceparamname]</strong></p>
+</div>
+<div class="paragraph">
+<p>The most common example is in those components which create variable pin numbers through the <em>pincount=NN</em> parameter.</p>
+</div>
+<div class="paragraph">
+<p>The <em>pincount</em> value is accessed via <strong>local_pincount</strong> in your component function body</p>
+</div>
+<div class="paragraph">
+<p>See multiswitch and lutn examples below</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_backwards_compatability">Backwards compatability</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>halcmd has been modified so that loadrt will work as previously, but with the new instantiated components.</p>
+</div>
+<div class="paragraph">
+<p>Thus existing configs will still work for the most part using loadrt (see Notes below)</p>
+</div>
+<div class="paragraph">
+<p>This includes the sim configs included with machinekit</p>
+</div>
+<div class="paragraph">
+<p>The singleton component is supported by changes to halcmd, which will prevent more than one instance being loaded</p>
+</div>
+<div class="paragraph">
+<p><strong>Notes:</strong></p>
+</div>
+<div class="sect2">
+<h3 id="_1">1</h3>
+<div class="paragraph">
+<p>Components with underscore separated names ( C style ) are created with the names as per the name of the component -</p>
+</div>
+<div class="paragraph">
+<p>eg. <strong>loadrt charge_pump</strong> will create a module called <strong>charge_pump.0</strong></p>
+</div>
+<div class="paragraph">
+<p>comp used to produce one called <strong>charge-pump.0</strong></p>
+</div>
+<div class="paragraph">
+<p>The new naming is more logical, but may break a few configs</p>
+</div>
+<div class="paragraph">
+<p>To keep an existing config working, simply load with <strong>newinst charge_pump charge-pump.0</strong> and you get a module the same name as the rest of your hal file expects.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_2">2</h3>
+<div class="paragraph">
+<p>The parameters <em>cfg=</em> or <em>personality=</em> are deprecated and have no meaning with instantiated components</p>
+</div>
+<div class="paragraph">
+<p>Those parameters will still work with the few legacy components that use them so heavily or in such a convoluted / obfuscated fashion, that they have not been converted to instantiable components</p>
+</div>
+<div class="paragraph">
+<p>At present those components are:</p>
+</div>
+<div class="paragraph">
+<p>bldc.comp</p>
+</div>
+<div class="paragraph">
+<p>logic.comp</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_3">3</h3>
+<div class="paragraph">
+<p>Other components not converted, are those from C sources and those integral to the system and only ever intended to be loaded once per session</p>
+</div>
+<div class="paragraph">
+<p>examples are:</p>
+</div>
+<div class="paragraph">
+<p>stepgen</p>
+</div>
+<div class="paragraph">
+<p>threads</p>
+</div>
+<div class="paragraph">
+<p>See the src/hal/components directory for the remaining legacy components</p>
+</div>
+<div class="paragraph">
+<p>It is likely that these remaining components will be converted in the future, when the next stage of SMP_SAFE components is introduced, which will allow components
+running in different threads, on different CPU&#8217;s, to communicate and access each others data - but that is in the future right now :)</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_reserved_declarations_etc">Reserved declarations etc.</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="__em_pincount_em"><em>pincount</em></h3>
+<div class="paragraph">
+<p>is the reserved instance parameter name, which can be used as a numerator and index for arrays</p>
+</div>
+<div class="paragraph">
+<p>If it is set the option MAXCOUNT may be set too, as below</p>
+</div>
+<div class="paragraph">
+<p><strong><em>instanceparam int pincount = 8;</em></strong></p>
+</div>
+<div class="paragraph">
+<p><strong>option MAXCOUNT 16;</strong></p>
+</div>
+<div class="paragraph">
+<p>(The pincount value will be used in the #define DEFAULTCOUNT as the default where no size is specified)</p>
+</div>
+<div class="paragraph">
+<p>It can be used directly in the icomp file header as an array index size specifier</p>
+</div>
+<div class="paragraph">
+<p>eg</p>
+</div>
+<div class="paragraph">
+<p>pin in float in-##[pincount];</p>
+</div>
+<div class="paragraph">
+<p>Within your code, in the function body, a local copy within the instance struct is used to get this value</p>
+</div>
+<div class="paragraph">
+<p>for( x = 0; x &lt; localpincount; x++)
+    {
+    // do stuff
+    }</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_maxcount">MAXCOUNT</h3>
+<div class="paragraph">
+<p>this option sets the maximum pins allowed to be created</p>
+</div>
+<div class="paragraph">
+<p><strong>If any arrays of pins are used, MAXCOUNT will define the upper limit of pins set by instcomp</strong></p>
+</div>
+<div class="paragraph">
+<p>It can only be set in the icomp header itself and cannot be altered</p>
+</div>
+<div class="paragraph">
+<p>If not defined it is set to the value in pincount</p>
+</div>
+<div class="paragraph">
+<p>Example 1.</p>
+</div>
+<div class="paragraph">
+<p><strong>pin bit inval-##[pincount];</strong></p>
+</div>
+<div class="paragraph">
+<p><strong><em>instanceparam int pincount = 8;</em></strong></p>
+</div>
+<div class="paragraph">
+<p><strong>option MAXCOUNT 16;</strong></p>
+</div>
+<div class="paragraph">
+<p>Thereafter a default creation of an instance will have 8 pins &lt;component&gt;.inval-00 to inval-07</p>
+</div>
+<div class="paragraph">
+<p>Example 1a.</p>
+</div>
+<div class="paragraph">
+<p>In the same component, if pincount is supplied as an argument to the newinst call,</p>
+</div>
+<div class="paragraph">
+<p>it overrules the preset number of pins in arrays using <em>pincount</em> as an index,</p>
+</div>
+<div class="paragraph">
+<p>up to a maximum (MAXCOUNT) which was set in the .comp file and fixed when the component base was compiled</p>
+</div>
+<div class="paragraph">
+<p><strong>newinst &lt;component&gt; newname pincount=16</strong></p>
+</div>
+<div class="paragraph">
+<p>will result in a new instance of the component called newname, with 16 pins .inval-00 to .inval-15</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_extra_args">Extra args</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Any additional args which do not match the RTAPI_IP_PARAM parameters expected, are passed through the argc / argv mechanism to the new component</p>
+</div>
+<div class="paragraph">
+<p>These should be separated from the instanceparam args with <strong>---</strong></p>
+</div>
+<div class="paragraph">
+<p>eg:  <strong><em>newinst somecomponent somenewname &lt; pincount=0 &gt; &lt; other_instanceparam=xxx &gt; --- extra_arg1 extra_arg2 &#8230;&#8230;</em></strong></p>
+</div>
+<div class="paragraph">
+<p>This allows the use of <em>arg=value</em> type arguments without newinst believing it should be an instanceparam argument</p>
+</div>
+<div class="paragraph">
+<p>Using in the comp file:-</p>
+</div>
+<div class="paragraph">
+<p>'<strong>option extra_inst_setup; '</strong></p>
+</div>
+<div class="paragraph">
+<p>allows you to create a function in your component, EXTRA_INST_SETUP(), which will receive the argc / argv data.
+You can the parse and act upon extra arguments passed before the component is set <em>ready</em></p>
+</div>
+<div class="paragraph">
+<p>See the message.icomp file for an example of passing strings via this mechanism and printing them when triggered.</p>
+</div>
+<div class="paragraph">
+<p>A return value other than zero from this function will abort instance creation.</p>
+</div>
+<div class="paragraph">
+<p>See also the lutn example</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_syntax_and_options_differences">Syntax and Options differences</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Some syntax and options are deprecated.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><em>personality</em></strong> has no meaning in these components, since instances are created singly and externally rather than within the component</p>
+</li>
+<li>
+<p><strong><em>cfg</em></strong>         A parameter used with personality, no longer used</p>
+</li>
+<li>
+<p><strong><em>count</em></strong>       Preserved for backward compability with simple loadrt commands, see Backward Compatability section above, but not used by the component itself or with newinst commands</p>
+</li>
+<li>
+<p><strong><em>names</em></strong>       Just a synonym for count really, same comments apply</p>
+</li>
+<li>
+<p><strong><em>userspace</em></strong>  No support for userspace at this time, use the comp / halcompile compiler</p>
+</li>
+<li>
+<p><strong><em>data</em></strong>       Any data to be preserved between polls to the component can be stored in variables in the declaration section of the icomp (below the pin declarations).
+Use of typedefed structs accessed via a void *_data pointer are no longer supported</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_options">Options</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The differing options are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong><em>option extra_inst_setup yes</em></strong> - (default: no)
+If specified, call the function defined by <em>EXTRA_INST_SETUP</em> for each
+instance.
+argc and argv are passed to this function, so it is a good place to parse
+additional arguments passed to the component in the newinst call</p>
+</li>
+<li>
+<p><strong><em>option extra_cleanup yes</em></strong> - (default: no)
+If specified, call the function defined by <em>EXTRA_INST_CLEANUP</em> from the
+automatically defined <em>rtapi_app_exit</em>, or if an error is detected
+in the automatically defined <em>rtapi_app_main</em>.</p>
+</li>
+<li>
+<p><strong><em>instanceparam [int ] param_name = &lt;value&gt;</em></strong>
+Instanceparams that may be passed to the component at newinst
+If value not set, will be set to 0</p>
+</li>
+<li>
+<p><strong><em>singleton</em></strong>   will only allow one instance to be loaded anywhere within a single session
+This is contrary to the basic premise of instantiated components, but implemented for compatibility</p>
+</li>
+<li>
+<p><strong><em>option MAXCOUNT</em></strong></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_restrictions">Restrictions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Though HAL permits a pin, a parameter, and a function to have the same
+name, instcomp does not.</p>
+</div>
+<div class="paragraph">
+<p>Variable and function names that can not be used or are likely to cause
+problems include:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Anything beginning with <em>inst</em></p>
+</li>
+<li>
+<p><em>comp_id</em></p>
+</li>
+<li>
+<p><em>fperiod</em></p>
+</li>
+<li>
+<p><em>rtapi_app_main</em></p>
+</li>
+<li>
+<p><em>rtapi_app_exit</em></p>
+</li>
+<li>
+<p><em>extra_inst_setup</em></p>
+</li>
+<li>
+<p><em>extra_inst_cleanup</em></p>
+</li>
+<li>
+<p><em>function</em></p>
+</li>
+<li>
+<p><em>pincount</em></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_compiling">Compiling</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Same syntax and options as comp, just use instcomp instead.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_examples">Examples</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Best form of explanation, below are 3 components demonstrating the
+differing option usages etc.</p>
+</div>
+<div class="sect2">
+<h3 id="_constant">constant</h3>
+<div class="paragraph">
+<p>Note this component is no different to the standard component.
+The C code that is created is different and allows instantiation
+but at comp file level, because arrays are not used and no need to
+preset an pincount for the default pin numbers, it all looks the same</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="c language-c">component constant "Use a parameter to set the value of a pin";
+pin out float out;
+param rw float value;
+
+function _;
+license "GPL";
+;;
+FUNCTION(_) {
+    out = value;
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_multiswitch">multiswitch</h3>
+<div class="paragraph">
+<p>This component uses an array of bit pins indexed with pincount
+Maximum number of pins are 16 and the default is 6,</p>
+</div>
+<div class="paragraph">
+<p>extra_inst_setup is used, but just for initialisation of values
+before entering the main loop</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="c language-c">component multiswitch           """This component toggles between a specified number of output bits""";
+
+pin in bit up = false           "Receives signal to toggle up";
+pin in bit down = false         "Receives signal to toggle down";
+
+param rw unsigned top-position  "Number of positions";
+param rw signed position      "Current state (may be set in the HAL)";
+
+pin out bit bit-##[pincount] = false       "Output bits";
+
+instanceparam int pincount = 6;
+
+option MAXCOUNT 16;
+
+function _ ;
+option extra_inst_setup yes;
+
+variable int old_up = 0;
+variable int old_down = 0;
+
+author "ArcEye arceye@mgware.co.uk / Andy Pugh andy@bodgesoc.org";
+license "GPL2";
+;;
+
+
+FUNCTION(_)
+{
+    int i;
+
+    // debounce
+    if (up &amp;&amp; !old_up) { position++; }
+    if (down &amp;&amp; !old_down) { position--;}
+    old_up = up;
+    old_down = down;
+
+    if (position &lt; 0) position = top_position;
+    if (position &gt; top_position) position = 0;
+
+    for (i = 0 ; i &lt; localpincount; i++){
+        bit(i) = (i == position);
+    }
+
+}
+
+EXTRA_INST_SETUP(){
+    top_position = localpincount - 1;
+    return 0;
+}
+</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_lutn">lutn</h3>
+<div class="paragraph">
+<p>This component has the same instanceparam features as before,
+with an extra instanceparam defined - a unsigned int functn which takes a hex value</p>
+</div>
+<div class="paragraph">
+<p>It shows how to take further args not defined as instanceparams, which are passed
+through the argc / argv mechanism and printed in extra_inst_setup()</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlight"><code class="c language-c">// instantiable lookup table component with configurable number of pins
+// usage:
+//
+// halcmd newinst lutn and2 pincount=2 functn=0x8 arg1 arg2
+// halcmd newinst lutn or2  pincount=2 functn=0xe arg1 arg2
+
+
+
+component lutn "instantiable lookup table component with configurable number of pins";
+
+    // Input Pins
+pin in bit in-##[pincount];
+pin out bit out;
+
+instanceparam int pincount = 2;
+
+option MAXCOUNT 5;
+
+instanceparam uint functn = 0;
+
+option extra_inst_setup;
+
+license "GPL";
+author "Michael Haberler";
+
+function _;
+;;
+
+
+FUNCTION(_)
+{
+int i;
+int shift = 0;
+
+    for (i = 0; i &lt; localpincount; i++)
+    if (in(i))
+        shift += (1 &lt;&lt; i);
+
+    out = (functn &amp; (1 &lt;&lt; shift)) != 0;
+}
+
+// extra args not related to instanceparams can be parsed and dealt with here
+
+EXTRA_INST_SETUP()
+{
+int x;
+
+    for(x = 0; x &lt; argc; x++)
+        hal_print_msg(RTAPI_MSG_ERR,"argv[%d] = %s", x, argv[x]);
+
+    return 0;
+}
+
+</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="footer">
+<div id="footer-text">
+Last updated 2015-08-27 11:10:56 BST
+</div>
+</div>
+</body>
+</html>
