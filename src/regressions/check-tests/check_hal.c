@@ -94,9 +94,10 @@ int main(int argc, char **argv)
     s = hal_suite();
     sr = srunner_create(s);
     srunner_set_fork_status (sr, CK_NOFORK);
+    srunner_add_suite(sr, atomic_suite());
+
     srunner_add_suite(sr, ring_suite());
     srunner_add_suite(sr, machinetalk_suite());
-    srunner_add_suite(sr, atomic_suite());
 
 #ifdef EXAMPLE_TEST
     srunner_add_suite(sr, hello_world_suite());

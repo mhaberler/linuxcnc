@@ -36,6 +36,11 @@ START_TEST(test_hal_comp)
 
     float_pin_ptr fo = halx_pin_float_newf(HAL_OUT, comp_id, "testme.fout");
     set_float_pin(fo, c);
+    pin = (hal_pin_t *)hal_ptr(fo._fp);
+    u =  (hal_data_u *)hal_ptr(pin->data_ptr);
+
+    ck_assert_msg(abs(u->_f - c) < 1e-9, "float get/setpin do not agree: %f %f", u->_f, c);
+
     hal_float_t value = get_float_pin(fo);
     ck_assert_msg(abs(value - c) < 1e-9, "float get/setpin do not agree: %f %f", value, c);
 }

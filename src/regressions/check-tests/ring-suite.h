@@ -48,7 +48,7 @@ enum {
     SPSC_VWRITE,
 };
 static bool start;
-#define NMSG 1000000
+#define NMSG 100000
 struct rtest {
     int value;
     int count;
