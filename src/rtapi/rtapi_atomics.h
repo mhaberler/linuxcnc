@@ -15,19 +15,20 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ********************************************************************/
-#include <ck_pr.h>
 
 
 #ifndef _RTAPI_ATOMICS_H
 #define _RTAPI_ATOMICS_H
 
 #include "config.h" // HAVE_CK
+#include "rtapi_int.h"
 
 // memory barrier primitives
 // see https://www.kernel.org/doc/Documentation/memory-barriers.txt
 
 #ifdef HAVE_CK
 // use concurrencykit.org primitives
+#include <ck_pr.h>
 
 
 static inline uint32_t rtapi_load_32(const uint32_t *target)
@@ -45,7 +46,9 @@ static inline void rtapi_store_32(uint32_t *target, uint32_t value)
 #if !defined(CK_F_PR_LOAD_64)
 static inline uint64_t rtapi_load_64(const uint64_t *target)
 {
-    return __atomic_load_n(target, RTAPI_MEMORY_MODEL);
+    uint64_t v;
+    __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
+    return v;
 }
 #else
 static inline uint64_t rtapi_load_64(const uint64_t *target)
@@ -75,18 +78,23 @@ static inline void rtapi_inc_64(uint64_t *target)
 // use gcc intrinsics
 static inline uint32_t rtapi_load_32(const uint32_t *target)
 {
-    return __atomic_load_n(target, RTAPI_MEMORY_MODEL);
+    uint32_t v;
+    __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
+    return v;
 }
 
 static inline void rtapi_store_32(uint32_t *target, uint32_t value)
 {
-    __atomic_store_n(target, value, RTAPI_MEMORY_MODEL);
+    __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
 }
 
 static inline uint64_t rtapi_load_64(const uint64_t *target)
 {
-    return __atomic_load_n(target, RTAPI_MEMORY_MODEL);
+    uint64_t v;
+    __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
+    return v;
 }
+
 static inline void rtapi_inc_64(uint64_t *target)
 {
     __atomic_add_fetch(target, 1, RTAPI_MEMORY_MODEL);
