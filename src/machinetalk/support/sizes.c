@@ -24,6 +24,10 @@ int main()
     printf("size_t = %zu\n", sizeof(size_t));
     printf("void* = %zu\n", sizeof(void *));
     printf("ptrdiff_t = %zu\n", sizeof(ptrdiff_t));
+    printf("__u64 = %zu\n", sizeof(__u64));
+    printf("uint64_t = %zu\n", sizeof(uint64_t));
+    printf("unsigned long = %zu\n", sizeof(unsigned long));
+    
     printf("hal_data_u = %zu\n", sizeof(hal_data_u));
     printf("halhdr_t = %zu\n", sizeof(halhdr_t));
     printf("halhdr_t details:\n");
