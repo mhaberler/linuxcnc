@@ -166,19 +166,6 @@ cdef class Signal(HALObject):
                                           describe_hal_type(self.type),
                                           self.get())
 
-# cdef modifier_name(hal_sig_t *sig, int dir):
-#      cdef hal_pin_t *pin
-#      cdef int next
-
-#      with HALMutex():
-#          next = hal_data.pin_list_ptr
-#          while next != 0:
-#              pin = <hal_pin_t *>shmptr(next)
-#              if <hal_sig_t *>shmptr(pin.signal) == sig and pin.dir == dir:
-#                  return pin.name
-#              next = pin.next_ptr
-#      return None
-
 cdef int _find_writer(hal_object_ptr o,  foreach_args_t *args):
     cdef hal_pin_t *pin
     pin = o.pin

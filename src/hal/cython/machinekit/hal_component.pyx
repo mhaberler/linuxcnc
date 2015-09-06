@@ -16,8 +16,6 @@ cdef class Component(HALObject):
         with HALMutexIf(lock):
             self._cc = NULL
             if not wrap:
-                # if name in components:
-                #     raise RuntimeError("component with name '%s' already exists" % name)
                 self._o.comp = halg_xinitf(0, mode, userarg1, userarg2, NULL, NULL, name)
                 if self._o.comp == NULL:
                     raise RuntimeError("Failed to create component '%s': - %s" %
@@ -51,23 +49,6 @@ cdef class Component(HALObject):
             raise KeyError("component %s: nonexistent pin %s" %
                            (self.name, name))
 
-    # def pins(self):
-    #     ''' return list of Pin objects
-    #     cdef hal_pin_t *p
-    #     p = NULL
-
-    #     pinnames = []
-    #     with HALMutex():
-    #         p = halpr_find_pin_by_owner_id(hh_get_id(&self._o.comp.hdr), p)
-    #         while p != NULL:
-    #             pinnames.append(hh_get_name(&p.hdr))
-    #             p = halpr_find_pin_by_owner_id(hh_get_id(&self._o.comp.hdr), p)
-
-    #     pinlist = []
-    #     for n in pinnames:
-    #         pinlist.append(pins[n])
-    #     return pinlist
-
     def pins(self, lock=True):
         ''' return a list of Pin objects owned by this component, which includes all instance pins'''
         with HALMutexIf(lock):
@@ -90,8 +71,6 @@ cdef class Component(HALObject):
             hal_ccomp_free(self._cc)
         if hh_get_id(&self._o.comp.hdr) > 0:
             hal_exit(hh_get_id(&self._o.comp.hdr))
-        # not sure this is a good idea:
-        #raise ComponentExit("component %s exited" % self._o.comp.name)
 
     def ready(self):
         rc = hal_ready(hh_get_id(&self._o.comp.hdr))

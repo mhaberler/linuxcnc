@@ -4,12 +4,6 @@ from libc.stdint cimport uint8_t
 
 cdef extern from "hal_group.h" :
 
-    # ctypedef enum report_phase_t:
-    #     REPORT_BEGIN
-    #     REPORT_SIGNAL
-    #     REPORT_PIN
-    #     REPORT_END
-
     int GROUP_REPORT_ON_CHANGE
 
     ctypedef struct hal_member_t:

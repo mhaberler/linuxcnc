@@ -10,13 +10,9 @@ def describe_hal_dir(haldir):
 
 
 cdef class _Pin(HALObject):
-#    cdef hal_data_u **_storage
 
     def __cinit__(self, *args,  init=None, eps=0, wrap=True, lock=True):
         hal_required()
-        # storage will be nonzero only if the pin was created
-        # by this class:
-        #self._storage = NULL
 
         # _Pin() has slightly different calling conventions due to
         # reasons lost in history, so fudge the wrap attribute
@@ -25,8 +21,7 @@ cdef class _Pin(HALObject):
         with HALMutexIf(lock):
             if wrap:
                 name = args[0] # string - wrapping existing pin
-                self._o.pin = halg_find_object_by_name(0,
-                                                       hal_const.HAL_PIN,
+                self._o.pin = halg_find_object_by_name(0, hal_const.HAL_PIN,
                                                        name).pin
                 if self._o.pin == NULL:
                     raise RuntimeError("no such pin %s" % name)
@@ -44,19 +39,13 @@ cdef class _Pin(HALObject):
                     raise RuntimeError("pin %s : epsilon"
                                        " index out of range" % (name, eps))
 
-                # self._storage = <hal_data_u **>halg_malloc(0, sizeof(hal_data_u *))
-                # if self._storage == NULL:
-                #     raise RuntimeError("Fail to allocate"
-                #                        " HAL memory for pin %s" % name)
                 self._o.pin = halg_pin_newf(0,  t, dir,
                                             NULL, #v2 # <void **>(self._storage),
                                             (<Component>comp).id,name,)
                 if self._o.pin == NULL:
                     raise RuntimeError("Fail to create pin %s:"
                                        " %d %s" % (name, _halerrno, hal_lasterror()))
-                # self._o.pin = halg_find_object_by_name(0,
-                #                                        hal_const.HAL_PIN,
-                #                                        name).pin
+
                 self._o.pin.eps_index = eps
                 if self._o.pin == NULL:
                     raise RuntimeError("failed to lookup newly created pin %s" % name)
@@ -115,7 +104,6 @@ cdef class _Pin(HALObject):
     def _set(self, v):
 
         cdef hal_data_u *_dptr
-        #if self._storage == NULL: # an existing pin, wrapped
 
         if pin_is_linked(self._o.pin):
             raise RuntimeError("cannot set value of linked pin %s:" %
@@ -124,26 +112,10 @@ cdef class _Pin(HALObject):
         # retrieve address of dummy signal
         _dptr = <hal_data_u *>&self._o.pin.dummysig
         return py2hal(self._o.pin.type, _dptr, v)
-        # else:
-        #     # a pin we created
-        #     return py2hal(self._o.pin.type, self._storage[0], v)
+
 
     def _get(self):
         return pypin_value(self._o.pin)
-        # cdef hal_data_u *_dptr
-        # cdef hal_sig_t *_sig
-        # #if self._storage == NULL: # an existing pin, wrapped
-        # if pin_linked(self._o.pin):
-        #     # get signal's data address
-        #     _sig = <hal_sig_t *>shmptr(self._o.pin.signal);
-        #     _dptr = <hal_data_u *>shmptr(_sig.data_ptr);
-        # else:
-        #     # retrieve address of dummy signal
-        #     _dptr = <hal_data_u *>&self._o.pin.dummysig
-        # return hal2py(self._o.pin.type, _dptr)
-        # # else:
-        # #     # a pin we allocated storage for
-        # #     return hal2py(self._o.pin.type, self._storage[0])
 
 
 class Pin(_Pin):

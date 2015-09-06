@@ -6,12 +6,6 @@ from buffer cimport PyBuffer_FillInfo
 from cpython.bytes cimport PyBytes_AsString, PyBytes_Size, PyBytes_FromStringAndSize
 from cpython.string cimport PyString_FromStringAndSize
 
-
-
-#def pb_decode(pb_istream_t *stream, pb_field_t *fields, void *dest_struct):
-#    return c_pb_decode(stream, fields, dest_struct)
-
-
 cdef class mview:
 
     cdef void *base
@@ -41,8 +35,6 @@ def pb2nanopb_cstruct(pbuf, unsigned msgid):
 
     if _mi.encoded_size < 0:
         raise RuntimeError("cannot decode variable-sized messages to a cstruct")
-
-    #print "name=%s pb=%d cstruct=%d" % (_mi.name, size,_mi.size)
 
     cdef char* buffer = <char *>malloc(_mi.size)
 

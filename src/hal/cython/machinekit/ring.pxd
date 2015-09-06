@@ -59,7 +59,6 @@ cdef extern from "ring.h":
         ringsize_t rv_len
 
     int ringbuffer_attached(ringbuffer_t *rb)
-    #ringsize_t size_aligned(const rrecsize_t x)
     ringsize_t ring_memsize(int flags, ringsize_t size, ringsize_t  sp_size)
     int ring_refcount(ringheader_t *ringheader)
     ringsize_t ring_scratchpad_size(ringbuffer_t *ring)

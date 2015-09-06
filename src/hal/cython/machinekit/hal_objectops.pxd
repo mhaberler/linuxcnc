@@ -56,16 +56,3 @@ cdef extern from "hal_object.h":
     int hh_snprintf(char *buf, size_t size, halhdr_t *hh)
     bool hh_is_valid(const halhdr_t *o)
     uint32_t hh_valid(const halhdr_t *o)
-
-    # int ho_id(hal_object_ptr h)
-    # int ho_owner_id(hal_object_ptr h)
-    # int ho_object_type(hal_object_ptr h)
-    # bool ho_valid(hal_object_ptr h)
-    # char *ho_name(hal_object_ptr h)
-    # char *ho_object_typestr(hal_object_ptr h)
-
-    # int ho_refcnt(hal_object_ptr h)
-    # bool ho_referenced(hal_object_ptr h)
-    # int ho_refcnt(hal_object_ptr h)
-    # int ho_incref(hal_object_ptr h)
-    # int ho_decref(hal_object_ptr h)
