@@ -8,8 +8,8 @@ T=`mktemp -d`
 trap 'cd /; [ -d $T ] && rm -rf $T' SIGINT SIGTERM EXIT
 cd $T
 
-calc() { echo "scale=1; $1" | bc; }
-icalc() { echo "scale=0; ($1)*1" | bc | sed 's/\..*//'; }
+calc() { awk "BEGIN { print ($1); }" < /dev/null; }
+icalc() { awk "BEGIN { printf \"%.0f\n\", ($1); }" < /dev/null; }
 
 parse_time () {
     case $1 in
@@ -31,22 +31,37 @@ human_time () {
     fi
 }
 
-#BASE=$(parse_time 25us); SERVO=$(parse_time 1ms)
-BASE=0; SERVO=$(parse_time 1ms)
-case $# in
-0) ;;
-1) BASE=$(parse_time $1) ;;
-2) BASE=$(parse_time $1); SERVO=$(parse_time $2) ;;
-*)
-    echo "Usage: latency-test [base-period [servo-period]]"
-    echo "Default: latency-test 1ms"
+usage () {
+    echo "Usage:"
+    echo "       latency-test-legacy [base-period [servo-period]]"
+    echo "   or:"
+    echo "       latency-test-legacy period -      # for single thread"
+    echo "   or:"
+    echo "       latency-test-legacy -h | --help   # (this text)"
+    echo ""
+    echo "Defaults:     base-period=${BASE}nS servo-period=${SERVO}nS"
+    echo "Equivalently: base-period=$(human_time $BASE) servo-period=$(human_time $SERVO)"
+    echo ""
     echo "Times may be specified with suffix \"s\", \"ms\", \"us\" \"µs\", or \"ns\""
     echo "Times without a suffix and less than 1000 are taken to be in us;"
     echo "other times without a suffix are taken to be in ns"
     echo ""
-    echo "The worst-case latency seen in any run of latency-test"
+    echo "The worst-case latency seen in any run of latency-test-legacy"
     echo "is written to the file ~/.latency"
     exit 1
+}
+
+BASE=$(parse_time 25us); SERVO=$(parse_time 1ms)
+
+case $1 in
+  -h|--help) usage;;
+esac
+
+case $# in
+0) ;;
+1) BASE=$(parse_time $1) ;;
+2) BASE=$(parse_time $1); SERVO=$(parse_time $2) ;;
+*) usage;;
 esac
 
 if [ "$BASE" -gt "$SERVO" ]; then TEMP=$BASE; BASE=$SERVO; SERVO=$TEMP; fi
@@ -71,7 +86,7 @@ EOF
 
 cat > lat.xml <<EOF
 <pyvcp>
-<title title="Machinekit / HAL Latency Test"/>
+<title title="Machinekit / HAL Legacy Latency Test"/>
 <axisoptions/>
 <table>
 <tablerow/><tablespan columns="5"/><label wraplength="5i" justify="left">
@@ -116,7 +131,7 @@ EOF
 
 cat > lat.xml <<EOF
 <pyvcp>
-<title title="Machinekit / HAL Latency Test"/>
+<title title="Machinekit / HAL Legacy Latency Test"/>
 <axisoptions/>
 <table>
 <tablerow/><tablespan columns="5"/><label wraplength="5i" justify="left">
