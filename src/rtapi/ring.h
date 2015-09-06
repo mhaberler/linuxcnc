@@ -423,12 +423,12 @@ static inline int record_write_end(ringbuffer_t *ring,
     if (data == _size_at(ring, 0) + 1) {
 	// Wrap case
 	// invalidate the tail record
-	rtapi_store_32((uint32_t *)_size_at(ring, t->tail), -1);
+	rtapi_store_32((__u32 *)_size_at(ring, t->tail), -1);
 	rtapi_smp_wmb();
 	rtapi_store_32(&t->tail, 0);
     }
     // record comitted write size
-    rtapi_store_32((uint32_t *)_size_at(ring, t->tail), sz);
+    rtapi_store_32((__u32 *)_size_at(ring, t->tail), sz);
 
     /* ensure that previous writes are seen before we update the write index
        (write after write)
