@@ -1,11 +1,17 @@
-// C++ implementation of the constant component
-
+/**********************************************************************
+ * Demo of writing a standard userspace component in std C++
+ *
+ * Based on the constant.icomp component
+ *
+ * ArcEye 2015  <arceyeATmgwareDOTcoDOTuk>
+ *
+***********************************************************************/
 
 #include <LCNC_Headers.h>
 
 using namespace std;
 
-struct __comp_state 
+struct __comp_state
     {
     hal_float_t *out;
     hal_float_t *value;
@@ -18,7 +24,7 @@ public:
     Const(int argc, char** argv);
     ~Const();
 
-private:    
+private:
     int connectPins();
     void eventsLoop();
 
@@ -31,19 +37,20 @@ private:
 Const::Const(int argc, char** argv)
 {
 int r;
-    
+
     strcpy(prefix, "const\0");  // used later in pins
     comp_id = hal_init("const");
-    
-    if(comp_id < 0) 
+
+    if(comp_id < 0)
         exit(-1);
-        
-    if((r = connectPins())) 
-        hal_exit(comp_id);    
+
+    if((r = connectPins()))
+        hal_exit(comp_id);
     else
         {
         hal_ready(comp_id);
-        cout << "Component \""<< prefix << "\" registered and ready\n" << "comp_ID = " << comp_id << "\n" << endl;
+        cout << "Component \""<< prefix << "\" registered and ready\n"
+            << "comp_ID = " << comp_id << "\n" << endl;
         }
 
     eventsLoop();
@@ -63,15 +70,15 @@ int sz = sizeof(struct __comp_state) + 2;  //fudge factor
 
     inst = (struct __comp_state*)hal_malloc(sz);
     memset(inst, 0, sz);
-    
+
     if( (r = hal_pin_float_newf(HAL_OUT, &(inst->out), comp_id,"%s.out", prefix)) != 0)
         return -1;
-  
+
     *(inst->out) = 0.0;
-    
+
     if( (r = hal_pin_float_newf(HAL_IN, &(inst->value), comp_id,"%s.value", prefix)) != 0)
         return -1;
-  
+
     *(inst->value) = 0.0;
 
     return 0;
@@ -90,6 +97,6 @@ void Const::eventsLoop()
 int main(int argc, char *argv[])
 {
     Const c(argc, argv);
-    
+
     return 0;
 }
