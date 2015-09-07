@@ -48,8 +48,11 @@ public:
 	if (unlikely(hh_get_rmb(&this->pin->hdr)))
 	    rtapi_smp_rmb();
 	hal_data_u *u = (hal_data_u *)hal_ptr(this->pin->data_ptr);
-	ck_pr_or_32((uint32_t *)&u->_u, value);
-    	_incr_s32_pin(this->pin, value);
+#ifdef HAVE_CK
+  	ck_pr_or_32((uint32_t *)&u->_u, value);
+#else
+        __atomic_or_fetch ((uint32_t *)&u->_u, value, RTAPI_MEMORY_MODEL);
+#endif
 	if (unlikely(hh_get_wmb(&this->pin->hdr)))
 	    rtapi_smp_wmb();
     	return *this;
