@@ -310,7 +310,7 @@ static void read_sample_from_ring(void *arg, long period)
 
     // detect rising edge on abort pin, and flush rb if so
     if (*(hd->abort) && (*(hd->abort) ^ hd->last_abort)) {
-	int dropped = record_flush(rb);
+	int dropped = record_flush_reader(rb);
 	rtapi_print_msg(RTAPI_MSG_INFO,
 			"%s: %s aborted - dropped %d samples\n",
 			cname, hd->name, dropped);

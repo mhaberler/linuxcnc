@@ -3669,11 +3669,11 @@ static int ringflush(const char *name, ringbuffer_t *rb, void *arg)
     size_t n;
     switch (rh->type) {
     case RINGTYPE_RECORD:
-	result = record_flush(rb);
+	result = record_flush_reader(rb);
 	halcmd_output("%s: %d records flushed\n", name, result);
 	break;
     case RINGTYPE_MULTIPART:
-	result = record_flush(rb);
+	result = record_flush_reader(rb);
 	halcmd_output("%s: %d multiframes flushed\n", name, result);
 	break;
     case RINGTYPE_STREAM:
