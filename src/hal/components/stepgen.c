@@ -299,6 +299,7 @@
 
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
+#include "rtapi_atomics.h"
 #include "hal.h"		/* HAL public API decls */
 
 #include <float.h>
@@ -324,6 +325,19 @@ RTAPI_MP_ARRAY_INT(user_step_type, MAX_CYCLE,
 *                STRUCTURES AND GLOBAL VARIABLES                       *
 ************************************************************************/
 
+// data passed atomically from update_freq to make_pulses
+typedef union {
+    uint64_t u; // for accessing with atomics
+    struct {
+	int target_addval;	/* desired freq generator add value */
+	int deltalim;		/* max allowed change per period */
+    } val;
+} shared_state_t;
+
+// assure this struct can be passed via a 64bit atomic op:
+rtapi_ct_assert(sizeof(shared_state_t) == sizeof(uint64_t), "BUG: assumption violated");
+
+
 /** This structure contains the runtime data for a single generator. */
 
 /* structure members are ordered to optimize caching for makepulses,
@@ -336,14 +350,19 @@ typedef struct {
     unsigned int timer3;	/* times out when safe to step in new dir */
     int hold_dds;		/* prevents accumulator from updating */
     long addval;		/* actual frequency generator add value */
-    volatile long long accum;	/* frequency generator accumulator */
+    int64_t accum;	        /* frequency generator accumulator */
     hal_s32_t rawcount;		/* param: position feedback in counts */
     int curr_dir;		/* current direction */
     int state;			/* current position in state table */
+
     /* stuff that is read but not written by makepulses */
     hal_bit_t *enable;		/* pin for enable stepgen */
-    long target_addval;		/* desired freq generator add value */
-    long deltalim;		/* max allowed change per period */
+
+    shared_state_t update;      // update_freq use only
+    shared_state_t shared;      // shared between update_freq and make_pulses
+                                // atomically updated by update_freq and atomically
+                                // read by make_pulses into a local
+
     hal_u32_t step_len;		/* parameter: step pulse length */
     hal_u32_t dir_hold_dly;	/* param: direction hold time or delay */
     hal_u32_t dir_setup;	/* param: direction setup time */
@@ -352,6 +371,7 @@ typedef struct {
     int num_phases;		/* number of phases for types 2 and up */
     hal_bit_t *phase[5];	/* pins for output signals */
     const unsigned char *lut;	/* pointer to state lookup table */
+
     /* stuff that is not accessed by makepulses */
     int pos_mode;		/* 1 = position mode, 0 = velocity mode */
     hal_u32_t step_space;	/* parameter: min step pulse spacing */
@@ -568,6 +588,11 @@ static void make_pulses(void *arg, long period)
     stepgen = arg;
 
     for (n = 0; n < num_chan; n++) {
+
+	// atomically read both target_addval and deltalim
+	shared_state_t makepulses;
+	makepulses.u = rtapi_load_u64(&stepgen->shared.u);
+
 	/* decrement "timing constraint" timers */
 	if ( stepgen->timer1 > 0 ) {
 	    if ( stepgen->timer1 > periodns ) {
@@ -595,15 +620,15 @@ static void make_pulses(void *arg, long period)
 	if ( !stepgen->hold_dds && *(stepgen->enable) ) {
 	    /* update addval (ramping) */
 	    old_addval = stepgen->addval;
-	    target_addval = stepgen->target_addval;
-	    if (stepgen->deltalim != 0) {
+	    target_addval = makepulses.val.target_addval;
+	    if (makepulses.val.deltalim != 0) {
 		/* implement accel/decel limit */
-		if (target_addval > (old_addval + stepgen->deltalim)) {
+		if (target_addval > (old_addval + makepulses.val.deltalim)) {
 		    /* new value is too high, increase addval as far as possible */
-		    new_addval = old_addval + stepgen->deltalim;
-		} else if (target_addval < (old_addval - stepgen->deltalim)) {
+		    new_addval = old_addval + makepulses.val.deltalim;
+		} else if (target_addval < (old_addval - makepulses.val.deltalim)) {
 		    /* new value is too low, decrease addval as far as possible */
-		    new_addval = old_addval - stepgen->deltalim;
+		    new_addval = old_addval - makepulses.val.deltalim;
 		} else {
 		    /* new value can be reached in one step - do it */
 		    new_addval = target_addval;
@@ -626,16 +651,24 @@ static void make_pulses(void *arg, long period)
 	}
 	/* update DDS */
 	if ( !stepgen->hold_dds && *(stepgen->enable) ) {
+
+	    // atomically fetch accum
+	    int64_t accum = rtapi_load_s64(&stepgen->accum);
+	    // do updates on local copy
+
 	    /* save current value of low half of accum */
-	    step_now = stepgen->accum;
+	    step_now = accum;
 	    /* update the accumulator */
-	    stepgen->accum += stepgen->addval;
+	    accum += stepgen->addval;
 	    /* test for changes in low half of accum */
-	    step_now ^= stepgen->accum;
+	    step_now ^= accum;
 	    /* we only care about the pickoff bit */
 	    step_now &= (1L << PICKOFF);
 	    /* update rawcounts parameter */
-	    stepgen->rawcount = stepgen->accum >> PICKOFF;
+	    stepgen->rawcount = accum >> PICKOFF;
+
+	    // atomic update
+	    rtapi_store_s64(&stepgen->accum, accum);
 	} else {
 	    /* DDS is in hold, no steps */
 	    step_now = 0;
@@ -713,20 +746,17 @@ static void make_pulses(void *arg, long period)
 
 static void update_pos(void *arg, long period)
 {
-    long long int accum_a, accum_b;
+    long long int accum_a;
     stepgen_t *stepgen;
     int n;
 
     stepgen = arg;
 
     for (n = 0; n < num_chan; n++) {
-	/* 'accum' is a long long, and its remotely possible that
-	   make_pulses could change it half-way through a read.
-	   So we have a crude atomic read routine */
-	do {
-	    accum_a = stepgen->accum;
-	    accum_b = stepgen->accum;
-	} while ( accum_a != accum_b );
+
+	// atomically fetch accum
+	accum_a = rtapi_load_s64(&stepgen->accum);
+
 	/* compute integer counts */
 	*(stepgen->count) = accum_a >> PICKOFF;
 	/* check for change in scale value */
@@ -767,7 +797,7 @@ static void update_freq(void *arg, long period)
     stepgen_t *stepgen;
     int n, newperiod;
     long min_step_period;
-    long long int accum_a, accum_b;
+    long long int accum_a;
     double pos_cmd, vel_cmd, curr_pos, curr_vel, avg_v, max_freq, max_ac;
     double match_ac, match_time, est_out, est_cmd, est_err, dp, dv, new_vel;
     double desired_freq;
@@ -808,6 +838,7 @@ static void update_freq(void *arg, long period)
 
     /* loop thru generators */
     for (n = 0; n < num_chan; n++) {
+
 	/* check for scale change */
 	if (stepgen->pos_scale != stepgen->old_scale) {
 	    /* get ready to detect future scale changes */
@@ -868,7 +899,11 @@ static void update_freq(void *arg, long period)
 	    /* set velocity to zero */
 	    stepgen->freq = 0;
 	    stepgen->addval = 0;
-	    stepgen->target_addval = 0;
+	    stepgen->update.val.target_addval = 0;
+
+	    // atomically save shared state tuple
+	    rtapi_store_u64(&stepgen->shared.u, stepgen->update.u);
+
 	    /* and skip to next one */
 	    stepgen++;
 	    continue;
@@ -926,13 +961,10 @@ static void update_freq(void *arg, long period)
 	    /* calculate velocity command in counts/sec */
 	    vel_cmd = (pos_cmd - stepgen->old_pos_cmd) * recip_dt;
 	    stepgen->old_pos_cmd = pos_cmd;
-	    /* 'accum' is a long long, and its remotely possible that
-	       make_pulses could change it half-way through a read.
-	       So we have a crude atomic read routine */
-	    do {
-		accum_a = stepgen->accum;
-		accum_b = stepgen->accum;
-	    } while ( accum_a != accum_b );
+
+	    // atomically fetch accum
+	    accum_a = rtapi_load_s64(&stepgen->accum);
+
 	    /* convert from fixed point to double, after subtracting
 	       the one-half step offset */
 	    curr_pos = (accum_a-(1<< (PICKOFF-1))) * (1.0 / (1L << PICKOFF));
@@ -1016,9 +1048,13 @@ static void update_freq(void *arg, long period)
 	}
 	stepgen->freq = new_vel;
 	/* calculate new addval */
-	stepgen->target_addval = stepgen->freq * freqscale;
+	stepgen->update.val.target_addval = stepgen->freq * freqscale;
 	/* calculate new deltalim */
-	stepgen->deltalim = max_ac * accelscale;
+	stepgen->update.val.deltalim = max_ac * accelscale;
+
+	// atomically update shared state tuple for make_pulses
+	rtapi_store_u64(&stepgen->shared.u, stepgen->update.u);
+
 	/* move on to next channel */
 	stepgen++;
     }
@@ -1182,8 +1218,8 @@ static int export_stepgen(int num, stepgen_t * addr, int step_type, int pos_mode
     addr->curr_dir = 0;
     addr->state = 0;
     *(addr->enable) = 0;
-    addr->target_addval = 0;
-    addr->deltalim = 0;
+    addr->update.u = 0;
+    addr->shared.u = 0;
     /* other init */
     addr->printed_error = 0;
     addr->old_pos_cmd = 0.0;
