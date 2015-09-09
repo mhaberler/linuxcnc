@@ -380,7 +380,7 @@ static inline int record_write_begin(ringbuffer_t *ring,
 	return ERANGE;
 
      // -1 + 1 is needed for head==tail
-    free = (h->size +  rtapi_load_32(&h->head) - t->tail - 1) % h->size + 1;
+    free = (h->size +  rtapi_load_u32(&h->head) - t->tail - 1) % h->size + 1;
 
     //printf("Free space: %d; Need %zd\n", free, a);
 
@@ -390,7 +390,7 @@ static inline int record_write_begin(ringbuffer_t *ring,
     if (t->tail + a > h->size) {
 
 	// would record fit at the start of the ring?
-	if (rtapi_load_32(&h->head) <= a)
+	if (rtapi_load_u32(&h->head) <= a)
 	    // currently not
 	    return EAGAIN;
 
@@ -423,19 +423,19 @@ static inline int record_write_end(ringbuffer_t *ring,
     if (data == _size_at(ring, 0) + 1) {
 	// Wrap case
 	// invalidate the tail record
-	rtapi_store_32((__u32 *)_size_at(ring, t->tail), -1);
+	rtapi_store_u32((__u32 *)_size_at(ring, t->tail), -1);
 	rtapi_smp_wmb();
-	rtapi_store_32(&t->tail, 0);
+	rtapi_store_u32(&t->tail, 0);
     }
     // record comitted write size
-    rtapi_store_32((__u32 *)_size_at(ring, t->tail), sz);
+    rtapi_store_u32((__u32 *)_size_at(ring, t->tail), sz);
 
     /* ensure that previous writes are seen before we update the write index
        (write after write)
     */
     rtapi_smp_wmb();
 
-    rtapi_store_32(&t->tail, (t->tail + a) % h->size);
+    rtapi_store_u32(&t->tail, (t->tail + a) % h->size);
     //printf("New head/tail: %zd/%zd\n", h->head, t->tail);
     return 0;
 }
@@ -472,7 +472,7 @@ static inline int _ring_read_at(const ringbuffer_t *ring,
     rrecsize_t *sz;
     ringtrailer_t *t = ring->trailer;
 
-    if (offset == rtapi_load_32(&t->tail))
+    if (offset == rtapi_load_u32(&t->tail))
 	// nothing available
 	return EAGAIN;
 
@@ -557,7 +557,7 @@ static inline ringsize_t record_write_space(const ringheader_t *h)
     int avail = 0;
     ringtrailer_t *t =  _trailer_from_header(h);
 
-    ringsize_t head = rtapi_load_32(&h->head);
+    ringsize_t head = rtapi_load_u32(&h->head);
 
     if (t->tail < head)
         avail = head - t->tail;
@@ -590,7 +590,7 @@ static inline rrecsize_t _ring_shift_offset(const ringbuffer_t *ring,
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
-    if (h->head == rtapi_load_32(&t->tail))
+    if (h->head == rtapi_load_u32(&t->tail))
 	return -1;
 
     // ensure that previous reads (copies out of the ring buffer) are always completed 
@@ -632,8 +632,8 @@ static inline int record_shift(ringbuffer_t *ring)
 					 ring->header->head);
     if (off < 0) return EAGAIN;
 
-    rtapi_inc_64((uint64_t *)&ring->header->generation);
-    rtapi_store_32(&ring->header->head, off);
+    rtapi_inc_u64((uint64_t *)&ring->header->generation);
+    rtapi_store_u32(&ring->header->head, off);
     return 0;
 }
 
@@ -692,7 +692,7 @@ static inline int record_iter_init(const ringbuffer_t *ring,
 
 static inline int record_iter_invalid(const ringiter_t *iter)
 {
-    if (rtapi_load_64((uint64_t *)&iter->ring->header->generation) >
+    if (rtapi_load_u64((uint64_t *)&iter->ring->header->generation) >
 	iter->generation)
         return EINVAL;
     return 0;
@@ -706,7 +706,7 @@ static inline int record_iter_shift(ringiter_t *iter)
     off = _ring_shift_offset(iter->ring, iter->offset);
     if (off < 0) return EAGAIN;
 
-    rtapi_inc_64((uint64_t *)&iter->generation);
+    rtapi_inc_u64((uint64_t *)&iter->generation);
     iter->offset = off;
     return 0;
 }
@@ -851,7 +851,7 @@ static inline ringsize_t stream_get_read_vector(const ringbuffer_t *ring,
     ringheader_t *h = ring->header;
     ringtrailer_t *t = ring->trailer;
 
-    w = rtapi_load_32(&t->tail);
+    w = rtapi_load_u32(&t->tail);
     r = h->head;
 
     if (w > r) {
@@ -893,7 +893,7 @@ static inline void stream_get_write_vector(const ringbuffer_t *ring,
     ringtrailer_t *t = ring->trailer;
 
     w = t->tail;
-    r = rtapi_load_32(&h->head);
+    r = rtapi_load_u32(&h->head);
 
     if (w > r) {
 	free_cnt = ((r - w + h->size) & h->size_mask) - 1;
@@ -929,7 +929,7 @@ static inline ringsize_t stream_read_space(const ringheader_t *h)
     ringsize_t w, r;
     ringtrailer_t *t =  _trailer_from_header(h);
 
-    w = rtapi_load_32(&t->tail);
+    w = rtapi_load_u32(&t->tail);
     r = h->head;
 
     if (w > r) {
@@ -975,10 +975,10 @@ static inline ringsize_t stream_read(ringbuffer_t *ring,
     if (n2) {
 	memcpy (dest + n1, &(ring->buf[h->head + n1]), n2);
 	rtapi_smp_wmb();
-	rtapi_store_32(&h->head, (h->head + n1 + n2) & h->size_mask);
+	rtapi_store_u32(&h->head, (h->head + n1 + n2) & h->size_mask);
     } else {
 	rtapi_smp_wmb();
-	rtapi_store_32(&h->head, (h->head + n1) & h->size_mask);
+	rtapi_store_u32(&h->head, (h->head + n1) & h->size_mask);
     }
     return to_read;
 }
@@ -999,7 +999,7 @@ static inline ringsize_t stream_peek(ringbuffer_t *ring,
     ringsize_t tmp_head;
     ringheader_t *h = ring->header;
 
-    tmp_head = rtapi_load_32(&h->head);
+    tmp_head = rtapi_load_u32(&h->head);
     if ((free_cnt = stream_read_space (h)) == 0) {
 	return 0;
     }
@@ -1033,7 +1033,7 @@ static inline void stream_read_advance(ringbuffer_t *ring,
        (write-after-read) => full barrier
     */
     rtapi_smp_wmb();
-    rtapi_store_32(&h->head, (h->head + cnt) & h->size_mask);
+    rtapi_store_u32(&h->head, (h->head + cnt) & h->size_mask);
 }
 
 
@@ -1059,7 +1059,7 @@ static inline ringsize_t stream_write_space(const ringheader_t *h)
     ringtrailer_t *t =  _trailer_from_header(h);
 
     w = t->tail;
-    r = rtapi_load_32(&h->head);
+    r = rtapi_load_u32(&h->head);
 
     if (w > r) {
 	return ((r - w + h->size) & h->size_mask) - 1;
@@ -1101,10 +1101,10 @@ static inline ringsize_t stream_write(ringbuffer_t *ring,
     if (n2) {
 	memcpy (&(ring->buf[t->tail + n1]), src + n1, n2);
 	rtapi_smp_wmb();
-	rtapi_store_32(&t->tail, (t->tail + n1 + n2) & h->size_mask);
+	rtapi_store_u32(&t->tail, (t->tail + n1 + n2) & h->size_mask);
     } else {
 	rtapi_smp_wmb();
-	rtapi_store_32(&t->tail,(t->tail + n1) & h->size_mask);
+	rtapi_store_u32(&t->tail,(t->tail + n1) & h->size_mask);
     }
     return to_write;
 }
@@ -1120,7 +1120,7 @@ static inline void stream_write_advance(ringbuffer_t *ring,
        (write after write)
     */
     rtapi_smp_wmb();
-    rtapi_store_32(&t->tail, (t->tail + cnt) & h->size_mask);
+    rtapi_store_u32(&t->tail, (t->tail + cnt) & h->size_mask);
 }
 
 #endif // RING_H
