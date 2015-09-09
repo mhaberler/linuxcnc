@@ -67,6 +67,7 @@
 
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
+#include "rtapi_atomics.h"
 #include "hal.h"		/* HAL public API decls */
 
 #define MAX_CHAN 8
@@ -92,7 +93,7 @@ RTAPI_MP_ARRAY_INT(output_type, 8, "output types for up to 8 channels");
 
 typedef struct {
     long period;		/* length of PWM period, ns */
-    long high_time;		/* desired high time, ns */
+    __s32 high_time;		/* desired high time, ns */
     long period_timer;		/* timer for PWM period */
     long high_timer;		/* timer for high time */
     unsigned char curr_output;	/* current state of output */
@@ -235,12 +236,15 @@ static void make_pulses(void *arg, long period)
 {
     pwmgen_t *pwmgen;
     int n;
+    long high_time;
 
     /* store period for use in update() function */
     periodns = period;
     /* point to pwmgen data structures */
     pwmgen = arg;
     for (n = 0; n < num_chan; n++) {
+
+	high_time = rtapi_load_s32(&pwmgen->high_time);
 
 	switch ( pwmgen->pwm_mode ) {
 
@@ -249,7 +253,7 @@ static void make_pulses(void *arg, long period)
 		/* current state is high, update cumlative high time */
 		pwmgen->high_timer += periodns;
 		/* have we been high long enough? */
-		if ( pwmgen->high_timer >= pwmgen->high_time ) {
+		if ( pwmgen->high_timer >= high_time) {
 		    /* yes, terminate the high time */
 		    pwmgen->curr_output = 0;
 		}
@@ -262,7 +266,7 @@ static void make_pulses(void *arg, long period)
 		pwmgen->period_timer = 0;
 		pwmgen->high_timer = 0;
 		/* start the next period */
-		if ( pwmgen->high_time > 0 ) {
+		if (high_time > 0 ) {
 		    pwmgen->curr_output = 1;
 		}
 	    }
@@ -284,7 +288,7 @@ static void make_pulses(void *arg, long period)
 		/* update both timers, retain remainder from last period */
 		/* this allows dithering for finer resolution */
 		pwmgen->period_timer -= pwmgen->period;
-		pwmgen->high_timer += pwmgen->high_time;
+		pwmgen->high_timer += high_time;
 		/* start the next period */
 		if ( pwmgen->high_timer > 0 ) {
 		    pwmgen->curr_output = 1;
@@ -293,7 +297,7 @@ static void make_pulses(void *arg, long period)
 	    break;
 	case PWM_PDM:
 	    /* add desired high time to running total */
-	    pwmgen->high_timer += pwmgen->high_time;
+	    pwmgen->high_timer += high_time;
 	    if ( pwmgen->curr_output ) {
 		/* current state is high, subtract actual high time */
 		pwmgen->high_timer -= periodns;
@@ -443,7 +447,7 @@ static void update(void *arg, long period)
 	if ( new_pwm_mode == PWM_PURE ) {
 	    /* round to nearest pure PWM duty cycle */
 	    high_periods = (pwmgen->periods * outdc) + 0.5;
-	    pwmgen->high_time = high_periods * periodns;
+	    rtapi_store_s32(&pwmgen->high_time, high_periods * periodns);
 	    /* save rounded value to curr_dc param */
 	    if ( tmpdc >= 0 ) {
 		*(pwmgen->curr_dc) = high_periods * pwmgen->periods_recip;
@@ -451,7 +455,7 @@ static void update(void *arg, long period)
 		*(pwmgen->curr_dc) = -high_periods * pwmgen->periods_recip;
 	    }
 	} else {
-	    pwmgen->high_time = ( pwmgen->period * outdc ) + 0.5;
+	    rtapi_store_s32(&pwmgen->high_time, ( pwmgen->period * outdc ) + 0.5);
 	    /* save duty cycle to curr_dc param */
 	    *(pwmgen->curr_dc) = tmpdc;
 	}
