@@ -637,17 +637,35 @@ static inline int record_shift(ringbuffer_t *ring)
     return 0;
 }
 
-/* record_flush()
+/* record_flush_reader()
  *
  * clear the buffer, and return the number of records flushed.
+ * call from reader only (!)
  */
-static inline int record_flush(ringbuffer_t *ring)
+static inline int record_flush_reader(ringbuffer_t *ring)
 {
     int count = 0;
 
     while (!record_shift(ring))
 	count++;
     return count;
+}
+
+/* record_flush()
+ *
+ * clear the buffer
+ * should work from reader or writer
+ */
+static inline void record_flush(ringbuffer_t *ring)
+{
+    ringtrailer_t *t =  _trailer_from_header(ring->header);
+
+    // set head to match tail with a CAS loop
+    do {
+	rtapi_inc_u64((uint64_t *)&ring->header->generation);
+    } while (!rtapi_cas_u32(&ring->header->head,
+			   rtapi_load_u32(&ring->header->head),
+			   rtapi_load_u32(&t->tail)));
 }
 
 /* rings by default behave like queues:
@@ -683,9 +701,9 @@ static inline int record_iter_init(const ringbuffer_t *ring,
 				   ringiter_t *iter)
 {
     iter->ring = ring;
-    iter->generation = rtapi_load_64((uint64_t *)&ring->header->generation);
-    iter->offset = rtapi_load_32(&ring->header->head);
-    if (rtapi_load_64((uint64_t *)&ring->header->generation) != iter->generation)
+    iter->generation = rtapi_load_u64((uint64_t *)&ring->header->generation);
+    iter->offset = rtapi_load_u32(&ring->header->head);
+    if (rtapi_load_u64((uint64_t *)&ring->header->generation) != iter->generation)
         return EAGAIN;
     return 0;
 }
