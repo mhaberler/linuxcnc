@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <ck_pr.h>
 #include <rtapi.h>
+#include <rtapi_atomics.h>
 
 #define OP_COUNT 10000
 #define MAXTHREADS 4
@@ -144,6 +145,111 @@ START_TEST(test_smp_increment)
 }
 END_TEST
 
+
+START_TEST(test_ck_ops)
+{
+    // test my understanding of the ck pointer swap operation
+    // the manpage is a tad fuzzy: http://www.concurrencykit.org/doc/ck_pr_fas.html
+    int a = 10;
+    int b = 20;
+    int *ap = &a;
+    char *s = "1234";
+    char *q = NULL;
+
+#ifdef HAVE_CK
+    ck_pr_fas_ptr(&ap, &b);
+    ck_assert_int_eq(*ap, b);
+
+    int p = -123;
+    p = ck_pr_load_ptr(&b);
+    ck_assert_int_eq(p, b);
+
+
+    q = ck_pr_load_ptr((void **)&s);
+    ck_assert_int_eq(strcmp(q,s), 0);
+#endif
+
+
+
+    q = "foo";
+
+    __atomic_load(&s, &q, RTAPI_MEMORY_MODEL);
+    ck_assert_int_eq(strcmp(q,s), 0);
+}
+END_TEST
+
+START_TEST(test_rtapi_atomics)
+{
+    // _very_ basic confidence tests for the rtapi_* wrappers
+    __s32 s = -4711;
+    __s32 stmp  = 0;
+
+    stmp = rtapi_load_s32(&s);
+    ck_assert_int_eq(s, stmp);
+    stmp  = 0;
+    rtapi_store_s32(&stmp, 314);
+    ck_assert_int_eq(stmp, 314);
+
+    rtapi_add_s32(&s, 10);
+    ck_assert_int_eq(s, -4701);
+
+    __u32 u = 815;
+    __u32 utmp  = 0;
+    utmp = rtapi_load_u32(&u);
+    ck_assert_int_eq(u, utmp);
+    utmp  = 0;
+    rtapi_store_u32(&utmp, 12345);
+    ck_assert_int_eq(utmp, 12345);
+
+    char *str = "1234";
+    char *q = NULL;
+    q = rtapi_load_ptr((void **)&str);
+    ck_assert_int_eq(strcmp(q,str), 0);
+
+    char *blah = "blah";
+    q = NULL;
+    rtapi_store_ptr((void **)&q, blah);
+    ck_assert_ptr_eq(q, blah);
+    ck_assert_int_eq(strcmp(q,blah), 0);
+
+    __u64 v = 0x1234567800112233;
+    __u64 dest = 0;
+
+    dest =  rtapi_load_u64((uint64_t*)&v);
+    ck_assert_int_eq(dest, v);
+
+    rtapi_inc_u64((uint64_t*)&v);
+    ck_assert_int_eq(dest+1, v);
+
+    __s64 sv = 0x1234567800112233;
+    __s64 sdest = 0;
+
+    sdest =  rtapi_load_s64((int64_t*)&sv);
+    ck_assert_int_eq(sdest, sv);
+
+    u = 815;
+    utmp  = 0;
+    ck_assert(rtapi_cas_u32(&utmp, 4711, 815) == false); // fail - not equal
+    ck_assert_int_eq(utmp, 0);
+    ck_assert(rtapi_cas_u32(&utmp, 0, 815) == true); // succeed
+    ck_assert_int_eq(utmp, u);
+
+    s = 21718;
+    stmp = 123;
+    ck_assert(rtapi_cas_s32(&stmp, 0, 815) == false);
+    ck_assert_int_eq(stmp, 123);
+    ck_assert(rtapi_cas_s32(&stmp, 123, 815) == true);
+    ck_assert_int_eq(stmp, 815);
+
+    v = 0x1234567800112233;
+    dest = 0;
+    ck_assert(rtapi_cas_u64((uint64_t*)&dest, 4711, v) == false); // fail - not equal
+    ck_assert_int_eq(dest, 0);
+    ck_assert(rtapi_cas_u64((uint64_t*)&dest, 0, v) == true);
+    ck_assert_int_eq(dest, v);
+}
+END_TEST
+
 Suite * atomic_suite(void)
 {
     Suite *s;
@@ -154,8 +260,9 @@ Suite * atomic_suite(void)
     tc = tcase_create("increment");
     tcase_set_timeout(tc, 30.0);
 
-
     tcase_add_test(tc, test_smp_increment);
+    tcase_add_test(tc, test_ck_ops);
+    tcase_add_test(tc, test_rtapi_atomics);
     suite_add_tcase(s, tc);
 
     return s;
