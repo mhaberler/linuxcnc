@@ -1213,7 +1213,7 @@ extern int ulapi_loaded(void);
 #define RTAPI_PASTE(a, b)     a##b
 
 // compile-time assert
-#define rtapi_ct_assert(cond, failure) _Static_assert(con, failure)
+#define rtapi_ct_assert(cond, failure) _Static_assert(cond, failure)
 
 #if defined(BUILD_SYS_USER_DSO) || (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
 
