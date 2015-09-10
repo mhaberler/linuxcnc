@@ -327,10 +327,10 @@ RTAPI_MP_ARRAY_INT(user_step_type, MAX_CYCLE,
 
 // data passed atomically from update_freq to make_pulses
 typedef union {
-    uint64_t u; // for accessing with atomics
+    hal_u64_t u; // for accessing with atomics
     struct {
-	int target_addval;	/* desired freq generator add value */
-	int deltalim;		/* max allowed change per period */
+	hal_s32_t target_addval;	/* desired freq generator add value */
+	hal_s32_t deltalim;		/* max allowed change per period */
     } val;
 } shared_state_t;
 
@@ -350,7 +350,7 @@ typedef struct {
     unsigned int timer3;	/* times out when safe to step in new dir */
     int hold_dds;		/* prevents accumulator from updating */
     long addval;		/* actual frequency generator add value */
-    int64_t accum;	        /* frequency generator accumulator */
+    hal_s64_t accum;	        /* frequency generator accumulator */
     hal_s32_t rawcount;		/* param: position feedback in counts */
     int curr_dir;		/* current direction */
     int state;			/* current position in state table */
@@ -653,7 +653,7 @@ static void make_pulses(void *arg, long period)
 	if ( !stepgen->hold_dds && *(stepgen->enable) ) {
 
 	    // atomically fetch accum
-	    int64_t accum = rtapi_load_s64(&stepgen->accum);
+	    hal_s64_t accum = rtapi_load_s64(&stepgen->accum);
 	    // do updates on local copy
 
 	    /* save current value of low half of accum */
