@@ -1,3 +1,7 @@
+/************************************************************************
+ * Demo of standard instantiated component in C++ class component
+ *
+************************************************************************/
 #define _CORRECT_ISO_CPP_STRING_H_PROTO
 
 // Std C / C++
