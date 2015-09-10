@@ -4,6 +4,8 @@ abs_s32
 abs_s32.0.funct.time abs_s32.0.funct.tmax abs_s32.0.funct.tmax-inc abs_s32.0.in abs_s32.0.is-negative abs_s32.0.is-positive abs_s32.0.out abs_s32.0.sign 
 abs_s32v2
 abs_s32v2.0.funct.time abs_s32v2.0.funct.tmax abs_s32v2.0.funct.tmax-inc abs_s32v2.0.in abs_s32v2.0.is-negative abs_s32v2.0.is-positive abs_s32v2.0.out abs_s32v2.0.sign 
+abs_s64
+abs_s64.0.funct.time abs_s64.0.funct.tmax abs_s64.0.funct.tmax-inc abs_s64.0.in abs_s64.0.is-negative abs_s64.0.is-positive abs_s64.0.out abs_s64.0.sign 
 absv2
 absv2.0.funct.time absv2.0.funct.tmax absv2.0.funct.tmax-inc absv2.0.in absv2.0.is-negative absv2.0.is-positive absv2.0.out absv2.0.sign 
 and2
@@ -334,6 +336,10 @@ timedelay
 timedelay.0.elapsed timedelay.0.funct.time timedelay.0.funct.tmax timedelay.0.funct.tmax-inc timedelay.0.in timedelay.0.off-delay timedelay.0.on-delay timedelay.0.out 
 timedelayv2
 timedelayv2.0.elapsed timedelayv2.0.funct.time timedelayv2.0.funct.tmax timedelayv2.0.funct.tmax-inc timedelayv2.0.in timedelayv2.0.off-delay timedelayv2.0.on-delay timedelayv2.0.out 
+timedelta
+timedelta.0.avg-err timedelta.0.err timedelta.0.funct.time timedelta.0.funct.tmax timedelta.0.funct.tmax-inc timedelta.0.jitter timedelta.0.max timedelta.0.min timedelta.0.out timedelta.0.reset 
+timedeltav2
+timedeltav2.0.avg-err timedeltav2.0.err timedeltav2.0.funct.time timedeltav2.0.funct.tmax timedeltav2.0.funct.tmax-inc timedeltav2.0.jitter timedeltav2.0.max timedeltav2.0.min timedeltav2.0.out timedeltav2.0.reset 
 timev2
 timev2.0.funct.time timev2.0.funct.tmax timev2.0.funct.tmax-inc timev2.0.hours timev2.0.minutes timev2.0.seconds timev2.0.start 
 toggle
