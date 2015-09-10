@@ -172,7 +172,7 @@ u64_pin_ptr halxd_pin_u64_newf(const hal_pin_dir_t dir,
 {
     va_list ap;
     u64_pin_ptr p;
-    hal_data_u defval = {._u64 = def};
+    hal_data_u defval = {._lu = def};
     va_start(ap, fmt);
     p._lup = hal_off_safe(halg_pin_newfv(1, HAL_U64, dir, NULL,
 					owner_id, defval, fmt, ap));
@@ -187,7 +187,7 @@ s64_pin_ptr halxd_pin_s64_newf(const hal_pin_dir_t dir,
 {
     va_list ap;
     s64_pin_ptr p;
-    hal_data_u defval = {._s64 = def};
+    hal_data_u defval = {._ls = def};
     va_start(ap, fmt);
     p._lsp = hal_off_safe(halg_pin_newfv(1,HAL_S64, dir, NULL,
 					owner_id, defval, fmt, ap));
@@ -272,9 +272,9 @@ int hals_value(char *buffer,
     case HAL_U32:
 	return rtapi_snprintf(buffer, s, "%u", u->_u);
     case HAL_S64:
-	return rtapi_snprintf(buffer, s, "%lld", u->_s64);
+	return rtapi_snprintf(buffer, s, "%lld", (long long) u->_ls);
     case HAL_U64:
-	return rtapi_snprintf(buffer, s, "%llu", u->_u64);
+	return rtapi_snprintf(buffer, s, "%llu", (unsigned long long) u->_lu);
     default:
 	HALFAIL_RC(EINVAL, "invalid type %d", type);
     }
