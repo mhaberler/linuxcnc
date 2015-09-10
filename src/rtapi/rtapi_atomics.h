@@ -25,6 +25,7 @@
 
 #include "config.h" // HAVE_CK
 #include "rtapi_int.h"
+#include "hal_types.h"
 
 
 #ifdef HAVE_CK
@@ -32,12 +33,12 @@
 // use concurrencykit.org primitives
 #include <ck_pr.h>
 
-static inline void rtapi_store_u32(uint32_t *target, uint32_t value)
+static inline void rtapi_store_u32(hal_u32_t *target, hal_u32_t value)
 {
      ck_pr_store_32(target, value);
 }
 
-static inline void rtapi_store_s32(int32_t *target, int32_t value)
+static inline void rtapi_store_s32(hal_s32_t *target, hal_s32_t value)
 {
      ck_pr_store_int(target, value);
 }
@@ -47,12 +48,12 @@ static inline void rtapi_store_ptr(void **target, void *value)
     ck_pr_store_ptr(target, value);
 }
 
-static inline uint32_t rtapi_load_u32(const uint32_t *target)
+static inline hal_u32_t rtapi_load_u32(const hal_u32_t *target)
 {
     return ck_pr_load_32(target);
 }
 
-static inline int32_t rtapi_load_s32(const int32_t *target)
+static inline hal_s32_t rtapi_load_s32(const hal_s32_t *target)
 {
     return ck_pr_load_int(target);
 }
@@ -63,54 +64,54 @@ static inline void * rtapi_load_ptr(void **target)
     return ck_pr_load_ptr(target);
 }
 
-static inline void rtapi_add_s32(int32_t *target, const int32_t delta)
+static inline void rtapi_add_s32(hal_s32_t *target, const hal_s32_t delta)
 {
     ck_pr_faa_int(target, delta);
 }
 
 #if defined(CK_F_PR_LOAD_64)
-static inline uint64_t rtapi_load_u64(const uint64_t *target)
+static inline hal_u64_t rtapi_load_u64(const hal_u64_t *target)
 {
-    return ck_pr_load_64(target);
+    return ck_pr_load_64((hal_u64_t *)target);
 }
 
-static inline int64_t rtapi_load_s64(const int64_t *target)
+static inline hal_s64_t rtapi_load_s64(const hal_s64_t *target)
 {
-    return ck_pr_load_64((const uint64_t *)target);
+    return ck_pr_load_64((const hal_u64_t *)target);
 }
 #endif
 
 #if defined(CK_F_PR_STORE_64)
-static inline void rtapi_store_u64(uint64_t *target, const uint64_t value)
+static inline void rtapi_store_u64(hal_u64_t *target, const hal_u64_t value)
 {
     ck_pr_store_64(target, value);
 }
 
-static inline void rtapi_store_s64(int64_t *target, const int64_t value)
+static inline void rtapi_store_s64(hal_s64_t *target, const hal_s64_t value)
 {
-    ck_pr_store_64((uint64_t *)target, value);
+    ck_pr_store_64((hal_u64_t *)target, value);
 }
 #endif
 
 #if defined(CK_F_PR_INC_64)
-static inline void rtapi_inc_u64(uint64_t *target)
+static inline void rtapi_inc_u64(hal_u64_t *target)
 {
     ck_pr_inc_64(target);
 }
 #endif
 
-static inline bool rtapi_cas_u32(uint32_t *target, uint32_t old_value, uint32_t new_value)
+static inline bool rtapi_cas_u32(hal_u32_t *target, hal_u32_t old_value, hal_u32_t new_value)
 {
      return ck_pr_cas_32(target, old_value, new_value);
 }
 
-static inline bool rtapi_cas_s32(int32_t *target, int32_t old_value, int32_t new_value)
+static inline bool rtapi_cas_s32(hal_s32_t *target, hal_s32_t old_value, hal_s32_t new_value)
 {
      return ck_pr_cas_int(target, old_value, new_value);
 }
 
 #if defined(CK_F_PR_CAS_64)
-static inline bool rtapi_cas_u64(uint64_t *target, uint64_t old_value, uint64_t new_value)
+static inline bool rtapi_cas_u64(hal_u64_t *target, hal_u64_t old_value, hal_u64_t new_value)
 {
      return ck_pr_cas_64(target, old_value, new_value);
 }
@@ -126,42 +127,42 @@ static inline bool rtapi_cas_u64(uint64_t *target, uint64_t old_value, uint64_t 
 // or if ck is not used
 
 #if !defined(HAVE_CK) || !defined(CK_F_PR_LOAD_64)
-static inline uint64_t rtapi_load_u64(const uint64_t *target)
+static inline hal_u64_t rtapi_load_u64(const hal_u64_t *target)
 {
-    uint64_t v;
+    hal_u64_t v;
     __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
     return v;
 }
 
-static inline int64_t rtapi_load_s64(const int64_t *target)
+static inline hal_s64_t rtapi_load_s64(const hal_s64_t *target)
 {
-    int64_t v;
+    hal_s64_t v;
     __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
     return v;
 }
 #endif
 
 #if !defined(HAVE_CK) || !defined(CK_F_PR_STORE_64)
-static inline void rtapi_store_u64(uint64_t *target, const uint64_t value)
+static inline void rtapi_store_u64(hal_u64_t *target, const hal_u64_t value)
 {
     __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
 }
 
-static inline void rtapi_store_s64(int64_t *target, const int64_t value)
+static inline void rtapi_store_s64(hal_s64_t *target, const hal_s64_t value)
 {
     __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
 }
 #endif
 
 #if !defined(HAVE_CK) || !defined(CK_F_PR_INC_64)
-static inline void rtapi_inc_u64(uint64_t *target)
+static inline void rtapi_inc_u64(hal_u64_t *target)
 {
     __atomic_add_fetch(target, 1, RTAPI_MEMORY_MODEL);
 }
 #endif
 
 #if !defined(HAVE_CK) || !defined(CK_F_PR_CAS_64)
-static inline int rtapi_cas_u64(uint64_t *target, uint64_t old_value, uint64_t new_value)
+static inline int rtapi_cas_u64(hal_u64_t *target, hal_u64_t old_value, hal_u64_t new_value)
 {
     return __atomic_compare_exchange_n (target, &old_value, new_value, 1,
 					RTAPI_MEMORY_MODEL, RTAPI_MEMORY_MODEL);
@@ -170,16 +171,16 @@ static inline int rtapi_cas_u64(uint64_t *target, uint64_t old_value, uint64_t n
 
 #if !defined(HAVE_CK)
 // use gcc intrinsics
-static inline uint32_t rtapi_load_u32(const uint32_t *target)
+static inline hal_u32_t rtapi_load_u32(const hal_u32_t *target)
 {
-    uint32_t v;
+    hal_u32_t v;
     __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
     return v;
 }
 
-static inline int32_t rtapi_load_s32(const int32_t *target)
+static inline hal_s32_t rtapi_load_s32(const hal_s32_t *target)
 {
-    int32_t v;
+    hal_s32_t v;
     __atomic_load(target, &v, RTAPI_MEMORY_MODEL);
     return v;
 }
@@ -191,13 +192,13 @@ static inline void * rtapi_load_ptr(const void *target)
     return v;
 }
 
-static inline void rtapi_store_u32(uint32_t *target, uint32_t value)
+static inline void rtapi_store_u32(hal_u32_t *target, hal_u32_t value)
 {
     __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
 }
 
 
-static inline void rtapi_store_s32(int32_t *target, int32_t value)
+static inline void rtapi_store_s32(hal_s32_t *target, hal_s32_t value)
 {
     __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
 }
@@ -208,18 +209,18 @@ static inline void rtapi_store_ptr(void *target, void *value)
 }
 
 
-static inline void rtapi_add_s32(int32_t *target, const int32_t delta)
+static inline void rtapi_add_s32(hal_s32_t *target, const hal_s32_t delta)
 {
     __atomic_add_fetch (target, delta, RTAPI_MEMORY_MODEL);
 }
 
-static inline int rtapi_cas_u32(uint32_t *target, uint32_t old_value, uint32_t new_value)
+static inline int rtapi_cas_u32(hal_u32_t *target, hal_u32_t old_value, hal_u32_t new_value)
 {
     return __atomic_compare_exchange_n (target, &old_value, new_value, 1,
 					RTAPI_MEMORY_MODEL, RTAPI_MEMORY_MODEL);
 }
 
-static inline int rtapi_cas_s32(int32_t *target, int32_t old_value, int32_t new_value)
+static inline int rtapi_cas_s32(hal_s32_t *target, hal_s32_t old_value, hal_s32_t new_value)
 {
     return __atomic_compare_exchange_n (target, &old_value, new_value, 1,
 					RTAPI_MEMORY_MODEL, RTAPI_MEMORY_MODEL);
