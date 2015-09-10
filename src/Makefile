@@ -372,7 +372,10 @@ DEBUG := -g -Wall -funwind-tables -fno-omit-frame-pointer
 PROFILE_CFLAGS :=
 PROFILE_LDFLAGS :=
 
-CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) -DULAPI $(call cc-option,-std=gnu11)
+ARCH_CFLAGS := 
+CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) \
+	$(ARCH_CFLAGS) \
+	-DULAPI $(call cc-option,-std=gnu11)
 
 # enable runtime comparison of GIT_CONFIG_SHA (config.h) and GIT_BUILD_SHA
 CFLAGS += -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
@@ -384,7 +387,8 @@ CXXFLAGS := $(INCLUDE) $(CXXFLAGS) \
 	$(CK_CFLAGS) \
 	 -DULAPI $(DEBUG) $(OPT) \
 	$(PROFILE_CFLAGS) \
-	 -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
+	 -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\" \
+	$(ARCH_CFLAGS) \
 
 ifeq ($(RUN_IN_PLACE),yes)
 LDFLAGS := -L$(LIB_DIR) -Wl,-rpath,$(LIB_DIR)
