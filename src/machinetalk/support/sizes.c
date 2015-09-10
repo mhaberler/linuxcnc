@@ -16,9 +16,31 @@
 #include <machinetalk/generated/message.npb.h>
 #include <machinetalk/generated/motcmds.npb.h>
 
+#include <sys/utsname.h>
+#include <linux/types.h>
+
+// lifted from https://github.com/martinezjavier/ldd3/blob/master/misc-progs/datasize.c
+// which in turn is lifted from: "Linux Device Drivers" by Alessandro Rubini and Jonathan Corbet,
+// published by O'Reilly & Associates.
+void kernel_types(void)
+{
+    struct utsname name;
+
+    uname(&name); /* never fails :) */
+    printf("kernel types:\narch   Size:  char  short  int  long   ptr long-long "
+	   " u8 u16 u32 u64\n");
+    printf(       "%-12s  %3i   %3i   %3i   %3i   %3i   %3i      "
+	   "%3i %3i %3i %3i\n\n",
+	   name.machine,
+	   (int)sizeof(char), (int)sizeof(short), (int)sizeof(int),
+	   (int)sizeof(long),
+	   (int)sizeof(void *), (int)sizeof(long long), (int)sizeof(__u8),
+	   (int)sizeof(__u16), (int)sizeof(__u32), (int)sizeof(__u64));
+}
 
 int main()
 {
+    kernel_types();
     printf("int = %zu\n", sizeof(int));
     printf("bool = %zu\n", sizeof(bool));
     printf("size_t = %zu\n", sizeof(size_t));
