@@ -13,6 +13,40 @@
 extern int comp_id;
 static hal_float_t c = 42.0;
 
+#define SAMPLES 10000
+
+START_TEST(test_rtapi_timing)
+{
+    // not really HAL, but hile we are here..
+    // determine the rtapi_get_clocks/rtapi_get_time scaling factor
+
+    long long int t1,t2,c1,c2;
+    t1 = rtapi_get_time();
+    c1 = rtapi_get_clocks();
+    sleep(1);
+    t2 = rtapi_get_time();
+    c2 = rtapi_get_clocks();
+    double scale = (double)(c2 - c1)/(double)(t2-t1);
+    // on VM's rtapi_get_clocks() comes out pretty random
+    fprintf(stderr, "rtapi_get_clocks:rtapi_get_time scale: %f\n", scale);
+    fprintf(stderr, "cdiff=%lld tdiff=%lld\n", (c2-c1),(t2-t1));
+
+    volatile long long int s;
+    {
+	int i;
+    	WITH_PROCESS_CPUTIME_N("rtapi_get_clocks ns/op", SAMPLES, RES_NS);
+	for (i = 0; i < SAMPLES; i++)
+	    s = rtapi_get_clocks();
+    }
+    {
+	int i;
+    	WITH_PROCESS_CPUTIME_N("rtapi_get_time ns/op", SAMPLES, RES_NS);
+	for (i = 0; i < SAMPLES; i++)
+	    s = rtapi_get_time();
+    }
+}
+END_TEST
+
 START_TEST(test_hal_comp)
 {
     ck_assert_int_ne(comp_id, 0);
@@ -55,6 +89,7 @@ Suite * hal_suite(void)
 
     tc_core = tcase_create("hal");
 
+    tcase_add_test(tc_core, test_rtapi_timing);
     tcase_add_test(tc_core, test_hal_comp);
     suite_add_tcase(s, tc_core);
 
