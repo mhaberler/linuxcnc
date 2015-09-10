@@ -39,9 +39,9 @@ public:
 	_incr_s32_pin(this->pin, value);
 	return *this;
     };
-    inline Pin operator+=(const int& value) {
-	return this->pin += (hal_s32_t) value;
-    };
+    // inline Pin operator+=(const int& value) {
+    // 	return this->pin += (hal_s32_t) value;
+    // };
 
     // compound logic
     inline Pin operator|=(const uint32_t& value) {
