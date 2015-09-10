@@ -530,6 +530,8 @@ typedef struct hal_funct_args {
     // existing value accessible to the funct)
     long long int start_time;
 
+    long long int last_start_time; // used to determine the actual period
+
     hal_thread_t  *thread; // descriptor of invoking thread, NULL with FS_USERLAND
     hal_funct_t   *funct;  // descriptor of invoked funct
 
@@ -608,6 +610,7 @@ typedef struct hal_thread {
     int task_id;		/* ID of the task that runs this thread */
     s32_pin_ptr runtime;         // owned by hal_lib during thread lifetime
     s32_pin_ptr maxtime;
+    s32_pin_ptr curr_period;     // actual period measured at cycle start
     hal_list_t funct_list;	/* list of functions to run */
     hal_list_t thread;          // list of threads in ascending priority
                                 // root: hal_data.threads
@@ -627,6 +630,15 @@ static inline long fa_period(const hal_funct_args_t *fa)
 {
     if (fa->thread)
 	return fa->thread->period;
+    return 0;
+}
+
+// the actual invocation period including jitter
+static inline const hal_s32_t get_s32_pin(const s32_pin_ptr p);
+static inline hal_s32_t fa_current_period(const hal_funct_args_t *fa)
+{
+    if (fa->thread)
+	return get_s32_pin(fa->thread->curr_period);
     return 0;
 }
 

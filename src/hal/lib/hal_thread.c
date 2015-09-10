@@ -20,6 +20,7 @@ static void thread_task(void *arg)
     long long int end_time;
     hal_s32_t delta;
 
+
     // thread execution times collected here, doubles as
     // param struct for xthread functs
     hal_funct_args_t fa = {
@@ -29,13 +30,22 @@ static void thread_task(void *arg)
     };
     bool do_wait = ((thread->flags & TF_NOWAIT) == 0);
 
+    // first time around, fudge actual period as nominal period
+    fa.last_start_time = rtapi_get_clocks() - thread->period;
+
     while (1) {
 	if (hal_data->threads_running > 0) {
 	    /* point at first function on function list */
 	    funct_root = (hal_funct_entry_t *) & (thread->funct_list);
 	    funct_entry = SHMPTR(funct_root->links.next);
+
 	    /* execution time logging */
 	    fa.start_time = rtapi_get_clocks();
+
+	    // expose current invocation period as pin (includes jitter)
+	    set_s32_pin(thread->curr_period, fa.start_time - fa.last_start_time);
+	    fa.last_start_time = fa.start_time;
+
 	    end_time = fa.start_time;
 	    fa.thread_start_time = fa.start_time;
 
@@ -92,11 +102,15 @@ static void thread_task(void *arg)
 	    if (rt > get_s32_pin(thread->maxtime)) {
 		set_s32_pin(thread->maxtime, rt);
 	    }
+	} else {
+	    // reset to show nominal period
+	    set_s32_pin(thread->curr_period, thread->period);
 	}
+
 	/* wait until next period */
 	if (do_wait)
 	    rtapi_wait();
-    }
+    } 
 }
 
 // HAL threads - public API
@@ -212,8 +226,14 @@ int hal_create_xthread(const hal_threadargs_t *args)
 						      NULL, lib_module_id,
 						      "%s.time", args->name));
 	new->maxtime._sp = hal_off_safe(halg_pin_newf(0, HAL_S32, HAL_IO, NULL,
-						  lib_module_id,
-						  "%s.tmax", args->name));
+						      lib_module_id,
+						      "%s.tmax", args->name));
+	new->curr_period._sp = hal_off_safe(halg_pin_newf(0, HAL_S32, HAL_OUT, NULL,
+							 lib_module_id,
+							 "%s.curr-period", args->name));
+
+	// expose nominal period for a start
+	set_s32_pin(new->curr_period, new->period);
 
 	/* start task */
 	retval = rtapi_task_start(new->task_id, new->period);
