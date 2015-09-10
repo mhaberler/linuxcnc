@@ -1,13 +1,5 @@
 /************************************************************************
- * Really this file and the pinpointer.h include, just demonstrate how
- * write a C++ class component, to mix C++ and extern C in one component
- * 
- * The original aim was to provide overloaded operators in order to
- * assign the value of a pin_ptr using = in the same way as pins.
- * 
- * However using the C++ class with C requires wrapping in "extern C"
- * and since C does not understand overloading, especially of built-in
- * operators, it pretty much ends there. 
+ * Demo of SMP_SAFE instantiated component in C++ class
  * 
 ************************************************************************/ 
 
