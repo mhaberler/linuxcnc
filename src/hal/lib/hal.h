@@ -487,6 +487,14 @@ typedef enum {
     HAL_RW = 192,
 } hal_param_dir_t;
 
+// the legacy code chose to define HAL types using 'volatile' for no good reason
+// it does not address the atomicity issue and disables some optimizations
+// see https://www.kernel.org/doc/Documentation/volatile-considered-harmful.txt
+// and http://stackoverflow.com/questions/27777140/volatile-and-its-harmful-implications
+// in case this change needs regression-testing, redefine _HALTYPE_ATTRIBUTES like so:
+// #define _HALTYPE_ATTRIBUTES volatile
+#define _HALTYPE_ATTRIBUTES
+
 /* Use these for x86 machines, and anything else that can write to
    individual bytes in a machine word. */
 #define __KERNEL_STRICT_NAMES
@@ -496,15 +504,16 @@ typedef bool hal_bool;
 #else
 typedef _Bool hal_bool;
 #endif
-typedef volatile hal_bool hal_bit_t;
-typedef volatile __u32 hal_u32_t;
-typedef volatile __s32 hal_s32_t;
-typedef volatile __s64 hal_s64_t;
-typedef volatile __u64 hal_u64_t;
+typedef _HALTYPE_ATTRIBUTES hal_bool hal_bit_t;
+typedef _HALTYPE_ATTRIBUTES __u8  hal_u8_t;
+typedef _HALTYPE_ATTRIBUTES __s8  hal_s8_t;
+typedef _HALTYPE_ATTRIBUTES __u32 hal_u32_t;
+typedef _HALTYPE_ATTRIBUTES __s32 hal_s32_t;
+typedef _HALTYPE_ATTRIBUTES __s64 hal_s64_t;
+typedef _HALTYPE_ATTRIBUTES __u64 hal_u64_t;
 typedef double real_t __attribute__((aligned(8)));
 typedef __u64 ireal_t __attribute__((aligned(8))); // integral type as wide as real_t / hal_float_t
-#define hal_float_t volatile real_t
-
+typedef _HALTYPE_ATTRIBUTES real_t hal_float_t;
 
 /** HAL "data union" structure
  ** This structure may hold any type of hal data
