@@ -16,6 +16,8 @@ int verbose, timing, debug, delta, hop;
 static struct affinity a;
 
 #include "machinetalk-suite.h"
+#include "clock-suite.h"
+#include "rtapi-suite.h"
 #include "hal-suite.h"
 #include "atomic-suite.h"
 #include "ring-suite.h"
@@ -94,6 +96,8 @@ int main(int argc, char **argv)
     s = hal_suite();
     sr = srunner_create(s);
     srunner_set_fork_status (sr, CK_NOFORK);
+    srunner_add_suite(sr, clock_suite());
+    srunner_add_suite(sr, rtapi_suite());
     srunner_add_suite(sr, atomic_suite());
 
     srunner_add_suite(sr, ring_suite());

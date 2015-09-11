@@ -95,7 +95,7 @@ void testrun(char *text, func what, struct test *t)
     for(i = 0; i < t->thcnt; i++){
         pthread_join(tids[i], NULL);
     }
-    fprintf(stderr, "%s: value == %d, expected %d\n",
+    printf( "%s: value == %d, expected %d\n",
 	    text, t->value, t->count * t->thcnt);
 }
 
@@ -105,7 +105,7 @@ START_TEST(test_smp_increment)
     t.value = 0;
     t.thcnt = MAXTHREADS;
     t.count = OP_COUNT;
-    fprintf(stderr, "%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
+    printf( "%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
     {
 	WITH_PROCESS_CPUTIME_N("legacy IO pin incr", OP_COUNT *MAXTHREADS, RES_NS);
 	t.op = INCR;
@@ -140,7 +140,7 @@ START_TEST(test_smp_increment)
 	testrun("gcc intrinsics CAS loop", test_increment, &t);
 	ck_assert_int_eq(t.value,  t.count * t.thcnt);
     }
-    fprintf(stderr, "\n");
+    printf("\n");
 
 }
 END_TEST

@@ -28,7 +28,7 @@ size_t next_size(void)
 	r = random() % PHIGH;
     }
     while (r < PLOW);
-    // fprintf(stderr, "nextsize: %d\n", r);
+    // printf( "nextsize: %d\n", r);
     return r;
 }
 

@@ -7,21 +7,21 @@ INCLUDES += $(CHECK_TESTS)
 	cp $^ $@
 
 
-TESTS = check_hal
-check_PROGRAMS = ../bin/check_hal 
-check_hal_SOURCES = $(addprefix $(CHECK_TESTS)/, \
+TESTS = check_tests
+check_PROGRAMS = ../bin/check_tests 
+check_tests_SOURCES = $(addprefix $(CHECK_TESTS)/, \
 	timers.c \
 	check-util.c \
-	check_hal.c)
+	check_tests.c)
 
 
-check_hal_CFLAGS = $(CHECK_CFLAGS)
-check_hal_LDADD = ../lib/libmtalk.so.0 \
+check_tests_CFLAGS = $(CHECK_CFLAGS)
+check_tests_LDADD = ../lib/libmtalk.so.0 \
 	../lib/libmkprotobuf.so.0 \
 	../lib/liblinuxcnchal.so.0 \
 	../lib/liblinuxcncini.so.0
 
-$(call TOOBJSDEPS, $(check_hal_SOURCES)) : EXTRAFLAGS += \
+$(call TOOBJSDEPS, $(check_tests_SOURCES)) : EXTRAFLAGS += \
 	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
 
 TARGETS += $(check_PROGRAMS)
@@ -29,11 +29,10 @@ TARGETS += $(check_PROGRAMS)
 CHECKS  += $(check_PROGRAMS) # for make check
 C_CHECKS  += $(check_PROGRAMS)
 
-#../bin/check_hal: $(check_hal_SOURCES)
 
-../bin/check_hal: $(call TOOBJS, $(check_hal_SOURCES)) \
-	$(check_hal_LDADD)
+../bin/check_tests: $(call TOOBJS, $(check_tests_SOURCES)) \
+	$(check_tests_LDADD)
 	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread
 
-USERSRCS += $(check_hal_SOURCES)
+USERSRCS += $(check_tests_SOURCES)
 endif
