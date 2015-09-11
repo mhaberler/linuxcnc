@@ -30,24 +30,20 @@ static void thread_task(void *arg)
     };
     bool do_wait = ((thread->flags & TF_NOWAIT) == 0);
 
-    // first time around, fudge actual period as nominal period
-    fa.last_start_time = rtapi_get_time() - thread->period;
-
     while (1) {
 	if (hal_data->threads_running > 0) {
+
 	    /* point at first function on function list */
 	    funct_root = (hal_funct_entry_t *) & (thread->funct_list);
 	    funct_entry = SHMPTR(funct_root->links.next);
 
-	    /* execution time logging */
+	    // the thread release point
 	    fa.start_time = rtapi_get_time();
 
 	    // expose current invocation period as pin (includes jitter)
 	    set_s32_pin(thread->curr_period, fa.start_time - fa.last_start_time);
-	    fa.last_start_time = fa.start_time;
 
-	    end_time = fa.start_time;
-	    fa.thread_start_time = fa.start_time;
+	    fa.last_start_time = fa.thread_start_time = fa.start_time;
 
 	    /* run thru function list */
 	    while (funct_entry != funct_root) {
@@ -72,7 +68,7 @@ static void thread_task(void *arg)
 		    // bad - a mistyped funct
 		    ;
 		}
-		/* capture execution time */
+		// capture execution time of this funct
 		end_time = rtapi_get_time();
 
 		/* update execution time data */
@@ -96,21 +92,28 @@ static void thread_task(void *arg)
 		/* prepare to measure time for next funct */
 		fa.start_time = end_time;
 	    }
-	    /* update thread execution time */
+	    // update thread execution time in this period
 	    hal_s32_t rt = (end_time - fa.thread_start_time);
 	    set_s32_pin(thread->runtime, rt);
 	    if (rt > get_s32_pin(thread->maxtime)) {
 		set_s32_pin(thread->maxtime, rt);
 	    }
 	} else {
-	    // reset to show nominal period
-	    set_s32_pin(thread->curr_period, thread->period);
-	}
+	    // threads_running flag false:
 
+	    // nothing to do, so just update actual period
+	    long long int now = rtapi_get_time();
+
+	    if (fa.last_start_time > 0) { // avoids spike on first iteration
+		set_s32_pin(thread->curr_period, now - fa.last_start_time);
+	    }
+	    // support actual period measurement (get the starting value right)
+	    fa.last_start_time = rtapi_get_time();
+	}
 	/* wait until next period */
 	if (do_wait)
 	    rtapi_wait();
-    } 
+    }
 }
 
 // HAL threads - public API
