@@ -31,7 +31,7 @@ static void thread_task(void *arg)
     bool do_wait = ((thread->flags & TF_NOWAIT) == 0);
 
     // first time around, fudge actual period as nominal period
-    fa.last_start_time = rtapi_get_clocks() - thread->period;
+    fa.last_start_time = rtapi_get_time() - thread->period;
 
     while (1) {
 	if (hal_data->threads_running > 0) {
@@ -40,7 +40,7 @@ static void thread_task(void *arg)
 	    funct_entry = SHMPTR(funct_root->links.next);
 
 	    /* execution time logging */
-	    fa.start_time = rtapi_get_clocks();
+	    fa.start_time = rtapi_get_time();
 
 	    // expose current invocation period as pin (includes jitter)
 	    set_s32_pin(thread->curr_period, fa.start_time - fa.last_start_time);
@@ -73,7 +73,7 @@ static void thread_task(void *arg)
 		    ;
 		}
 		/* capture execution time */
-		end_time = rtapi_get_clocks();
+		end_time = rtapi_get_time();
 
 		/* update execution time data */
 		delta = end_time - fa.start_time;
