@@ -95,43 +95,55 @@ START_TEST(test_clock_resolution)
 }
 END_TEST
 
+static volatile int sec;
 #define do_clock_cost(CLOCK)						\
     do {								\
     int i;								\
     struct timespec x;							\
     WITH_PROCESS_CPUTIME_N(#CLOCK " ns/op", CLOCK_SAMPLES, RES_NS);	\
-    for (i = 0; i < CLOCK_SAMPLES; i++)					\
+    for (i = 0; i < CLOCK_SAMPLES; i++)	{				\
 	clock_gettime(CLOCK, &x);					\
+	sec = x.tv_sec;							\
+    }									\
     } while (0)
 
 START_TEST(test_clock_cost)
 {
-   
+
+    {
+	int i;
+	WITH_PROCESS_CPUTIME_N("gettimeofday ns/op", CLOCK_SAMPLES, RES_NS);
+	for (i = 0; i < CLOCK_SAMPLES; i++)	{
+	    struct timeval tv;
+	    gettimeofday(&tv, 0);
+	}
+    }
+
 #if _POSIX_TIMERS > 0   
 
-   #ifdef CLOCK_REALTIME
-   do_clock_cost(CLOCK_REALTIME);
-   #endif
+#ifdef CLOCK_REALTIME
+    do_clock_cost(CLOCK_REALTIME);
+#endif
 
-   #ifdef CLOCK_REALTIME_COARSE
-   do_clock_cost(CLOCK_REALTIME_COARSE);
-   #endif
+#ifdef CLOCK_REALTIME_COARSE
+    do_clock_cost(CLOCK_REALTIME_COARSE);
+#endif
 
-   #ifdef CLOCK_REALTIME_HR
-   do_clock_cost(CLOCK_REALTIME_HR);
-   #endif
+#ifdef CLOCK_REALTIME_HR
+    do_clock_cost(CLOCK_REALTIME_HR);
+#endif
 
-   #ifdef CLOCK_MONOTONIC
-   do_clock_cost(CLOCK_MONOTONIC);
-   #endif
+#ifdef CLOCK_MONOTONIC
+    do_clock_cost(CLOCK_MONOTONIC);
+#endif
 
-   #ifdef CLOCK_MONOTONIC_RAW
-   do_clock_cost(CLOCK_MONOTONIC_RAW);
-   #endif
+#ifdef CLOCK_MONOTONIC_RAW
+    do_clock_cost(CLOCK_MONOTONIC_RAW);
+#endif
 
-   #ifdef CLOCK_MONOTONIC_COARSE
-   do_clock_cost(CLOCK_MONOTONIC_COARSE);
-   #endif
+#ifdef CLOCK_MONOTONIC_COARSE
+    do_clock_cost(CLOCK_MONOTONIC_COARSE);
+#endif
    
 #endif
 }
