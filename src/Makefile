@@ -517,6 +517,7 @@ HEADERS := \
     hal/lib/hal.h \
     hal/lib/hal_internal.h \
     hal/lib/hal_accessor.h \
+    hal/lib/hal_types.h \
     hal/lib/hal_object.h \
     hal/lib/hal_object_selectors.h \
     hal/lib/hal_list.h \
