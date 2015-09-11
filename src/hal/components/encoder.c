@@ -61,7 +61,6 @@
 
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
-#include "rtapi_atomics.h"
 #include "rtapi_string.h"
 #include "hal.h"		/* HAL public API decls */
 
@@ -325,10 +324,7 @@ static void update(void *arg, long period)
 
     cntr = arg;
     for (n = 0; n < howmany; n++) {
-
-	// atomically fetch pointer to current buffer
-	buf = (atomic *) rtapi_load_ptr((void **)&cntr->bp);
-
+	buf = (atomic *) cntr->bp;
 	/* get state machine current state */
 	state = cntr->state;
 	/* add input bits to state code */
@@ -407,22 +403,13 @@ static void capture(void *arg, long period)
     cntr = arg;
     for (n = 0; n < howmany; n++) {
 	/* point to active buffer */
-
-	// atomic fetch not required since capture() is the only funct
-	// modifying cntr->bp
 	buf = (atomic *) cntr->bp;
-
 	/* tell update() to use the other buffer */
 	if ( buf == &(cntr->buf[0]) ) {
-	    rtapi_store_ptr((void **)&cntr->bp, &(cntr->buf[1]));
+	    cntr->bp = &(cntr->buf[1]);
 	} else {
-	    rtapi_store_ptr((void **)&cntr->bp, &(cntr->buf[0]));
+	    cntr->bp = &(cntr->buf[0]);
 	}
-
-	// force visibility of the cntr->bp change and any changes to its contents
-	// from the previous invocation onto update()
-	rtapi_smp_wmb();
-
 	/* handle index */
 	if ( buf->index_detected ) {
 	    buf->index_detected = 0;
