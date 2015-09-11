@@ -18,8 +18,11 @@ static void thread_task(void *arg)
     hal_thread_t *thread = arg;
     hal_funct_entry_t *funct_root, *funct_entry;
     long long int end_time;
-    hal_s32_t delta;
+    hal_s32_t delta, act_period;
 
+    thread->cycles = 0;
+    thread->mean = 0.0;
+    thread->m2 = 0.0;
 
     // thread execution times collected here, doubles as
     // param struct for xthread functs
@@ -41,7 +44,8 @@ static void thread_task(void *arg)
 	    fa.start_time = rtapi_get_time();
 
 	    // expose current invocation period as pin (includes jitter)
-	    set_s32_pin(thread->curr_period, fa.start_time - fa.last_start_time);
+	    act_period = fa.start_time - fa.last_start_time;
+	    set_s32_pin(thread->curr_period, act_period);
 
 	    fa.last_start_time = fa.thread_start_time = fa.start_time;
 
@@ -102,14 +106,25 @@ static void thread_task(void *arg)
 	    // threads_running flag false:
 
 	    // nothing to do, so just update actual period
-	    long long int now = rtapi_get_time();
 
-	    if (fa.last_start_time > 0) { // avoids spike on first iteration
-		set_s32_pin(thread->curr_period, now - fa.last_start_time);
-	    }
+	    if (fa.last_start_time > 0) // avoids spike on first iteration
+		act_period = rtapi_get_time() - fa.last_start_time;
+	    else
+		act_period = thread->period;
+	    set_s32_pin(thread->curr_period, act_period);
+
 	    // support actual period measurement (get the starting value right)
 	    fa.last_start_time = rtapi_get_time();
 	}
+
+	// update variance to derive a jitter ballpark figure
+	// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
+	thread->cycles++;
+	double x = (double)act_period;
+	double tdelta = x - thread->mean;
+	thread->mean += tdelta/thread->cycles;
+	thread->m2 += tdelta * (x - thread->mean);
+
 	/* wait until next period */
 	if (do_wait)
 	    rtapi_wait();

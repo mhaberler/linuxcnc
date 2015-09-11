@@ -610,7 +610,10 @@ typedef struct hal_thread {
     int task_id;		/* ID of the task that runs this thread */
     s32_pin_ptr runtime;         // owned by hal_lib during thread lifetime
     s32_pin_ptr maxtime;
-    s32_pin_ptr curr_period;     // actual period measured at cycle start
+    s32_pin_ptr curr_period;    // actual period measured at cycle start
+    hal_float_t mean;           // online jitter (really variance) calculation
+    hal_float_t m2;
+    hal_u32_t  cycles;
     hal_list_t funct_list;	/* list of functions to run */
     hal_list_t thread;          // list of threads in ascending priority
                                 // root: hal_data.threads
