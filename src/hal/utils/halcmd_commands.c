@@ -2524,14 +2524,18 @@ static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
 		     tptr->flags & TF_NONRT ? "posix ":"",
 		     tptr->flags & TF_NOWAIT ? "nowait":"");
 	halcmd_output(((scriptmode == 0) ?
-		       "%11ld  %-3s %-2d   %-20s ( %8u, %8u ) %s\n" :
-		       "%ld %s %d %s %u %u"),
+		       "%11ld  %-3s %-2d   %-20s  %8u, %8u %3ld%% %3ld%%  +/-%5.2f%% %s\n" :
+		       "%ld %s %d %s %u %u %3ld%% %3ld%% %.2f"),
 		      tptr->period,
 		      (tptr->uses_fp ? "YES" : "NO"),
 		      tptr->cpu_id,
 		      ho_name(tptr),
 		      get_s32_pin(tptr->runtime),
 		      get_s32_pin(tptr->maxtime),
+		      get_s32_pin(tptr->runtime)*100/tptr->period,
+		      get_s32_pin(tptr->maxtime)*100/tptr->period,
+// https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule
+		      sqrt(tptr->m2/ (tptr->cycles -1))*100.0*2.0/tptr->period,
 		      flags);
 
 	hal_list_t *list_root = &(tptr->funct_list);
@@ -2569,7 +2573,8 @@ static void print_thread_info(char **patterns)
 	halcmd_output("Realtime Threads (flavor: %s, currently %s) :\n",
 		      current_flavor->name,
 		      (hal_data->threads_running > 0) ? "running" : "stopped");
-	halcmd_output("     Period  FP CPU   Name                 (     Time, Max-Time ) flags\n");
+	halcmd_output("     Period  FP CPU   Name                      "
+		      "Time  Max-Time util  max  jitter-95%%     flags\n");
     }
     foreach_args_t args =  {
 	.type = HAL_THREAD,
