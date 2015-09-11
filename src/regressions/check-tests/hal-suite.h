@@ -56,7 +56,6 @@ Suite * hal_suite(void)
 
     tc_core = tcase_create("hal");
 
-    tcase_add_test(tc_core, test_rtapi_timing);
     tcase_add_test(tc_core, test_hal_comp);
     suite_add_tcase(s, tc_core);
 
