@@ -2566,7 +2566,9 @@ static int print_thread_entry(hal_object_ptr o, foreach_args_t *args)
 static void print_thread_info(char **patterns)
 {
     if (scriptmode == 0) {
-	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
+	halcmd_output("Realtime Threads (flavor: %s, currently %s) :\n",
+		      current_flavor->name,
+		      (hal_data->threads_running > 0) ? "running" : "stopped");
 	halcmd_output("     Period  FP CPU   Name                 (     Time, Max-Time ) flags\n");
     }
     foreach_args_t args =  {
