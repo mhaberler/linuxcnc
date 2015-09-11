@@ -94,7 +94,6 @@
 
 #include "rtapi.h"		/* RTAPI realtime OS API */
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
-#include "rtapi_atomics.h"
 #include "hal.h"		/* HAL public API decls */
 
 /* module information */
@@ -299,9 +298,9 @@ static void sample(void *arg, long period)
 	if ( *(pair->enable) != 0 ) {
 	    /* has an edge been detected? */
 	    if (state & SM_CNT_UP_MASK) {
-		rtapi_add_s32(&pair->raw_error,  -pair->master_increment);
+		pair->raw_error -= pair->master_increment;
 	    } else if (state & SM_CNT_DN_MASK) {
-		rtapi_add_s32(&pair->raw_error, pair->master_increment);
+		pair->raw_error += pair->master_increment;
 	    }
 	}
 	/* save state machine state */
@@ -320,9 +319,9 @@ static void sample(void *arg, long period)
 	state = lut[state & SM_LOOKUP_MASK];
 	/* has an edge been detected? */
 	if (state & SM_CNT_UP_MASK) {
-	    rtapi_add_s32(&pair->raw_error, pair->slave_increment);
+	    pair->raw_error += pair->slave_increment;
 	} else if (state & SM_CNT_DN_MASK) {
-	    rtapi_add_s32(&pair->raw_error, -pair->slave_increment);
+	    pair->raw_error -= pair->slave_increment;
 	}
 	/* save state machine state */
 	pair->slave_state = state;
@@ -341,7 +340,7 @@ static void update(void *arg, long period)
     for (n = 0; n < howmany; n++) {
 	/* scale raw error to output pin */
 	if ( pair->output_scale > 0 ) {
-	    *(pair->error) = rtapi_load_s32(&pair->raw_error) / pair->output_scale;
+	    *(pair->error) = pair->raw_error / pair->output_scale;
 	}
 	/* update scale factors (only needed if params change, but
 	   it's faster to do it every time than to detect changes.) */
