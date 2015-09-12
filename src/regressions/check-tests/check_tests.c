@@ -21,6 +21,9 @@ static struct affinity a;
 #include "hal-suite.h"
 #include "atomic-suite.h"
 #include "ring-suite.h"
+#ifdef HAVE_CK
+#include "ck-suite.h"
+#endif
 
 #ifdef EXAMPLE_TEST
 #include "helloworld-suite.h"
@@ -101,6 +104,9 @@ int main(int argc, char **argv)
     srunner_add_suite(sr, atomic_suite());
 
     srunner_add_suite(sr, ring_suite());
+#ifdef HAVE_CK
+    srunner_add_suite(sr, ck_suite());
+#endif
     srunner_add_suite(sr, machinetalk_suite());
 
 #ifdef EXAMPLE_TEST
