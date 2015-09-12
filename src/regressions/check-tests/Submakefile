@@ -35,4 +35,10 @@ C_CHECKS  += $(check_PROGRAMS)
 	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread
 
 USERSRCS += $(check_tests_SOURCES)
+
+
+# /tmp/foo_ring_expanded-c.i:
+# 	$(CC)  -E $(CFLAGS) $(CHECK_CFLAGS) -DULAPI  -DBUILD_SYS_USER_DSO  -I. -Irtapi -x c -std=c11 \
+# 	$(CHECK_TESTS)/check_tests.c | $(CB) > $@
+# TARGETS += /tmp/foo_ring_expanded-c.i
 endif
