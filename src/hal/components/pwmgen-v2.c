@@ -126,9 +126,10 @@ typedef struct {
     // requiring coordination
     struct shared_state {
 	unsigned char pwm_mode;  // m:r u:rw
+	long period;		 // m:r u:rw length of PWM period, ns
+
 	long high_time;		 // m:r u:w desired high time, ns
 	unsigned char direction; // m:r u:w
-	long period;		 // m:r u:rw length of PWM period, ns
     } ss;
 
     // out pins are only written to so defacto unshared
