@@ -1,64 +1,64 @@
 #ifndef _TEST_TRIPLE_BUFFER_SUITE
 #define _TEST_TRIPLE_BUFFER_SUITE
 
-#include <triple-buffer.h>
-
 
 // see if this works for us:
 // http://remis-thoughts.blogspot.co.at/2012/01/triple-buffering-as-concurrency_30.html
+#include <triple-buffer.h>
+
+TB_FLAG_FAST(tb);
+int tb_buf[3];
 
 START_TEST(test_triple_buffer)
 {
-    TRIPLE_BUFFER_TYPE(TestStruct, int);
-    TRIPLE_BUFFER_NEW(it, TestStruct);
+    rtapi_tb_init(&tb);
 
-    TRIPLE_BUFFER_NEW_SNAP(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 0);
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 0);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), false);  // no new data
 
     /* Test 1 */
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 3;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
+    tb_buf[rtapi_tb_write(&tb)] = 3;
+    rtapi_tb_flip_writer(&tb);   // commit 3
 
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 0);
-
-    TRIPLE_BUFFER_NEW_SNAP(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 3);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), true);      // flipped - new data available
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 3);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), false);     // no new data
 
     /* Test 2 */
+    tb_buf[rtapi_tb_write(&tb)] = 4;
+    rtapi_tb_flip_writer(&tb);                           // commit 4
+    tb_buf[rtapi_tb_write(&tb)] = 5;                     // 5 not committed
 
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 4;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 5;
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), true);      // new data
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 4);     // equals last committed, 4
+    rtapi_tb_flip_writer(&tb);                           // commit 5
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 4);     // still 4 since no new snap
 
-    TRIPLE_BUFFER_NEW_SNAP(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 4);
-    TRIPLE_BUFFER_FLIP_WRITER(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 4);
-    TRIPLE_BUFFER_NEW_SNAP(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 5);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), true);      // new data
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 5);     // must be 5 now since new snap
 
-    TRIPLE_BUFFER_FLIP_WRITER(it);
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 6;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
+    rtapi_tb_flip_writer(&tb);
+    tb_buf[rtapi_tb_write(&tb)] = 6;                     // 6 but not committed
+    rtapi_tb_flip_writer(&tb);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), true);      // must be new data
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 6);     // must be 6 now since new snap
 
-    TRIPLE_BUFFER_NEW_SNAP(it);
+    tb_buf[rtapi_tb_write(&tb)] = 7;
+    rtapi_tb_flip_writer(&tb);
+    tb_buf[rtapi_tb_write(&tb)] = 8;
+    rtapi_tb_flip_writer(&tb);
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 6); // must be still 6 since no new snap
 
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 7;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 8;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
+    tb_buf[rtapi_tb_write(&tb)] = 7;
+    rtapi_tb_flip_writer(&tb);
+    tb_buf[rtapi_tb_write(&tb)] = 8;
+    rtapi_tb_flip_writer(&tb);
 
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 6);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), true);      // must be new data, 8
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 8);
 
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 7;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
-    *TRIPLE_BUFFER_WRITE_PTR(it) = 8;
-    TRIPLE_BUFFER_FLIP_WRITER(it);
-
-    TRIPLE_BUFFER_NEW_SNAP(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it), 8);
-    TRIPLE_BUFFER_NEW_SNAP(it);
-    ck_assert_int_eq(*TRIPLE_BUFFER_SNAP_PTR(it),  8);
+    ck_assert_int_eq(rtapi_tb_new_snap(&tb), false);      // no new data, 8
+    ck_assert_int_eq(tb_buf[rtapi_tb_snap(&tb)], 8);
 }
 END_TEST
 
