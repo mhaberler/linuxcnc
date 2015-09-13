@@ -1,5 +1,6 @@
 #ifndef _TRIPLE_BUFFER_H
 #define _TRIPLE_BUFFER_H
+#include <stdbool.h>
 #include <memory.h>
 #include <rtapi_atomics.h>
 
