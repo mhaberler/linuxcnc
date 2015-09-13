@@ -362,6 +362,10 @@ updown
 updown.0.clamp updown.0.count updown.0.countdown updown.0.countup updown.0.funct.time updown.0.funct.tmax updown.0.funct.tmax-inc updown.0.max updown.0.min updown.0.reset updown.0.wrap 
 updownv2
 updownv2.0.clamp updownv2.0.count updownv2.0.countdown updownv2.0.countup updownv2.0.funct.time updownv2.0.funct.tmax updownv2.0.funct.tmax-inc updownv2.0.max updownv2.0.min updownv2.0.reset updownv2.0.wrap 
+watchdog
+watchdog.0.enable watchdog.0.input-00 watchdog.0.ok-out watchdog.0.process.time watchdog.0.process.tmax watchdog.0.process.tmax-inc watchdog.0.set-timeouts.time watchdog.0.set-timeouts.tmax watchdog.0.set-timeouts.tmax-inc watchdog.0.timeout-00 
+watchdogv2
+watchdogv2.0.enable watchdogv2.0.input-00 watchdogv2.0.ok-out watchdogv2.0.process.time watchdogv2.0.process.tmax watchdogv2.0.process.tmax-inc watchdogv2.0.set-timeouts.time watchdogv2.0.set-timeouts.tmax watchdogv2.0.set-timeouts.tmax-inc watchdogv2.0.timeout-00 
 wcomp
 wcomp.0.funct.time wcomp.0.funct.tmax wcomp.0.funct.tmax-inc wcomp.0.in wcomp.0.max wcomp.0.min wcomp.0.out wcomp.0.over wcomp.0.under 
 wcompn
