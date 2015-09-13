@@ -220,6 +220,11 @@ static inline void rtapi_store_u8(hal_u8_t *target, hal_u8_t value)
     __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
 }
 
+static inline void rtapi_store_u32(hal_u32_t *target, hal_u32_t value)
+{
+    __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
+}
+
 static inline void rtapi_store_s32(hal_s32_t *target, hal_s32_t value)
 {
     __atomic_store(target, &value, RTAPI_MEMORY_MODEL);
@@ -257,6 +262,6 @@ static inline int rtapi_cas_s32(hal_s32_t *target, hal_s32_t old_value, hal_s32_
 #define	rtapi_smp_mb()  __sync_synchronize()
 #define	rtapi_smp_wmb() __sync_synchronize()
 #define	rtapi_smp_rmb() __sync_synchronize()
-#endif
+#endif  // !defined(HAVE_CK)
 
 #endif // _RTAPI_ATOMICS_H
