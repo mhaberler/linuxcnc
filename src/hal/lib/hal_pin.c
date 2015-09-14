@@ -94,13 +94,23 @@ int zero_hal_data_u(const int type, hal_data_u *u)
 {
     switch (type) {
     case HAL_BIT:
-	u->_b = 0; break;
+	set_bit_value(u, 0);
+	break;
     case HAL_FLOAT:
-	u->_f = 0.0; break;
+	set_float_value(u, 0.0);
+	break;
     case HAL_S32:
-	u->_s = 0; break;
+	set_s32_value(u, 0);
+	break;
     case HAL_U32:
-	u->_u = 0; break;
+	set_u32_value(u, 0);
+	break;
+    case HAL_S64:
+	set_s64_value(u, 0);
+	break;
+    case HAL_U64:
+	set_u64_value(u, 0);
+	break;
     default:
 	HALFAIL_RC(EINVAL,"invalid hal_data_u type %d", type);
     }
