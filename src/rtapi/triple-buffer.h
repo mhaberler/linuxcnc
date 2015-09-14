@@ -25,7 +25,7 @@
 //     foo_buffer[rtapi_tb_write(&foo_flag)].whatever = 42;
 //
 // flip the current write buffer:
-//     rtapi_tb_flip_writer(&foo_flag);
+//     rtapi_tb_flip(&foo_flag);
 //
 // take a new snapshot and work with it:
 //
@@ -53,18 +53,18 @@ static inline void rtapi_tb_init(hal_u8_t *flags) {
 }
 
 // index of current snap buffer
-static inline hal_u8_t rtapi_tb_snap(hal_u8_t *flags) {
+static inline hal_u8_t rtapi_tb_snap_idx(hal_u8_t *flags) {
     return rtapi_load_u8(flags) & 0x3;
 }
 
 // index of current write buffer
-static inline hal_u8_t rtapi_tb_write(hal_u8_t *flags) {
+static inline hal_u8_t rtapi_tb_write_idx(hal_u8_t *flags) {
     return (rtapi_load_u8(flags) & 0x30) >> 4;
 }
 
 // create a new snapshot.
 // returns false if no new data available.
-static inline bool rtapi_tb_new_snap(hal_u8_t *flags) {
+static inline bool rtapi_tb_snapshot(hal_u8_t *flags) {
 	hal_u8_t flagsNow = rtapi_load_u8(flags);
 	hal_u8_t newFlags;
 	do {
@@ -78,7 +78,7 @@ static inline bool rtapi_tb_new_snap(hal_u8_t *flags) {
 }
 
 // flip the write buffer
-static inline void rtapi_tb_flip_writer(hal_u8_t *flags) {
+static inline void rtapi_tb_flip(hal_u8_t *flags) {
     hal_u8_t flagsNow;
     hal_u8_t newFlags;
     do {
