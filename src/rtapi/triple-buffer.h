@@ -22,17 +22,17 @@
 //     rtapi_tb_init(&foo_flag);
 //
 // write to the current buffer:
-//     foo_buffer[rtapi_tb_write(&foo_flag)].whatever = 42;
+//     foo_buffer[rtapi_tb_write_idx(&foo_flag)].whatever = 42;
 //
 // flip the current write buffer:
 //     rtapi_tb_flip(&foo_flag);
 //
 // take a new snapshot and work with it:
 //
-// if (rtapi_tb_new_snap(&foo_flag)) {
+// if (rtapi_tb_snapshot(&foo_flag)) {
 //      // new snapshot data available
 //      // access like so:
-//      blah = foo_buffer[rtapi_tb_snap(&foo_flag)].whatever
+//      blah = foo_buffer[rtapi_tb_snap_idx(&foo_flag)].whatever
 // } else {
 //       // no new snapshot available
 // }
