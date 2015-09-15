@@ -26,10 +26,10 @@ TARGETS += /tmp/acctest.s
 CB := astyle --style=linux
 
 /tmp/hal_accessor-expanded-c.i:  hal/lib/hal_accessor.h
-	$(CC)  -E $(CFLAGS) -DULAPI   -I. -Irtapi -x c -std=c11 $^ | $(CB) > $@
+	$(CC)  -E $(CFLAGS) -DULAPI   -I. -Irtapi  -Ihal/lib -x c -std=c11 $^ | $(CB) > $@
 
 /tmp/hal_accessor-expanded-c++.i:  hal/lib/hal_accessor.h
-	$(CXX) -E  $(CXXLAGS)  -DULAPI -I. -Irtapi -x c++ -std=c++11 $^ | $(CB) > $@
+	$(CXX) -E  $(CXXLAGS)  -DULAPI -I. -Irtapi -Ihal/lib -x c++ -std=c++11 $^ | $(CB) > $@
 
 
 TARGETS += /tmp/hal_accessor-expanded-c.i
