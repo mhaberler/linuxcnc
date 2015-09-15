@@ -314,6 +314,10 @@ stats
 stats.0.enable stats.0.funct.time stats.0.funct.tmax stats.0.funct.tmax-inc stats.0.in stats.0.mean stats.0.n stats.0.variance 
 statsv2
 statsv2.0.enable statsv2.0.funct.time statsv2.0.funct.tmax statsv2.0.funct.tmax-inc statsv2.0.in statsv2.0.mean statsv2.0.n statsv2.0.variance 
+steptest
+steptest.0.amplitude steptest.0.dir steptest.0.elapsed steptest.0.epsilon steptest.0.funct.time steptest.0.funct.tmax steptest.0.funct.tmax-inc steptest.0.jog-minus steptest.0.jog-plus steptest.0.maxaccel steptest.0.maxvel steptest.0.pause steptest.0.position-cmd steptest.0.position-fb steptest.0.run steptest.0.run-high steptest.0.run-low steptest.0.run-start steptest.0.run-target steptest.0.running 
+steptestv2
+steptestv2.0.amplitude steptestv2.0.dir steptestv2.0.elapsed steptestv2.0.epsilon steptestv2.0.funct.time steptestv2.0.funct.tmax steptestv2.0.funct.tmax-inc steptestv2.0.jog-minus steptestv2.0.jog-plus steptestv2.0.maxaccel steptestv2.0.maxvel steptestv2.0.pause steptestv2.0.position-cmd steptestv2.0.position-fb steptestv2.0.run steptestv2.0.run-high steptestv2.0.run-low steptestv2.0.run-start steptestv2.0.run-target steptestv2.0.running 
 sum2
 sum2.0.funct.time sum2.0.funct.tmax sum2.0.funct.tmax-inc sum2.0.gain0 sum2.0.gain1 sum2.0.in0 sum2.0.in1 sum2.0.offset sum2.0.out 
 sum2v2
