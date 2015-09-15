@@ -244,8 +244,8 @@ static int instantiate_pwmgen(const char *name,
     pwmgen_t *p;
     int retval;
 
-    if ((retval = hal_inst_create(name, comp_id, sizeof(pwmgen_t), (void **)&p)) < 0);
-	return retval;
+    if ((retval = hal_inst_create(name, comp_id, sizeof(pwmgen_t), (void **)&p)) < 0)
+    	return retval;
 
     p->inst_id = retval;
     if ((retval = export_pwmgen(name, p->inst_id, p, output_type)) != 0)
@@ -423,42 +423,56 @@ static int update(void *arg,  const hal_funct_args_t *fa)
 	struct config *cfg = &self->cfg;
     	struct upd_state *upd = &self->upd;
 
+	// validate duty cycle limits, both limits must be between
+	// 0.0 and 1.0 (inclusive) and max must be greater then min
 	hal_float_t max_dc     = get_float_pin(upd->max_dc);
 	hal_float_t min_dc     = get_float_pin(upd->min_dc);
-
-	/* validate duty cycle limits, both limits must be between
-	   0.0 and 1.0 (inclusive) and max must be greater then min */
 	if (max_dc > 1.0) {
-	    set_float_pin(upd->max_dc, 1.0);
+	    max_dc = 1.0;
+	    set_float_pin(upd->max_dc, max_dc);
 	}
 	if (min_dc > max_dc) {
-	    set_float_pin(upd->min_dc, max_dc);
+	    min_dc = max_dc;
+	    set_float_pin(upd->min_dc, min_dc);
 	}
 	if (min_dc < 0.0) {
-	    set_float_pin(upd->min_dc, 0.0);
+	    min_dc = 0.0;
+	    set_float_pin(upd->min_dc, min_dc);
 	}
 	if (max_dc < min_dc) {
-	    set_float_pin(upd->max_dc, min_dc);
+	    max_dc = min_dc;
+	    set_float_pin(upd->max_dc, max_dc);
 	}
 
 	// cop out until we know the thread period from make_pulses
 	if (periodns < 0)
 	    return 0;
 
-	// change-detect the driving pins
-#define TRACK(type, name)  (get_##type##_pin(upd->name) != upd->old_##name) ? \
-		upd->old_##name = get_##type##_pin(upd->name) , true : false
+	// change-detect any driving pins
+	hal_bit_t   enable         = get_bit_pin(upd->enable);
+	hal_bit_t   dither_pwm     = get_bit_pin(upd->dither_pwm);
+	hal_float_t value          = get_float_pin(upd->value);
+	hal_float_t scale          = get_float_pin(upd->scale);
+	hal_float_t pwm_freq       = get_float_pin(upd->pwm_freq);
+	hal_float_t offset         = get_float_pin(upd->offset);
+	hal_bit_t   jitter_correct = get_bit_pin(upd->jitter_correct);
+
+#define TRACK(name)  (name != upd->old_##name) ? \
+	    (upd->old_##name = name) , true : false
+
 	bool changed = false;
-	changed |= TRACK(bit, enable);
-	changed |= TRACK(bit, dither_pwm);
-	changed |= TRACK(float, value);
-	changed |= TRACK(float, scale);
-	changed |= TRACK(float, pwm_freq);
-	changed |= TRACK(float, min_dc);
-	changed |= TRACK(float, max_dc);
-	changed |= TRACK(float, offset);
-	changed |= TRACK(bit, jitter_correct);
+	changed |= TRACK(min_dc);
+	changed |= TRACK(max_dc);
+
+	changed |= TRACK(enable);
+	changed |= TRACK(dither_pwm);
+	changed |= TRACK(value);
+	changed |= TRACK(scale);
+	changed |= TRACK(pwm_freq);
+	changed |= TRACK(offset);
+	changed |= TRACK(jitter_correct);
 #undef TRACK
+
 	if (!changed)
 	    continue;
 
@@ -466,14 +480,6 @@ static int update(void *arg,  const hal_funct_args_t *fa)
 
 	// get a handle on the currently unused param buffer
 	struct mp_params *uparams =  &self->tb_state[rtapi_tb_write_idx(&self->tb)];
-
-	hal_float_t scale      = get_float_pin(upd->scale);
-	hal_bit_t   enable     = get_bit_pin(upd->enable);
-	hal_bit_t   dither_pwm = get_bit_pin(upd->dither_pwm);
-	hal_float_t pwm_freq   = get_float_pin(upd->pwm_freq);
-	hal_float_t value      = get_float_pin(upd->value);
-	hal_float_t offset     = get_float_pin(upd->offset);
-
 
 	/* validate the new scale value */
 	if ((scale < 1e-20) && (scale > -1e-20)) {
@@ -570,7 +576,7 @@ static int update(void *arg,  const hal_funct_args_t *fa)
 	if ( cfg->output_type == 1 ) {
 	    set_bit_pin(self->out[DIR_PIN], uparams->direction);
 	}
-	uparams->jitter_correct = get_bit_pin(upd->jitter_correct);
+	uparams->jitter_correct = jitter_correct;
 
 	// all fields in mp_params now set
 
