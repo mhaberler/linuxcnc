@@ -372,7 +372,7 @@ DEBUG := -g -Wall -funwind-tables -fno-omit-frame-pointer
 PROFILE_CFLAGS :=
 PROFILE_LDFLAGS :=
 
-ARCH_CFLAGS := 
+ARCH_CFLAGS :=  -mfpu=neon -mcpu=native -mtune=native
 CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) \
 	$(ARCH_CFLAGS) \
 	-DULAPI $(call cc-option,-std=gnu11)
@@ -383,7 +383,7 @@ CFLAGS += -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\"
 # make ck_pr.h happy:
 CFLAGS += $(CK_CFLAGS)
 
-CXXFLAGS := $(INCLUDE) $(CXXFLAGS) \
+CXXFLAGS := $(INCLUDE) $(CXXFLAGS) $(ARCHFLAGS) \
 	$(CK_CFLAGS) \
 	 -DULAPI $(DEBUG) $(OPT) \
 	$(PROFILE_CFLAGS) \

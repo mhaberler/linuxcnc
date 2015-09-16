@@ -93,7 +93,7 @@ USERSRCS += $(PROTO_SPECS)
 # or gpb Descriptor and Reflection entries
 MKPROTOLIB = ../lib/libmkprotobuf.so
 
-PROTOC_FLAGS :=
+PROTOC_FLAGS := 
 PROTOCXX_LDFLAGS := $(PROTOBUF_LIBS)
 PROTOCXX_FLAGS :=
 PROTOCXX_CXX_FLAGS := -fPIC $(PROTOBUF_CFLAGS)
@@ -104,7 +104,7 @@ PROTOCXX_CXX_FLAGS := -fPIC $(PROTOBUF_CFLAGS)
 
 # NANOPB_CFLAGS are also passed to module build through
 # RTFLAGS - see hal/msgcomponents/Submakefile
-NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<pb-machinekit.h>'
+NANOPB_CFLAGS := -DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<pb-machinekit.h>' $(CFLAGS) $(ARCH_CFLAGS)
 NANOPB_OPTIONS := $(MACHINETALK)/nanopb.options
 
 # any extra flags to C compile nanopb bindings
