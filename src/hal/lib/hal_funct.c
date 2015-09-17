@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "rtapi.h"		/* RTAPI realtime OS API */
+#include "rtapi_atomics.h"
 #include "hal.h"		/* HAL public API decls */
 #include "hal_priv.h"		/* HAL private decls */
 #include "hal_internal.h"
@@ -296,6 +297,10 @@ int hal_add_funct_to_thread(const char *funct_name,
 	funct_entry->wmb = write_barrier;
 	funct_entry->type = funct->type;
 
+	// assure the new funct_entry is visible for all cores
+	// before being threaded onto the list
+	rtapi_smp_mb();
+
 	/* add the entry to the list */
 	dlist_add_after((hal_list_t *) funct_entry, list_entry);
 	/* update the function usage count */
@@ -352,6 +357,11 @@ int hal_del_funct_from_thread(const char *funct_name, const char *thread_name)
 	    if (SHMPTR(funct_entry->funct_ptr) == funct) {
 		/* this funct entry points to our funct, unlink */
 		dlist_remove_entry(list_entry);
+
+		// assure the updated list_entry->next field is visible for all cores
+		// before freeing the funct entry
+		rtapi_smp_mb();
+
 		/* and delete it */
 		free_funct_entry_struct(funct_entry);
 		/* done */
