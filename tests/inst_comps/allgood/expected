@@ -256,6 +256,8 @@ notv2
 notv2.0.funct.time notv2.0.funct.tmax notv2.0.funct.tmax-inc notv2.0.in notv2.0.out 
 offset
 offset.0.fb-in offset.0.fb-out offset.0.in offset.0.offset offset.0.out offset.0.update-feedback.time offset.0.update-feedback.tmax offset.0.update-feedback.tmax-inc offset.0.update-output.time offset.0.update-output.tmax offset.0.update-output.tmax-inc 
+offsetv2
+offsetv2.0.fb-in offsetv2.0.fb-out offsetv2.0.in offsetv2.0.offset offsetv2.0.out offsetv2.0.update-feedback.time offsetv2.0.update-feedback.tmax offsetv2.0.update-feedback.tmax-inc offsetv2.0.update-output.time offsetv2.0.update-output.tmax offsetv2.0.update-output.tmax-inc 
 oneshot
 oneshot.0.falling oneshot.0.funct.time oneshot.0.funct.tmax oneshot.0.funct.tmax-inc oneshot.0.in oneshot.0.out oneshot.0.out-not oneshot.0.retriggerable oneshot.0.rising oneshot.0.time-left oneshot.0.width 
 oneshotv2
