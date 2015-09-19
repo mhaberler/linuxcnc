@@ -198,11 +198,12 @@ char *halg_strdup(const int use_hal_mutex, const char *s)
     return p;
 }
 
-int halg_free_str(char *s)
+int halg_free_str(char **s)
 {
     CHECK_NULL(s);
-    hal_data->str_freed += strlen(s) + 1;
-    rtapi_free(global_heap, s);
+    hal_data->str_freed += strlen(*s) + 1;
+    rtapi_free(global_heap, *s);
+    *s = NULL;
     return 0;
 }
 
@@ -240,7 +241,7 @@ int halg_free_argv(const bool use_hal_mutex,
 	return 0;
     char **s = argv;
     while (*s) {
-	halg_free_str(*s);
+	halg_free_str(s);
 	s++;
     }
     rtapi_free(global_heap, argv);
