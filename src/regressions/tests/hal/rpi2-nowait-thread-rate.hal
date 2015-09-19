@@ -1,0 +1,22 @@
+loadrt hal_gpio dir=1 exclude=0xffffffe  # 1 output no inputs
+newinst not oscillator
+net square oscillator.out oscillator.in hal_gpio.pin-03-out
+
+# base is a non-RT Posix thread,
+# just loops trough the funct list
+#newthread base  1000 posix nowait cpu=3
+newthread base  1000 nowait cpu=3
+addf oscillator.funct base
+
+# Rpi2: withouth hal_gpio.write added, base.curr-period is ca 3200nS
+# (ca 150kHz)
+
+# with  hal_gpio.write added, base.curr-period is ca 5700nS
+# or 77kHz, which agrees with my scope ;)
+
+#  uname -a
+# Linux rpi2 3.18.9-rt5-v7+ #1 SMP PREEMPT RT Sun Sep 6 20:02:35 CEST 2015 armv7l GNU/Linux
+
+addf hal_gpio.write base
+
+start
