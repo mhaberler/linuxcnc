@@ -47,6 +47,8 @@ pin_ptr io s32 weight##[pincount] "The weight of the input of weighted summer ##
 
 pin_ptr io s32 offset;
 
+variable hal_s32_t running_total = 0;
+
 instanceparam int pincount = 8;
 
 option MAXCOUNT 16;
@@ -59,19 +61,20 @@ function process_wsums fp;
 
 FUNCTION(process_wsums)
 {
-hal_s32_t b, running_total;
+hal_s32_t b; 
     
-	if (!gb(hold)) 
-		{
-		running_total = gs(offset);
-		for (b=0 ; b < local_pincount ; b++) 
-			{
-			if (gb(in(b))) 
-				running_total += gs(weight(b));
-		    }
-		}
-		ss(sum, running_total);
-	return 0;
+    if (!gb(hold)) 
+	{
+	running_total = gs(offset);
+	for (b=0 ; b < local_pincount ; b++) 
+	    {
+	    if (gb(in(b))) 
+		running_total += gs(weight(b));
+	    }
+	}
+    ss(sum, running_total);
+	
+    return 0;
 }
 
 

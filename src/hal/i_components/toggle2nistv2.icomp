@@ -14,7 +14,7 @@ pin_ptr in  bit in;
 pin_ptr in  bit is_on;
 pin_ptr out bit on;
 pin_ptr out bit off;
-variable hal_bit_t old_in;
+variable hal_bit_t old_in = false;
 variable hal_bit_t to_state=false;
 function _;
 license "GPL";

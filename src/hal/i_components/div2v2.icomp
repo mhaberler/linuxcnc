@@ -7,11 +7,13 @@ pin_ptr in float in0        "dividend";
 pin_ptr in float in1        "divisor";
 pin_ptr out float out       "out = in0 / in1";
 pin_ptr io float deadband   "The \\fBout\\fR will be zero if \\fBin1\\fR is between -\\fBdeadband\\fR and +\\fBdeadband\\fR";
+
+variable hal_float_t prev_in0 = 0.0;
+variable hal_float_t prev_in1 = 0.0;
+
 function _;
 license "GPL";
 ;;
-hal_float_t prev_in0 = 0.0;
-hal_float_t prev_in1 = 0.0;
 
 FUNCTION(_)
 {
