@@ -24,8 +24,8 @@ pin_ptr in s32      pause = 0 "pause time for each end of run in seconds";
 pin_ptr io float    epsilon = .001;
 pin_ptr io float    elapsed "Current value of the internal timer";
 
-variable hal_bit_t    timer_on;
-variable hal_float_t  timer;
+variable hal_bit_t    timer_on = false;
+variable hal_float_t  timer = 0.0;
 
 function _;
 
