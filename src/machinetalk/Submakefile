@@ -96,7 +96,7 @@ MKPROTOLIB = ../lib/libmkprotobuf.so
 PROTOC_FLAGS :=
 PROTOCXX_LDFLAGS := $(PROTOBUF_LIBS)
 PROTOCXX_FLAGS :=
-PROTOCXX_CXX_FLAGS := -fPIC $(PROTOBUF_CFLAGS)
+PROTOCXX_CXX_FLAGS := -fPIC  $(CXXFLAGS) $(PROTOBUF_CFLAGS)
 
 # tell protobuf to use compiled C for Python bindings
 # not available in 2.4.1/jessie
@@ -110,7 +110,7 @@ NANOPB_OPTIONS := $(MACHINETALK)/nanopb.options
 # any extra flags to C compile nanopb bindings
 # this gets exported to RTFLAGS so dont add -fPIC here (stalls kthreads build)
 # machinetalk/msgcomponents/Submakefile:RTFLAGS +=   $(PROTO_NANOPB_CFLAGS)
-PROTO_NANOPB_CFLAGS := $(NANOPB_CFLAGS) -Imachinetalk/msgcomponents/
+PROTO_NANOPB_CFLAGS := $(CFLAGS) $(NANOPB_CFLAGS) -Imachinetalk/msgcomponents/
 
 # nanopb library .h/.c files
 NANOPB_INCS := $(wildcard $(NANOPB)/*.h)

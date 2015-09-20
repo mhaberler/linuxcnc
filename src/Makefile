@@ -372,7 +372,6 @@ DEBUG := -g -Wall -funwind-tables -fno-omit-frame-pointer
 PROFILE_CFLAGS :=
 PROFILE_LDFLAGS :=
 
-ARCH_CFLAGS := 
 CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(PROFILE_CFLAGS) \
 	$(ARCH_CFLAGS) \
 	-DULAPI $(call cc-option,-std=gnu11)
@@ -388,7 +387,7 @@ CXXFLAGS := $(INCLUDE) $(CXXFLAGS) \
 	 -DULAPI $(DEBUG) $(OPT) \
 	$(PROFILE_CFLAGS) \
 	 -DGIT_BUILD_SHA=\"'$(GIT_BUILD_SHA)'\" \
-	$(ARCH_CFLAGS) \
+	$(ARCH_CFLAGS)
 
 ifeq ($(RUN_IN_PLACE),yes)
 LDFLAGS := -L$(LIB_DIR) -Wl,-rpath,$(LIB_DIR)

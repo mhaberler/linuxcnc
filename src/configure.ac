@@ -626,6 +626,9 @@ AC_ARG_WITH(platform-beaglebone,
 	    	TARGET_PLATFORM_BEAGLEBONE=true
 		platform_specified=true
 		platform_beaglebone_reason="$cmdl_enab_msg"
+		# see https://github.com/machinekit/machinekit/issues/629
+		ARCH_CFLAGS="-march=armv7-a -mtune=cortex-a8"
+		ARCH_CFLAGS="$ARCH_CFLAGS -mfloat-abi=hard -mfpu=neon -ffast-math -O3"
 		;;
 	    (*)
 	    	TARGET_PLATFORM_BEAGLEBONE=false
@@ -648,13 +651,17 @@ AC_ARG_WITH(platform-beaglebone,
 AC_ARG_WITH(platform-raspberry,
     [AS_HELP_STRING(
         [--with-platform-raspberry],
-	[Build for Raspberry platform (default for ARM arch)])],
+	[Build for Raspberry2 platform (default for ARM arch)])],
     [
         case $with_platform_raspberry in
 	    (y*)
 	    	TARGET_PLATFORM_RASPBERRY=true
 		platform_specified=true
 		platform_raspberry_reason="$cmdl_enab_msg"
+		# the rpi compiler defaults to arm6 (rpi1 compatible)
+		# arm6 however does not support 64bit atomic operations
+		# hence rpi1 is not a usable machinekit platform
+		ARCH_CFLAGS="-march=armv7-a -mfpu=neon-vfpv4 -ffast-math"
 		;;
 	    (*)
 	    	TARGET_PLATFORM_RASPBERRY=false
@@ -1785,6 +1792,8 @@ AC_SUBST(BUILD_NMLDEP)
 if test "$BUILD_NMLDEP" = yes; then
    AC_DEFINE(BUILD_NMLDEP, [], [build NML dependent parts])
 fi
+
+AC_SUBST([ARCH_CFLAGS])
 
 AC_SUBST([CZMQ_CFLAGS])
 AC_SUBST([CZMQ_LIBS])
