@@ -310,20 +310,14 @@ int do_source_cmd(char *hal_filename) {
 
 int do_start_cmd(void) {
     int retval = hal_start_threads();
-    if (retval == 0) {
-        /* print success message */
-        halcmd_info("Realtime threads started\n");
-    }
-    return retval;
+    halcmd_info("Realtime threads %sstarted\n", retval ? "already" :"");
+    return 0;
 }
 
 int do_stop_cmd(void) {
     int retval = hal_stop_threads();
-    if (retval == 0) {
-        /* print success message */
-        halcmd_info("Realtime threads stopped\n");
-    }
-    return retval;
+    halcmd_info("Realtime threads %sstopped\n", retval ? "" : "already");
+    return 0;
 }
 
 int do_echo_cmd(void) {
