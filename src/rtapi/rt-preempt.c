@@ -401,12 +401,15 @@ void _rtapi_task_stop_hook(task_data *task, int task_id) {
     extra_task_data[task_id].destroyed = 1;
 }
 
-int _rtapi_wait_hook(void) {
+int _rtapi_wait_hook(const int flags) {
     struct timespec ts;
     task_data *task = rtapi_this_task();
 
     if (extra_task_data[task_id(task)].deleted)
 	pthread_exit(0);
+
+    if (flags & TF_NOWAIT)
+	return 0;
 
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
 		    &extra_task_data[task_id(task)].next_time, NULL);
