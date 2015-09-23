@@ -1166,7 +1166,8 @@ static inline int hal_inst_delete(const char *name) {
 
 #define HC_INSTANTIABLE 1
 #define HC_SINGLETON 2
-#define HC_SOMEFEATURE  3
+#define HC_SMP_SAFE 4
+
 
 // misc, XXX - move to rtapi_common.c?
 char *fmt_ap(char *buffer,
