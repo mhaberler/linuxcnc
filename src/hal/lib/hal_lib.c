@@ -205,7 +205,11 @@ void rtapi_app_exit(void)
     HALDBG("removing RT hal_lib support");
     hal_proc_clean();
     halg_exit_thread(1, NULL);
-    hal_exit(lib_module_id);
+    // this halg_exit() will unload hal_lib and detach the HAL shm segment
+    // to avoid the chicken-and-egg problem of locking hal_data, and
+    // then detach the segment which contains the very lock
+    // do this unlocked.
+    halg_exit(0, lib_module_id);
     HALDBG("RT hal_lib support removed successfully");
 }
 #endif /* RTAPI */
