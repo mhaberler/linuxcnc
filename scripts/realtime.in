@@ -257,10 +257,8 @@ Unload(){
     RTAPI_PID=`$PIDOF rtapi:$INSTANCE`
     if [ "$RTAPI_PID" != "" ] ; then
 	if [ $DEBUG -gt 0 ] ; then
-	    halcmd unload all
 	    halcmd shutdown
 	else
-	    halcmd unload all          >/dev/null 2>&1
 	    halcmd shutdown            >/dev/null 2>&1
         fi
     fi
