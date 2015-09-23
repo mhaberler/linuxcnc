@@ -306,6 +306,20 @@ FLAVOR_SRCS =  rtapi/flavor.c rtapi/rtapi_compat.c
 USERSRCS += $(FLAVOR_SRCS)
 TARGETS += ../libexec/flavor
 
+# inspect RTAPI_CAP tags
+CAPS_SRCS =  rtapi/rtapicaps.c
+
+../libexec/rtapicaps: $(call TOOBJS, $(CAPS_SRCS)) \
+		../lib/liblinuxcnculapi.so
+	$(ECHO) Linking $(notdir $@)
+	@mkdir -p $(dir $@)
+	$(Q)$(CC)  $(LDFLAGS) -o $@ $^ -lrt
+
+USERSRCS += $(CAPS_SRCS)
+TARGETS += ../libexec/rtapicaps
+
+
+
 $(call TOOBJSDEPS, rtapi/shmdrv/mutexwatch.c)): \
 	EXTRAFLAGS +=  $(RTAPI_MSGD_CFLAGS) \
 	-DTHREADS_HEADERS=\"rtapi/rt-preempt.h\"
