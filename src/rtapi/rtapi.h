@@ -730,9 +730,8 @@ extern long long int _rtapi_get_clocks(void);
 typedef void (*taskcode_t) (void*);
 
 typedef enum {
-    TF_NONRT  = RTAPI_BIT(0),   // into low-prio class, no RT prio
-    TF_NOWAIT  = RTAPI_BIT(1),  // skip rtapi_wait() in thread_task
-
+    TF_NONRT    = RTAPI_BIT(0), // into low-prio class, no RT prio
+    TF_NOWAIT   = RTAPI_BIT(1), // skip rtapi_wait() in thread_task
 } rtapi_thread_flags_t;
 
 // argument structure for rtapi_task_new():
@@ -832,10 +831,10 @@ extern int _rtapi_task_start(int task_id, unsigned long int period_nsec);
     undefined.  The function will return at the beginning of the
     next period.  Call only from within a realtime task.
 */
-typedef void (*rtapi_wait_t)(void);
-#define rtapi_wait()				\
-    rtapi_switch->rtapi_wait()
-extern void _rtapi_wait(void);
+typedef int (*rtapi_wait_t)(int);
+#define rtapi_wait(flag)				\
+    rtapi_switch->rtapi_wait(flag)
+extern int _rtapi_wait(const int flag);
 
 /** 'rtapi_task_resume() starts a task in free-running mode. 'task_id'
     is a task ID from a call to rtapi_task_new().  The task must be in

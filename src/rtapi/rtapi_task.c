@@ -452,14 +452,15 @@ int _rtapi_task_pause(int task_id) {
 }
 
 #ifdef HAVE_RTAPI_WAIT_HOOK
-extern void _rtapi_wait_hook(void);
+extern int _rtapi_wait_hook(int);
 #endif
 
-void _rtapi_wait(void) {
+int _rtapi_wait(const int flag) {
 #ifdef HAVE_RTAPI_WAIT_HOOK
-    _rtapi_wait_hook();
+    return _rtapi_wait_hook(flag);
+#else
+    return 0;
 #endif
-    return;
 }
 
 #ifdef HAVE_RTAPI_TASK_RESUME_HOOK
