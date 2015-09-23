@@ -31,7 +31,6 @@ static void thread_task(void *arg)
 	.argc = 0,
 	.argv = NULL,
     };
-    bool do_wait = ((thread->flags & TF_NOWAIT) == 0);
 
     while (1) {
 	if (hal_data->threads_running > 0) {
@@ -126,8 +125,7 @@ static void thread_task(void *arg)
 	thread->m2 += tdelta * (x - thread->mean);
 
 	/* wait until next period */
-	if (do_wait)
-	    rtapi_wait();
+	rtapi_wait(thread->flags);
     }
 }
 
