@@ -573,7 +573,9 @@ typedef struct hal_funct {
     hal_funct_signature_t type; // drives call signature, addf
     s32_pin_ptr f_runtime;	// (pin) duration of last run, in nsec
     s32_pin_ptr f_maxtime;	// duration of longest run, in nsec
+#ifdef ENABLE_TMAX_INC
     bit_pin_ptr f_maxtime_increased;	// on last call, maxtime increased
+#endif
     int uses_fp;		/* floating point flag */
     int reentrant;		/* non-zero if function is re-entrant */
     int users;			/* number of threads using function */

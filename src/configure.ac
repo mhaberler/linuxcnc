@@ -909,6 +909,17 @@ AC_ARG_ENABLE(dev,
       BUILD_DEV=no
     ])
 
+AC_MSG_CHECKING(whether to create the tmax-inc pin for each funct)
+AC_ARG_ENABLE(tmax-inc,
+    [  --enable-tmax-inc       create the tmax-inc pin for each funct],
+    [
+	AC_DEFINE(ENABLE_TMAX_INC, [], [concurrencykit.org support available])
+        AC_MSG_RESULT([configuring to create the tmax-inc pin for each funct])
+    ],
+    [
+      AC_MSG_RESULT([disabling the tmax-inc pin])
+    ])
+
 ##############################################################################
 # Subsection 2.3.1                                                           #
 # ck, protobuf, czmq, websockets, json, uriparse, avahi-client packages      #
