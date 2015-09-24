@@ -133,8 +133,10 @@ static int halg_export_xfunctfv(const int use_hal_mutex,
     case FS_XTHREADFUNC:
 	nf->f_runtime = halx_pin_s32_newf(HAL_OUT, xf->owner_id,"%s.time",name);
 	nf->f_maxtime = halx_pin_s32_newf(HAL_IO, xf->owner_id,"%s.tmax",name);
+#ifdef ENABLE_TMAX_INC
 	nf->f_maxtime_increased =
 	    halx_pin_bit_newf(HAL_OUT,xf->owner_id,"%s.tmax-inc",name);
+#endif
 	// TBD: check success of above
 	break;
     case FS_USERLAND: // no timing pins/params
