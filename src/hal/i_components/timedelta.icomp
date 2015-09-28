@@ -5,9 +5,14 @@ pin out s32 err=0;
 pin out s32 min_=0;
 pin out s32 max_=0;
 pin out s32 jitter=0;
-pin out float avg_err=0 """
-    still called avg_err for compatability, but only one instance so
-    err is just err """;
+pin out float avg_err=0;
+pin io s32 count = 1  """
+    This is the number of components in use.  It replaces the count
+    kernel parameter which was passed to the component in legacy
+    components.  If more than one in use, must setp this pin to that
+    number before initiating
+    See example in scripts/latency-test:104
+    """;
 pin in bit reset;
 
 function _ nofp;
@@ -42,7 +47,8 @@ hal_s64_t del = (now - last);
                 max_ = del;
             jitter = max(max_ - period, period - min_);
             }
-        avg_err = err;
+        count = (count + 1);
+        avg_err = err / count;
         }
 
     if(reset)

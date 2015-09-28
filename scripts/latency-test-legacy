@@ -116,6 +116,9 @@ loadrt threads name1=fast period1=$BASE name2=slow period2=$SERVO
 loadrt timedelta count=2
 addf timedelta.0 fast
 addf timedelta.1 slow
+# if 2 components in use, let them know for average calcs
+setp timedelta.0.count 2
+setp timedelta.1.count 2
 start
 loadusr -Wn lat pyvcp lat.xml
 net sl timedelta.1.max => lat.sl

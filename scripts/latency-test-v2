@@ -18,7 +18,7 @@ parse_time () {
     *us|*µs) icalc "1000*${1%us}" ;;
     *ms) icalc "1000*1000*${1%ms}" ;;
     *s)  icalc "1000*1000*1000*${1%s}" ;;
-    *)   if [ $1 -lt 1000 ]; then icalc "1000$*1"; else icalc "$1"; fi ;;
+    *)   if [ $1 -lt 1000 ]; then icalc "1000*$1"; else icalc "$1"; fi ;;
     esac
 }
 
@@ -31,14 +31,15 @@ human_time () {
     fi
 }
 
-BASE=$(parse_time 25us); SERVO=$(parse_time 1ms)
+#BASE=$(parse_time 25us); SERVO=$(parse_time 1ms)
+BASE=0; SERVO=$(parse_time 1ms)
 case $# in
 0) ;;
 1) BASE=$(parse_time $1) ;;
 2) BASE=$(parse_time $1); SERVO=$(parse_time $2) ;;
 *)
     echo "Usage: latency-test [base-period [servo-period]]"
-    echo "Default: latency-test 25us 1ms"
+    echo "Default: latency-test 1ms"
     echo "Times may be specified with suffix \"s\", \"ms\", \"us\" \"µs\", or \"ns\""
     echo "Times without a suffix and less than 1000 are taken to be in us;"
     echo "other times without a suffix are taken to be in ns"
@@ -56,14 +57,14 @@ SERVO_HUMAN=$(human_time $SERVO)
 if [ $BASE -eq 0 ]; then
 cat > lat.hal <<EOF
 loadrt threads name1=slow period1=$SERVO
-loadrt timedelta count=1
-addf timedelta.0 slow
+loadrt timedeltav2 count=1
+addf timedeltav2.0 slow
 start
 loadusr -Wn lat pyvcp lat.xml
-net sl timedelta.0.max => lat.sl
-net sj timedelta.0.jitter => lat.sj
-net st timedelta.0.out => lat.st
-net reset lat.reset => timedelta.0.reset
+net sl timedeltav2.0.max => lat.sl
+net sj timedeltav2.0.jitter => lat.sj
+net st timedeltav2.0.out => lat.st
+net reset lat.reset => timedeltav2.0.reset
 waitusr lat
 loadusr -w bash latexit.sh
 EOF
@@ -96,22 +97,22 @@ EOF
 
 else
 cat > lat.hal <<EOF
-loadrt threads name1=fast period1=$BASE cpu1=1 name2=slow period2=$SERVO cpu2=1
-loadrt timedelta count=2
-addf timedelta.0 fast
-addf timedelta.1 slow
+loadrt threads name1=fast period1=$BASE name2=slow period2=$SERVO
+loadrt timedeltav2 count=2
+addf timedeltav2.0 fast
+addf timedeltav2.1 slow
 # if 2 components in use, let them know for average calcs
-setp timedelta.0.count 2
-setp timedelta.1.count 2
+setp timedeltav2.0.count 2
+setp timedeltav2.1.count 2
 start
 loadusr -Wn lat pyvcp lat.xml
-net sl timedelta.1.max => lat.sl
-net sj timedelta.1.jitter => lat.sj
-net st timedelta.1.out => lat.st
-net bl timedelta.0.max => lat.bl
-net bj timedelta.0.jitter => lat.bj
-net bt timedelta.0.out => lat.bt
-net reset lat.reset => timedelta.0.reset timedelta.1.reset
+net sl timedeltav2.1.max => lat.sl
+net sj timedeltav2.1.jitter => lat.sj
+net st timedeltav2.1.out => lat.st
+net bl timedeltav2.0.max => lat.bl
+net bj timedeltav2.0.jitter => lat.bj
+net bt timedeltav2.0.out => lat.bt
+net reset lat.reset => timedeltav2.0.reset timedeltav2.1.reset
 waitusr lat
 loadusr -w bash latexit.sh
 EOF

@@ -1,4 +1,4 @@
-#!/usr/bin/wish8.5
+#!/usr/bin/wish8.6
 
 # Notes:
 # notusing y axis title because it coredumps with X BadMatch with wish8.5
@@ -192,7 +192,9 @@ proc start_hal_timedelta {} {
   hal loadrt timedelta names=base:time,servo:time
   hal addf  base:time base
   hal addf servo:time servo
-
+  hal setp base:time.count 2
+  hal setp servo:time.count 2
+  
   hal net  servo_max    servo:time.max
   hal net  servo_jitter servo:time.jitter
   hal net  servo_out    servo:time.out
