@@ -26,5 +26,7 @@ message RTAPICommand {
     optional string              func    = 11;
     optional string             instname = 12;
     optional int32                flags  = 13;
+    optional string              modpath = 14; // the search path along rpath: 'v2:v1:.'
+    optional string          module_path = 15; // where module was found
 
 }

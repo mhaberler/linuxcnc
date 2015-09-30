@@ -202,7 +202,7 @@ class RTAPIcommand:
         if r:
             raise RuntimeError("rtapi_delthread failed:  %s" % strerror(-r))
 
-    def loadrt(self,*args, instance=0, **kwargs):
+    def loadrt(self,*args, int instance=0, char *modpath=<char *>NULL, **kwargs):
         cdef char** argv
         cdef char *name
 
@@ -212,7 +212,7 @@ class RTAPIcommand:
         for key in kwargs.keys():
             args +=('%s=%s' % (key, str(kwargs[key])), )
         argv = _to_argv(args[1:])
-        r = rtapi_loadrt( instance, name, <const char **>argv)
+        r = rtapi_loadrt( instance, name, <const char **>argv,  <const char *>modpath)
         free(argv)
         if r:
             raise RuntimeError("rtapi_loadrt '%s' failed: %s" % (args,strerror(-r)))
@@ -243,7 +243,7 @@ class RTAPIcommand:
         if status is CS_NOT_LOADED:
             if autoload:  # flag to prevent creating a new instance
                 tmpArgv = _to_argv([])
-                rtapi_loadrt(instance, comp, <const char **>tmpArgv)
+                rtapi_loadrt(instance, comp, <const char **>tmpArgv, NULL)  # FIXME
             else:
                 raise RuntimeError("component '%s' not loaded\n" % comp)
         elif status is CS_NOT_RT:

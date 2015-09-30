@@ -115,6 +115,8 @@ typedef int (*hal_exit_usercomps_t)(char *);
 
 // all we know about a module
 typedef struct modinfo {
+    string module_name;
+    string pathname;
     void *handle;
     pbstringarray_t iparm; // default instance params
 } modinfo_t;
@@ -178,7 +180,7 @@ static int init_actions(int instance);
 static void exit_actions(int instance);
 static int harden_rt(void);
 static void stderr_rtapi_msg_handler(msg_level_t level, const char *fmt, va_list ap);
-static int record_instparms(char *fname, modinfo_t &mi);
+static int record_instparms(modinfo_t &mi);
 
 static int do_one_item(char item_type_char,
 		       const string &param_name,
@@ -538,14 +540,41 @@ static int do_callfunc_cmd(int instance,
     return retval;
 }
 
+static int find_module(modinfo_t &mi, const string &modpath)
+{
+    vector<string> dir;
+    vector<string> subdir({""});
+    string pn;
+
+    boost::split(dir, rpath, boost::is_any_of(":"),
+		 boost::algorithm::token_compress_on);
+    if (modpath.size())
+	boost::split(subdir, modpath, boost::is_any_of(":"),
+		     boost::algorithm::token_compress_on);
+    else
+	subdir[0] = "";
+
+    for(size_t i = 0; i < dir.size(); i++) {
+	for(size_t j = 0; j < subdir.size(); j++) {
+	    string pn = dir[i] + "/" +  subdir[j] + "/" + mi.module_name;
+	    struct stat sb;
+	    if (stat(pn.c_str(), &sb))
+		continue;
+	    rtapi_print_msg(RTAPI_MSG_INFO, "pn=%s\n", pn.c_str());
+	    mi.pathname = pn;
+	    return 0;
+	}
+    }
+    return -1;
+}
 
 
 static int do_load_cmd(int instance,
 		       string name,
 		       pbstringarray_t args,
+		       string modpath,
 		       pb::Container &pbreply)
 {
-    char module_name[PATH_MAX];
     int retval;
 
     if (modules.count(name) == 0) {
@@ -560,21 +589,28 @@ static int do_load_cmd(int instance,
 	    }
 	    return retval;
 	} else {
-	    strncpy(module_name, (name + flavor->mod_ext).c_str(),
-		    PATH_MAX);
-	    modinfo_t mi = modinfo_t();
 
-	    mi.handle = dlopen(module_name, RTLD_GLOBAL |RTLD_NOW);
+	    modinfo_t mi = modinfo_t();
+	    mi.module_name = name + flavor->mod_ext;
+
+	    if (find_module(mi, modpath)) {
+		note_printf(pbreply, "%s: find_module: %s not found along %s",
+			    __FUNCTION__, mi.module_name.c_str(), modpath.c_str());
+		note_printf(pbreply, "rpath=%s", rpath == NULL ? "" : rpath);
+		return -1;
+	    }
+
+	    mi.handle = dlopen(mi.pathname.c_str(), RTLD_GLOBAL |RTLD_NOW);
 	    if (!mi.handle) {
 		string errmsg(dlerror());
-		note_printf(pbreply, "%s: dlopen: %s",
-			    __FUNCTION__, errmsg.c_str());
+		note_printf(pbreply, "%s: dlopen(%s): %s",
+			    __FUNCTION__, mi.pathname.c_str(), errmsg.c_str());
 		note_printf(pbreply, "rpath=%s", rpath == NULL ? "" : rpath);
 		return -1;
 	    }
 	    // first load of a module. Record default instanceparams
 	    // so they can be replayed before newinst
-	    record_instparms(module_name, mi);
+	    record_instparms(mi);
 
 	    // retrieve the address of rtapi_switch_struct
 	    // so rtapi functions can be called and members
@@ -617,7 +653,7 @@ static int do_load_cmd(int instance,
 	    loading_order.push_back(name);
 
 	    rtapi_print_msg(RTAPI_MSG_DBG, "%s: loaded from %s\n",
-			    name.c_str(), module_name);
+			    name.c_str(), mi.pathname.c_str());
 	    return 0;
 	}
     } else {
@@ -743,10 +779,10 @@ static int init_actions(int instance)
 	}
     }
     pb::Container reply;
-    retval =  do_load_cmd(instance, RTAPIMOD, pbstringarray_t(), reply);
+    retval =  do_load_cmd(instance, RTAPIMOD, pbstringarray_t(), "", reply);
     if (retval)
 	return retval;
-    if ((retval = do_load_cmd(instance, HALMOD, pbstringarray_t(), reply)))
+    if ((retval = do_load_cmd(instance, HALMOD, pbstringarray_t(), "", reply)))
 	return retval;
 
     if (!kernel_threads(flavor)) {
@@ -903,6 +939,7 @@ static int rtapi_request(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	pbreply.set_retcode(do_load_cmd(pbreq.rtapicmd().instance(),
 					pbreq.rtapicmd().modname(),
 					pbreq.rtapicmd().argv(),
+					pbreq.rtapicmd().modpath(),
 					pbreply));
 	break;
 
@@ -1739,7 +1776,7 @@ static void remove_module(std::string name)
 //
 // in do_newinst_cmd(), apply those defaults before the actual parameters
 // are applied.
-static int record_instparms(char *fname, modinfo_t &mi)
+static int record_instparms(modinfo_t &mi)
 {
     if (rpath == NULL)
 	return -1;
@@ -1747,29 +1784,8 @@ static int record_instparms(char *fname, modinfo_t &mi)
     void *section = NULL;
     int csize = -1;
     size_t i;
-    vector<string> tokens;
-    string pn;
-    string rp(rpath);
 
-    // find the location of the shared library - the dlopen()
-    // handle wont tell us the pathname
-    // so walk the rpath and stat
-    boost::split(tokens, rp, boost::is_any_of(":"),
-			 boost::algorithm::token_compress_on);
-
-    for(i = 0; i < tokens.size() && csize < 0; i++) {
-	pn = tokens[i]+ "/" + fname;
-	struct stat sb;
-	if (stat(pn.c_str(), &sb))
-	    continue;
-	// found it. get the params section.
-	csize = get_elf_section(pn.c_str(), ".rtapi_export" , &section);
-    }
-    if (csize < 0) {
-	rtapi_print_msg(RTAPI_MSG_ERR, "cant open %s\n", fname);
-	return -1;
-    }
-
+    csize = get_elf_section(mi.pathname.c_str(), ".rtapi_export" , &section);
     char *s;
     vector<string> symbols;
     string sym;
@@ -1827,7 +1843,7 @@ static int record_instparms(char *fname, modinfo_t &mi)
 		default:
 		    rtapi_print_msg(RTAPI_MSG_ERR,
 				    "%s: unhandled instance param type '%c'",
-				    fname, **type);
+				    mi.module_name.c_str(), **type);
 		}
 	    } else {
 		// TBD: arrays
@@ -1839,7 +1855,7 @@ static int record_instparms(char *fname, modinfo_t &mi)
 
     }
     rtapi_print_msg(RTAPI_MSG_DBG,
-		    "%s default iparms: '%s'", fname,
+		    "%s default iparms: '%s'", mi.module_name.c_str(),
 		    pbconcat(mi.iparm).c_str());
     free(section);
     return 0;

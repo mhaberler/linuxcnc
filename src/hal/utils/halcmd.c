@@ -94,6 +94,8 @@ char comp_name[HAL_NAME_LEN+1];	/* name for this instance of halcmd */
 flavor_ptr current_flavor;
 int autoload = 1;  // on newinst, if comp not loaded, loadrt it
 
+char *loading_path;
+
 static void quit(int);
 
 static pid_t pid_of(const char *fmt, ...)
@@ -206,6 +208,7 @@ struct halcmd_command halcmd_commands[] = {
     {"log",     FUNCT(do_log_cmd),     A_TWO | A_OPTIONAL},
     {"net",     FUNCT(do_net_cmd),     A_ONE | A_PLUS | A_REMOVE_ARROWS },
     {"newsig",  FUNCT(do_newsig_cmd),  A_TWO },
+    {"modpath", FUNCT(do_modpath_cmd),  A_ONE | A_OPTIONAL},
     {"ping",    FUNCT(do_ping_cmd), A_ZERO },
     {"save",    FUNCT(do_save_cmd),    A_TWO | A_OPTIONAL | A_TILDE },
     {"setexact_for_test_suite_only", FUNCT(do_setexact_cmd), A_ZERO },

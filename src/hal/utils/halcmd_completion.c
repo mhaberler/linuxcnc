@@ -60,6 +60,7 @@ static const char *command_table[] = {
     "newcomp","newpin","ready","waitbound", "waitunbound", "waitexists",
     "log","shutdown","ping","newthread","delthread",
     "sleep","vtable","autoload","newinst", "delinst",
+    "modpath",
     NULL,
 };
 
@@ -70,7 +71,7 @@ static const char *nonRT_command_table[] = {
 
 static const char *show_table[] = {
     "all", "comp", "pin", "sig", "param", "funct", "thread", "group", "member",
-    "ring", "eps","vtable","inst",
+    "ring", "eps","vtable","inst","modpath",
     NULL,
 };
 

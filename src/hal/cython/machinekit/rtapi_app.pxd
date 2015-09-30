@@ -2,7 +2,7 @@
 cdef extern from "halcmd_rtapiapp.h":
 
     int rtapi_connect(int instance, char *uri,  char *svc_uuid)
-    int rtapi_loadrt(int instance, const char *modname, const char **args)
+    int rtapi_loadrt(int instance, const char *modname, const char **args, const char *loading_path)
     int rtapi_unloadrt(int instance, const char *modname)
     int rtapi_shutdown(int instance)
     int rtapi_ping(int instance)

@@ -70,6 +70,8 @@
 #include <math.h> /* floorl */
 #include <czmq.h>
 
+extern char *loading_path;
+
 const char *logpath = "/var/log/linuxcnc.log";
 
 static int unloadrt_comp(const char *mod_name);
@@ -1217,7 +1219,7 @@ int loadrt(const int use_halmutex, char *mod_name, char *args[])
     int n, retval;
     char arg_string[MAX_CMD_LEN+1];
 
-    retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args);
+    retval = rtapi_loadrt(rtapi_instance, mod_name, (const char **)args, loading_path);
     if ( retval != 0 ) {
 	halcmd_error("insmod failed, returned %d:\n%s\n"
 		     "See %s for more information.\n",
@@ -4207,6 +4209,18 @@ int do_handshake_cmd(char *signal)
     return -ENOSYS;
 }
 
+
+
+int do_modpath_cmd(char *modpath)
+{
+    if (modpath && strlen(modpath)) {
+	if (loading_path)
+	    free(loading_path);
+	loading_path = strdup(modpath);
+    } else
+	halcmd_info("module load path: %s\n", loading_path ? loading_path : "");
+    return 0;
+}
 
 ////////////////////////////////////////////////////////////////////////
 

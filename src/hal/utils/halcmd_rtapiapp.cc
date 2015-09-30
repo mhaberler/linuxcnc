@@ -128,7 +128,11 @@ int rtapi_delinst(int instance,
 
 }
 
-static int rtapi_loadop(pb::ContainerType type, int instance, const char *modname, const char **args)
+static int rtapi_loadop(pb::ContainerType type,
+			int instance,
+			const char *modname,
+			const char **args,
+			const char *modpath)
 {
     pb::RTAPICommand *cmd;
     command.Clear();
@@ -136,6 +140,8 @@ static int rtapi_loadop(pb::ContainerType type, int instance, const char *modnam
     cmd = command.mutable_rtapicmd();
     cmd->set_modname(modname);
     cmd->set_instance(instance);
+    if (modpath)
+	cmd->set_modpath(modpath);
 
     int argc = 0;
     if (args)
@@ -149,14 +155,14 @@ static int rtapi_loadop(pb::ContainerType type, int instance, const char *modnam
     return reply.retcode();
 }
 
-int rtapi_loadrt(int instance, const char *modname, const char **args)
+int rtapi_loadrt(int instance, const char *modname, const char **args, const char *modpath)
 {
-    return rtapi_loadop(pb::MT_RTAPI_APP_LOADRT, instance, modname, args);
+    return rtapi_loadop(pb::MT_RTAPI_APP_LOADRT, instance, modname, args, modpath);
 }
 
 int rtapi_unloadrt(int instance, const char *modname)
 {
-    return rtapi_loadop(pb::MT_RTAPI_APP_UNLOADRT, instance, modname, NULL);
+    return rtapi_loadop(pb::MT_RTAPI_APP_UNLOADRT, instance, modname, NULL, NULL);
 }
 
 int rtapi_shutdown(int instance)
