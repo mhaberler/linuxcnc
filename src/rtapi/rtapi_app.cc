@@ -603,7 +603,7 @@ static int do_load_cmd(int instance,
 	    mi.handle = dlopen(mi.pathname.c_str(), RTLD_GLOBAL |RTLD_NOW);
 	    if (!mi.handle) {
 		string errmsg(dlerror());
-		note_printf(pbreply, "%s: dlopen(%s): %s",
+		note_printf(pbreply, "%s: dlopen:  %s: %s",
 			    __FUNCTION__, mi.pathname.c_str(), errmsg.c_str());
 		note_printf(pbreply, "rpath=%s", rpath == NULL ? "" : rpath);
 		return -1;
