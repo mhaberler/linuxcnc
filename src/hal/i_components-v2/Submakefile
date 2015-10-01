@@ -26,7 +26,7 @@ endif
 
 
 ifeq ($(BUILD_THREAD_MODULES),yes)
-obj-m-v2 += \
+obj-m- += \
 	$(patsubst $(HALICOMPV2DIR)/%.icomp, %.o, $(ICOMPSV2))
 endif
 
