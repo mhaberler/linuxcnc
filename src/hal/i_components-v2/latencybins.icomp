@@ -1,4 +1,4 @@
-component latencybinsv2
+component latencybins
 """comp utility for scripts/latencyhistogram
 
 Usage:

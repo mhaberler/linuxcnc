@@ -1,4 +1,4 @@
-component lutnv2;
+component lutn;
 
 pin_ptr out bit out = 0;
 pin_ptr in bit in#[pincount] = 0;
