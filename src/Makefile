@@ -217,6 +217,7 @@ SUBDIRS := \
 	\
 	hal/lib \
 	hal/i_components \
+	hal/i_components-v2 \
 	hal/components \
 	hal/vtable-example \
 	hal/icomp-example \
@@ -1131,6 +1132,7 @@ include $(BASEPWD)/machinetalk/msginfo/Submakefile
 include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/i_components/Submakefile
+include $(BASEPWD)/hal/i_components-v2/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
 include $(BASEPWD)/hal/vtable-example/Submakefile
 include $(BASEPWD)/hal/userfunct-example/Submakefile
@@ -1555,18 +1557,23 @@ TORTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
 ifeq ($(BUILD_SYS)+$(BUILD_THREAD_MODULES),user-dso+yes)
 EXTRA_CFLAGS += -fPIC
 
+RTIOBJS := $(sort $(foreach mod,$(obj-m-i),$(call TORTOBJS,$(mod))))
+RTV2OBJS := $(sort $(foreach mod,$(obj-m-v2),$(call TORTOBJS,$(mod))))
 RTOBJS := $(sort $(foreach mod,$(obj-m),$(call TORTOBJS,$(mod))))
 CXXRTOBJS := $(sort $(foreach mod,$(obj-cpp),$(call TORTOBJS,$(mod))))
 
-RTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(RTOBJS)))
+RTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(RTOBJS) $(RTIOBJS) $(RTV2OBJS)))
 CXXRTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(CXXRTOBJS)))
 
 IS_POWERPC = test `uname -m` = ppc -o `uname -m` = ppc64
-modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m)) $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-cpp))
+modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m)) 		\
+	$(patsubst %.o,$(RTLIBDIR)/i/%.so,$(obj-m-i)) 	\
+	$(patsubst %.o,$(RTLIBDIR)/v2/%.so,$(obj-m-v2)) 	\
+	$(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-cpp))
 
 $(RTLIBDIR)/%.so:
 	$(ECHO) Linking $@
-	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $@) $(dir $(OBJDIR)/$*)
 	$(Q)$(LD) -r -o $(OBJDIR)/$*.tmp \
 	    $^
 	@if ! $(IS_POWERPC); then $(OBJCOPY) -j .rtapi_export -O binary \
@@ -1593,7 +1600,7 @@ $(sort $(CXXRTDEPS)): $(DEPDIR)/%.d: %.cc
 		$(DEBUG) $(EXTRA_CFLAGS) $<)
 
 # Rules to make .o (object) files
-$(sort $(RTOBJS)) : $(OBJDIR)/%.o : %.c $(DEPDIR)/%.d
+$(sort $(RTOBJS) $(RTIOBJS) $(RTV2OBJS) ) : $(OBJDIR)/%.o : %.c $(DEPDIR)/%.d
 	$(ECHO) Compiling realtime $<
 	@rm -f $@
 	@mkdir -p $(dir $@)
