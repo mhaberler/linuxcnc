@@ -1,0 +1,68 @@
+HALICOMPV2DIR= hal/i_components-v2
+
+HALICOMPV2_SUBMAKEFILE= $(HALICOMPV2DIR)/Submakefile
+
+
+ifeq ($(BUILD_KBUILD),yes)
+ICOMPSV2 := $(patsubst $(BASEPWD)/%,%,$(wildcard \
+	$(BASEPWD)/$(HALICOMPV2DIR)/*.icomp ))
+include $(patsubst %.icomp, $(BASEPWD)/halcomp-srcs/v2/%.mak, $(ICOMPSV2))
+else
+ICOMPSV2 := $(sort $(wildcard $(HALICOMPV2DIR)/*.icomp))
+
+ICOMPV2_MANPAGES := $(patsubst $(HALICOMPV2DIR)/%.icomp, ../man/man9/%.9icomp, \
+	$(ICOMPSV2))
+
+
+i_manpages-v2: $(ICOMPV2_MANPAGES)
+TARGETS += i_manpages-v2
+.PHONY: i_manpages-v2
+
+ifeq ($(TRIVIAL_BUILD)+$(BUILD_THREAD_MODULES),no+yes)
+-include $(patsubst %.icomp, $(BASEPWD)/halcomp-srcs/v2/%.mak,\
+	$(ICOMPSV2))
+endif # TRIVIAL_BUILD == no
+endif
+
+
+ifeq ($(BUILD_THREAD_MODULES),yes)
+obj-m-v2 += \
+	$(patsubst $(HALICOMPV2DIR)/%.icomp, %.o, $(ICOMPSV2))
+endif
+
+ICOMPV2_MANPAGES := $(patsubst $(HALICOMPV2DIR)/%.icomp, ../man/man9/%.9icomp, \
+	$(ICOMPSV2))
+
+$(ICOMPV2_MANPAGES): ../man/man9/%.9icomp: $(HALICOMPV2DIR)/%.icomp ../bin/instcomp
+	$(ECHO) Making icomp manpage $(notdir $@)
+	@mkdir -p $(dir $@)
+	$(Q)../bin/instcomp --document -o $@ $<
+
+ifeq ($(BUILD_ALL_FLAVORS),yes)
+# .c and .mak files are identical for all flavors
+#
+# in the top-level make, build them once in a common location
+halcomp-srcs/v2/%.c: %.icomp ../bin/instcomp
+	$(ECHO) "Preprocessing $(notdir $<)"
+	@mkdir -p $(dir $@)
+	$(Q)../bin/instcomp --require-license -o $@ $<
+
+halcomp-srcs/v2/%.mak: %.icomp $(HALICOMPV2_SUBMAKEFILE)
+	$(ECHO) "Creating $(notdir $@)"
+	$(ECHO) "Creating $@"
+	@mkdir -p $(dir $@)
+	$(Q)echo "$(notdir $*)-objs := halcomp-srcs/v2/$*.o" > $@.tmp
+	$(Q)echo "\$$(RTLIBDIR)/v2/$(notdir $*)\$$(MODULE_EXT): \\" >> $@.tmp
+	$(Q)echo "    \$$(OBJDIR)/halcomp-srcs/v2/$*.o" >> $@.tmp
+	$(Q)mv -f $@.tmp $@
+
+# Generate .c and .mak files before the modules target
+modules: $(patsubst %.icomp, halcomp-srcs/v2/%.c, \
+	$(ICOMPSV2) )
+modules: $(patsubst %.icomp, halcomp-srcs/v2/%.mak, \
+	$(ICOMPSV2))
+endif # BUILD_ALL_FLAVORS == yes
+
+clean: clean-icomp-v2-manpages
+clean-icomp-v2-manpages:
+	-rm -f $(ICOMPV2_MANPAGES)
