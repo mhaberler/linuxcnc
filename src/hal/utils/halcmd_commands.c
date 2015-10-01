@@ -360,44 +360,7 @@ int do_addf_cmd(char *func, char *thread, char **opt)
     }
     return retval;
 }
-#if 0
-int do_alias_cmd(char *pinparam, char *name, char *alias) {
-    int retval;
 
-    if ( strcmp (pinparam, "pin" ) == 0 ) {
-	retval = hal_pin_alias(name, alias);
-    } else if ( strcmp (pinparam, "param" ) == 0 ) {
-	retval = hal_param_alias(name, alias);
-    } else {
-	retval = -EINVAL;
-    }
-    if(retval == 0) {
-        halcmd_info("%s '%s' aliased to '%s'\n",
-                    pinparam, name, alias);
-    } else {
-        halcmd_error("alias failed\n");
-    }
-    return retval;
-}
-
-int do_unalias_cmd(char *pinparam, char *name) {
-    int retval;
-    if (strcmp(pinparam, "pin") == 0) {
-        retval = hal_pin_alias(name, NULL);
-    } else if ( strcmp (pinparam, "param" ) == 0 ) {
-      retval = hal_param_alias(name, NULL);
-    } else {
-        return -EINVAL;
-    };
-    if(retval == 0) {
-        halcmd_info("%s '%s' unaliased\n",
-                    pinparam, name);
-    } else {
-        halcmd_error("unalias failed\n");
-    }
-    return retval;
-}
-#endif
 int do_delf_cmd(char *func, char *thread) {
     int retval;
 
@@ -459,19 +422,6 @@ static int preflight_net_cmd(char *signal, hal_sig_t *sig, char *pins[])
 	};
 	if (halg_foreach(0, &bidirargs, find_modifier))
 	    bidir_name = writer_name = bidirargs.user_ptr2;
-
-#if 0
-        hal_pin_t *pin;
-        int next;
-        for(next = hal_data->pin_list_ptr; next; next=pin->next_ptr)
-        {
-            pin = SHMPTR(next);
-            if(SHMPTR(pin->signal) == sig && pin->dir == HAL_OUT)
-                writer_name = pin->name;
-            if(SHMPTR(pin->signal) == sig && pin->dir == HAL_IO)
-                bidir_name = writer_name = pin->name;
-        }
-#endif
     }
 
     for(i=0; pins[i] && *pins[i]; i++) {
@@ -1540,85 +1490,6 @@ int do_unloadrt_cmd(char *name)
     halcmd_error("unloadrt failed rc=%d\n", args.user_arg2);
     return args.user_arg2;
 }
-
-
-#if 0
-int XXXXdo_unloadrt_cmd(char *mod_name)
-{
-    int next, retval, retval1, nc, nvt, all;
-    hal_comp_t *comp;
-
-    zlist_t *components = zlist_new ();     //  http://api.zeromq.org/czmq3-0:zlist
-    zlist_t *vtables = zlist_new ();
-
-    zlist_autofree (components); // normal rtcomps
-    zlist_autofree (vtables);    // vtables still referenced
-
-    all = strcmp(mod_name, "all" ) == 0;
-
-    /* build a list of component(s) to unload */
-    rtapi_mutex_get(&(hal_data->mutex));
-    next = hal_data->comp_list_ptr;
-    while (next != 0) {
-	comp = SHMPTR(next);
-	if ( comp->type == TYPE_RT ) {
-	    if ( all || ( strcmp(mod_name, comp->name) == 0 )) {
-		// see if a HAL vtable is exported by this comp, and
-		// add to 'unload last' list if any found
-		foreach_args_t args =  {
-		    .type = HAL_VTABLE,
-		    .user_arg1 = comp->comp_id,
-		    .user_arg2 = 0, // returned count of exported vtables
-		};
-		halg_foreach(false, &args, _count_exported_vtables);
-		if (args.user_arg2) {
-		    // this comp exports (a) vtable(s)
-		    zlist_append(vtables, comp->name);
-		    goto NEXTCOMP;
-		} else
-		    zlist_append(components, comp->name);
-	    }
-	}
-	NEXTCOMP:
-	next = comp->next_ptr;
-    }
-    rtapi_mutex_give(&(hal_data->mutex));
-    nc = zlist_size(components);
-    nvt = zlist_size(vtables);
-
-    if (!all && ((nc + nvt) == 0)) {
-	halcmd_error("component '%s' is not loaded\n", mod_name);
-	retval1 = -1;
-	goto EXIT;
-    }
-    // concat vtables to end of component list
-    char *name;
-    while ((name = zlist_pop(vtables)) != NULL)
-	zlist_append(components, name);
-
-    /* we now have a list of components to do in-order, unload them */
-    retval1 = 0;
-    while ((name = zlist_pop(components)) != NULL) {
-	retval = unloadrt_comp(name);
-	/* check for fatal error */
-	if ( retval < -1 ) {
-	    retval1 = retval;
-	    goto EXIT;
-	}
-	/* check for other error */
-	if ( retval != 0 ) {
-	    retval1 = retval;
-	}
-    }
-    if (retval1 < 0) {
-	halcmd_error("unloadrt failed\n");
-    }
- EXIT:
-    zlist_destroy (&components);
-    zlist_destroy (&vtables);
-    return retval1;
-}
-#endif
 
 int do_shutdown_cmd(void)
 {
@@ -4432,12 +4303,6 @@ int do_help_cmd(char *command)
 	printf("loadrt modname [modarg(s)]\n");
 	printf("  Loads realtime HAL module 'modname', passing 'modargs'\n");
 	printf("  to the module.\n");
-#if 0  /* newinst deferred to version 2.2 */
-    } else if (strcmp(command, "newinst") == 0) {
-	printf("newinst modname instname\n");
-	printf("  Creates another instance of previously loaded module\n" );
-	printf("  'modname', nameing it 'instname'.\n");
-#endif
     } else if (strcmp(command, "unload") == 0) {
 	printf("unload compname\n");
 	printf("  Unloads HAL module 'compname', whether user space or realtime.\n");
