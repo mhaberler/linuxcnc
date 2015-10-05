@@ -1,0 +1,10 @@
+loadrt timedelta
+addf timedelta.0 servo-thread
+
+loadusr -Wn lat pyvcp lat.xml
+net sl timedelta.0.max => lat.sl
+net sj timedelta.0.jitter => lat.sj
+net st timedelta.0.out => lat.st
+net sv timedelta.0.avgerr => lat.sv
+net reset lat.reset => timedelta.0.reset
+

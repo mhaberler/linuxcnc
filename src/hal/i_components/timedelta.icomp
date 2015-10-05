@@ -5,17 +5,18 @@ pin out s32 err=0;
 pin out s32 min_=0;
 pin out s32 max_=0;
 pin out s32 jitter=0;
-pin out float avg_err=0 """
-    still called avg_err for compatability, but only one instance so
-    err is just err """;
+pin out s32 avgerr=0;
 pin in bit reset;
 
 function _ nofp;
 
 variable hal_s64_t last=0;
 variable hal_s32_t first=1;
+variable hal_s32_t count = 1; // prevent divide by zero error
 license "GPL";
+
 ;;
+
 #undef max
 #define max(a,b) ((a)>(b)?(a):(b))
 
@@ -23,11 +24,15 @@ FUNCTION(_)
 {
 hal_s64_t now = rtapi_get_time();
 hal_s64_t del = (now - last);
+hal_s64_t absl = del - period;
     out = del;
 
     if(last != 0)
         {
-        err = err + del - period;
+        // only want average of actual pos overrun errors , not neg underruns as well
+        // they normally balance out which will give a meaningless figure of 0-5 ish average
+        if(absl > 0L)
+            err = err + absl;
         if(first)
             {
             first = 0;
@@ -40,18 +45,21 @@ hal_s64_t del = (now - last);
                 min_ = del;
             if(del > max_)
                 max_ = del;
+            // this is a cumulative highest recorded jitter figure
             jitter = max(max_ - period, period - min_);
             }
-        avg_err = err;
+        // if last poll did not produce an overrun, don't add to count
+        // or will get false low average
+        if(absl > 0L)
+            count++;
+        // this is an actual average of all the overruns
+        avgerr = err / count;
         }
 
     if(reset)
         {
         first = 1;
-        last = 0;
-        out = 0;
-        jitter = 0;
-        max_ = 0;
+        last = out = jitter = absl = max_ = min_ = avgerr = 0;
         }
     else
         last = now;

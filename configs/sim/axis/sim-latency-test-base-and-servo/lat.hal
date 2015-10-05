@@ -1,0 +1,15 @@
+loadrt timedelta count=2
+addf timedelta.1 servo-thread
+addf timedelta.0 base-thread
+
+loadusr -Wn lat pyvcp lat.xml
+net sl timedelta.1.max => lat.sl
+net sj timedelta.1.jitter => lat.sj
+net st timedelta.1.out => lat.st
+net sv timedelta.1.avgerr => lat.sv
+net bl timedelta.0.max => lat.bl
+net bj timedelta.0.jitter => lat.bj
+net bt timedelta.0.out => lat.bt
+net bv timedelta.0.avgerr => lat.bv
+net reset lat.reset => timedelta.0.reset timedelta.1.reset
+
