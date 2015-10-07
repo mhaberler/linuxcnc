@@ -1333,7 +1333,7 @@ def process(filename, mode, outfilename):
                     c += g
                     c += "{"
                     c += "\nlong period __attribute__((unused)) = fa_period(fa);\n"
-                    c += "struct inst_data *ip = arg;\n\n"
+                    c += "struct inst_data *ip __attribute__((unused)) = arg;\n\n"
                     c += h
                     insert = False
                 else :
