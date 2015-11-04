@@ -1155,10 +1155,10 @@ def document(filename, outfilename):
     print >>f, ".LP"
     print >>f, ".B primarily pincount= which can set the number of pins created for that instance (where applicable)\n"
     print >>f, ".HP"
-    
+
     print >>f, ".RE"
     print >>f, ".SH NAME"
-    print >>f, ".HP"    
+    print >>f, ".HP"
     print >>f, ".HP"
     doc = finddoc('component')
     if doc and doc[2]:
@@ -1231,7 +1231,7 @@ def document(filename, outfilename):
                 print >>f, "\\fB%s.N.%s.funct\\fR" % (comp_name, name) ,
             else :
                 print >>f, "\\fB%s.N.funct\\fR" % comp_name ,
-	    print >>f, "\n( OR"
+		print >>f, "\n( OR"
             if name != None and name != "_":
                 print >>f, "\\fB<newinstname>.%s.funct\\fR"  % name ,
             else :
@@ -1241,8 +1241,8 @@ def document(filename, outfilename):
             else:
                 print >>f, " )"
             print >>f, ".HP"
-            print >>f, doc        
-            
+            print >>f, doc
+
     lead = ".TP"
     print >>f, ".SH PINS"
     print >>f, ".HP"
@@ -1258,7 +1258,7 @@ def document(filename, outfilename):
             print >>f, "\\fR(default: \\fI%s\\fR)" % value
         else:
             print >>f, "\\fR"
-	print >>f, "( OR"
+	    print >>f, "( OR"
 
         print >>f, ".B <newinstname>.%s \\fR" % name,
         print >>f, type, dir,
@@ -1270,7 +1270,7 @@ def document(filename, outfilename):
         else:
             print >>f, "\\fR )\n"
         if doc:
-	    print >>f, ".HP"
+    	    print >>f, ".HP"
             print >>f, doc
 
     lead = ".TP"
@@ -1291,8 +1291,8 @@ def document(filename, outfilename):
                 print >>f, doc
                 lead = ".TP"
             else:
-                lead = ".TQ"            
-        
+                lead = ".TQ"
+
     if moduleparams:
         print >>f, ".SH MODULE_PARAMETERS"
         print >>f, ".HP"
@@ -1337,9 +1337,9 @@ def document(filename, outfilename):
         print >>f, ".SH LICENSE"
         print >>f, ".HP"
         print >>f, ".HP"
-        print >>f, "%s" % doc[1]            
-            
-###########################################################        
+        print >>f, "%s" % doc[1]
+
+###########################################################
 
 
 def process(filename, mode, outfilename):
@@ -1396,7 +1396,7 @@ def process(filename, mode, outfilename):
                     c += g
                     c += "{"
                     c += "\nlong period __attribute__((unused)) = fa_period(fa);\n"
-                    c += "struct inst_data *ip = arg;\n\n"
+                    c += "struct inst_data *ip __attribute__((unused)) = arg;\n\n"
                     c += h
                     insert = False
                 else :
@@ -1410,7 +1410,7 @@ def process(filename, mode, outfilename):
         elif len(functions) == 1:
             f.write("FUNCTION(%s)\n{\n" % functions[0][0])
             f.write("long period __attribute__((unused)) = fa_period(fa);\n")
-            f.write("struct inst_data *ip = arg;\n\n")
+            f.write("struct inst_data *ip __attribute__((unused)) = arg;\n\n")
             f.write("#line %d \"%s\"\n" % (lineno, filename))
             f.write(b)
             f.write("\n}\n")
