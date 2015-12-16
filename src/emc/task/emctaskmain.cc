@@ -60,6 +60,17 @@
 #include <locale.h>
 
 
+using namespace std;
+#include "czmq.h"
+#include "zmqsupport.hh"
+#include <google/protobuf/text_format.h>
+#include <google/protobuf/message_lite.h>
+
+using namespace google::protobuf;
+#include <machinetalk/generated/types.pb.h>
+#include <machinetalk/generated/task.pb.h>
+#include <machinetalk/generated/message.pb.h>
+
 #if 0
 // Enable this to niftily trap floating point exceptions for debugging
 #include <fpu_control.h>
@@ -82,6 +93,9 @@ fpu_control_t __fpu_control = _FPU_IEEE & ~(_FPU_MASK_IM | _FPU_MASK_ZM | _FPU_M
 #include "taskclass.hh"
 #include "motion.h"             // EMCMOT_ORIENT_*
 #include "inihal.hh"
+
+
+
 
 /* time after which the user interface is declared dead
  * because it would'nt read any more messages
@@ -142,6 +156,22 @@ int _task = 1; // control preview behaviour when remapping
 static const char *io_error = "toolchanger error %d";
 
 extern void setup_signal_handlers(); // backtrace, gdb-in-new-window supportx
+
+// each request gets assigned a ticket number in the reply
+// the ticket number is passed to the client in the submit reply
+// and used for completion updates
+static int ticket = 1;
+
+// the command originator ID
+// initial commands are self-generated, so tag as 'task'
+std::string origin = "task";
+
+// track emcStatus->status for zmq-injected commands
+static int prev_status = UNINITIALIZED_STATUS;
+
+// current command symbol
+const char *current_cmd = "";
+
 
 void log_condition(const char *tag, const int state, const NMLmsg *cmd);
 void log_transition(const char *tag, const int from, const int to);
@@ -804,9 +834,12 @@ static int emcTaskPlan(void)
     int retval = 0;
 
     // check for new command
-    if (emcCommand->serial_number != emcStatus->echo_serial_number) {
+    if (emcCommand->serial_number > emcStatus->echo_serial_number) {
 	// flag it here locally as a new command
 	type = emcCommand->type;
+	current_cmd = emcSymbolLookup(emcCommand->type);
+	fprintf(stderr, "%s new command %s, %d/%d\n",
+		__FUNCTION__, current_cmd, emcCommand->serial_number,emcStatus->echo_serial_number);
     } else {
 	// no new command-- reset local flag
 	type = 0;
@@ -2073,17 +2106,33 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	break;
 
     case EMC_TASK_ABORT_TYPE:
+	publish_ticket_update(RCS_EXEC, emcStatus->ticket,
+			      origin, current_cmd);
 	// abort everything
-    // KLUDGE call motion abort before state restore to make absolutely sure no
-    // stray restore commands make it down to motion
+	// KLUDGE call motion abort before state restore to make absolutely sure no
+	// stray restore commands make it down to motion
 	emcMotionAbort();
-    // Then call state restore to update the interpreter
-    emcTaskStateRestore();
+	// Then call state restore to update the interpreter
+	emcTaskStateRestore();
 	emcTaskAbort();
         emcIoAbort(EMC_ABORT_TASK_ABORT);
         emcSpindleAbort();
 	mdi_execute_abort();
 	emcAbortCleanup(EMC_ABORT_TASK_ABORT);
+
+	// the interp_list has been cleared
+	// and a EMC_TASK_PLAN_SYNCH queued, so size = 1
+	// conceptually the ticket issuing the abort is done here
+	// since the synch() is immediately executed, need to update
+	// the current ticket status here since the completion
+	// logic doesnt work in this case:
+
+	fprintf(stderr, "task abort: update ticket %d status=%s->%s to origin=%s\n",
+		emcStatus->ticket, rcs_statename[prev_status],
+		rcs_statename[emcStatus->status], origin.c_str());
+
+	publish_ticket_update(RCS_DONE, emcStatus->ticket,
+			      origin, current_cmd);
 	retval = 0;
 	break;
 
@@ -3126,6 +3175,8 @@ static int emctask_shutdown(void)
 	delete emcStatus;
 	emcStatus = 0;
     }
+
+    shutdown_zmq();
     return 0;
 }
 
@@ -3312,6 +3363,12 @@ int main(int argc, char *argv[])
 	emctask_shutdown();
 	exit(1);
     }
+
+    if (setup_zmq()) {
+	emctask_shutdown();
+	exit(1);
+    }
+
     // initialize globals
     emcInitGlobals();
 
@@ -3330,6 +3387,7 @@ int main(int argc, char *argv[])
     // get our status data structure
     // moved up from emc_startup so we can expose it in Python right away
     emcStatus = new EMC_STAT;
+    emcStatus->ticket = ticket;
 
     // get the Python plugin going
 
@@ -3378,14 +3436,111 @@ int main(int argc, char *argv[])
     minTime = DBL_MAX;		// set to value that can never be exceeded
     maxTime = 0.0;		// set to value that can never be underset
 
+    pb::Container request;
+    string wrapped_nml;
+
     while (!done) {
         check_ini_hal_items();
+
+
+#if 0
 	// read command
 	if (0 != emcCommandBuffer->peek()) {
 	    // got a new command, so clear out errors
 	    taskPlanError = 0;
 	    taskExecuteError = 0;
 	}
+#else
+	if (zsocket_poll (cmd,  emcTaskEager||emcTaskNoDelay ? 0: 10)) {
+            zmsg_t *msg = zmsg_recv (cmd);
+            if (!msg)
+                continue;          //  Interrupted
+            if (zdebug) {
+                zclock_log ("task: received message:");
+                zmsg_dump (msg);
+            }
+	    // first frame: originating socket identity
+	    char *o = zmsg_popstr (msg);
+	    origin = string(o);
+	    free(o);
+
+	    // second frame: protobof-encoded NML message
+	    // see protobuf/proto/message.proto Container/legacy_nml
+            zframe_t *pb_req  = zmsg_pop (msg);
+
+	    if (request.ParseFromArray(zframe_data(pb_req),zframe_size(pb_req))) {
+		switch (request.type()) {
+		case pb::MT_LEGACY_NML:
+		    // tunneled case, a wrapped NML message
+		    assert (request.has_legacy_nml());
+		    wrapped_nml = request.legacy_nml();
+		    emcCommand = (RCS_CMD_MSG *) wrapped_nml.c_str();
+		    current_cmd = emcSymbolLookup(emcCommand->type);
+		    break;
+
+		case pb:: MT_EMC_TASK_ABORT:
+		    // non-tunneled case, a native protobuf replacement for NML
+		    fprintf(stderr, "--- NML-free zone not reached yet\n");
+		    continue;
+		    break;
+
+		default:
+		    abort();
+		}
+		ticket += 1;
+		emcStatus->ticket = ticket;
+
+		// kick taskplan into action
+		emcCommand->serial_number = ticket;
+
+		// mark as executing a new command to assure a transition
+		prev_status = RCS_RECEIVED;
+
+		pb::Container answer;
+		pb::TaskReply *task_reply;
+
+		answer.set_type(pb::MT_TASK_REPLY);
+		task_reply = answer.mutable_task_reply();
+		task_reply->set_ticket(ticket);
+		task_reply->set_status(pb::RCS_RECEIVED);
+
+		zmsg_t *reply = zmsg_new ();
+		zmsg_pushstr(reply, origin.c_str());
+
+		size_t pb_reply_size = answer.ByteSize();
+		zframe_t *pb_reply_frame = zframe_new (NULL, pb_reply_size);
+		assert(answer.SerializeToArray(zframe_data (pb_reply_frame),
+					       zframe_size (pb_reply_frame)));
+		zmsg_add (reply, pb_reply_frame);
+		if (zdebug) {
+		    fprintf(stderr, "task: received %s ticket %d\n",
+			    emcSymbolLookup(emcCommand->type),
+			    emcStatus->ticket);
+		    zclock_log ("task: reply message:");
+		    zmsg_dump (reply);
+		}
+		assert(zmsg_send (&reply, cmd) == 0);
+		assert (reply == NULL);
+	    }
+	} else {
+
+	    // nothing there, normal NML transport
+	    emcCommand = emcCommandBuffer->get_address();
+	    // read command
+	    if (0 != emcCommandBuffer->peek()) {
+		current_cmd = emcSymbolLookup(emcCommand->type);
+		// got a new command, so clear out errors
+		taskPlanError = 0;
+		taskExecuteError = 0;
+		ticket += 1;
+		emcStatus->ticket = ticket;
+		origin = "legacynml";
+
+		// mark as executing a new command to assure a transition
+		prev_status = RCS_RECEIVED;
+	    }
+	}
+#endif
 	// run control cycle
 	if (0 != emcTaskPlan()) {
 	    taskPlanError = 1;
@@ -3542,6 +3697,19 @@ int main(int argc, char *argv[])
 	// no need to call the individual functions on all WM items.
 	emcStatusBuffer->write(emcStatus);
 
+	// detect changes in status and push ticket updates
+	if (prev_status ^ emcStatus->status) {
+
+	    fprintf(stderr, "task: update ticket %d status=%s->%s to origin=%s\n",
+		    emcStatus->ticket, rcs_statename[prev_status],
+		rcs_statename[emcStatus->status],origin.c_str());
+ 
+	    publish_ticket_update(emcStatus->status, emcStatus->ticket,
+				  origin, current_cmd);
+
+	    prev_status = emcStatus->status;
+	}
+
 	// wait on timer cycle, if specified, or calculate actual
 	// interval if ini file says to run full out via
 	// [TASK] CYCLE_TIME <= 0.0d
@@ -3559,7 +3727,7 @@ int main(int argc, char *argv[])
 	if ((emcTaskNoDelay) || (emcTaskEager)) {
 	    emcTaskEager = 0;
 	} else {
-	    timer->wait();
+	    // timer->wait();  // wait now happens in zmq_poll()
 	}
     }
     // end of while (! done)
