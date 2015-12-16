@@ -143,6 +143,16 @@ static const char *io_error = "toolchanger error %d";
 
 extern void setup_signal_handlers(); // backtrace, gdb-in-new-window supportx
 
+void log_condition(const char *tag, const int state, const NMLmsg *cmd);
+void log_transition(const char *tag, const int from, const int to);
+static const char *rcs_statename[] = {
+    "invalid (0)",
+    "RCS_DONE",
+    "RCS_EXEC",
+    "RCS_ERROR",
+    "RCS_RECEIVED",
+};
+
 static sighandler_t chain_sigterm_handler;
 
 static int all_homed(void) {
@@ -3509,4 +3519,36 @@ int main(int argc, char *argv[])
     }
     // and leave
     exit(0);
+}
+
+static const char *statename[] = {
+    "invalid (0)",
+    "EXEC_ERROR",
+    "EXEC_DONE",
+    "EXEC_WAITING_FOR_MOTION",
+    "EXEC_WAITING_FOR_MOTION_QUEUE",
+    "EXEC_WAITING_FOR_IO",
+    "unused (6)",
+    "EXEC_WAITING_FOR_MOTION_AND_IO",
+    "EXEC_WAITING_FOR_DELAY",
+    "EXEC_WAITING_FOR_SYSTEM_CMD",
+    "EXEC_WAITING_FOR_SPINDLE_ORIENTED",
+};
+
+
+void log_condition(const char *tag, const int state, const NMLmsg *cmd)
+{
+    const char *c = "(none)";
+
+    if (cmd)
+	c = emcSymbolLookup(cmd->type);
+    if (emc_debug & EMC_DEBUG_EXEC_STATE) {
+	fprintf(stderr, "----- current state: %s  %s for command %s\n", tag, statename[state], c);
+    }
+}
+void log_transition(const char *tag, const int from, const int to)
+{
+    if (emc_debug & EMC_DEBUG_EXEC_STATE) {
+	fprintf(stderr, "----- transition %s %s  -> %s\n", tag, statename[from], statename[to]);
+    }
 }
