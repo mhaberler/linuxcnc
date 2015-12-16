@@ -44,3 +44,26 @@ USERSRCS += $(MILLTASKSRCS)
 	$(ECHO) Linking $(notdir $@)
 	$(Q)$(CXX) -o $@ $^ $(LDFLAGS) $(BOOST_PYTHON_LIBS) -l$(LIBPYTHON)
 TARGETS += ../bin/milltask
+
+
+
+ZMQCMD_SRCS := emc/task/zmqcmd.cc
+USERSRCS += $(ZMQCMD_SRCS)
+$(call TOOBJSDEPS, $(ZMQCMD_SRCS)) : EXTRAFLAGS += \
+	$(REPORT_CCFLAGS) \
+	$(ZMQ_CXX_CFLAGS) \
+	$(PB_CXX_CFLAGS)
+
+../bin/zmqcmd: $(call TOOBJS, $(ZMQCMD_SRCS)) \
+	../lib/liblinuxcnc.a \
+	../lib/libnml.so.0 \
+	../lib/liblinuxcncini.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(CXX) -o $@ $^ $(LDFLAGS) \
+	../lib/libmtalk.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0 \
+	$(PROTOBUF_LIBS) 	\
+	$(CZMQ_LIBS)
+
+TARGETS += ../bin/zmqcmd
