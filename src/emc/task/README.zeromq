@@ -1,0 +1,22 @@
+This branch is hack to demonstrate how NML commands can be injected into task in parallel with the existing NML channel.
+
+Task will listen both on the legacy NML buffer, as well as a zeroMQ ROUTER socket. Clients are free to use either one.
+
+The bin/zmqcmd is just a test program exploring how to inject an EMC_TASK_ABORT message into task - so if say some gcode program is running, bin/zmqcmd should stop that run.
+
+emcmodule.cc (the 'import linuxcnc' extension) has been hacked to alternatively use zeroMQ submission. To enable this, export USE_ZMQ to be non-null. To trace zeroMQ messages, export ZDEBUG to be non-null.
+
+
+To see the full interaction and some more state transition tracing, turn on DEBUG=0x7ffffff in your ini file.
+
+
+Use it for no more than how to get the idea how this could work - the list of issues:
+
+- hardcoded zeroMQ URI's, localhost only
+- the ticket pattern uses a PUB channel for reply - a bad idea, should funnel replies through the ROUTER/DEALER pair
+- interworking of old (NML buffers) and new (zeromq submission) is VERY likely to be broken
+- task needs to track the current command better - it needs to record the channel which the command came in on, so as to funnel the right reply to the right channel. This needs additional datastructures for support.
+
+
+that said, simulator mode works for me. Read the plush log output of task to get the hang of it ;)
+
