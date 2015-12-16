@@ -89,6 +89,8 @@ message TaskReply {
     option (nanopb_msgopt).msgid = 1205;
 
     required fixed32  ticket   = 10;
+    required RCS_STATUS  status   = 20;
+
 };
 
 // signal completion of a particular ticket
