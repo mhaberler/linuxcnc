@@ -2539,6 +2539,7 @@ static int emcTaskExecute(void)
 	// clear out the interpreter state
 	emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
 	emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	log_transition("", EMC_TASK_EXEC_ERROR, EMC_TASK_EXEC_DONE);
 	stepping = 0;
 	steppingWait = 0;
 
@@ -2566,20 +2567,28 @@ static int emcTaskExecute(void)
 		    if (emcStatus->motion.traj.queueFull) {
 			emcStatus->task.execState =
 			    EMC_TASK_EXEC_WAITING_FOR_MOTION_QUEUE;
+			log_transition("(queue full)",
+				       EMC_TASK_EXEC_DONE, EMC_TASK_EXEC_WAITING_FOR_MOTION_QUEUE);
+
 		    } else {
 			emcStatus->task.execState =
 			    (enum EMC_TASK_EXEC_ENUM)
 			    emcTaskCheckPreconditions(emcTaskCommand);
+			log_condition("EXEC_DONE: precondition ", emcStatus->task.execState, emcTaskCommand);
 		    }
 		}
 	    } else {
 		// have an outstanding command
 		if (0 != emcTaskIssueCommand(emcTaskCommand)) {
 		    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+		    log_transition("(cmd failed)",
+				   EMC_TASK_EXEC_DONE, EMC_TASK_EXEC_ERROR);
 		    retval = -1;
 		} else {
 		    emcStatus->task.execState = (enum EMC_TASK_EXEC_ENUM)
 			emcTaskCheckPostconditions(emcTaskCommand);
+		    log_condition("EXEC_DONE: postcondition ", emcStatus->task.execState, emcTaskCommand);
+
 		    emcTaskEager = 1;
 		}
 		emcTaskCommand = 0;	// reset it
@@ -2593,9 +2602,14 @@ static int emcTaskExecute(void)
 	    if (0 != emcTaskCommand) {
 		emcStatus->task.execState = (enum EMC_TASK_EXEC_ENUM)
 		    emcTaskCheckPreconditions(emcTaskCommand);
+		log_condition("WAITING_FOR_MOTION_QUEUE: precondition ",
+			      emcStatus->task.execState, emcTaskCommand);
+
 		emcTaskEager = 1;
 	    } else {
 		emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+		log_transition("(!queue full)",
+			       EMC_TASK_EXEC_WAITING_FOR_MOTION_QUEUE, EMC_TASK_EXEC_DONE);
 		emcTaskEager = 1;
 	    }
 	}
@@ -2606,8 +2620,12 @@ static int emcTaskExecute(void)
 	if (emcStatus->motion.status == RCS_ERROR) {
 	    // emcOperatorError(0, "error in motion controller");
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(motion error)",
+			   EMC_TASK_EXEC_WAITING_FOR_MOTION, EMC_TASK_EXEC_ERROR);
 	} else if (emcStatus->motion.status == RCS_DONE) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	    log_transition("(motion done)",
+			   EMC_TASK_EXEC_WAITING_FOR_MOTION, EMC_TASK_EXEC_DONE);
 	    emcTaskEager = 1;
 	}
 	break;
@@ -2617,8 +2635,12 @@ static int emcTaskExecute(void)
 	if (emcStatus->io.status == RCS_ERROR) {
 	    // emcOperatorError(0, "error in IO controller");
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(io error)",
+			   EMC_TASK_EXEC_WAITING_FOR_IO, EMC_TASK_EXEC_ERROR);
 	} else if (emcStatus->io.status == RCS_DONE) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	    log_transition("(io done)",
+			   EMC_TASK_EXEC_WAITING_FOR_MOTION, EMC_TASK_EXEC_DONE);
 	    emcTaskEager = 1;
 	}
 	break;
@@ -2628,12 +2650,18 @@ static int emcTaskExecute(void)
 	if (emcStatus->motion.status == RCS_ERROR) {
 	    // emcOperatorError(0, "error in motion controller");
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(motiom error)",
+			   EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO, EMC_TASK_EXEC_ERROR);
 	} else if (emcStatus->io.status == RCS_ERROR) {
 	    // emcOperatorError(0, "error in IO controller");
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(io error)",
+			   EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO, EMC_TASK_EXEC_ERROR);
 	} else if (emcStatus->motion.status == RCS_DONE &&
 		   emcStatus->io.status == RCS_DONE) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	    log_transition("(io+motion done)",
+			   EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO, EMC_TASK_EXEC_DONE);
 	    emcTaskEager = 1;
 	}
 	break;
@@ -2644,6 +2672,8 @@ static int emcTaskExecute(void)
 	case EMCMOT_ORIENT_NONE:
 	case EMCMOT_ORIENT_COMPLETE:
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	    log_transition("(orient none|complete)",
+			   EMC_TASK_EXEC_WAITING_FOR_SPINDLE_ORIENTED, EMC_TASK_EXEC_DONE);
 	    emcStatus->task.delayLeft = 0;
 	    emcTaskEager = 1;
 	    rcs_print("wait for orient complete: nothing to do\n");
@@ -2652,6 +2682,8 @@ static int emcTaskExecute(void)
 	case EMCMOT_ORIENT_IN_PROGRESS:
 	    emcStatus->task.delayLeft = taskExecDelayTimeout - etime();
 	    if (etime() >= taskExecDelayTimeout) {
+		log_transition("(orient timeout)",
+			       EMC_TASK_EXEC_WAITING_FOR_SPINDLE_ORIENTED, EMC_TASK_EXEC_ERROR);
 		emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
 		emcStatus->task.delayLeft = 0;
 		emcTaskEager = 1;
@@ -2662,6 +2694,8 @@ static int emcTaskExecute(void)
 	case EMCMOT_ORIENT_FAULTED:
 	    // actually the code in main() should trap this before we get here
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(orient fault)",
+			   EMC_TASK_EXEC_WAITING_FOR_SPINDLE_ORIENTED, EMC_TASK_EXEC_ERROR);
 	    emcStatus->task.delayLeft = 0;
 	    emcTaskEager = 1;
 	    emcOperatorError(0, "wait for orient complete: FAULTED code=%d", 
@@ -2675,6 +2709,8 @@ static int emcTaskExecute(void)
 	emcStatus->task.delayLeft = taskExecDelayTimeout - etime();
 	if (etime() >= taskExecDelayTimeout) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	    log_transition("(delay expired)",
+			   EMC_TASK_EXEC_WAITING_FOR_DELAY, EMC_TASK_EXEC_DONE);
 	    emcStatus->task.delayLeft = 0;
 	    if (emcStatus->task.input_timeout != 0)
 		emcStatus->task.input_timeout = 1; // timeout occured
@@ -2689,6 +2725,8 @@ static int emcTaskExecute(void)
 			emcStatus->task.input_timeout = 0; // clear timeout flag
 			emcAuxInputWaitIndex = -1;
 			emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+			log_transition("(input wait high succeeded)",
+				       EMC_TASK_EXEC_WAITING_FOR_DELAY, EMC_TASK_EXEC_DONE);
 			emcStatus->task.delayLeft = 0;
 		    }
 		    break;
@@ -2704,6 +2742,8 @@ static int emcTaskExecute(void)
 			emcStatus->task.input_timeout = 0; // clear timeout flag
 			emcAuxInputWaitIndex = -1;
 			emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+			log_transition("(input wait low succeeded)",
+				       EMC_TASK_EXEC_WAITING_FOR_DELAY, EMC_TASK_EXEC_DONE);
 			emcStatus->task.delayLeft = 0;
 		    }
 		    break;
@@ -2718,6 +2758,8 @@ static int emcTaskExecute(void)
 		    emcStatus->task.input_timeout = 0; // clear timeout flag
 		    emcAuxInputWaitIndex = -1;
 		    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+		    log_transition("(input wait immediate succeeded)",
+				       EMC_TASK_EXEC_WAITING_FOR_DELAY, EMC_TASK_EXEC_DONE);
 		    emcStatus->task.delayLeft = 0;
 		    break;
 		
@@ -2733,6 +2775,8 @@ static int emcTaskExecute(void)
 	// if we got here without a system command pending, say we're done
 	if (0 == emcSystemCmdPid) {
 	    emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+	    log_transition("(no running cmd)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_DONE);
 	    break;
 	}
 	// check the status of the system command
@@ -2751,6 +2795,8 @@ static int emcTaskExecute(void)
 	    }
 	    emcSystemCmdPid = 0;
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(running cmd failed)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_ERROR);
 	    break;
 	}
 
@@ -2763,6 +2809,8 @@ static int emcTaskExecute(void)
 	    }
 	    emcSystemCmdPid = 0;
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(wrong cmd completed)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_ERROR);
 	    break;
 	}
 	// else child has finished
@@ -2771,6 +2819,8 @@ static int emcTaskExecute(void)
 		// child exited normally
 		emcSystemCmdPid = 0;
 		emcStatus->task.execState = EMC_TASK_EXEC_DONE;
+		log_transition("(cmd completed)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_DONE);
 		emcTaskEager = 1;
 	    } else {
 		// child exited with non-zero status
@@ -2781,6 +2831,8 @@ static int emcTaskExecute(void)
 		}
 		emcSystemCmdPid = 0;
 		emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+		log_transition("(cmd completed - FAIL)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_ERROR);
 	    }
 	} else if (WIFSIGNALED(status)) {
 	    // child exited with an uncaught signal
@@ -2790,12 +2842,16 @@ static int emcTaskExecute(void)
 	    }
 	    emcSystemCmdPid = 0;
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(cmd completed - FAIL - caught signal)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_ERROR);
 	} else if (WIFSTOPPED(status)) {
 	    // child is currently being traced, so keep waiting
 	} else {
 	    // some other status, we'll call this an error
 	    emcSystemCmdPid = 0;
 	    emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
+	    log_transition("(cmd completed - other failure)",
+			   EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD, EMC_TASK_EXEC_ERROR);
 	}
 	break;
 
