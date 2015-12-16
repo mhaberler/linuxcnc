@@ -27,6 +27,7 @@ MILLTASKSRCS := \
 	emc/task/taskmodule.cc \
 	emc/task/taskclass.cc \
 	emc/task/backtrace.cc \
+	emc/task/zmqsupport.cc \
 	$(ULAPISRCS)
 USERSRCS += $(MILLTASKSRCS)
 
@@ -34,6 +35,8 @@ USERSRCS += $(MILLTASKSRCS)
 
 ../bin/milltask: $(call TOOBJS, $(MILLTASKSRCS)) \
 	../lib/librs274.so.0 \
+	../lib/libmtalk.so.0 \
+	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/liblinuxcnc.a \
 	../lib/libnml.so.0 \
 	../lib/liblinuxcncini.so.0 \
@@ -42,7 +45,9 @@ USERSRCS += $(MILLTASKSRCS)
 	../lib/libpyplugin.so.0 \
 	../lib/librtapi_math.so.0
 	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CXX) -o $@ $^ $(LDFLAGS) $(BOOST_PYTHON_LIBS) -l$(LIBPYTHON)
+	$(Q)$(CXX) -o $@ $^ $(LDFLAGS) $(BOOST_PYTHON_LIBS) -l$(LIBPYTHON) \
+	$(PROTOBUF_LIBS) 	\
+	$(CZMQ_LIBS)
 TARGETS += ../bin/milltask
 
 
