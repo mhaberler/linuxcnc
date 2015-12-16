@@ -27,6 +27,7 @@ RCS_STAT_MSG::RCS_STAT_MSG(NMLTYPE t, size_t sz):NMLmsg(t, sz)
 // just avoiding an inline function.
     command_type = -1;
     echo_serial_number = -1;
+    ticket = -1;
     status = -1;
     state = -1;
     line = -1;
