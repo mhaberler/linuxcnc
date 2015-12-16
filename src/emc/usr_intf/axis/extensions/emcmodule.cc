@@ -21,6 +21,12 @@
 #include <pthread.h>
 #include <structmember.h>
 #include "config.h"
+
+#include <machinetalk/generated/types.pb.h>
+#include <machinetalk/generated/task.pb.h>
+#include <machinetalk/generated/message.pb.h>
+using namespace google::protobuf;
+
 #include "rcs.hh"
 #include "emc.hh"
 #include "emc_nml.hh"
@@ -30,8 +36,10 @@
 #include "timer.hh"
 #include "nml_oi.hh"
 #include "rcs_print.hh"
-
 #include <cmath>
+#include "czmq.h"
+
+using namespace std;
 
 #ifndef T_BOOL
 // The C++ standard probably doesn't specify the amount of storage for a 'bool',
@@ -68,7 +76,6 @@
 #define LOCAL_AUTO_RESUME (2)
 #define LOCAL_AUTO_STEP (3)
 
-
 /* This definition of offsetof avoids the g++ warning
  * 'invalid offsetof from non-POD type'.
  */
@@ -91,6 +98,7 @@ struct pyCommandChannel {
     RCS_CMD_CHANNEL *c;
     RCS_STAT_CHANNEL *s;
     int serial;
+    int ticket;
 };
 
 struct pyErrorChannel {
@@ -99,6 +107,150 @@ struct pyErrorChannel {
 };
 
 static PyObject *m = NULL, *error = NULL;
+
+static zctx_t *z_context;
+static void *z_task;
+static bool use_zmq;
+static bool zdebug;
+static char z_ident[20];
+
+#define REPLY_TIMEOUT 3000 //ms
+#define UPDATE_TIMEOUT 3000 //ms
+
+// ticket update subscriber
+static pthread_t listener_thread;
+// initially unlocked, for atomic updates to last_*_seen:
+static pthread_mutex_t status_mutex = PTHREAD_MUTEX_INITIALIZER;
+static volatile int last_ticket_seen = -1;
+static volatile int last_status_seen =  UNINITIALIZED_STATUS;
+
+static zctx_t *l_context;
+static void *l_update;
+
+static void listener_cleanup(void *arg)
+{
+    if (zdebug)
+	fprintf(stderr, "listener_cleanup() called\n");
+    zsocket_destroy (l_context, l_update);
+    zctx_destroy (&l_context);
+}
+
+static void *
+listener (void *identity)
+{
+
+    l_context = zctx_new ();
+    l_update = zsocket_new (l_context, ZMQ_SUB);
+    zsocket_set_subscribe (l_update, z_ident);
+    assert(zsocket_connect (l_update, "tcp://127.0.0.1:5557") == 0);
+
+    // cleanup handler on cancellation
+    pthread_cleanup_push(listener_cleanup, NULL);
+
+    do {
+	zmsg_t *m_update = zmsg_recv (l_update);
+	pb::Container update;
+        char *dest = zmsg_popstr (m_update);
+	free(dest);
+	zframe_t *pb_update  = zmsg_pop (m_update);
+
+	assert(update.ParseFromArray(zframe_data(pb_update),
+				     zframe_size(pb_update)));
+	zmsg_destroy(&m_update);
+
+	assert(update.type() == pb::MT_TICKET_UPDATE);
+	assert(update.has_ticket_update());
+
+	pthread_mutex_lock (&status_mutex);
+	last_status_seen = update.ticket_update().status();
+	last_ticket_seen = update.ticket_update().cticket();
+	pthread_mutex_unlock (&status_mutex);
+
+	if (zdebug)
+	    fprintf(stderr, "listener %s: cticket = %d status=%d\n",
+		    z_ident, last_ticket_seen, last_status_seen);
+    } while (1);
+    static int cleanup_pop_arg;
+    pthread_cleanup_pop(cleanup_pop_arg);
+    return NULL;
+}
+
+static int z_init(void)
+{
+    if (z_context)  // singleton - once only
+	return 0;
+
+    use_zmq = (getenv("USE_ZMQ") != NULL);
+    if (!use_zmq)
+	return 0;
+
+    zdebug = (getenv("ZDEBUG") != NULL);
+
+    // Verify that the version of the library that we linked against is
+    // compatible with the version of the headers we compiled against.
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    snprintf(z_ident, sizeof(z_ident), "emcmod%d", getpid());
+
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    assert(pthread_create(&listener_thread, &attr, listener,z_ident) == 0);
+    pthread_attr_destroy(&attr);
+
+    z_context = zctx_new ();
+    z_task = zsocket_new (z_context, ZMQ_DEALER);
+    zsocket_set_linger (z_task, 0);
+    zsocket_set_identity (z_task, z_ident);
+    zsocket_set_rcvtimeo (z_task, REPLY_TIMEOUT);
+    assert(zsocket_connect(z_task, "tcp://127.0.0.1:5556") == 0);
+    return 0;
+}
+
+// called on module unload
+static void z_shutdown(void)
+{
+    void *status;
+
+    pthread_cancel(listener_thread);
+    pthread_join(listener_thread, &status);
+}
+
+static int z_submit(void *rcs_cmd, size_t rcs_cmdsize)
+{
+    pb::Container request;
+
+    request.set_type(pb::MT_LEGACY_NML);
+    request.set_legacy_nml(rcs_cmd, rcs_cmdsize);
+
+    size_t pb_request_size = request.ByteSize();
+    zframe_t *pb_frame = zframe_new (NULL, pb_request_size);
+
+    assert(request.SerializeToArray(zframe_data (pb_frame), zframe_size (pb_frame)));
+    assert(zframe_send (&pb_frame, z_task, 0) == 0);
+
+    zmsg_t *reply = zmsg_recv (z_task);
+    if (!reply) {
+	fprintf(stderr, "%s:  z_submit %s : reply timeout\n",
+		z_ident, emcSymbolLookup(((RCS_CMD_MSG *)rcs_cmd)->type));
+	return -1;
+    }
+    zframe_t *pb_response  = zmsg_pop (reply);
+
+    pb::Container response;
+    if (!response.ParseFromArray(zframe_data(pb_response),zframe_size(pb_response))) {
+	fprintf(stderr, "%s: response not a valid protobuf frame: %s\n",
+		z_ident, zframe_strhex (pb_response));
+	abort();
+    }
+    assert(response.has_task_reply());
+    int ticket = response.task_reply().ticket();
+    if (zdebug)
+	fprintf(stderr, "%s: got ticket = %d\n", z_ident, ticket);
+
+    return ticket;
+}
+
 
 static int Ini_init(pyIniFile *self, PyObject *a, PyObject *k) {
     char *inifile;
@@ -211,7 +363,6 @@ static PyTypeObject Ini_Type = {
 
 static int emcWaitCommandComplete(int serial_number, RCS_STAT_CHANNEL *s, double timeout) {
     double start = etime();
-
     do {
         double now = etime();
         if(s->peek() == EMC_STAT_TYPE) {
@@ -222,10 +373,36 @@ static int emcWaitCommandComplete(int serial_number, RCS_STAT_CHANNEL *s, double
                 return s->get_address()->status;
            }
         }
-        esleep(rtapi_fmin(timeout - (now - start), EMC_COMMAND_DELAY));
+        esleep(fmin(timeout - (now - start), EMC_COMMAND_DELAY));
     } while (etime() - start < timeout);
     return -1;
 }
+
+static int waitTicketCompleted(int ticket, double timeout)
+{
+    int last_status, last_ticket;
+
+    double start = etime();
+    do {
+	// read ticket, status - critical region
+	pthread_mutex_lock (&status_mutex);
+	last_status = last_status_seen;
+	last_ticket = last_ticket_seen;
+	pthread_mutex_unlock (&status_mutex);
+
+	assert(last_ticket <= ticket); // invariant
+
+        if ((last_ticket == ticket) &&
+	    ((last_status == RCS_DONE) ||
+	     (last_status == RCS_ERROR)))
+	    return last_status;
+
+        double now = etime();
+        esleep(fmin(timeout - (now - start), EMC_COMMAND_DELAY));
+    } while (etime() - start < timeout);
+    return -ETIMEDOUT;
+}
+
 
 static void emcWaitCommandReceived(int serial_number, RCS_STAT_CHANNEL *s) {
     double start = etime();
@@ -706,6 +883,7 @@ static int Command_init(pyCommandChannel *self, PyObject *a, PyObject *k) {
 
     self->s = s;
     self->c = c;
+
     return 0;
 }
 
@@ -720,11 +898,15 @@ static PyObject *block_delete(pyCommandChannel *s, PyObject *o) {
 
     if(!PyArg_ParseTuple(o, "i", &t)) return NULL;
     m.state = t;
-            
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
 
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -736,10 +918,15 @@ static PyObject *optional_stop(pyCommandChannel *s, PyObject *o) {
     if(!PyArg_ParseTuple(o, "i", &t)) return NULL;
     m.state = t;
 
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
 
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -756,9 +943,15 @@ static PyObject *mode(pyCommandChannel *s, PyObject *o) {
             PyErr_Format(PyExc_ValueError,"Mode should be MODE_MDI, MODE_MANUAL, or MODE_AUTO");
             return NULL;
     }
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -766,9 +959,15 @@ static PyObject *mode(pyCommandChannel *s, PyObject *o) {
 static PyObject *maxvel(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_MAX_VELOCITY m;
     if(!PyArg_ParseTuple(o, "d", &m.velocity)) return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }    
@@ -776,19 +975,29 @@ static PyObject *maxvel(pyCommandChannel *s, PyObject *o) {
 static PyObject *feedrate(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_SCALE m;
     if(!PyArg_ParseTuple(o, "d", &m.scale)) return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-    Py_INCREF(Py_None);
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+	Py_INCREF(Py_None);
+    }
     return Py_None;
 }
 
 static PyObject *spindleoverride(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_SPINDLE_SCALE m;
     if(!PyArg_ParseTuple(o, "d", &m.scale)) return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -806,41 +1015,66 @@ static PyObject *spindle(pyCommandChannel *s, PyObject *o) {
             }
             EMC_SPINDLE_ON m;
             m.speed = dir * vel;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
+	    if (use_zmq) {
+		s->ticket = z_submit(&m, sizeof(m));
+	    } else {
+		s->ticket = -1;
+		m.serial_number = next_serial(s);
+		s->c->write(m);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
         }
             break;
         case LOCAL_SPINDLE_INCREASE:
-        {
-            EMC_SPINDLE_INCREASE m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
+	    {
+		EMC_SPINDLE_INCREASE m;
+		if (use_zmq) {
+		    s->ticket = z_submit(&m, sizeof(m));
+		} else {
+		    s->ticket = -1;
+		    m.serial_number = next_serial(s);
+		    s->c->write(m);
+		    emcWaitCommandReceived(s->serial, s->s);
+		}
+	    }
             break;
         case LOCAL_SPINDLE_DECREASE:
         {
             EMC_SPINDLE_DECREASE m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
+	    if (use_zmq) {
+		s->ticket = z_submit(&m, sizeof(m));
+	    } else {
+		s->ticket = -1;
+		m.serial_number = next_serial(s);
+		s->c->write(m);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
+	}
             break;
         case LOCAL_SPINDLE_CONSTANT:
         {
             EMC_SPINDLE_CONSTANT m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
+	    if (use_zmq) {
+		s->ticket = z_submit(&m, sizeof(m));
+	    } else {
+		s->ticket = -1;
+		m.serial_number = next_serial(s);
+		s->c->write(m);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
+	}
             break;
         case LOCAL_SPINDLE_OFF:
         {
             EMC_SPINDLE_OFF m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
+	    if (use_zmq) {
+		s->ticket = z_submit(&m, sizeof(m));
+	    } else {
+		s->ticket = -1;
+		m.serial_number = next_serial(s);
+		s->c->write(m);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
         }
             break;
         default:
@@ -860,10 +1094,16 @@ static PyObject *mdi(pyCommandChannel *s, PyObject *o) {
         return NULL;
     }
     EMC_TASK_PLAN_EXECUTE m;
-    m.serial_number = next_serial(s);
     strcpy(m.command, cmd);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -881,135 +1121,195 @@ static PyObject *state(pyCommandChannel *s, PyObject *o) {
             PyErr_Format(PyExc_ValueError,"Machine state should be STATE_ESTOP, STATE_ESTOP_RESET, STATE_ON, or STATE_OFF");
             return NULL;
     }
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject *tool_offset(pyCommandChannel *s, PyObject *o) {
-    EMC_TOOL_SET_OFFSET m;
-    if(!PyArg_ParseTuple(o, "idddddi", &m.toolno, &m.offset.tran.z, &m.offset.tran.x, &m.diameter, 
-                         &m.frontangle, &m.backangle, &m.orientation)) 
-        return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-
-static PyObject *mist(pyCommandChannel *s, PyObject *o) {
-    int dir;
-    if(!PyArg_ParseTuple(o, "i", &dir)) return NULL;
-    switch(dir) {
-        case LOCAL_MIST_ON:
-        {
-            EMC_COOLANT_MIST_ON m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
-            break;
-        case LOCAL_MIST_OFF:
-        {
-            EMC_COOLANT_MIST_OFF m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
-            break;
-        default:
-            PyErr_Format(PyExc_ValueError,"Mist should be MIST_ON or MIST_OFF");
-            return NULL;
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
     }
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-static PyObject *flood(pyCommandChannel *s, PyObject *o) {
-    int dir;
-    if(!PyArg_ParseTuple(o, "i", &dir)) return NULL;
-    switch(dir) {
-        case LOCAL_FLOOD_ON:
-        {
-            EMC_COOLANT_FLOOD_ON m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
-            break;
-        case LOCAL_FLOOD_OFF:
-        {
-            EMC_COOLANT_FLOOD_OFF m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
-            break;
-        default:
-            PyErr_Format(PyExc_ValueError,"FLOOD should be FLOOD_ON or FLOOD_OFF");
-            return NULL;
-    }
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+ static PyObject *tool_offset(pyCommandChannel *s, PyObject *o) {
+     EMC_TOOL_SET_OFFSET m;
+     if(!PyArg_ParseTuple(o, "idddddi", &m.toolno, &m.offset.tran.z, &m.offset.tran.x, &m.diameter,
+			  &m.frontangle, &m.backangle, &m.orientation))
+	 return NULL;
 
-static PyObject *brake(pyCommandChannel *s, PyObject *o) {
-    int dir;
-    if(!PyArg_ParseTuple(o, "i", &dir)) return NULL;
-    switch(dir) {
-        case LOCAL_BRAKE_ENGAGE:
-        {
-            EMC_SPINDLE_BRAKE_ENGAGE m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
-            break;
-        case LOCAL_BRAKE_RELEASE:
-        {
-            EMC_SPINDLE_BRAKE_RELEASE m;
-            m.serial_number = next_serial(s);
-            s->c->write(m);
-            emcWaitCommandReceived(s->serial, s->s);
-        }
-            break;
-        default:
-            PyErr_Format(PyExc_ValueError,"BRAKE should be BRAKE_ENGAGE or BRAKE_RELEASE");
-            return NULL;
-    }
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+     if (use_zmq) {
+	 s->ticket = z_submit(&m, sizeof(m));
+     } else {
+	 s->ticket = -1;
 
-static PyObject *load_tool_table(pyCommandChannel *s, PyObject *o) {
-    EMC_TOOL_LOAD_TOOL_TABLE m;
-    m.file[0] = '\0'; // don't override the ini file
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+	 m.serial_number = next_serial(s);
+	 s->c->write(m);
+	 emcWaitCommandReceived(s->serial, s->s);
+     }
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
 
-static PyObject *emcabort(pyCommandChannel *s, PyObject *o) {
-    EMC_TASK_ABORT m;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+ static PyObject *mist(pyCommandChannel *s, PyObject *o) {
+     int dir;
+     if(!PyArg_ParseTuple(o, "i", &dir)) return NULL;
+     switch(dir) {
+     case LOCAL_MIST_ON:
+	 {
+	     EMC_COOLANT_MIST_ON m;
+	     if (use_zmq) {
+		 s->ticket = z_submit(&m, sizeof(m));
+	     } else {
+		 s->ticket = -1;
+
+		 m.serial_number = next_serial(s);
+		 s->c->write(m);
+		 emcWaitCommandReceived(s->serial, s->s);
+	     }
+	 }
+	 break;
+     case LOCAL_MIST_OFF:
+	 {
+	     EMC_COOLANT_MIST_OFF m;
+	     if (use_zmq) {
+		 s->ticket = z_submit(&m, sizeof(m));
+	     } else {
+		 s->ticket = -1;
+
+		 m.serial_number = next_serial(s);
+		 s->c->write(m);
+		 emcWaitCommandReceived(s->serial, s->s);
+	     }
+	 }
+	 break;
+     default:
+	 PyErr_Format(PyExc_ValueError,"Mist should be MIST_ON or MIST_OFF");
+	 return NULL;
+     }
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
+
+ static PyObject *flood(pyCommandChannel *s, PyObject *o) {
+     int dir;
+     if(!PyArg_ParseTuple(o, "i", &dir)) return NULL;
+     switch(dir) {
+     case LOCAL_FLOOD_ON:
+	 {
+	     EMC_COOLANT_FLOOD_ON m;
+	     if (use_zmq) {
+		 s->ticket = z_submit(&m, sizeof(m));
+	     } else {
+		 s->ticket = -1;
+		 m.serial_number = next_serial(s);
+		 s->c->write(m);
+		 emcWaitCommandReceived(s->serial, s->s);
+	     }
+	 }
+
+	 break;
+     case LOCAL_FLOOD_OFF:
+	 {
+	     EMC_COOLANT_FLOOD_OFF m;
+	     if (use_zmq) {
+		 s->ticket = z_submit(&m, sizeof(m));
+	     } else {
+		 s->ticket = -1;
+		 m.serial_number = next_serial(s);
+		 s->c->write(m);
+		 emcWaitCommandReceived(s->serial, s->s);
+	     }
+	 }
+	 break;
+     default:
+	 PyErr_Format(PyExc_ValueError,"FLOOD should be FLOOD_ON or FLOOD_OFF");
+	 return NULL;
+     }
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
+
+ static PyObject *brake(pyCommandChannel *s, PyObject *o) {
+     int dir;
+     if(!PyArg_ParseTuple(o, "i", &dir)) return NULL;
+     switch(dir) {
+     case LOCAL_BRAKE_ENGAGE:
+	 {
+	     EMC_SPINDLE_BRAKE_ENGAGE m;
+	     if (use_zmq) {
+		 s->ticket = z_submit(&m, sizeof(m));
+	     } else {
+		 s->ticket = -1;
+		 m.serial_number = next_serial(s);
+		 s->c->write(m);
+		 emcWaitCommandReceived(s->serial, s->s);
+	     }
+	 }
+	 break;
+     case LOCAL_BRAKE_RELEASE:
+	 {
+	     EMC_SPINDLE_BRAKE_RELEASE m;
+	     if (use_zmq) {
+		 s->ticket = z_submit(&m, sizeof(m));
+	     } else {
+		 s->ticket = -1;
+		 m.serial_number = next_serial(s);
+		 s->c->write(m);
+		 emcWaitCommandReceived(s->serial, s->s);
+	     }
+	 }
+
+	 break;
+     default:
+	 PyErr_Format(PyExc_ValueError,"BRAKE should be BRAKE_ENGAGE or BRAKE_RELEASE");
+	 return NULL;
+     }
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
+
+ static PyObject *load_tool_table(pyCommandChannel *s, PyObject *o) {
+     EMC_TOOL_LOAD_TOOL_TABLE m;
+     m.file[0] = '\0'; // don't override the ini file
+     if (use_zmq) {
+	 s->ticket = z_submit(&m, sizeof(m));
+     } else {
+	 s->ticket = -1;
+	 m.serial_number = next_serial(s);
+	 s->c->write(m);
+	 emcWaitCommandReceived(s->serial, s->s);
+     }
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
+
+ static PyObject *emcabort(pyCommandChannel *s, PyObject *o) {
+     EMC_TASK_ABORT m;
+     if (use_zmq) {
+	 s->ticket = z_submit(&m, sizeof(m));
+     } else {
+	 s->ticket = -1;
+	 m.serial_number = next_serial(s);
+	 s->c->write(m);
+	 emcWaitCommandReceived(s->serial, s->s);
+     }
+     Py_INCREF(Py_None);
+     return Py_None;
+ }
 
 static PyObject *override_limits(pyCommandChannel *s, PyObject *o) {
     EMC_AXIS_OVERRIDE_LIMITS m;
     m.axis = 0; // same number for all
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1017,9 +1317,14 @@ static PyObject *override_limits(pyCommandChannel *s, PyObject *o) {
 static PyObject *home(pyCommandChannel *s, PyObject *o) {
     EMC_AXIS_HOME m;
     if(!PyArg_ParseTuple(o, "i", &m.axis)) return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1027,26 +1332,17 @@ static PyObject *home(pyCommandChannel *s, PyObject *o) {
 static PyObject *unhome(pyCommandChannel *s, PyObject *o) {
     EMC_AXIS_UNHOME m;
     if(!PyArg_ParseTuple(o, "i", &m.axis)) return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
-// Additional call to set Axis Home Params
-static PyObject *set_home_parameters(pyCommandChannel *s, PyObject *o) {
-    EMC_AXIS_SET_HOMING_PARAMS m;
-    if(!PyArg_ParseTuple(o, "idddddiiiiii", &m.axis, &m.home, &m.offset, &m.home_final_vel, &m.search_vel, &m.latch_vel, &m.use_index, &m.ignore_limits, &m.is_shared, &m.home_sequence, &m.volatile_home, &m.locking_indexer))
- 
-        return NULL;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
-    Py_INCREF(Py_None);
-    return Py_None; 
-}
-
 
 // jog(JOG_STOP, axis) 
 // jog(JOG_CONTINUOUS, axis, speed) 
@@ -1062,33 +1358,44 @@ static PyObject *jog(pyCommandChannel *s, PyObject *o) {
     if(fn == LOCAL_JOG_STOP) {
         if(PyTuple_Size(o) != 2) {
             PyErr_Format( PyExc_TypeError,
-                "jog(JOG_STOP, ...) takes 2 arguments (%lu given)",
-                (unsigned long)PyTuple_Size(o));
+			  "jog(JOG_STOP, ...) takes 2 arguments (%lu given)",
+			  (unsigned long)PyTuple_Size(o));
             return NULL;
         }
         EMC_AXIS_ABORT abort;
+
         abort.axis = axis;
-        abort.serial_number = next_serial(s);
-        s->c->write(abort);
-        emcWaitCommandReceived(s->serial, s->s);
+	if (use_zmq) {
+	    s->ticket = z_submit(&abort, sizeof(abort));
+	} else {
+	    s->ticket = -1;
+	    abort.serial_number = next_serial(s);
+	    s->c->write(abort);
+	    emcWaitCommandReceived(s->serial, s->s);
+	}
     } else if(fn == LOCAL_JOG_CONTINUOUS) {
         if(PyTuple_Size(o) != 3) {
             PyErr_Format( PyExc_TypeError,
-                "jog(JOG_CONTINUOUS, ...) takes 3 arguments (%lu given)",
-                (unsigned long)PyTuple_Size(o));
+			  "jog(JOG_CONTINUOUS, ...) takes 3 arguments (%lu given)",
+			  (unsigned long)PyTuple_Size(o));
             return NULL;
         }
         EMC_AXIS_JOG cont;
         cont.axis = axis;
         cont.vel = vel;
-        cont.serial_number = next_serial(s);
-        s->c->write(cont);
-        emcWaitCommandReceived(s->serial, s->s);
+	if (use_zmq) {
+	    s->ticket = z_submit(&cont, sizeof(cont));
+	} else {
+	    s->ticket = -1;
+	    cont.serial_number = next_serial(s);
+	    s->c->write(cont);
+	    emcWaitCommandReceived(s->serial, s->s);
+	}
     } else if(fn == LOCAL_JOG_INCREMENT) {
         if(PyTuple_Size(o) != 4) {
             PyErr_Format( PyExc_TypeError,
-                "jog(JOG_INCREMENT, ...) takes 4 arguments (%lu given)",
-                (unsigned long)PyTuple_Size(o));
+			  "jog(JOG_INCREMENT, ...) takes 4 arguments (%lu given)",
+			  (unsigned long)PyTuple_Size(o));
             return NULL;
         }
 
@@ -1096,9 +1403,14 @@ static PyObject *jog(pyCommandChannel *s, PyObject *o) {
         incr.axis = axis;
         incr.vel = vel;
         incr.incr = inc;
-        incr.serial_number = next_serial(s);
-        s->c->write(incr);
-        emcWaitCommandReceived(s->serial, s->s);
+	if (use_zmq) {
+	    s->ticket = z_submit(&incr, sizeof(incr));
+	} else {
+	    s->ticket = -1;
+	    incr.serial_number = next_serial(s);
+	    s->c->write(incr);
+	    emcWaitCommandReceived(s->serial, s->s);
+	}
     } else {
         PyErr_Format( PyExc_TypeError, "jog() first argument must be JOG_xxx");
         return NULL;
@@ -1110,9 +1422,14 @@ static PyObject *jog(pyCommandChannel *s, PyObject *o) {
 
 static PyObject *reset_interpreter(pyCommandChannel *s, PyObject *o) {
     EMC_TASK_PLAN_INIT m;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1123,10 +1440,16 @@ static PyObject *program_open(pyCommandChannel *s, PyObject *o) {
     int len;
 
     if(!PyArg_ParseTuple(o, "s#", &file, &len)) return NULL;
-    m.serial_number = next_serial(s);
     strcpy(m.file, file);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
+
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1139,27 +1462,48 @@ static PyObject *emcauto(pyCommandChannel *s, PyObject *o) {
     EMC_TASK_PLAN_STEP step;
 
     if(PyArg_ParseTuple(o, "ii", &fn, &run.line) && fn == LOCAL_AUTO_RUN) {
-        run.serial_number = next_serial(s);
-        s->c->write(run);
-        emcWaitCommandReceived(s->serial, s->s);
+	if (use_zmq) {
+	    s->ticket = z_submit(&run, sizeof(run));
+	} else {
+	    s->ticket = -1;
+	    run.serial_number = next_serial(s);
+	    s->c->write(run);
+	    emcWaitCommandReceived(s->serial, s->s);
+	}
     } else {
         PyErr_Clear();
         if(!PyArg_ParseTuple(o, "i", &fn)) return NULL;
         switch(fn) {
         case LOCAL_AUTO_PAUSE:
-            pause.serial_number = next_serial(s);
-            s->c->write(pause);
-            emcWaitCommandReceived(s->serial, s->s);
+	    if (use_zmq) {
+		s->ticket = z_submit(&pause, sizeof(pause));
+	    } else {
+		s->ticket = -1;
+
+		pause.serial_number = next_serial(s);
+		s->c->write(pause);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
             break;
         case LOCAL_AUTO_RESUME:
-            resume.serial_number = next_serial(s);
-            s->c->write(resume);
-            emcWaitCommandReceived(s->serial, s->s);
+	    if (use_zmq) {
+		s->ticket = z_submit(&resume, sizeof(resume));
+	    } else {
+		s->ticket = -1;
+		resume.serial_number = next_serial(s);
+		s->c->write(resume);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
             break;
         case LOCAL_AUTO_STEP:
-            step.serial_number = next_serial(s);
-            s->c->write(step);
-            emcWaitCommandReceived(s->serial, s->s);
+	    if (use_zmq) {
+		s->ticket = z_submit(&step, sizeof(step));
+	    } else {
+		s->ticket = -1;
+		step.serial_number = next_serial(s);
+		s->c->write(step);
+		emcWaitCommandReceived(s->serial, s->s);
+	    }
             break;
         default:
             PyErr_Format(error, "Unexpected argument '%d' to command.auto", fn);
@@ -1174,10 +1518,14 @@ static PyObject *debug(pyCommandChannel *s, PyObject *o) {
     EMC_SET_DEBUG d;
 
     if(!PyArg_ParseTuple(o, "i", &d.debug)) return NULL;
-    d.serial_number = next_serial(s);
-    s->c->write(d);
-    emcWaitCommandReceived(s->serial, s->s);
-    
+    if (use_zmq) {
+	s->ticket = z_submit(&d, sizeof(d));
+    } else {
+	s->ticket = -1;
+	d.serial_number = next_serial(s);
+	s->c->write(d);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1186,11 +1534,14 @@ static PyObject *teleop(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_TELEOP_ENABLE en;
 
     if(!PyArg_ParseTuple(o, "i", &en.enable)) return NULL;
-
-    en.serial_number = next_serial(s);
-    s->c->write(en);
-    emcWaitCommandReceived(s->serial, s->s);
-    
+    if (use_zmq) {
+	s->ticket = z_submit(&en, sizeof(en));
+    } else {
+	s->ticket = -1;
+	en.serial_number = next_serial(s);
+	s->c->write(en);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1199,11 +1550,14 @@ static PyObject *set_traj_mode(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_MODE mo;
 
     if(!PyArg_ParseTuple(o, "i", &mo.mode)) return NULL;
-
-    mo.serial_number = next_serial(s);
-    s->c->write(mo);
-    emcWaitCommandReceived(s->serial, s->s);
-    
+    if (use_zmq) {
+	s->ticket = z_submit(&mo, sizeof(mo));
+    } else {
+	s->ticket = -1;
+	mo.serial_number = next_serial(s);
+	s->c->write(mo);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1215,11 +1569,14 @@ static PyObject *set_teleop_vector(pyCommandChannel *s, PyObject *o) {
 
     if(!PyArg_ParseTuple(o, "ddd|ddd", &mo.vector.tran.x, &mo.vector.tran.y, &mo.vector.tran.z, &mo.vector.a, &mo.vector.b, &mo.vector.c))
         return NULL;
-
-    mo.serial_number = next_serial(s);
-    s->c->write(mo);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&mo, sizeof(mo));
+    } else {
+	s->ticket = -1;
+	mo.serial_number = next_serial(s);
+	s->c->write(mo);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1228,11 +1585,14 @@ static PyObject *set_min_limit(pyCommandChannel *s, PyObject *o) {
     EMC_AXIS_SET_MIN_POSITION_LIMIT m;
     if(!PyArg_ParseTuple(o, "id", &m.axis, &m.limit))
         return NULL;
-
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1242,24 +1602,30 @@ static PyObject *set_max_limit(pyCommandChannel *s, PyObject *o) {
     if(!PyArg_ParseTuple(o, "id", &m.axis, &m.limit))
         return NULL;
 
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
-
 
 static PyObject *set_feed_override(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_FO_ENABLE m;
     if(!PyArg_ParseTuple(o, "i", &m.mode))
         return NULL;
-
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1268,11 +1634,14 @@ static PyObject *set_spindle_override(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_SO_ENABLE m;
     if(!PyArg_ParseTuple(o, "i", &m.mode))
         return NULL;
-
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1281,11 +1650,14 @@ static PyObject *set_feed_hold(pyCommandChannel *s, PyObject *o) {
     EMC_TRAJ_SET_FH_ENABLE m;
     if(!PyArg_ParseTuple(o, "i", &m.mode))
         return NULL;
-
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1294,11 +1666,14 @@ static PyObject *set_adaptive_feed(pyCommandChannel *s, PyObject *o) {
     EMC_MOTION_ADAPTIVE m;
     if(!PyArg_ParseTuple(o, "i", &m.status))
         return NULL;
-
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1309,10 +1684,14 @@ static PyObject *set_digital_output(pyCommandChannel *s, PyObject *o) {
         return NULL;
 
     m.now = 1;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1323,10 +1702,14 @@ static PyObject *set_analog_output(pyCommandChannel *s, PyObject *o) {
         return NULL;
 
     m.now = 1;
-    m.serial_number = next_serial(s);
-    s->c->write(m);
-    emcWaitCommandReceived(s->serial, s->s);
-
+    if (use_zmq) {
+	s->ticket = z_submit(&m, sizeof(m));
+    } else {
+	s->ticket = -1;
+	m.serial_number = next_serial(s);
+	s->c->write(m);
+	emcWaitCommandReceived(s->serial, s->s);
+    }
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1335,11 +1718,16 @@ static PyObject *wait_complete(pyCommandChannel *s, PyObject *o) {
     double timeout = EMC_COMMAND_TIMEOUT;
     if (!PyArg_ParseTuple(o, "|d:emc.command.wait_complete", &timeout))
         return NULL;
-    return PyInt_FromLong(emcWaitCommandComplete(s->serial, s->s, timeout));
+    if (s->ticket > -1) { // issued via new scheme
+	return PyInt_FromLong(waitTicketCompleted(s->ticket,timeout));
+    } else {
+	return PyInt_FromLong(emcWaitCommandComplete(s->serial, s->s, timeout));
+    }
 }
 
 static PyMemberDef Command_members[] = {
     {(char*)"serial", T_INT, offsetof(pyCommandChannel, serial), READONLY},
+    {(char*)"ticket", T_INT, offsetof(pyCommandChannel, ticket), READONLY},
     {NULL}
 };
 
@@ -1369,7 +1757,6 @@ static PyMethodDef Command_methods[] = {
     {"reset_interpreter", (PyCFunction)reset_interpreter, METH_NOARGS},
     {"program_open", (PyCFunction)program_open, METH_VARARGS},
     {"auto", (PyCFunction)emcauto, METH_VARARGS},
-    {"set_home_parameters", (PyCFunction)set_home_parameters, METH_VARARGS},
     {"set_optional_stop", (PyCFunction)optional_stop, METH_VARARGS},
     {"set_block_delete", (PyCFunction)block_delete, METH_VARARGS},
     {"set_min_limit", (PyCFunction)set_min_limit, METH_VARARGS},
@@ -1541,7 +1928,7 @@ static PyTypeObject Error_Type = {
 
 static void rotate_z(double pt[3], double a) {
     double theta = a * M_PI / 180;
-    double c = cos(theta), s = rtapi_sin(theta);
+    double c = cos(theta), s = sin(theta);
     double tx, ty;
     tx = pt[0] * c - pt[1] * s;
     ty = pt[0] * s + pt[1] * c;
@@ -1551,7 +1938,7 @@ static void rotate_z(double pt[3], double a) {
 
 static void rotate_y(double pt[3], double a) {
     double theta = a * M_PI / 180;
-    double c = cos(theta), s = rtapi_sin(theta);
+    double c = cos(theta), s = sin(theta);
     double tx, tz;
     tx = pt[0] * c - pt[2] * s;
     tz = pt[0] * s + pt[2] * c;
@@ -1561,7 +1948,7 @@ static void rotate_y(double pt[3], double a) {
 
 static void rotate_x(double pt[3], double a) {
     double theta = a * M_PI / 180;
-    double c = cos(theta), s = rtapi_sin(theta);
+    double c = cos(theta), s = sin(theta);
     double tx, tz;
     tx = pt[1] * c - pt[2] * s;
     tz = pt[1] * s + pt[2] * c;
@@ -1610,10 +1997,10 @@ static void glvertex9(const double pt[9], const char *geometry) {
 static void line9(const double p1[9], const double p2[9], const char *geometry) {
     if(p1[3] != p2[3] || p1[4] != p2[4] || p1[5] != p2[5]) {
         double dc = max3(
-            rtapi_fabs(p2[3] - p1[3]),
-            rtapi_fabs(p2[4] - p1[4]),
-            rtapi_fabs(p2[5] - p1[5]));
-        int st = (int)rtapi_ceil(max(10, dc/10));
+            fabs(p2[3] - p1[3]),
+            fabs(p2[4] - p1[4]),
+            fabs(p2[5] - p1[5]));
+        int st = (int)ceil(max(10, dc/10));
         int i;
 
         for(i=1; i<=st; i++) {
@@ -1632,10 +2019,10 @@ static void line9b(const double p1[9], const double p2[9], const char *geometry)
     glvertex9(p1, geometry);
     if(p1[3] != p2[3] || p1[4] != p2[4] || p1[5] != p2[5]) {
         double dc = max3(
-            rtapi_fabs(p2[3] - p1[3]),
-            rtapi_fabs(p2[4] - p1[4]),
-            rtapi_fabs(p2[5] - p1[5]));
-        int st = (int)rtapi_ceil(max(10, dc/10));
+            fabs(p2[3] - p1[3]),
+            fabs(p2[4] - p1[4]),
+            fabs(p2[5] - p1[5]));
+        int st = (int)ceil(max(10, dc/10));
         int i;
 
         for(i=1; i<=st; i++) {
@@ -1842,11 +2229,11 @@ static inline bool colinear(float xa, float ya, float za, float xb, float yb, fl
     double dx1 = xa-xb, dx2 = xb-xc;
     double dy1 = ya-yb, dy2 = yb-yc;
     double dz1 = za-zb, dz2 = zb-zc;
-    double dp = rtapi_sqrt(dx1*dx1 + dy1*dy1 + dz1*dz1);
-    double dq = rtapi_sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2);
-    if( rtapi_fabs(dp) < tiny || rtapi_fabs(dq) < tiny ) return true;
+    double dp = sqrt(dx1*dx1 + dy1*dy1 + dz1*dz1);
+    double dq = sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2);
+    if( fabs(dp) < tiny || fabs(dq) < tiny ) return true;
     double dot = (dx1*dx2 + dy1*dy2 + dz1*dz2) / dp / dq;
-    if( rtapi_fabs(1-dot) < epsilon) return true;
+    if( fabs(1-dot) < epsilon) return true;
     return false;
 }
 
@@ -2204,13 +2591,12 @@ initlinuxcnc(void) {
     PyModule_AddObject(m, "error_channel", (PyObject*)&Error_Type);
     PyModule_AddObject(m, "ini", (PyObject*)&Ini_Type);
     PyModule_AddObject(m, "error", error);
+    //PyModule_AddObject(m, "use_zmq", use_zmq);
 
     PyType_Ready(&PositionLoggerType);
     PyModule_AddObject(m, "positionlogger", (PyObject*)&PositionLoggerType);
     pthread_mutex_init(&mutex, NULL);
 
-    PyModule_AddStringConstant(m, "PREFIX", EMC2_HOME);
-    PyModule_AddStringConstant(m, "SHARE", EMC2_HOME "/share");
     PyModule_AddStringConstant(m, "nmlfile", EMC2_DEFAULT_NMLFILE);
 
     PyModule_AddIntConstant(m, "OPERATOR_ERROR", EMC_OPERATOR_ERROR_TYPE);
@@ -2292,11 +2678,13 @@ initlinuxcnc(void) {
     ENUMX(9, EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO);
     ENUMX(9, EMC_TASK_EXEC_WAITING_FOR_DELAY);
     ENUMX(9, EMC_TASK_EXEC_WAITING_FOR_SYSTEM_CMD);
-    ENUMX(9, EMC_TASK_EXEC_WAITING_FOR_SPINDLE_ORIENTED);
 
     ENUM(RCS_DONE);
     ENUM(RCS_EXEC);
     ENUM(RCS_ERROR);
+
+    z_init();
+    Py_AtExit(z_shutdown);
 }
 
 

@@ -16,10 +16,13 @@ $(call TOOBJSDEPS, $(EMCMODULESRCS)) : Makefile.inc
 $(EMCMODULE): $(call TOOBJS, $(EMCMODULESRCS)) \
 	../lib/liblinuxcnc.a \
 	../lib/libnml.so.0 \
-	../lib/liblinuxcncini.so \
+	../lib/liblinuxcncini.so  \
+	../lib/liblinuxcnc-pb2++.so.0 \
 	../lib/librtapi_math.so.0
 	$(ECHO) Linking python module $(notdir $@)
-	$(Q)$(CXX) $(LDFLAGS) -shared -o $@ $^ -L/usr/X11R6/lib -lGL
+	$(Q)$(CXX) $(LDFLAGS) -shared -o $@ $^ -L/usr/X11R6/lib -lGL  \
+	$(PROTOBUF_LIBS) 	\
+	$(CZMQ_LIBS)
 
 
 $(MINIGLMODULE): $(call TOOBJS, $(MINIGLMODULESRCS))
