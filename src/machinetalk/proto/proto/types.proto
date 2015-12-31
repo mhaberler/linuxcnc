@@ -351,6 +351,10 @@ enum ContainerType {
     // credit-based flow control for queues
     MT_CREDIT_UPDATE  = 450;  // sent by consumer
 
+
+    // tag for the DemoContainer message in machinetalk/tutorial/protobuf/demo.proto
+    MT_DEMO_CONTAINER = 500;
+
     // Motion command types. Frequently used, so bring in at offset 1000.
     // (see emc/motion/motion.h)
 

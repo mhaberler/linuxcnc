@@ -21,6 +21,7 @@ import "rtapi_message.proto";
 import "config.proto";
 import "preview.proto";
 import "status.proto";
+import "demo.proto";
 
 message Container {
 
@@ -181,6 +182,9 @@ message Container {
 
     // interpreter reply
     optional TaskPlanReply taskplan_reply       = 210  [(nanopb).type = FT_IGNORE];
+
+    // DemoContainer message in machinetalk/tutorial/protobuf/demo.proto
+    optional DemoContainer demo = 250;
 
     // canon messages
     optional Emc_Traj_Set_G5x                 traj_set_g5x = 300;
