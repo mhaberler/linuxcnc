@@ -3288,6 +3288,7 @@ static int print_ring_entry(hal_object_ptr o, foreach_args_t *args)
 	    halcmd_output(" rmutex");
 	if (rh->use_wmutex )
 	    halcmd_output(" wmutex");
+	halcmd_output(rh->alloc_halmem ? " halmem" : " shmseg");
 	if (rh->type == RINGTYPE_STREAM)
 	    halcmd_output(" free:%u ",
 			  stream_write_space(rh));
@@ -3358,6 +3359,8 @@ int do_newring_cmd(char *ring, char *ring_size, char **opt)
 	    mode |=  USE_RMUTEX;
 	}  else if  (!strcasecmp(s,"wmutex")) {
 	    mode |=  USE_WMUTEX;
+	}  else if  (!strcasecmp(s,"halmem")) {
+	    mode |=  ALLOC_HALMEM;
 	}  else if  (!strcasecmp(s,"record")) {
 	    // default
 	}  else if  (!strcasecmp(s,"stream")) {
