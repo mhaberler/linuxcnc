@@ -261,7 +261,7 @@ static inline ringsize_t ring_scratchpad_size(const ringbuffer_t *ring)
 static inline void ringheader_init(ringheader_t *ringheader,
 				   const int flags,
 				   const ringsize_t size,
-				   const ringsize_t  sp_size)
+				   const ringsize_t sp_size)
 {
     ringtrailer_t *t;
 
@@ -270,7 +270,7 @@ static inline void ringheader_init(ringheader_t *ringheader,
     // followed by the aligned ring buffer
     // followed by the ringtrailer_t
     // the latter includes scratchpad storage
-    ringheader->size = ring_storage_alloc(flags,size);
+    ringheader->size = ring_storage_alloc(flags, size);
     ringheader->trailer_size = ring_trailer_alloc(sp_size);
 
     // init the ringheader - mode independent part
@@ -281,6 +281,9 @@ static inline void ringheader_init(ringheader_t *ringheader,
     t = _trailer_from_header(ringheader);
     t->tail = 0;
     ringheader->type = (flags & RINGTYPE_MASK);
+    ringheader->use_rmutex = (flags & USE_RMUTEX) != 0;
+    ringheader->use_wmutex = (flags & USE_WMUTEX) != 0;
+    ringheader->alloc_halmem = (flags & ALLOC_HALMEM) != 0;
 
     // mode-dependent initialisation
     if (flags &  RINGTYPE_STREAM) {
