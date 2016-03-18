@@ -43,10 +43,14 @@ static int update(void *arg, const hal_funct_args_t *fa)
     void *data;
     size_t size;
 
-    if (record_read(current_input, (const void**)&data, &size) == 0) {
-	if (record_write(&ip->out, data, size) == 0)
+    while (record_read(current_input, (const void**)&data, &size) == 0) {
+	if (record_write(&ip->out, data, size) == 0) {
 	    // write succeeeded, so consume record
 	    record_shift(current_input);
+	} else {
+	    // downstream full, stop
+	    break;
+	}
     }
     return 0;
 }
