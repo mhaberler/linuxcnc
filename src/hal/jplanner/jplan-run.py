@@ -5,7 +5,7 @@ from   machinekit import hal
 from   jplan_pb2 import *
 import google.protobuf.text_format
 
-name = "tp.cmd"
+name = "home"
 r = hal.Ring(name)
 
 jc = JplanCommand()

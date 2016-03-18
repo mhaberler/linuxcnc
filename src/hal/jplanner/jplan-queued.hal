@@ -2,8 +2,19 @@
 # needed for protobuf de/encoding in RT
 loadrt pbmsgs
 
+newring ros  256
+newring home 256
+newring jog  256
+
+
 # command queue for the tp instance
-newring tp.cmd 4096
+newring tp.cmd 256
+
+newinst ringmux mux input=ros,home,jog output=tp.cmd
+
+setp mux.select  1  # 'home' ring
+setp mux.forward 1  # enable pass-through
+
 
 # newinst jplan <inst> will attach to <inst>.cmd if it exists
 # and take commands from this ring (or HAL pins)
@@ -25,6 +36,7 @@ net curr-jerk jerk.out
 
 newthread servo 1000000 fp
 
+addf mux.update servo
 addf tp.update  servo
 addf acc        servo
 addf jerk       servo
