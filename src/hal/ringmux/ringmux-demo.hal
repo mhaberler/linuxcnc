@@ -1,0 +1,16 @@
+newring ros  4096
+newring home 4096
+newring jog  4096
+
+newring cmd  4096
+
+newinst ringmux mux input=ros,home,jog output=cmd
+newthread servo 1000000 fp
+
+addf mux.update servo
+start
+
+setp mux.select  1  # 'home' ring
+setp mux.forward 1  # enable pass-through
+
+
