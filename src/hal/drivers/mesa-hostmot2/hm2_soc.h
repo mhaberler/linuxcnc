@@ -81,4 +81,3 @@ typedef struct {
     hm2_lowlevel_io_t llio;
 } hm2_soc_t;
 */
-volatile void *virtual_base;
