@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# usage: hm2soc_program_fpga <path-to-rbf>
+
+set_bridge () {
+    bridge=$1
+    value=$2
+
+    echo $value > "/sys/class/fpga-bridge/$bridge/enable"
+}
+
+RBF="$1"
+
+set_bridge hps2fpga 0
+set_bridge fpga2hps 0
+set_bridge lwhps2fpga 0
+
+echo disabled
+sleep 1
+
+# Program the FPGA
+dd if="$RBF" of=/dev/fpga0 || exit 1
+echo programmed
+sleep 1
+
+
+# Enable the LWHPS2FPGA bridge
+set_bridge hps2fpga 1
+set_bridge fpga2hps 1
+set_bridge lwhps2fpga 1
+echo enabled
+
