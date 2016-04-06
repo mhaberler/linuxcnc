@@ -69,7 +69,9 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
+#include <string.h>
+#include <ctype.h>
+#include <stdio.h>
 
 //#include "hal/drivers/mesa-hostmot2/bitfile.h"
 #include "hal/lib/config_module.h"
@@ -374,6 +376,19 @@ static int hm2_soc_write(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int si
   };
 */
 
+
+char *strlwr(char *str)
+{
+  unsigned char *p = (unsigned char *)str;
+  while (*p) {
+     *p = tolower(*p);
+      p++;
+  }
+  return str;
+}
+
+static char *uio_dev = "/dev/uio0";
+
 static int hm2_soc_mmap(void) {
 
     //CR hm2_soc_t *me;
@@ -382,9 +397,10 @@ static int hm2_soc_mmap(void) {
 	
     memset(board, 0,  sizeof(hm2_soc_t));
     /* Open the resource node */
-    uio_fd = open ( "/dev/uio0", ( O_RDWR | O_SYNC ) );
+    uio_fd = open ( uio_dev , ( O_RDWR | O_SYNC ) );
     if (uio_fd < 0) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "Could not open UIO resource for: hm2_mksocfpga . (%s)\n", strerror(errno));
+        rtapi_print_msg(RTAPI_MSG_ERR, "Could not open %s: %s",
+			uio_dev, strerror(errno));
         return 0;
     }
     // get virtual addr that maps to physical
@@ -392,26 +408,41 @@ static int hm2_soc_mmap(void) {
     //CR removed to try and fix return (1);
 
     if (virtual_base == MAP_FAILED) {
-	THIS_ERR("FPGA failed to mmap failed\n");
+	rtapi_print_msg(RTAPI_MSG_ERR, "FPGA failed to mmap failed: %s", strerror(errno));
 	close(uio_fd);
 	return -EINVAL;
     }
 
-    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
+    rtapi_print_hex_dump(RTAPI_MSG_DBG, RTAPI_DUMP_PREFIX_OFFSET,
 			 16, 1, (const void *)virtual_base, 4096, true,
-			 "idrom at %p:", virtual_base);
+			 "hm2 regs at %p:", virtual_base);
 
-    u32 cookie;
-    cookie = *((u32 *)(virtual_base + HM2_ADDR_IOCOOKIE));
-    if (cookie != HM2_IOCOOKIE) {
-	THIS_ERR("invalid cookie, got 0x%08X, expected 0x%08X\n", cookie, HM2_IOCOOKIE);
-	THIS_ERR("FPGA failed to initialize, or unexpected firmware?\n");
+    u32 reg;
+    reg = *((u32 *)(virtual_base + HM2_ADDR_IOCOOKIE));
+    if (reg != HM2_IOCOOKIE) {
+	rtapi_print_msg(RTAPI_MSG_ERR,
+			"invalid cookie, got 0x%08X, expected 0x%08X\n", reg, HM2_IOCOOKIE);
+	rtapi_print_msg(RTAPI_MSG_ERR, "FPGA failed to initialize, or unexpected firmware?\n");
 	close(uio_fd);
 	return -EINVAL;
     }
-    LL_PRINT("hm2 cookie check OK");
-   
-    rtapi_snprintf(board[0].llio.name, sizeof(board[0].llio.name), "hm2_5i25.%d", num_5i25);
+    void *configname = (void *)virtual_base + HM2_ADDR_CONFIGNAME;
+    if (strncmp(configname, HM2_CONFIGNAME, HM2_CONFIGNAME_LENGTH) != 0) {
+	rtapi_print_msg(RTAPI_MSG_ERR,"%s signature not found at %p", HM2_CONFIGNAME, configname);
+	close(uio_fd);
+	return -EINVAL;
+    }
+    // NB: the offset should be at 0x1c and be 0x400 - wrong in RBF
+    // so assume 0x400
+    hm2_idrom_t *idrom = (void *)(virtual_base + 0x400);
+    
+
+    LL_PRINT("hm2 cookie check OK, board name='%8.8s'", idrom->board_name);
+
+    // use BoardNameHigh as board name - see http://freeby.mesanet.com/regmap
+    rtapi_snprintf(board[0].llio.name, sizeof(board[0].llio.name), "hm2_%4.4s.%d",
+		   idrom->board_name + 4, num_5i25);
+    strlwr(board[0].llio.name);
     board[0].llio.comp_id = comp_id;
     board[0].llio.num_ioport_connectors =2;
     board[0].llio.pins_per_connector = 17;
@@ -425,7 +456,7 @@ static int hm2_soc_mmap(void) {
 
     board[0].llio.read = hm2_soc_read;
     board[0].llio.write = hm2_soc_write;
-    board[0].base = virtual_base;   
+    board[0].base = (void *)virtual_base;   
     board[0].llio.private = &board[0];
     this =  &board[0].llio;
     r = hm2_register( &board[0].llio, config[0]);
@@ -449,7 +480,6 @@ static int hm2_soc_munmap(void) {
     return(1);
 
 }
-#include <stdio.h>
 
 static char *fpga0_status = "/sys/class/fpga/fpga0/status";
 // if RBF file not loaded: contents="configuration phase"
