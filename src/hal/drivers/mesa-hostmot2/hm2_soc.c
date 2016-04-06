@@ -432,9 +432,9 @@ static int hm2_soc_mmap(void) {
 	close(uio_fd);
 	return -EINVAL;
     }
-    // NB: the offset should be at 0x1c and be 0x400 - wrong in RBF
-    // so assume 0x400
-    hm2_idrom_t *idrom = (void *)(virtual_base + 0x400);
+
+    reg = *((u32 *)(virtual_base + HM2_ADDR_IDROM_OFFSET);
+    hm2_idrom_t *idrom = (void *)(virtual_base + reg);
     
 
     LL_PRINT("hm2 cookie check OK, board name='%8.8s'", idrom->board_name);
