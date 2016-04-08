@@ -1,0 +1,222 @@
+#!/bin/bash
+SCRIPT_LOCATION=$(dirname $(readlink -f $0));
+if [ -f $SCRIPT_LOCATION/rip-environment ] && [ -z "$EMC2_HOME" ]; then
+    . $SCRIPT_LOCATION/rip-environment
+fi
+
+T=`mktemp -d`
+trap 'cd /; [ -d $T ] && rm -rf $T' SIGINT SIGTERM EXIT
+cd $T
+
+calc() { awk "BEGIN { print ($1); }" < /dev/null; }
+icalc() { awk "BEGIN { printf \"%.0f\n\", ($1); }" < /dev/null; }
+
+parse_time () {
+    case $1 in
+    -)   echo "0" ;;
+    *ns) icalc "${1%ns}" ;;
+    *us|*µs) icalc "1000*${1%us}" ;;
+    *ms) icalc "1000*1000*${1%ms}" ;;
+    *s)  icalc "1000*1000*1000*${1%s}" ;;
+    *)   if [ $1 -lt 1000 ]; then icalc "1000*$1"; else icalc "$1"; fi ;;
+    esac
+}
+
+human_time () {
+    if [ "$1" -eq 0 ]; then echo "-"
+    elif [ "$1" -ge 1000000000 ]; then echo "$(calc $1/1000/1000/1000)s"
+    elif [ "$1" -ge 1000000 ]; then echo "$(calc $1/1000/1000)ms"
+    elif [ "$1" -ge 1000 ]; then echo "$(calc $1/1000)µs"
+    else echo "$1ns"
+    fi
+}
+
+usage () {
+    echo "Usage:"
+    echo "       latency-test-plus -b | --base [base-period] -s | --servo [servo-period] -l | --logfile [logfile path]"
+    echo "   or:"
+    echo "       latency-test-plus       # for single servo thread "
+    echo "   or:"
+    echo "       latency-test-plus -l /path/to/logfile.log    # for single servo thread logged to -l path"
+    echo "   or:"
+    echo "       latency-test-plus -h | --help   # (this text)"
+    echo ""
+    echo "Defaults:     base-period=0 servo-period=${SERVO}nS"
+    echo ""
+    echo "Times may be specified with suffix \"s\", \"ms\", \"us\" \"µs\", or \"ns\""
+    echo "Times without a suffix and less than 1000 are taken to be in us;"
+    echo "other times without a suffix are taken to be in ns"
+    echo ""
+    echo "The worst-case latency seen in any run of latency-test-legacy"
+    echo "is written to the file ~/.latency"
+    exit 1
+}
+
+BASE=0; SERVO=$(parse_time 1ms); LOGFILE="none"
+
+case $1 in
+  -h|--help) usage;;
+esac
+
+while [[ $# > 1 ]]
+do
+key="$1"
+
+case $key in
+    -b|--base)
+    BASE=$(parse_time $2)
+    shift
+    ;;
+    -s|--servo)
+    SERVO=$(parse_time $2)
+    shift
+    ;;
+    -l|--logfile)
+    LOGFILE="$2"
+    shift
+    ;;
+    *)
+    usage ;;
+esac
+shift
+done
+
+if [ "$BASE" -gt "$SERVO" ]; then TEMP=$BASE; BASE=$SERVO; SERVO=$TEMP; fi
+if [ "$BASE" -eq "$SERVO" ]; then BASE=0; fi
+
+BASE_HUMAN=$(human_time $BASE)
+SERVO_HUMAN=$(human_time $SERVO)
+
+########################################################################
+
+if [ $BASE -ne 0 ]; then
+cat > lat.hal <<EOF
+loadrt threads name1=fast period1=$BASE name2=slow period2=$SERVO
+loadrt timedelta count=2
+addf timedelta.0 fast
+addf timedelta.1 slow
+start
+loadusr -Wn lat pyvcp lat.xml
+net sl timedelta.1.max => lat.sl
+net sj timedelta.1.jitter => lat.sj
+net st timedelta.1.out => lat.st
+net sv timedelta.1.avgerr => lat.sv
+net bl timedelta.0.max => lat.bl
+net bj timedelta.0.jitter => lat.bj
+net bt timedelta.0.out => lat.bt
+net bv timedelta.0.avgerr => lat.bv
+net reset lat.reset => timedelta.0.reset timedelta.1.reset
+
+EOF
+else
+cat > lat.hal <<EOF
+loadrt threads name1=slow period1=$SERVO
+loadrt timedelta
+addf timedelta.0 slow
+start
+loadusr -Wn lat pyvcp lat.xml
+net sl timedelta.0.max => lat.sl
+net sj timedelta.0.jitter => lat.sj
+net st timedelta.0.out => lat.st
+net sv timedelta.0.avgerr => lat.sv
+net reset lat.reset => timedelta.0.reset
+EOF
+fi
+
+if [ "$LOGFILE" != "none" ] ; then
+cat >> lat.hal <<EOF
+loadrt sampler depth=1000 cfg=ssssssss
+addf sampler.0 slow
+net sl sampler.0.pin.0
+net st sampler.0.pin.1
+net sj sampler.0.pin.2
+net sv sampler.0.pin.3
+EOF
+
+if [ $BASE -ne 0 ]; then
+cat >> lat.hal <<EOF
+net bl sampler.0.pin.4
+net bt sampler.0.pin.5
+net bj sampler.0.pin.6
+net bv sampler.0.pin.7
+EOF
+fi
+fi
+
+if [ "$LOGFILE" != "none" ] ; then
+cat >> lat.hal <<EOF
+loadusr hallatencysampler -c 0 -t $LOGFILE
+waitusr -i  hallatencysampler
+EOF
+echo "writing log file to $LOGFILE"
+else
+cat >> lat.hal <<EOF
+loadusr hallatencysampler -c 0 -t
+waitusr -i  hallatencysampler
+EOF
+fi
+
+
+cat >> lat.hal <<EOF
+waitusr lat
+loadusr -w bash latexit.sh
+
+EOF
+
+########################################################################
+
+cat > lat.xml <<EOF
+<pyvcp>
+<title title="Machinekit / HAL Legacy Latency Test"/>
+<axisoptions/>
+<table>
+<tablerow/><tablespan columns="5"/><label wraplength="6i" justify="left">
+<text>
+"""Let this test run for at least 20 minutes, then note the maximum Jitter.  You will use it while configuring machinekit.
+
+NB. The max jitter is a cumulative highest ever spike.  The Average will show the average range of current overruns
+It is worth allowing the computer to settle in for a couple of minutes and pressing reset before looking at figures.
+
+While the test is running, you should "abuse" the computer. Move windows around on the screen. Surf the web.
+Copy some large files around on the disk. Play some music. Run an OpenGL program such as glxgears.
+The idea is to put the PC through its paces while the latency test checks to see what the worst case numbers are.
+
+"""
+</text>
+</label>
+<tablerow/><label/><label text="Max Interval (ns)" font="Helvetica 12"/><label text="Max Jitter (ns)" font="Helvetica 12 bold"/><label text="Last interval (ns)" font="Helvetica 12"/><label text="Average Jitter(ns)" font="Helvetica 12 bold"/>
+<tablerow/><label text="Servo thread ($SERVO_HUMAN):"/><s32 halpin="sl"/><s32 halpin="sj" font="Helvetica 12 bold"/><s32 halpin="st"/><s32 halpin="sv" font="Helvetica 12 bold"/>
+
+EOF
+
+if [ $BASE -ne 0 ]; then
+cat >> lat.xml <<EOF
+<tablerow/><label text="Base thread ($BASE_HUMAN):"/><s32 halpin="bl"/><s32 halpin="bj" font="Helvetica 12 bold"/><s32 halpin="bt"/><s32 halpin="bv" font="Helvetica 12 bold"/>
+EOF
+fi
+
+cat >> lat.xml <<EOF
+<tablerow/><button text="Reset Statistics" halpin="reset"/>
+</table>
+</pyvcp>
+EOF
+
+########################################################################
+
+if [ $BASE -ne 0 ]; then
+cat > latexit.sh <<EOF
+L=\$((halcmd gets sj; halcmd gets bj;
+    if [ -f $HOME/.latency ]; then cat $HOME/.latency; fi
+    ) | sort -n | tail -1)
+echo \$L > $HOME/.latency
+EOF
+else
+cat > latexit.sh <<EOF
+L=\$((halcmd gets sj;
+    if [ -f $HOME/.latency ]; then cat $HOME/.latency; fi
+    ) | sort -n | tail -1)
+echo \$L > $HOME/.latency
+EOF
+fi
+
+halrun lat.hal

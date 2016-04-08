@@ -1,0 +1,12 @@
+<pyvcp>
+<title title="Machinekit - Inline Latency Test"/>
+<axisoptions/>
+<table>
+<tablerow/><tablespan columns="6"/><label wraplength="6i" justify="left">
+</label>
+<tablerow/><label/><label text="Max Interval (ns)" font="Helvetica 12"/><label text="Max Jitter (ns)" font="Helvetica 12 bold"/><label text="Last interval (ns)" font="Helvetica 12"/><label text="Average Jitter(ns)" font="Helvetica 12 bold"/><label text="      "/>
+<tablerow/><label text="Servo thread :"/><s32 halpin="sl"/><s32 halpin="sj" font="Helvetica 12 bold"/><s32 halpin="st"/><s32 halpin="sv" font="Helvetica 12 bold"/>
+<tablerow/><label text="Base thread :"/><s32 halpin="bl"/><s32 halpin="bj" font="Helvetica 12 bold"/><s32 halpin="bt"/><s32 halpin="bv" font="Helvetica 12 bold"/>
+<tablerow/><button text="Reset Statistics" halpin="reset"/>
+</table>
+</pyvcp>
