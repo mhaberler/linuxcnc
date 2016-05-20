@@ -86,6 +86,10 @@ RTAPI_MP_INT(debug, "turn on extra debug output");
 static char *uio_dev = "/dev/uio0";
 RTAPI_MP_STRING(uio_dev, "UIO device to use; default /dev/uio0");
 
+static int timer1;
+RTAPI_MP_INT(timer1, "rate for hm2 Timer1 IRQ, 0: IRQ disabled");
+
+
 static int comp_id;
 static hm2_soc_t board[HM2_SOC_MAX_BOARDS];
 static int num_boards;
@@ -94,6 +98,7 @@ static int failed_errno = 0; // errno of last failed registration
 static char *configfs_dir = "/sys/kernel/config/device-tree/overlays/hm2_soc_ol";
 static char *configfs_path = "/sys/kernel/config/device-tree/overlays/hm2_soc_ol/path";
 static char *configfs_status = "/sys/kernel/config/device-tree/overlays/hm2_soc_ol/status";
+static int zero = 0;
 
 
 static int hm2_soc_mmap(hm2_soc_t *board);
@@ -331,9 +336,6 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
 
     LL_DBG("hm2 cookie check OK, board name='%8.8s'", idrom->board_name);
 
-    uint64_t clock_hz = idrom->clock_low + ((uint64_t)idrom->clock_high << 32);
-    LL_DBG("hm2 clock= %llu HZ", clock_hz);
-
     void *configname = (void *)virtual_base + HM2_ADDR_CONFIGNAME;
     if (strncmp(configname, HM2_CONFIGNAME, HM2_CONFIGNAME_LENGTH) != 0) {
         LL_ERR("%s signature not found at %p", HM2_CONFIGNAME, configname);
@@ -450,12 +452,35 @@ int rtapi_app_main(void) {
         .reentrant = 0,
         .owner_id = comp_id
     };
+    // enable time IRQ's
+    if (timer1) {
+	hm2_soc_t *brd = &board[0];
 
-    if ((r = hal_export_xfunctf(&xfunct_args, "waitirq.%d", 0)) != 0) {
-	LL_PRINT("hal_export waitirq failed - %d\n", r);
-        hal_exit(comp_id);
-        r = hm2_soc_munmap(&board[0]);
-	return r;
+	brd->pins = hal_malloc(sizeof(hm2_soc_pins_t));
+	if (!brd->pins)
+	    return -1;
+
+	if (hal_pin_u32_newf(HAL_OUT, &brd->pins->irq_count, comp_id, "hm2.%d.irq-count", 0) ||
+	    hal_pin_u32_newf(HAL_OUT, &brd->pins->irq_missed, comp_id, "hm2.%d.irq-missed", 0) ||
+	    hal_pin_u32_newf(HAL_OUT, &brd->pins->write_errors, comp_id, "hm2.%d.write-errors", 0) ||
+	    hal_pin_u32_newf(HAL_OUT, &brd->pins->read_errors, comp_id, "hm2.%d.read-errors", 0))
+	    return -1;
+
+	if ((r = hal_export_xfunctf(&xfunct_args, "waitirq.%d", 0)) != 0) {
+	    LL_PRINT("hal_export waitirq failed - %d\n", r);
+	    hal_exit(comp_id);
+	    r = hm2_soc_munmap(brd);
+	    return r;
+	}
+
+	// set timer1 period:
+	hm2_soc_write(&brd->llio, HM2_DPLL_CONTROL_REG_0 , (void *)&timer1, sizeof(timer1));
+	// and enable timer 1 interrupt
+	int val = 2;
+	hm2_soc_write(&brd->llio, HM2_IRQ_STATUS_REG , (void *)&val, sizeof(val));
+
+    } else {
+	LL_PRINT("timer1 argument 0 - waitirq function not exported\n");
     }
     hal_ready(comp_id);
     return 0;
@@ -528,17 +553,31 @@ static int fpga_status() {
 
 static int waitirq(void *arg, const hal_funct_args_t *fa)
 {
-    // using the extended thread function export call makes the following
-    // context visible here:
-    //   fa_period(fa)            the period parameter in the legacy signature
-    //   fa_start_time(fa)        the start time of this function
-    //   fa_thread_start_time(fa) the start time of the first function in the funct chain
-    //   fa_thread_name(fa)       the name of the calling thread
-    //   fa_funct_name(fa)        the name of this funct
-    // otherwise it is fully backwards compatible.
-    // This makes - among others - timing data available 'for free' if needed.
-    // see hal_export_xfunctf() below for the usage difference to hal_export_functf().
-    hm2_soc_t *board = arg;
+    hm2_soc_t *brd = arg;
+
+
+    uint32_t info;
+    ssize_t nb;
+
+    info = 1; /* unmask */
+
+    nb = write(brd->uio_fd, &info, sizeof(info));
+    if (nb < sizeof(info)) {
+	*(brd->pins->write_errors) += 1;
+    }
+
+    info = 0;
+    // wait for IRQ
+    nb = read(brd->uio_fd, &info, sizeof(info));
+    if (nb != sizeof(info)) {
+	*(brd->pins->read_errors) += 1;
+    }
+    *(brd->pins->irq_count) += 1;
+    *(brd->pins->irq_missed) = info - *(brd->pins->irq_count);
+
+    // clear pending IRQ
+    hm2_soc_write(&brd->llio, HM2_CLEAR_IRQ_REG, &zero, sizeof(zero));
 
     return 0;
 }
+
