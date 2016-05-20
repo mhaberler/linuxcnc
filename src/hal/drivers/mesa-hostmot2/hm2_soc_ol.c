@@ -51,6 +51,7 @@
 #include "rtapi_compat.h"
 #include "rtapi_io.h"
 #include "hal.h"
+#include "hal_priv.h"
 #include "hal/lib/config_module.h"
 #include "hostmot2-lowlevel.h"
 #include "hostmot2.h"
@@ -63,6 +64,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdint.h>
 
 /* Wrap up dt state */
 #define DTOV_STAT_UNAPPLIED	0x0
@@ -95,9 +97,11 @@ static char *configfs_status = "/sys/kernel/config/device-tree/overlays/hm2_soc_
 
 
 static int hm2_soc_mmap(hm2_soc_t *board);
+static int waitirq(void *arg, const hal_funct_args_t *fa); // HAL thread funct
 
 static int fpga_status();
 static char *strlwr(char *str);
+
 
 //
 // these are the "low-level I/O" functions exported up
@@ -244,7 +248,7 @@ static int hm2_soc_program_fpga(hm2_lowlevel_io_t *this,
         return -EIO;
     }
     close(fd);
-    
+
     // Spin to give fpga time to program
     retries = 12;
     while(retries > 0) {
@@ -254,7 +258,7 @@ static int hm2_soc_program_fpga(hm2_lowlevel_io_t *this,
         retries--;
         usleep(250000);
     }
-   
+
     if (board->fpga_state != DTOV_STAT_APPLIED) {
         LL_ERR("DTOverlay status is not applied post programming: state=%d",
             board->fpga_state);
@@ -292,7 +296,7 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
         retries--;
         usleep(200000);
     }
-    
+
     if (board->uio_fd < 0) {
         LL_ERR("Could not open %s: %s",  board->uio_dev, strerror(errno));
         return -errno;
@@ -326,6 +330,9 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     hm2_idrom_t *idrom = (void *)(virtual_base + reg);
 
     LL_DBG("hm2 cookie check OK, board name='%8.8s'", idrom->board_name);
+
+    uint64_t clock_hz = idrom->clock_low + ((uint64_t)idrom->clock_high << 32);
+    LL_DBG("hm2 clock= %llu HZ", clock_hz);
 
     void *configname = (void *)virtual_base + HM2_ADDR_CONFIGNAME;
     if (strncmp(configname, HM2_CONFIGNAME, HM2_CONFIGNAME_LENGTH) != 0) {
@@ -435,7 +442,21 @@ int rtapi_app_main(void) {
         r = hm2_soc_munmap(&board[0]);
         return r;
     }
+    hal_export_xfunct_args_t xfunct_args = {
+        .type = FS_XTHREADFUNC,
+        .funct.x = waitirq,
+        .arg = &board[0],
+        .uses_fp = 0,
+        .reentrant = 0,
+        .owner_id = comp_id
+    };
 
+    if ((r = hal_export_xfunctf(&xfunct_args, "waitirq.%d", 0)) != 0) {
+	LL_PRINT("hal_export waitirq failed - %d\n", r);
+        hal_exit(comp_id);
+        r = hm2_soc_munmap(&board[0]);
+	return r;
+    }
     hal_ready(comp_id);
     return 0;
 }
@@ -499,9 +520,25 @@ static int fpga_status() {
         }
         fs++;
     }
-    
+
     // state wasn't recognized from array
     LL_ERR( "FPGA overlay unknown status: %s", status);
     return -EINVAL;
 }
 
+static int waitirq(void *arg, const hal_funct_args_t *fa)
+{
+    // using the extended thread function export call makes the following
+    // context visible here:
+    //   fa_period(fa)            the period parameter in the legacy signature
+    //   fa_start_time(fa)        the start time of this function
+    //   fa_thread_start_time(fa) the start time of the first function in the funct chain
+    //   fa_thread_name(fa)       the name of the calling thread
+    //   fa_funct_name(fa)        the name of this funct
+    // otherwise it is fully backwards compatible.
+    // This makes - among others - timing data available 'for free' if needed.
+    // see hal_export_xfunctf() below for the usage difference to hal_export_functf().
+    hm2_soc_t *board = arg;
+
+    return 0;
+}
