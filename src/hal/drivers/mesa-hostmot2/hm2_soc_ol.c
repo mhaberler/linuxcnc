@@ -105,7 +105,7 @@ static char *configfs_status = "/sys/kernel/config/device-tree/overlays/hm2_soc_
 static int zero = 0;
 
 
-static int hm2_soc_mmap(hm2_soc_t *board);
+static int hm2_soc_mmap(hm2_soc_t *brd);
 static int waitirq(void *arg, const hal_funct_args_t *fa); // HAL thread funct
 
 static int fpga_status();
@@ -117,9 +117,9 @@ static int locate_uio_device(hm2_soc_t *brd, const char *name);
 // these are the "low-level I/O" functions exported up
 //
 static int hm2_soc_read(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int size) {
-    hm2_soc_t *board = this->private;
+    hm2_soc_t *brd = this->private;
     int i;
-    u32* src = (u32*) (board->base + addr);
+    u32* src = (u32*) (brd->base + addr);
     u32* dst = (u32*) buffer;
 
     /* Per Peter Wallace, all hostmot2 access should be 32 bits and 32-bit aligned */
@@ -143,10 +143,10 @@ static int hm2_soc_read(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int siz
 }
 
 static int hm2_soc_write(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int size) {
-    hm2_soc_t *board = this->private;
+    hm2_soc_t *brd = this->private;
     int i;
     u32* src = (u32*) buffer;
-    u32* dst = (u32*) (board->base + addr);
+    u32* dst = (u32*) (brd->base + addr);
 
     /* Per Peter Wallace, all hostmot2 access should be 32 bits and 32-bit aligned */
     /* Check for any address or size values that violate this alignment */
@@ -167,16 +167,16 @@ static int hm2_soc_write(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int si
 // happen only once at startup as hm2_soc_mmap() sets llio->read&write
 // to hm2_soc_read & hm2_soc_write.
 static int hm2_soc_unmapped_read(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int size) {
-    hm2_soc_t *board = this->private;
-    int rc = hm2_soc_mmap(board);
+    hm2_soc_t *brd = this->private;
+    int rc = hm2_soc_mmap(brd);
     if (rc)
 	return rc;
     return hm2_soc_read(this, addr, buffer, size);
 }
 
 static int hm2_soc_unmapped_write(hm2_lowlevel_io_t *this, u32 addr, void *buffer, int size) {
-    hm2_soc_t *board = this->private;
-    int rc = hm2_soc_mmap(board);
+    hm2_soc_t *brd = this->private;
+    int rc = hm2_soc_mmap(brd);
     if (rc)
 	return rc;
     return hm2_soc_write(this, addr, buffer, size);
@@ -204,7 +204,7 @@ static int hm2_soc_program_fpga(hm2_lowlevel_io_t *this,
 				const struct firmware *fw) {
 
     int rc;
-    hm2_soc_t *board =  this->private;
+    hm2_soc_t *brd =  this->private;
 
     LL_DBG("soc_program_fpga");
 
@@ -262,16 +262,16 @@ static int hm2_soc_program_fpga(hm2_lowlevel_io_t *this,
     // Spin to give fpga time to program
     retries = 12;
     while(retries > 0) {
-        board->fpga_state = fpga_status();
-        if (board->fpga_state == DTOV_STAT_APPLIED)
+        brd->fpga_state = fpga_status();
+        if (brd->fpga_state == DTOV_STAT_APPLIED)
             break;
         retries--;
         usleep(250000);
     }
 
-    if (board->fpga_state != DTOV_STAT_APPLIED) {
+    if (brd->fpga_state != DTOV_STAT_APPLIED) {
         LL_ERR("DTOverlay status is not applied post programming: state=%d",
-            board->fpga_state);
+            brd->fpga_state);
         return -ENOENT;
     }
 
@@ -284,15 +284,15 @@ static int hm2_soc_program_fpga(hm2_lowlevel_io_t *this,
     return 0;
 }
 
-static int hm2_soc_mmap(hm2_soc_t *board) {
+static int hm2_soc_mmap(hm2_soc_t *brd) {
 
     volatile void *virtual_base;
-    hm2_lowlevel_io_t *this = &board->llio;
+    hm2_lowlevel_io_t *this = &brd->llio;
 
     // we can mmap this device safely only if programmed so cop out
-    if (board->fpga_state != DTOV_STAT_APPLIED) {
+    if (brd->fpga_state != DTOV_STAT_APPLIED) {
         LL_ERR("invalid fpga state %d, unsafe to mmap %s",
-            board->fpga_state, board->uio_dev);
+            brd->fpga_state, brd->uio_dev);
         return -EIO;
     }
 
@@ -301,28 +301,28 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     int retries = 10;
     int ret;
     while(retries > 0) {
-	ret = locate_uio_device(board, name);
+	ret = locate_uio_device(brd, name);
 	if (ret == 0)
 	    break;
         retries--;
         usleep(200000);
     }
-    if (ret || (board->uio_dev == NULL)) {
+    if (ret || (brd->uio_dev == NULL)) {
 	LL_ERR("failed to map %s to /dev/uioX\n", name);
 	return ret;
     }
-    board->uio_fd = open(board->uio_dev , ( O_RDWR | O_SYNC ));
-    if (board->uio_fd < 0) {
-        LL_ERR("Could not open %s: %s",  board->uio_dev, strerror(errno));
+    brd->uio_fd = open(brd->uio_dev , ( O_RDWR | O_SYNC ));
+    if (brd->uio_fd < 0) {
+        LL_ERR("Could not open %s: %s",  brd->uio_dev, strerror(errno));
         return -errno;
     }
     virtual_base = mmap( NULL, HM2REG_IO_0_SPAN, ( PROT_READ | PROT_WRITE ),
-                         MAP_SHARED, board->uio_fd, 0);
+                         MAP_SHARED, brd->uio_fd, 0);
 
     if (virtual_base == MAP_FAILED) {
         LL_ERR( "mmap failed: %s", strerror(errno));
-            close(board->uio_fd);
-        board->uio_fd = -1;
+            close(brd->uio_fd);
+        brd->uio_fd = -1;
         return -EINVAL;
     }
 
@@ -336,8 +336,8 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     if (reg != HM2_IOCOOKIE) {
         LL_ERR("invalid cookie, got 0x%08X, expected 0x%08X\n", reg, HM2_IOCOOKIE);
         LL_ERR( "FPGA failed to initialize, or unexpected firmware?\n");
-        close(board->uio_fd);
-        board->uio_fd = -1;
+        close(brd->uio_fd);
+        brd->uio_fd = -1;
         return -EINVAL;
     }
 
@@ -349,8 +349,8 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     void *configname = (void *)virtual_base + HM2_ADDR_CONFIGNAME;
     if (strncmp(configname, HM2_CONFIGNAME, HM2_CONFIGNAME_LENGTH) != 0) {
         LL_ERR("%s signature not found at %p", HM2_CONFIGNAME, configname);
-        close(board->uio_fd);
-        board->uio_fd = -1;
+        close(brd->uio_fd);
+        brd->uio_fd = -1;
         return -EINVAL;
     }
 
@@ -358,7 +358,7 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     rtapi_snprintf(this->name, sizeof(this->name), "hm2_%4.4s.%d",
                    idrom->board_name + 4, num_boards);
     strlwr(this->name);
-    board->base = (void *)virtual_base;
+    brd->base = (void *)virtual_base;
     // now it's safe to read/write
     this->read = hm2_soc_read;
     this->write = hm2_soc_write;
@@ -415,12 +415,12 @@ static int hm2_soc_register(hm2_soc_t *brd, const char *name)
 }
 
 
-static int hm2_soc_munmap(hm2_soc_t *board) {
-    if (board->base != NULL)
-        munmap((void *) board->base, HM2REG_IO_0_SPAN);
-    if (board->uio_fd > -1) {
-        close(board->uio_fd);
-        board->uio_fd = -1;
+static int hm2_soc_munmap(hm2_soc_t *brd) {
+    if (brd->base != NULL)
+        munmap((void *) brd->base, HM2REG_IO_0_SPAN);
+    if (brd->uio_fd > -1) {
+        close(brd->uio_fd);
+        brd->uio_fd = -1;
     }
     return(1);
 }
@@ -458,14 +458,7 @@ int rtapi_app_main(void) {
         r = hm2_soc_munmap(brd);
         return r;
     }
-    hal_export_xfunct_args_t xfunct_args = {
-        .type = FS_XTHREADFUNC,
-        .funct.x = waitirq,
-        .arg = &board[0],
-        .uses_fp = 0,
-        .reentrant = 0,
-        .owner_id = comp_id
-    };
+
     // enable time IRQ's
     if (timer1) {
 
@@ -479,6 +472,14 @@ int rtapi_app_main(void) {
 	    hal_pin_u32_newf(HAL_OUT, &brd->pins->read_errors, comp_id, "hm2.%d.read-errors", 0))
 	    return -1;
 
+	hal_export_xfunct_args_t xfunct_args = {
+	    .type = FS_XTHREADFUNC,
+	    .funct.x = waitirq,
+	    .arg = brd,
+	    .uses_fp = 0,
+	    .reentrant = 0,
+	    .owner_id = comp_id
+	};
 	if ((r = hal_export_xfunctf(&xfunct_args, "waitirq.%d", 0)) != 0) {
 	    LL_PRINT("hal_export waitirq failed - %d\n", r);
 	    hal_exit(comp_id);
@@ -500,9 +501,12 @@ int rtapi_app_main(void) {
 }
 
 
-void rtapi_app_exit(void) {
-    hm2_unregister(&board->llio);
-    hm2_soc_munmap(&board[0]);
+void rtapi_app_exit(void)
+{
+    hm2_soc_t *brd = &board[0];
+
+    hm2_unregister(&brd->llio);
+    hm2_soc_munmap(brd);
     // Clean up the overlay
     rmdir(configfs_dir);
     LL_PRINT("UIO driver unloaded\n");
