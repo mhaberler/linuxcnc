@@ -72,6 +72,10 @@
 
 #define HM2REG_IO_0_SPAN 65536
 
+
+#define MAXUIOIDS  100
+#define MAXNAMELEN 256
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Michael Brown & Michael Haberler & Devin Hughes");
 MODULE_DESCRIPTION("Low level driver for HostMot2 on SoC Based Devices");
@@ -83,8 +87,8 @@ RTAPI_MP_ARRAY_STRING(config, HM2_SOC_MAX_BOARDS,
 static int debug;
 RTAPI_MP_INT(debug, "turn on extra debug output");
 
-static char *uio_dev = "/dev/uio0";
-RTAPI_MP_STRING(uio_dev, "UIO device to use; default /dev/uio0");
+static char *name = "hm2-socfpg0";
+RTAPI_MP_STRING(name, "logical device name, default hm2-socfpg0hm2-socfpg0");
 
 static int timer1;
 RTAPI_MP_INT(timer1, "rate for hm2 Timer1 IRQ, 0: IRQ disabled");
@@ -106,7 +110,8 @@ static int waitirq(void *arg, const hal_funct_args_t *fa); // HAL thread funct
 
 static int fpga_status();
 static char *strlwr(char *str);
-
+static int fgets_with_openclose(char *fname, char *buf, size_t maxlen);
+static int locate_uio_device(hm2_soc_t *brd, const char *name);
 
 //
 // these are the "low-level I/O" functions exported up
@@ -294,14 +299,19 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     // Fix race from overlay framework
     // spin to give uio device time to appear with proper permissions
     int retries = 10;
+    int ret;
     while(retries > 0) {
-        board->uio_fd = open(board->uio_dev , ( O_RDWR | O_SYNC ));
-        if (board->uio_fd != -1)
-            break;
+	ret = locate_uio_device(board, name);
+	if (ret == 0)
+	    break;
         retries--;
         usleep(200000);
     }
-
+    if (ret || (board->uio_dev == NULL)) {
+	LL_ERR("failed to map %s to /dev/uioX\n", name);
+	return ret;
+    }
+    board->uio_fd = open(board->uio_dev , ( O_RDWR | O_SYNC ));
     if (board->uio_fd < 0) {
         LL_ERR("Could not open %s: %s",  board->uio_dev, strerror(errno));
         return -errno;
@@ -355,12 +365,14 @@ static int hm2_soc_mmap(hm2_soc_t *board) {
     return 0;
 }
 
-static int hm2_soc_register(hm2_soc_t *brd, const char *uiodev) {
+static int hm2_soc_register(hm2_soc_t *brd, const char *name)
+{
     memset(brd, 0,  sizeof(hm2_soc_t));
+
+    brd->name = name;
 
     // no directory to check state yet, so it's unknown
     brd->fpga_state = -1;
-    brd->uio_dev = uio_dev;
 
     brd->llio.comp_id = comp_id;
     brd->llio.num_ioport_connectors = 2;
@@ -393,11 +405,11 @@ static int hm2_soc_register(hm2_soc_t *brd, const char *uiodev) {
     if (r != 0) {
         THIS_ERR("hm2_soc_ol_board fails HM2 registration\n");
         close(brd->uio_fd);
-        board->uio_fd = -1;
+        brd->uio_fd = -1;
         return -EIO;
     }
 
-    LL_PRINT("initialized AnyIO hm2_soc_ol_board \n");
+    LL_PRINT("initialized AnyIO hm2_soc_ol_board %s on %s\n", brd->name, brd->uio_dev);
     num_boards++;
     return 0;
 }
@@ -423,7 +435,9 @@ int rtapi_app_main(void) {
     comp_id = hal_init(HM2_LLIO_NAME);
     if (comp_id < 0) return comp_id;
 
-    r = hm2_soc_register(&board[0], uio_dev);
+    hm2_soc_t *brd = &board[0];
+
+    r = hm2_soc_register(brd, name);
     if (r != 0) {
         LL_ERR("error registering UIO driver\n");
         hal_exit(comp_id);
@@ -433,7 +447,7 @@ int rtapi_app_main(void) {
     if (failed_errno) {
         // at least one card registration failed
         hal_exit(comp_id);
-        r = hm2_soc_munmap(&board[0]);
+        r = hm2_soc_munmap(brd);
         return r;
     }
 
@@ -441,7 +455,7 @@ int rtapi_app_main(void) {
         // no cards were detected
         LL_PRINT("error - no supported cards detected\n");
         hal_exit(comp_id);
-        r = hm2_soc_munmap(&board[0]);
+        r = hm2_soc_munmap(brd);
         return r;
     }
     hal_export_xfunct_args_t xfunct_args = {
@@ -454,7 +468,6 @@ int rtapi_app_main(void) {
     };
     // enable time IRQ's
     if (timer1) {
-	hm2_soc_t *brd = &board[0];
 
 	brd->pins = hal_malloc(sizeof(hm2_soc_pins_t));
 	if (!brd->pins)
@@ -550,6 +563,41 @@ static int fpga_status() {
     LL_ERR( "FPGA overlay unknown status: %s", status);
     return -EINVAL;
 }
+
+static int fgets_with_openclose(char *fname, char *buf, size_t maxlen)
+{
+    FILE *fp;
+
+    if ((fp = fopen(fname, "r")) != NULL) {
+	fgets(buf, maxlen, fp);
+	fclose(fp);
+	return strlen(buf);
+    } else {
+	return -1;
+    }
+}
+
+// fills in brd->uio_dev based on name
+static int locate_uio_device(hm2_soc_t *brd, const char *name)
+{
+    char fname[MAXNAMELEN], buf[MAXNAMELEN];
+    int uio_id;
+
+    for (uio_id = 0; uio_id < MAXUIOIDS; uio_id++) {
+	sprintf(fname, "/sys/class/uio/uio%d/name", uio_id);
+	if (fgets_with_openclose(fname, buf, MAXNAMELEN) < 0)
+	    continue;
+	if (strncmp(name, buf, strlen(name)) == 0)
+	    break;
+    }
+    if (uio_id >= MAXUIOIDS)
+	return -1;
+
+    sprintf(buf, "/dev/uio%d", uio_id);
+    brd->uio_dev = strdup(buf);
+    return 0;
+}
+
 
 static int waitirq(void *arg, const hal_funct_args_t *fa)
 {

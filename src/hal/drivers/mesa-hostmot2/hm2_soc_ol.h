@@ -32,8 +32,9 @@ typedef struct {
 
 typedef struct {
     int fpga_state;
-    int  uio_fd;
+    int uio_fd;
     int firmware_given;
+    const char *name;
     const char *uio_dev;
     void __iomem *base;
     int len;
