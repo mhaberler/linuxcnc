@@ -1342,7 +1342,8 @@ endif
 endif
 
 ifeq ($(BUILD_HOSTMOT2),yes)
-obj-$(CONFIG_HOSTMOT2) += hostmot2.o hm2_7i43.o hm2_7i90.o hm2_pci.o hm2_test.o
+obj-$(CONFIG_HOSTMOT2) += hostmot2.o hm2_7i43.o hm2_7i90.o hm2_pci.o hm2_test.o \
+	waitpci.o
 ifeq ($(BUILD_SYS),user-dso)
 obj-$(CONFIG_HOSTMOT2) += hm2_eth.o
 hm2_eth-objs  :=			  \
@@ -1391,6 +1392,8 @@ hm2_test-objs :=			  \
 setsserial-objs :=			  \
     hal/drivers/mesa-hostmot2/setsserial.o  \
     $(MATHSTUB)
+waitpci-objs :=			  \
+    hal/drivers/mesa-hostmot2/waitpci.o
 endif
 
 ifeq ($(BUILD_HOSTMOT2),yes)
@@ -1686,6 +1689,7 @@ $(RTLIBDIR)/hm2_eth$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_eth-objs))
 endif
 $(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs))
 endif
+$(RTLIBDIR)/waitpci$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(waitpci-objs))
 
 ifdef TARGET_PLATFORM_SOCFPGA
 ifeq ($(BUILD_SYS),user-dso)
