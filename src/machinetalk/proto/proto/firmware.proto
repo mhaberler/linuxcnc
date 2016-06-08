@@ -1,0 +1,26 @@
+
+// the nanopb import, plus the nanopb max_size/max_count options are not
+// strictly needed but together they result in a fixed-size C struct
+// representing the decoded message in nanopb
+// see the resulting typedefs _pb_Connector and  _pb_Firmware in
+// src/machinetalk/generated/firmware.npb.h
+// this makes the struct easier to work with in RT (decoding without
+// callbacks and malloc())
+
+import "nanopb.proto";
+
+package pb;
+
+message Connector {
+    optional string        name     = 1 [(nanopb).max_size = 80];
+    optional sfixed32      pins     = 2;
+}
+
+message Firmware {
+    optional string       build_sha         = 1 [(nanopb).max_size = 50];
+    optional string       fpga_part_number  = 2 [(nanopb).max_size = 80];
+    repeated Connector    connector         = 3 [(nanopb).max_count = 32];
+    optional sfixed32     num_leds          = 4;
+    optional string       board_name        = 5 [(nanopb).max_size = 80];
+}
+
