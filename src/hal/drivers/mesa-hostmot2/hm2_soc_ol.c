@@ -59,9 +59,9 @@ see configs/hm2-soc-stepper/irqtest.hal for a usage example
 #include "config.h"
 
 // this should be an general socfpga #define
-#if !defined(TARGET_PLATFORM_SOCFPGA)
-#error "This driver is for the socfpga platform only"
-#endif
+/* #if !defined(TARGET_PLATFORM_SOCFPGA) */
+/* #error "This driver is for the socfpga platform only" */
+/* #endif */
 
 #if !defined(BUILD_SYS_USER_DSO)
 #error "This driver is for usermode threads only"
@@ -80,6 +80,13 @@ see configs/hm2-soc-stepper/irqtest.hal for a usage example
 #include "hostmot2.h"
 #include "hm2_soc_ol.h"
 
+
+#define FAKE_DESCRIPTOR 1
+
+#include <machinetalk/nanopb/pb_decode.h>
+#include <machinetalk/generated/firmware.npb.h>
+#include <machinetalk/generated/firmware.npb.c>  // kludge
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -88,6 +95,9 @@ see configs/hm2-soc-stepper/irqtest.hal for a usage example
 #include <string.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <stdlib.h>
+
+#define FAKE_DESCRIPTOR 1
 
 /* Wrap up dt state */
 #define DTOV_STAT_UNAPPLIED	0x0
@@ -113,6 +123,15 @@ RTAPI_MP_INT(debug, "turn on extra debug output");
 static char *name = "hm2-socfpg0";
 RTAPI_MP_STRING(name, "logical device name, default hm2-socfpg0hm2-socfpg0");
 
+#ifdef FAKE_DESCRIPTOR
+static char *descriptor = NULL;
+RTAPI_MP_STRING(descriptor, ".bin file with protobuf descriptor");
+
+struct blob_layout {
+    uint32_t size;
+    uint8_t  msg[0];
+};
+#endif
 static int timer1;
 RTAPI_MP_INT(timer1, "rate for hm2 Timer1 IRQ, 0: IRQ disabled");
 
@@ -271,7 +290,7 @@ static int hm2_soc_program_fpga(hm2_lowlevel_io_t *this,
         return -EIO;
     }
 
-    int size = strlen(this->firmware);
+    size_t size = strlen(this->firmware);
     
     // load FPGA by writing the name of the overlay to the path node
     if (write(fd, this->firmware, size) != size)  {
@@ -450,6 +469,48 @@ static int hm2_soc_munmap(hm2_soc_t *brd) {
 
 int rtapi_app_main(void) {
     int r = 0;
+
+#ifdef FAKE_DESCRIPTOR
+    // to demo processing the descriptor message, let's
+    // read it from a file; eventually this will be in the IDrom
+    if (descriptor) {
+	struct stat st;
+	if (stat(descriptor, &st)) {
+	    perror(descriptor);
+	    return -1;
+	}
+	void *blob = malloc(st.st_size);
+	int fd = open(descriptor, O_RDONLY);
+	read(fd, blob, st.st_size);
+	struct blob_layout *bl = blob;
+	LL_INFO(" descriptor %p blob size %zu msg size %u", blob, st.st_size, bl->size);
+
+	// this is the actual decoding step:
+	pb_Firmware fw;
+	pb_istream_t stream = pb_istream_from_buffer(bl->msg,  bl->size);
+	if (!pb_decode(&stream, pb_Firmware_fields, &fw)) {
+	    LL_ERR("pb_decode(Firmware) failed: '%s'\n", PB_GET_ERROR(&stream));
+	    return -1;
+	}
+	if (fw.has_board_name)
+	    LL_INFO("board_name = '%s'", fw.board_name);
+	if (fw.has_build_sha)
+	    LL_INFO("build_sha = '%s'", fw.build_sha);
+	if (fw.has_fpga_part_number)
+	    LL_INFO("fpga_part_number = '%s'", fw.fpga_part_number);
+	if (fw.has_num_leds)
+	    LL_INFO("num_leds = %d", fw.num_leds);
+
+	size_t n;
+	for (n = 0; n < fw.connector_count; n++) {
+	    pb_Connector *conn = &fw.connector[n];
+	    if (conn->has_name)
+		LL_INFO("connector %zu name = '%s'", n, conn->name);
+	    if (conn->has_pins)
+		LL_INFO("connector %zu pins = %d", n, conn->pins);
+	}
+    }
+#endif
 
     LL_PRINT("loading Mesa AnyIO HostMot2 socfpga overlay driver version " HM2_SOCFPGA_VERSION "\n");
 
