@@ -142,6 +142,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 	    return -EINVAL;
 	}
 
+#ifdef SENSELESS_RESTRICTIONS
 	// this will be 0 for legacy comps which use comp_id
 	hal_inst_t *inst = halpr_find_inst_by_id(owner_id);
 	int inst_id = (inst ? inst->inst_id : 0);
@@ -153,7 +154,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
 		   name, comp->state);
 	    return -EINVAL;
 	}
-
+#endif
 	/* allocate a new variable structure */
 	new = alloc_pin_struct();
 	if (new == 0) {
