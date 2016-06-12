@@ -63,6 +63,9 @@
 #include <limits.h>
 #include <sys/prctl.h>
 #include <inifile.h>
+#include <mk-passfd.h>
+#include <passfd_proto.h>
+#include <ancillary.h>
 
 #include <czmq.h>
 #include <google/protobuf/text_format.h>
@@ -142,6 +145,10 @@ static FILE *inifp;
 #ifdef NOTYET
 static AvahiCzmqPoll *av_loop;
 #endif
+
+// use an 'abstract  socket  address' for the pass-filedescriptor daemon service
+// X will be replaced by '\0' post-snprintf so it's not visible in the file sysem
+const char *passfd_socket_fmt =  PASSFD_SOCKET;
 
 // the following two variables, despite extern, are in fact private to rtapi_app
 // in the sense that they are not visible in the RT space (the namespace 
@@ -1125,6 +1132,202 @@ s_handle_timer(zloop_t *loop, int  timer_id, void *args)
     return 0;
 }
 
+static int s_handle_passfd_connection(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+{
+    int retval;
+    struct passfd_request req;
+    struct passfd_response resp;
+    int fd = -1;
+    int prevfd = -1;
+
+    void *hallib = modules["hal_lib"];
+    assert(hallib != NULL);
+    int (*_hal_set_fd)(const char *, hal_s32_t , int ) =
+	DLSYM<int(*)(const char *, hal_s32_t , int )>(hallib, "hal_set_fd");
+    int (*_hal_get_fd)(hal_s32_t *, const char *) =
+	DLSYM<int(*)(hal_s32_t *, const char *)>(hallib, "hal_get_fd");
+    int (*_hal_close_fd)(const char *) =
+	DLSYM<int(*)(const char *)>(hallib, "hal_close_fd");
+
+    assert(_hal_set_fd != NULL);
+    assert(_hal_get_fd != NULL);
+    assert(_hal_close_fd != NULL);
+
+    syslog_async(LOG_DEBUG, "%s: passfd socket %d readable\n",
+		 __FUNCTION__, poller->fd);
+
+    // read the request
+    retval = read(poller->fd, &req, sizeof(req));
+    if (retval != sizeof(req)) {
+	syslog_async(LOG_ERR, "%s: passfd read fd %d: expected %zu got %zu, closing\n",
+		     __FUNCTION__, poller->fd, sizeof(req), retval);
+	goto CLOSE;
+    }
+    syslog_async(LOG_DEBUG, "%s: passfd op=%d name=%s\n",
+		 __FUNCTION__, req.op, req.name);
+
+    switch (req.op) {
+
+    case PFD_GET:   // retrieve an fd from rtapi_app
+
+	// lookup the name &  retrieve value
+	resp.hal_rc =  _hal_get_fd(&fd, req.name);
+
+	if (resp.hal_rc) { // fail
+	    snprintf(resp.msgtext, sizeof(resp.msgtext), "%s: no such fd, rc=%d - %s",
+		     req.name, resp.hal_rc, strerror(-resp.hal_rc));
+	    retval = write(poller->fd, &resp, sizeof(resp));
+	    if (retval != sizeof(resp)) {
+		syslog_async(LOG_ERR, "%s: passfd write failed: expect %zu wrote, closing\n",
+			     __FUNCTION__, poller->fd, sizeof(req), retval);
+		goto CLOSE;
+	    }
+	} else {
+	    snprintf(resp.msgtext, sizeof(resp.msgtext), "transferring '%s' fd %d",
+		     req.name, fd);
+	    retval = write(poller->fd, &resp, sizeof(resp));
+	    if (retval != sizeof(resp)) {
+		syslog_async(LOG_ERR, "%s: passfd write failed: expect %zu wrote, closing\n",
+			     __FUNCTION__, poller->fd, sizeof(req), retval);
+		goto CLOSE;
+	    }
+	    // good to pass the fd
+	    retval = ancil_send_fd(poller->fd, fd);
+	    if (retval)
+		syslog_async(LOG_ERR, "%s: ancil_send_fd conn %d failed rc=%d\n",
+			     __FUNCTION__, poller->fd, retval);
+	    else
+		syslog_async(LOG_INFO, "%s: %s", __FUNCTION__, resp.msgtext);
+	}
+	break;
+
+    case PFD_PUT:    // pass an fd to rtapi_app
+
+	if ((retval = ancil_recv_fd(poller->fd, &fd)) != 0) {
+	    syslog_async(LOG_ERR, "%s: passfd %s ancil_recv_fd() failed rc=%d, closing\n",
+			 __FUNCTION__, req.name, retval);
+	    if (fd > -1)
+		close(fd);
+	    goto CLOSE;
+	}
+	_hal_get_fd(&prevfd, req.name);  // retrieve any previous fd
+	if (prevfd > -1)
+		close(prevfd);
+	retval = _hal_set_fd(req.name, fd, 1);
+	resp.hal_rc = retval;
+
+	switch (retval) {
+	case -EINVAL:
+	    snprintf(resp.msgtext, sizeof(resp.msgtext), "type mismatch for '%s'",
+		     req.name);
+	    break;
+	case -ENOMEM:
+	    snprintf(resp.msgtext, sizeof(resp.msgtext), "out of HAL memory allocating pin '%s'",
+		     req.name);
+	    break;
+	case 0:
+	    snprintf(resp.msgtext, sizeof(resp.msgtext), "received fd %s as %d",
+		     req.name, fd);
+	    // prevent leakage - new fd already set
+	    // bug: this does not cover the case where on the RT side
+	    // a funct is already doing a read() or write() on this fd
+	    // probably should check
+	    // man 2 close is unclear if an operation will be cancelled
+	    // so better see in action and fix then
+	    if (prevfd > -1)
+		close(prevfd);
+	    break;
+	default:
+	    snprintf(resp.msgtext, sizeof(resp.msgtext),
+		     "yikes - unhandled return code %d setting pin %s",
+		     retval, req.name);
+	    break;
+	}
+	retval = write(poller->fd, &resp, sizeof(resp));
+	if (retval != sizeof(resp)) {
+	    syslog_async(LOG_ERR, "%s: passfd write failed: expect %zu wrote, closing\n",
+			 __FUNCTION__, poller->fd, sizeof(req), retval);
+	    goto CLOSE;
+	}
+	syslog_async(LOG_INFO, "%s: %s", __FUNCTION__, resp.msgtext);
+	break;
+
+    case PFD_CLOSE:
+	resp.hal_rc =  _hal_close_fd(req.name);
+	retval = _hal_set_fd(req.name, -1, 0);
+	strcpy(resp.msgtext, "closed");
+	retval = write(poller->fd, &resp, sizeof(resp));
+	if (retval != sizeof(resp)) {
+	    syslog_async(LOG_ERR, "%s: passfd write failed: expect %zu wrote, closing\n",
+			 __FUNCTION__, poller->fd, sizeof(req), retval);
+	    goto CLOSE;
+	}
+	break;
+    default:
+	syslog_async(LOG_ERR, "%s: passfd invalid op=%d name=%s, closing\n",
+		     __FUNCTION__, req.op, req.name);
+	goto CLOSE;
+    }
+
+ CLOSE:
+    // close connection and deregister poller
+    zloop_poller_end (loop, poller);
+    close(poller->fd);
+    return 0;
+}
+
+static int s_passfd_connect(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
+{
+    // the listen socket became readable
+    // accept connection and handle it
+    struct sockaddr_un address;
+    socklen_t address_length  = sizeof(address);
+
+    int conn_fd = accept(poller->fd,
+			 (struct sockaddr *) &address,
+			 &address_length);
+    if (conn_fd > -1) {
+	syslog_async(LOG_INFO, "%s: passfd client connected, fd=%d\n",
+		     __FUNCTION__, conn_fd);
+	zmq_pollitem_t passfd_conn_poller = { 0, conn_fd, ZMQ_POLLIN };
+	zloop_poller (loop, & passfd_conn_poller, s_handle_passfd_connection, NULL);
+    }
+    return 0;
+}
+
+static int s_passfd_listen(const char *name, const int instance_id)
+{
+    struct sockaddr_un address;
+    int socket_fd;
+
+    socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+    if(socket_fd < 0) {
+	syslog_async(LOG_ERR, "%s: socket() failed - %s\n",
+		     __FUNCTION__, strerror(errno));
+	return -1;
+    }
+    int enable = 1;
+    setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+
+    memset(&address, 0, sizeof(struct sockaddr_un));
+    address.sun_family = AF_UNIX;
+    snprintf(address.sun_path,sizeof(address.sun_path), "%s:%d", name, instance_id);
+    address.sun_path[0] = '\0';
+
+    if (bind(socket_fd, (struct sockaddr *) &address,
+	    sizeof(struct sockaddr_un)) != 0) {
+	syslog_async(LOG_ERR, "%s: bind() failed - %s\n",
+		     __FUNCTION__, strerror(errno));
+	return -1;
+    }
+
+    if (listen(socket_fd, 5) != 0) {
+	syslog_async(LOG_ERR, "%s: listen() failed - %s\n",
+		     __FUNCTION__, strerror(errno));
+	return -1;
+    }
+    return socket_fd;
+}
 
 static int mainloop(size_t  argc, char **argv)
 {
@@ -1287,12 +1490,23 @@ static int mainloop(size_t  argc, char **argv)
     assert(z_loop);
     zloop_set_verbose(z_loop, debug);
 
-    zmq_pollitem_t signal_poller = { 0, signal_fd, ZMQ_POLLIN };
-    if (trap_signals)
-	zloop_poller (z_loop, &signal_poller, s_handle_signal, NULL);
+    {
+	zmq_pollitem_t signal_poller = { 0, signal_fd, ZMQ_POLLIN };
+	if (trap_signals)
+	    zloop_poller (z_loop, &signal_poller, s_handle_signal, NULL);
 
-    zmq_pollitem_t command_poller = { z_command, 0, ZMQ_POLLIN };
-    zloop_poller(z_loop, &command_poller, rtapi_request, NULL);
+	zmq_pollitem_t command_poller = { z_command, 0, ZMQ_POLLIN };
+	zloop_poller(z_loop, &command_poller, rtapi_request, NULL);
+
+	int ps = s_passfd_listen(PASSFD_SOCKET, instance_id);
+	if (ps > -1) {
+	    zmq_pollitem_t passfd_listen_poller = { 0, ps, ZMQ_POLLIN };
+	    zloop_poller (z_loop, & passfd_listen_poller, s_passfd_connect, NULL);
+	} else {
+	    rtapi_print_msg(RTAPI_MSG_ERR,"failed to open passfd listen socket %s:%d",
+			    PASSFD_SOCKET, instance_id);
+	}
+    }
 
     zloop_timer (z_loop, BACKGROUND_TIMER, 0, s_handle_timer, NULL);
 
