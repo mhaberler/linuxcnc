@@ -1,0 +1,87 @@
+component eventfd "event file descriptor creation";
+
+description """
+creates an event file descriptor in HAL, and store its
+value in <instname>.fd .
+
+The purpose of event file descriptors in HAL is to serve as
+incoming, or outgoing notification devices to/from HAL, or within HAL.
+The evfdops component exports functs which can be used together
+with event file descriptors.
+
+A usage example can be found in machinetalk/pass-fd-example/example1.hal .
+
+File descriptors stored in pins can be retrieved outside hal by using the passfd API;
+see  machinetalk/pass-fd-example/fdclient.c for a usage example.
+
+See also. man 2 eventfd
+
+This component exports no usable functs.
+""" ;
+
+pin out  s32 fd = -1 "named event file descriptor" ;
+
+option extra_inst_setup;
+license "GPL";
+function _;
+;;
+
+#include <stdlib.h>
+#include <getopt.h>
+#include <sys/eventfd.h>
+
+// nah. Why just do we need one?
+// instcomp has legit use without forcing creation of pins, or functs
+FUNCTION(_) { return 0;}
+
+EXTRA_INST_SETUP()
+{
+    int x;
+
+    for(x = 0; x < argc; x++)
+        hal_print_msg(RTAPI_MSG_ERR,"argv[%d] = %s", x, argv[x]);
+
+    int initval = 0;
+    int flags = 0;
+    int opt = 0;
+    int retval;
+
+    static struct option long_options[] = {
+        {"semaphore", no_argument,       0,  's' },
+        {"cloexec",   no_argument,       0,  'C' },
+        {"nonblock",  no_argument,       0,  'n' },
+        {"init",      required_argument, 0,  '1' },
+        {0,           0,                 0,  0   }
+    };
+
+    int long_index = 0;
+    while ((opt = getopt_long_only(argc, argv,"",
+                   long_options, &long_index )) != -1) {
+        switch (opt) {
+	case 's' :
+	    flags |= EFD_SEMAPHORE;
+	    break;
+	case 'n' :
+	    flags |= EFD_NONBLOCK;
+	    break;
+	case 'C' :
+	    flags |= EFD_CLOEXEC;
+	    break;
+	case 'i' :
+	    initval = atoi(optarg);
+	    break;
+	default:
+	    hal_print_msg(RTAPI_MSG_ERR,"%s: invalid option '%c'", name, opt);
+	    return -1;
+        }
+    }
+    int efd = eventfd(initval, flags);
+    if (efd < 0) {
+	retval = -errno;
+        hal_print_msg(RTAPI_MSG_ERR,"%s: eventfd(%d,%d) failed: %d - %s",
+		      __FUNCTION__, initval, flags, errno, strerror(errno));
+	return retval;
+    }
+    fd = efd;
+    return 0;
+}
