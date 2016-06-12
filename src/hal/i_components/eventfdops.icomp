@@ -1,0 +1,91 @@
+component eventfdops "functs which operate on event file descriptors";
+
+description """
+creates an event file descriptor in HAL, and store its
+value in <instname>.fd .
+
+The purpose of event file descriptors in HAL is to serve as
+incoming, or outgoing notification devices to/from HAL, or within HAL.
+The evfdops component exports functs which can be used together
+with event file descriptors.
+
+A usage example can be found in machinetalk/pass-fd-example/example1.hal .
+
+See also. man 2 eventfd
+
+This component exports no usable functs.
+"""
+;
+
+
+pin in  s32 notify_fd = -1;
+pin in  s32 wait_fd = -1;
+pin in  s32 poll_fd = -1;
+pin in   u32 incr = 1;
+pin out  u32 got;
+
+license "GPL";
+
+function notify "foo";
+function wait;
+function dopoll;
+function printlog;
+
+;;
+
+#include <stdint.h>
+#include <unistd.h>
+#include <sys/eventfd.h>
+#include <poll.h>
+
+FUNCTION(notify)
+{
+    uint64_t u = (uint64_t) incr;
+    write(notify_fd, &u, sizeof(u));
+    return 0;
+}
+
+FUNCTION(wait)
+{
+
+    uint64_t u;
+    read(wait_fd, &u, sizeof(u));
+    got = (hal_u32_t) u;
+    return 0;
+}
+
+
+FUNCTION(dopoll)
+{
+    struct pollfd   fds[1];
+    int rc;
+
+    // blocking poll(2) on the fd. Does not consume a readable fd.
+    // to consume, addf the wait funct after dopoll.
+    fds[0].fd = poll_fd;
+    fds[0].events = POLLERR | POLLHUP | POLLNVAL | POLLIN | POLLPRI | POLLRDHUP;
+    rc = poll(fds, 1, -1);
+    if ( rc == -1 ) {
+	hal_print_msg(RTAPI_MSG_ERR, "poll() returned error %d: %s\n", errno, strerror(errno));
+    } else {
+	hal_print_msg(RTAPI_MSG_INFO,
+		      "poll() returned %d: %x %s %s %s %s %s %s\n",
+		      rc, fds[0].revents,
+		      ( ( fds[0].revents & POLLIN  ) ? "POLLIN" : "" ),
+		      ( ( fds[0].revents & POLLPRI  ) ? "POLLPRI" : "" ),
+		      ( ( fds[0].revents & POLLRDHUP  ) ? "POLLRDHUP" : "" ),
+		      ( ( fds[0].revents & POLLERR  ) ? "POLLERR" : ""),
+		      ( ( fds[0].revents & POLLHUP  ) ? "POLLHUP" : "" ),
+		      ( ( fds[0].revents & POLLNVAL ) ? "POLLNVAL" : "" ));
+    }
+    return 0;
+}
+
+FUNCTION(printlog)
+{
+    // debugging: leave a log scent mark post wait()
+    hal_print_msg(RTAPI_MSG_INFO,
+		  "funct '%s' called by '%s' got=%u incr=%u",
+		  fa_funct_name(fa), fa_thread_name(fa), got, incr);
+    return 0;
+}
