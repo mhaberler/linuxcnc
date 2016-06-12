@@ -613,7 +613,7 @@ static int create_instance(const hal_funct_args_t *fa)
 	HALERR("instance '%s' already exists", iname);
 	return -EBUSY;
     }
-    return comp->ctor(iname, argc - 2, &argv[2]);
+    return comp->ctor(iname, argc - 1, &argv[1]);
 }
 
 static int delete_instance(const hal_funct_args_t *fa)
