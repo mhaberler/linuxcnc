@@ -87,11 +87,30 @@ TARGETS += ../lib/python/machinekit/shmcommon.so
 	@mkdir -p $(dir $@)
 	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
 
+
+PASSFDSO_CSRCS := $(addprefix $(HALNGMKDIR)/, \
+	passfd.c )
+
+$(HALNGMKDIR)/passfd.c:  $(HALNGMKDIR)/passfd.pyx
+	$(CYTHON) -o $@ $<
+
+USERSRCS += $(PASSFDSO_CSRCS)
+
+$(call TOOBJSDEPS, $(PASSFDSO_CSRCS)) : EXTRAFLAGS=-fPIC
+
+TARGETS += ../lib/python/machinekit/passfd.so
+
+../lib/python/machinekit/passfd.so: \
+	 $(patsubst %.c,objects/%.o,$(PASSFDSO_CSRCS)) 	../lib/libmtalk.so.0
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
+
 $(HALNGDIR)/machinekit/%.c: $(addprefix $(HALNGDIR)/machinekit/, %.pyx %.pxd)
 	$(CYTHON) -o $@ $<
 
 clean: cython-clean
 cython-clean:
-	for f in compat hal rtapi shmcommon; do \
+	for f in compat hal rtapi shmcommon passfd; do \
 	    rm -f hal/cython/machinekit/$$f.c; \
 	done
