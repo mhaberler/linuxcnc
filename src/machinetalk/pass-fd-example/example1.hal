@@ -1,0 +1,48 @@
+# event signalling example: user process signals HAL thread
+
+# create two eventfd's
+# the filedescriptor numbers will show up as pin tohal.fd and fromhal.fd
+newinst eventfd tohal   --semaphore
+newinst eventfd fromhal --semaphore
+
+# the value is the fd number within rtapi_app and has no meaning beyond that.
+show pin tohal.fd  fromhal.fd
+
+# eventfd exports the functs notify, dopoll, wait
+# the fd's they operate on are called notify-fd, wait_fd and poll-fd
+newinst eventfdops demo
+
+# associate demo.wait with tohal.fd
+net wait-fd tohal.fd demo.wait-fd demo.poll-fd
+
+# associate demo.notify with fromhal.fd
+net notify-fd  fromhal.fd demo.notify-fd
+
+newthread servo nowait posix
+
+addf demo.dopoll      servo  # waits for tohal.fd to be signaled
+addf demo.wait        servo  # waits for tohal.fd to be signaled
+addf demo.printlog    servo
+addf demo.notify      servo # signals fromhal.fd
+
+start
+
+# now the servo thread is blocked in demo.wait, waiting for an event to be signaled on tohal.fd
+
+# do this by starting fdclient again, this time fetching the previously allocated
+# eventfd fd from rtapi_app and signalling it periodically:
+
+# NB you can run fdclient outside this script, and restart it
+# any number of times; since the eventfd is persistent in rtapi_app the signaling will
+# remain working:
+
+#setup a fd watcher for fromhal.fd
+
+# from C
+#loadusr -i fdclient -n fromhal.fd -w
+
+# or a Python event loop, here zeroMQ:
+loadusr -i python example.py
+
+#setup an fd updater for tohal.fd
+loadusr -i fdclient -n tohal.fd -u
