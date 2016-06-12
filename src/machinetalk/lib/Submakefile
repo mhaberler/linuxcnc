@@ -16,6 +16,7 @@ TARGETS += $(addprefix ../include/, \
 	pbutil.hh       \
 	setup_signals.h \
 	mk-backtrace.h \
+	mk-passfd.h \
 	ancillary.h \
 	syslog_async.h )
 
@@ -33,6 +34,7 @@ LIBMTALK_SRCS := $(addprefix $(LIBMTALK_DIR)/, \
 	mk_backtrace.c \
 	fd_send.c \
 	fd_recv.c \
+	mk_passfd.c \
 	json2pb.cc)
 
 USERSRCS += $(LIBMTALK_SRCS) # $(HALLIBMTALK_SRCS)
