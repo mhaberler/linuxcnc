@@ -1,0 +1,9 @@
+This example shows how file descriptors can be shared
+over Unix sockets between arbitrary processes and HAL/rtapi_app.
+
+There is no requirement the processes have a common ancestor.
+
+This code uses the libancillary library: http://www.normalesup.org/~george/comp/libancillary/
+as already integrated into libmtalk
+
+Michael Haberler 6/2016

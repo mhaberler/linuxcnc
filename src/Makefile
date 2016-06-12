@@ -197,6 +197,7 @@ SUBDIRS := \
 	machinetalk/mkwrapper \
 	machinetalk/mklauncher \
 	machinetalk/videoserver \
+	machinetalk/pass-fd-example \
 	\
 	rtapi/rtapi_math \
 	\

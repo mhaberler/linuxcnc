@@ -1,0 +1,12 @@
+FDCLIENT_SRCS :=  machinetalk/pass-fd-example/fdclient.c
+FDCLIENT_LDFLAGS :=
+
+../bin/fdclient:  $(call TOOBJS, $(FDCLIENT_SRCS)) \
+	../lib/libmtalk.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(FDCLIENT_LDFLAGS)
+
+
+
+USERSRCS += $(FDCLIENT_SRCS)
+TARGETS += ../bin/fdclient
