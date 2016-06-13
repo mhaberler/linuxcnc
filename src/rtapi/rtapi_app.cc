@@ -1601,8 +1601,6 @@ int main(int argc, char **argv)
     uuid_unparse(process_uuid, process_uuid_str);
     int option = LOG_NDELAY;
 
-    rtapi_set_msg_handler(stderr_rtapi_msg_handler);
-
     while (1) {
 	int option_index = 0;
 	int curind = optind;
