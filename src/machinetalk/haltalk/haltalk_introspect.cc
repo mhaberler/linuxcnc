@@ -49,7 +49,7 @@ int halg_object2pb(const bool use_hal_mutex,
 // describe the current HAL universe as a protobuf message.
 int
 process_describe(htself_t *self,
-		 const std::string &from,
+		 zmsg_t *from,
 		 void *socket)
 {
     WITH_HAL_MUTEX();
