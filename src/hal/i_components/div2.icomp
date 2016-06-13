@@ -14,9 +14,15 @@ pin in float in0 "dividend";
 pin in float in1 "divisor";
 pin out float out "out = in0 / in1";
 pin io float deadband "The *out* will be zero if *in1* is between - *deadband* and + *deadband*";
+
+
+variable float prev_in0 = 0;
+variable float prev_in1 = 0;
+
 function _;
 license "GPL";
 ;;
+
 
 
 FUNCTION(_)
