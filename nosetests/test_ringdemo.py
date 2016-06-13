@@ -4,8 +4,11 @@ import os,time,sys
 from nose import with_setup
 from machinekit.nosetests.realtime import setup_module,teardown_module
 from machinekit import rtapi,hal
+from machinekit.nosetests.rtapilog import Log
 
 import ConfigParser
+
+l = Log(level=rtapi.MSG_INFO,tag="nosetest")
 
 def test_rtapi_connect():
     global uuid, rt

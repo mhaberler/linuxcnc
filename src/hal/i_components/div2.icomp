@@ -17,8 +17,8 @@ pin io float deadband "The *out* will be zero if *in1* is between - *deadband* a
 function _;
 license "GPL";
 ;;
-hal_float_t prev_in0 = 0;
-hal_float_t prev_in1 = 0;
+
+
 FUNCTION(_)
 {
     if (deadband < 1e-12)

@@ -1,5 +1,4 @@
 
-
 HALNGDIR := hal/cython
 HALNGMKDIR :=  $(HALNGDIR)/machinekit
 
@@ -21,7 +20,31 @@ $(call TOOBJSDEPS, $(HALSO_SRCS)) : EXTRAFLAGS=-fPIC -Ihal/utils -I.
 $(call TOOBJSDEPS, $(HALSO_CXXSRCS)) : EXTRAFLAGS=-fPIC -Ihal/utils -I.
 
 # shotgun approach to dependencies: will alwas hit the target (and more).
-$(HALNGMKDIR)/hal.c: $(wildcard $(HALNGMKDIR)/*.pyx $(HALNGMKDIR)/*.pxd)
+$(HALNGMKDIR)/hal.c: $(wildcard 	\
+	$(HALNGMKDIR)/*.pyx 		\
+	$(HALNGMKDIR)/*.pxd) 		\
+	$(wildcard hal/lib/*.h)		\
+	$(wildcard rtapi/*.h)
+
+ifeq (1,0)
+# test module to experiment with bindings
+TESTSO_CSRCS := $(addprefix $(HALNGMKDIR)/, \
+	test.c )
+$(HALNGDIR)/machinekit/test.c: $(HALNGDIR)/machinekit/test.pyx
+	$(CYTHON) -o $@ $<
+
+USERSRCS += $(TESTSO_CSRCS)
+$(call TOOBJSDEPS, $(TESTSO_CSRCS)) : EXTRAFLAGS=-fPIC
+TARGETS += ../lib/python/machinekit/test.so
+../lib/python/machinekit/test.so: \
+	../lib/liblinuxcnchal.so.0 \
+	 $(patsubst %.c,objects/%.o,$(TESTSO_CSRCS))
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
+endif
+
+ifeq (1,1)
 
 TARGETS += ../lib/python/machinekit/hal.so
 ../lib/python/machinekit/hal.so:	../lib/liblinuxcnchal.so.0 \
@@ -51,7 +74,7 @@ TARGETS += ../lib/python/machinekit/rtapi.so
 	 $(patsubst %.c,objects/%.o,$(RTAPISO_CSRCS)) \
 	 $(patsubst %.cc,objects/%.o,$(RTAPISO_CXXSRCS)) \
 	../lib/liblinuxcnchal.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/libmtalk.so.0
 	$(ECHO) Linking $($@)
 	@mkdir -p $(dir $@)
@@ -87,6 +110,27 @@ TARGETS += ../lib/python/machinekit/shmcommon.so
 	@mkdir -p $(dir $@)
 	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) -lrt
 
+NANOPBSO_CSRCS := $(addprefix $(HALNGMKDIR)/, \
+	nanopb.c ) \
+	machinetalk/nanopb/pb_common.c \
+	machinetalk/nanopb/pb_encode.c \
+	machinetalk/nanopb/pb_decode.c
+
+
+USERSRCS += $(NANOPBSO_CSRCS)
+$(call TOOBJSDEPS, $(NANOPBSO_CSRCS)) : \
+	EXTRAFLAGS=-fPIC -Imachinetalk/nanopb \
+	-DPB_FIELD_32BIT '-DPB_SYSTEM_HEADER=<pb-machinekit.h>'
+
+TARGETS += ../lib/python/machinekit/nanopb.so
+../lib/python/machinekit/nanopb.so: \
+	 $(patsubst %.c,objects/%.o,$(NANOPBSO_CSRCS)) \
+	../lib/libmkprotobuf.so
+	$(ECHO) Linking $($@)
+	@mkdir -p $(dir $@)
+	$(CC) -g  -shared -o $@ $^ $(LDFLAGS) $(PROTOBUF_LIBS) -lrt
+
+
 $(HALNGDIR)/machinekit/%.c: $(addprefix $(HALNGDIR)/machinekit/, %.pyx %.pxd)
 	$(CYTHON) -o $@ $<
 
@@ -95,3 +139,4 @@ cython-clean:
 	for f in compat hal rtapi shmcommon; do \
 	    rm -f hal/cython/machinekit/$$f.c; \
 	done
+endif

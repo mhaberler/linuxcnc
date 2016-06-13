@@ -8,11 +8,14 @@ MODULE_AUTHOR("Michael Haberler");
 MODULE_DESCRIPTION("test component for HAL instantiation API");
 MODULE_LICENSE("GPL");
 RTAPI_TAG(HAL, HC_INSTANTIABLE);
+RTAPI_TAG(HALCOMPNAME, icomp);
 
 static int comp_id;
 static char *compname = "icomp";
 
 struct inst_data {
+    int argc;      // newinstance args
+    char **argv;
     hal_float_t *out; // pins
     hal_float_t *in;
     hal_s32_t    iter; // a param
@@ -98,6 +101,11 @@ static int export_halobjs(struct inst_data *ip, int owner_id, const char *name)
 static int instantiate(const char *name, const int argc, const char**argv)
 {
     struct inst_data *ip;
+    int n;
+
+    for(n = 0; n < argc; n++)
+        HALDBG("argv[%d] = '%s'", n, argv[n]);
+
 
     // allocate a named instance, and some HAL memory for the instance data
     int inst_id = hal_inst_create(name, comp_id,
@@ -108,9 +116,13 @@ static int instantiate(const char *name, const int argc, const char**argv)
 
     // here ip is guaranteed to point to a blob of HAL memory
     // of size sizeof(struct inst_data).
-    HALERR("inst=%s argc=%d\n", name, argc);
-    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
-    HALERR("module parms: answer=%d text='%s'", answer, text);
+    HALDBG("inst=%s argc=%d\n", name, argc);
+    HALDBG("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALDBG("module parms: answer=%d text='%s'", answer, text);
+
+    // retain instance args
+    ip->argc = argc;
+    ip->argv = (char **)argv;
 
     // these pins/params/functs will be owned by the instance,
     // and can be separately exited 'halcmd delinst <instancename>'
@@ -143,10 +155,16 @@ static int instantiate(const char *name, const int argc, const char**argv)
 //   destructor returns
 static int delete(const char *name, void *inst, const int inst_size)
 {
+    struct inst_data *ip = inst;
+    int n;
 
-    HALERR("inst=%s size=%d %p\n", name, inst_size, inst);
-    HALERR("instance parms: repeat=%d prefix='%s'", repeat, prefix);
-    HALERR("module parms: answer=%d text='%s'", answer, text);
+    HALDBG("inst=%s size=%d %p\n", name, inst_size, inst);
+    HALDBG("instance parms: repeat=%d prefix='%s'", repeat, prefix);
+    HALDBG("module parms: answer=%d text='%s'", answer, text);
+    HALDBG("original instance args: %d'", ip->argc);
+
+    for(n = 0; n < ip->argc; n++)
+        HALDBG("argv[%d] = '%s'", n, ip->argv[n]);
 
     return 0;
 }

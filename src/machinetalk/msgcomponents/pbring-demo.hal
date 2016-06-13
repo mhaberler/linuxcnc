@@ -2,17 +2,17 @@
 loadrt pbmsgs
 
 # create two pairs of in and out rings
-newring first.in 16384
-newring first.out 16384
+newring to-rt1    16384
+newring from-rt-1 16384
 
-newring second.in 16384
-newring second.out 16384
+newring to-rt2    16384
+newring from-rt-2 16384
 
-# instantiate pbring, as needed
-# which will make it attach to <instname>.{i, out} respectively
-newinst pbring first
-newinst pbring second
+# instantiate pbring
+newinst pbring first rring=to-rt1 wring=from-rt-1
+newinst pbring second rring=to-rt2 wring=from-rt-2
 
+show ring
 
 newthread servo 1000000 fp
 addf first.update  servo

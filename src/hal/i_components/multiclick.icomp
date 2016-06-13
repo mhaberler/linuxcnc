@@ -92,9 +92,8 @@ variable hal_s32_t click_state = 0;  // wish i could have an enum type here
 // exceeds the timeout, the state machine resets.
 //
 
-variable hal_u32_t timer;
-variable hal_u32_t timeout;
-
+variable hal_u32_t timer = 0;
+variable hal_u32_t timeout = 0;
 
 //
 // When an "X"-click (for X={single,double,triple,quadruple}) is detected,
@@ -108,17 +107,17 @@ variable hal_u32_t timeout;
 // X+1 click).
 //
 
-variable hal_u32_t single_click_hold_timer;
-variable hal_u32_t single_click_only_hold_timer;
+variable hal_u32_t single_click_hold_timer = 0;
+variable hal_u32_t single_click_only_hold_timer = 0;
 
-variable hal_u32_t double_click_hold_timer;
-variable hal_u32_t double_click_only_hold_timer;
+variable hal_u32_t double_click_hold_timer = 0;
+variable hal_u32_t double_click_only_hold_timer = 0;
 
-variable hal_u32_t triple_click_hold_timer;
-variable hal_u32_t triple_click_only_hold_timer;
+variable hal_u32_t triple_click_hold_timer = 0;
+variable hal_u32_t triple_click_only_hold_timer = 0;
 
-variable hal_u32_t quadruple_click_hold_timer;
-variable hal_u32_t quadruple_click_only_hold_timer;
+variable hal_u32_t quadruple_click_hold_timer = 0;
+variable hal_u32_t quadruple_click_only_hold_timer = 0;
 
 
 description """

@@ -22,7 +22,7 @@
 * Author: Stephen Wille Padnos (swpadnos AT sourceforge DOT net)
 *       Based on a work by John Kasunich
 *
-*		Converted to icomp by ArcEye <arceye@mgware.co.uk>
+*	Converted to icomp by ArcEye <arceye@mgware.co.uk>
 * License: GPL Version 2
 * Created on: May 17, 2006
 * System: Linux
@@ -51,6 +51,8 @@ pin io s32 weight##[pincount] "The weight of the input of weighted summer ##. Th
 
 pin io s32 offset;
 
+variable hal_s32_t running_total = 0;
+
 instanceparam int pincount = 8;
 
 option MAXCOUNT 16;
@@ -63,19 +65,20 @@ function process_wsums fp;
 
 FUNCTION(process_wsums)
 {
-hal_s32_t b, running_total;
+hal_s32_t b;
     
-	if (!hold) 
-		{
-		running_total = offset;
-		for (b=0 ; b < localpincount ; b++) 
-			{
-			if (in(b)) 
-				running_total += weight(b);
-		    }
-		}
-		sum = running_total;
-	return 0;
+    if (!hold) 
+	{
+	running_total = offset;
+	for (b=0 ; b < local_pincount ; b++) 
+	    {
+	    if (in(b))
+		running_total += weight(b);
+	    }
+	}
+    sum = running_total;
+
+    return 0;
 }
 
 

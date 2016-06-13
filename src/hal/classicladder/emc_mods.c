@@ -129,23 +129,23 @@ char * ConvVarNameToHalSigName( char * VarNameParam )
 
         if(*pin_name) {
             hal_pin_t *pin = halpr_find_pin_by_name(pin_name);
-            if(pin && pin->signal) {
-                hal_sig_t *sig = SHMPTR(pin->signal);
-                if(sig->name) {
+            if(pin && pin_is_linked(pin)) {
+		hal_sig_t *sig = signal_of(pin);
+                if (ho_name(sig)) {
                     static char sig_name[100];
                     // char *arrow = "\xe2\x86\x90";
                     char *arrow = "\xe2\x87\x92";
 
                     if(arrowside == 0) {
-                        snprintf(sig_name, 100, "%s%s", sig->name, arrow);
+                        snprintf(sig_name, 100, "%s%s", ho_name(sig), arrow);
                     } else {
-                        snprintf(sig_name, 100, "%s%s", arrow, sig->name);
+                        snprintf(sig_name, 100, "%s%s", arrow, ho_name(sig));
                     }
 
                     return sig_name;
                 }
             }
-            if (pin && !pin->signal) {return "no signal connected";  }
+            if (pin && ! pin_is_linked(pin)) {return "no signal connected";  }
         }
     }
 

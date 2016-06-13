@@ -83,8 +83,8 @@ pin io float velocity_tol "The deviation percent from planned velocity";
 pin io float correction_vel "The Velocity to move Z to correct";
 
 // Global Variables
-variable hal_float_t offset;
-variable hal_float_t last_z_in;
+variable hal_float_t offset = 0.0;
+variable hal_float_t last_z_in = 0.0;
 
 function _;
 

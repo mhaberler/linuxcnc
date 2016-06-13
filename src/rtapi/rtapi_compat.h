@@ -63,7 +63,7 @@ typedef struct {
     const char *mod_ext;	// RTAPI module extensions, .ko/.so
     const char *so_ext;		// ulapi.so module extension
     const char *build_sys;
-    int id;
+    int flavor_id;
     unsigned long flags;
 } flavor_t, *flavor_ptr;
 

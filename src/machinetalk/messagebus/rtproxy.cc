@@ -16,7 +16,7 @@
 #include <hal_priv.h>
 #include <hal_ring.h>
 
-#include <machinetalk/include/pb-linuxcnc.h>
+#include <machinetalk/include/pb-machinekit.h>
 #include <machinetalk/nanopb/pb_decode.h>
 #include <machinetalk/nanopb/pb_encode.h>
 #include <machinetalk/include/container.h>
@@ -73,8 +73,8 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 
     if (self->to_rt_name) {
 	unsigned flags;
-	if ((retval = hal_ring_attach(self->to_rt_name, &self->to_rt_ring, &flags))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_attach(%s) failed - %d\n",
+	if ((retval = halg_ring_attachf(1, &self->to_rt_ring, &flags, self->to_rt_name))) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_attachf(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
 	    return;
 	}
@@ -82,8 +82,8 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
     }
     if (self->from_rt_name) {
 	unsigned flags;
-	if ((retval = hal_ring_attach(self->from_rt_name, &self->from_rt_ring, &flags))) {
-	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_attach(%s) failed - %d\n",
+	if ((retval = halg_ring_attachf(1, &self->from_rt_ring, &flags,self->from_rt_name))) {
+	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_attachf(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);
 	    return;
 	}
@@ -172,14 +172,14 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 		switch (i) {
 		case 0:
 		case 1:
-		    flags.f.frametype = MF_TRANSPARENT;
+		    flags.f.format = MF_STRING;
 		    break;
 
 		default:
 		    if (!(self->flags & DESERIALIZE_TO_RT)) {
 			// as is, no attempt at deserializing payload frames
-			flags.f.frametype = MF_TRANSPARENT;
-			flags.f.npbtype = NPB_UNSPECIFIED;
+			flags.f.format = MF_STRING;
+			flags.f.msgid = 0;
 		    } else {
 			// try to deserialize as (rt_) Container:  // FIXME rt_
 			pb_istream_t stream = pb_istream_from_buffer(zframe_data(f),
@@ -188,8 +188,8 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 			    // send the resulting nanopb C struct
 			    data = (void *) &rx;
 			    size = sizeof(rx);
-			    flags.f.frametype = MF_NPB_CSTRUCT;
-			    flags.f.npbtype = NPB_CONTAINER;
+			    flags.f.format = MF_NPB_CSTRUCT;
+			    flags.f.msgid = pb_Container_msgid;
 			    rtapi_print_msg(RTAPI_MSG_DBG,
 					    "%s: sending as deserialized"
 						" Container\n",
@@ -200,8 +200,8 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 			    rtapi_print_msg(RTAPI_MSG_DBG,
 					    "%s: pb_decode(Container) failed: '%s'\n",
 					progname, PB_GET_ERROR(&stream));
-			    flags.f.frametype = MF_TRANSPARENT;
-			    flags.f.npbtype = NPB_UNSPECIFIED;
+			    flags.f.format = MF_STRING;
+			    flags.f.msgid = 0;
 			}
 		    }
 		    break;
@@ -216,9 +216,10 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 		if (self->flags & TRACE_TO_RT)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
 					     16,1, data, (size > 16) ? 16: size, 1,
-					     "%s->%s size=%d t=%d c=%d: ",
+					     NULL,
+					     "%s->%s size=%zu msgid=%d format=%d: ",
 					     self->name, self->to_rt_name, size,
-					     flags.f.frametype, flags.f.npbtype);
+					     flags.f.msgid,flags.f.format);
 	    }
 
 	    msg_write_flush(&self->to_rt_mframe);
@@ -238,30 +239,31 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 				    self->from_rt_name);
 		}
 		const void *data;
-		size_t size;
+		ringsize_t size;
 		mflag_t flags;
 		if (frame_read(&self->from_rt_mframe,
 			       &data, &size, &flags.u) == 0) {
 		    if (self->flags &  TRACE_FROM_RT)
 			rtapi_print_hex_dump(RTAPI_MSG_ERR, RTAPI_DUMP_PREFIX_OFFSET,
 					     16,1, data, (size > 16) ? 16: size, 1,
-					     "%s->%s size=%d t=%d c=%d: ",
+					     NULL,
+					     "%s->%s size=%u msgid=%d format=%d: ",
 					     self->from_rt_name,self->name, size,
-					     flags.f.frametype, flags.f.npbtype);
+					     flags.f.msgid, flags.f.format);
 		    pb_ostream_t sstream, ostream;
 
 		    // decide what to do based on flags
-		    switch (flags.f.frametype) {
+		    switch (flags.f.format) {
 
 		    case MF_NPB_CSTRUCT:
 
-			switch (flags.f.npbtype) {
-			case NPB_CONTAINER:
+			switch (flags.f.msgid) {
+			case pb_Container_msgid:
 			    ostream = pb_ostream_from_buffer((uint8_t *)self->buffer,FROMRT_SIZE);
 			    if (!pb_encode(&ostream, pb_Container_fields, data)) {
 				rtapi_print_msg(RTAPI_MSG_ERR,
-						"%s: from_rt encoding failed %s type=%d written=%zu\n",
-						progname, PB_GET_ERROR(&sstream),flags.f.npbtype,
+						"%s: from_rt encoding failed %s msgid=%d written=%zu\n",
+						progname, PB_GET_ERROR(&sstream),flags.f.msgid,
 						ostream.bytes_written);
 				// send as-is
 				f = zframe_new (data, size);
@@ -275,14 +277,14 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 
 			default:
 			    rtapi_print_msg(RTAPI_MSG_ERR,
-					    "%s: invalid npbtype from RT: %d, sending as-is\n",
-					    progname, flags.f.npbtype);
+					    "%s: unhandled msgid from RT: %d, sending as-is\n",
+					    progname, flags.f.msgid);
 			    zframe_t *f = zframe_new (data, size);
 			    zmsg_append (from_rt, &f);
 			}
 			break;
 
-		    case MF_TRANSPARENT:
+		    case MF_STRING:
 		    case MF_PROTOBUF:
 			// leave as is
 			// zframe_new copies the data
@@ -309,7 +311,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	free(self->buffer);
 
     if (self->to_rt_name) {
-	if ((retval = hal_ring_detach(self->to_rt_name, &self->to_rt_ring))) {
+	if ((retval = hal_ring_detach( &self->to_rt_ring))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_detach(%s) failed - %d\n",
 			    progname, self->to_rt_name, retval);
 	    return;
@@ -317,7 +319,7 @@ rtproxy_thread(void *arg, zctx_t *ctx, void *pipe)
 	self->to_rt_ring.header->writer = 0;
     }
     if (self->from_rt_name) {
-	if ((retval = hal_ring_detach(self->from_rt_name, &self->from_rt_ring))) {
+	if ((retval = hal_ring_detach(&self->from_rt_ring))) {
 	    rtapi_print_msg(RTAPI_MSG_ERR, "%s: hal_ring_detach(%s) failed - %d\n",
 			    progname, self->from_rt_name, retval);
 	    return;

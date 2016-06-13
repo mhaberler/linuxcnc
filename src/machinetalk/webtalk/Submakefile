@@ -47,7 +47,7 @@ $(call TOOBJSDEPS, $(WEBTALK_SRCS)) : EXTRAFLAGS += $(WEBTALK_CXXFLAGS) $(EXPERI
 
 ../bin/webtalk: $(call TOOBJS, $(WEBTALK_SRCS)) \
 	../lib/libmtalk.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/libmkprotobuf.so.0 \
 	../lib/liblinuxcnchal.so.0 \
 	../lib/libmtalk.so.0
 	$(ECHO) Linking $(notdir $@)
@@ -87,6 +87,7 @@ $(WEBTALK_DIR)/zws.pb.cc $(WEBTALK_DIR)/zws.pb.h:  $(WEBTALK_DIR)/zws.proto
 	@mkdir -p $(PBGEN)
 	$(Q)$(PROTOC) $(PROTOCXX_FLAGS) \
 	--proto_path=$(WEBTALK_DIR)/ \
+	--proto_path=$(PROTODIR)/ \
 	--proto_path=$(GPBINCLUDE)/ \
 	--cpp_out=./$(WEBTALK_DIR)/ $<
 
@@ -97,6 +98,7 @@ $(WEBTALK_DIR)/zws.pb.cc $(WEBTALK_DIR)/zws.pb.h:  $(WEBTALK_DIR)/zws.proto
 	@mkdir -p ../lib/python
 	$(Q)$(PROTOC) $(PROTOC_FLAGS) \
 	--proto_path=$(WEBTALK_DIR)/ \
+	--proto_path=$(PROTODIR)/ \
 	--proto_path=$(GPBINCLUDE)/ \
 	--python_out=../lib/python/ $<
 

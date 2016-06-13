@@ -1,4 +1,12 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <stddef.h>
+#include <hal.h>
+#include <hal_priv.h>
+#include <hal_group.h>
+#include <hal_ring.h>
+#include <rtapi_heap.h>
+#include <rtapi_heap_private.h>
 #include <emc/motion/motion.h>
 #include <emc/motion/motion_debug.h>
 
@@ -8,9 +16,71 @@
 #include <machinetalk/generated/message.npb.h>
 #include <machinetalk/generated/motcmds.npb.h>
 
+#include <sys/utsname.h>
+#include <linux/types.h>
+
+// lifted from https://github.com/martinezjavier/ldd3/blob/master/misc-progs/datasize.c
+// which in turn is lifted from: "Linux Device Drivers" by Alessandro Rubini and Jonathan Corbet,
+// published by O'Reilly & Associates.
+void kernel_types(void)
+{
+    struct utsname name;
+
+    uname(&name); /* never fails :) */
+    printf("kernel types:\narch   Size:  char  short  int  long   ptr long-long "
+	   " u8 u16 u32 u64\n");
+    printf(       "%-12s  %3i   %3i   %3i   %3i   %3i   %3i      "
+	   "%3i %3i %3i %3i\n\n",
+	   name.machine,
+	   (int)sizeof(char), (int)sizeof(short), (int)sizeof(int),
+	   (int)sizeof(long),
+	   (int)sizeof(void *), (int)sizeof(long long), (int)sizeof(__u8),
+	   (int)sizeof(__u16), (int)sizeof(__u32), (int)sizeof(__u64));
+}
 
 int main()
 {
+    kernel_types();
+    printf("int = %zu\n", sizeof(int));
+    printf("bool = %zu\n", sizeof(bool));
+    printf("size_t = %zu\n", sizeof(size_t));
+    printf("void* = %zu\n", sizeof(void *));
+    printf("ptrdiff_t = %zu\n", sizeof(ptrdiff_t));
+    printf("__u64 = %zu\n", sizeof(__u64));
+    printf("uint64_t = %zu\n", sizeof(uint64_t));
+    printf("unsigned long = %zu\n", sizeof(unsigned long));
+    
+    printf("hal_data_u = %zu\n", sizeof(hal_data_u));
+    printf("halhdr_t = %zu\n", sizeof(halhdr_t));
+    printf("halhdr_t details:\n");
+    printf("\tid\t%zu\n", offsetof(halhdr_t,_id));
+    printf("\towner_id\t%zu\n", offsetof(halhdr_t,_owner_id));
+    printf("\tname_ptr\t%zu\n", offsetof(halhdr_t,_name_ptr));
+
+    printf("heap:\trtapi_malloc_hdr_t\t%zu\n", sizeof(rtapi_malloc_hdr_t));
+
+    printf("hal_comp_t = %zu\n", sizeof(hal_comp_t));
+    printf("hal_inst_t = %zu\n", sizeof(hal_inst_t));
+    printf("hal_pin_t = %zu\n", sizeof(hal_pin_t));
+    printf("hal_param_t = %zu\n", sizeof(hal_param_t));
+    printf("hal_sig_t = %zu\n", sizeof(hal_sig_t));
+    printf("\ttype\t%zu\n", offsetof(hal_sig_t,type));
+    printf("\tvalue\t%zu\n", offsetof(hal_sig_t,value));
+    printf("\treaders\t%zu\n", offsetof(hal_sig_t,readers));
+
+    printf("hal_group_t = %zu\n", sizeof(hal_group_t));
+    printf("hal_member_t = %zu\n", sizeof(hal_member_t));
+    printf("hal_funct_t = %zu\n", sizeof(hal_funct_t));
+    printf("hal_thread_t = %zu\n", sizeof(hal_thread_t));
+    printf("hal_vtable_t = %zu\n", sizeof(hal_vtable_t));
+    printf("hal_ring_t = %zu\n", sizeof(hal_ring_t));
+    printf("hal_plug_t = %zu\n", sizeof(hal_plug_t));
+
+    printf("ringheader_t = %zu (without storage)\n", sizeof(ringheader_t));
+    printf("ringtrailer_t = %zu (without scratchpad storage)\n", sizeof(ringtrailer_t));
+    printf("ringbuffer_t = %zu\n", sizeof(ringbuffer_t));
+    printf("msgbuffer_t = %zu\n", sizeof(msgbuffer_t));
+
     printf("emcmot_joint_t = %zu\n", sizeof(emcmot_joint_t));
     printf("emcmot_joint_status_t = %zu\n", sizeof(emcmot_joint_status_t));
     printf("emcmot_command_t = %zu\n", sizeof(emcmot_command_t));

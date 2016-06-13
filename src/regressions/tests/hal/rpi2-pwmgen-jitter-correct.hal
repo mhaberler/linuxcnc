@@ -1,0 +1,29 @@
+
+loadrt hal_gpio dir=255 # 8 outputs, rest input
+newinst pwmgen-v2 spindle output_type=1
+newinst pwmgen-v2 pump    output_type=1
+
+newthread base  50000 cpu=3
+#newthread base  1000 posix nowait
+newthread servo 10000000 fp cpu=2
+
+addf hal_gpio.read base
+addf pwmgen.make-pulses base
+addf pwmgen.update servo
+addf hal_gpio.write base
+
+net pump-pwm    pump.pwm hal_gpio.pin-03-out
+net spindle-pwm spindle.pwm hal_gpio.pin-05-out
+setp  pump.jitter-correct 1
+setp  spindle.jitter-correct 1
+
+start
+
+#loadusr halscope
+
+setp spindle.value 0.2
+setp spindle.enable 1
+
+
+setp pump.value 0.8
+setp pump.enable 1

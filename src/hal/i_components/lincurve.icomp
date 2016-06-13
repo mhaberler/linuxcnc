@@ -40,8 +40,8 @@ FUNCTION(_)
 {
     hal_float_t f, x;
     x = in_;
-    if (x >= x_val(localpincount-1)) {
-        out_ = y_val(localpincount-1);
+    if (x >= x_val(local_pincount-1)) {
+        out_ = y_val(local_pincount-1);
         out_io = out_;
         return 0;
     }
@@ -61,7 +61,7 @@ return 0;
 }
 
 EXTRA_INST_SETUP(){
-//	if (localpincount > 16) localpincount = 16;
-	if (localpincount < 2) localpincount = 2;
+//	if (local_pincount > 16) local_pincount = 16;
+	if (local_pincount < 2) local_pincount = 2;
 	return 0;
 }

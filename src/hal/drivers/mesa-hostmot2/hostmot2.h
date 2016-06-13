@@ -23,7 +23,9 @@
 // please God where do these live in real life?
 #define INT32_MIN (-2147483647-1)
 #define INT32_MAX (2147483647)
+#ifndef UINT32_MAX
 #define UINT32_MAX (4294967295U)
+#endif
 
 #include "config_module.h"
 #include RTAPI_INC_LIST_H

@@ -35,6 +35,7 @@
 #include <sys/utsname.h>
 #include <limits.h>		/* PATH_MAX */
 #include <stdlib.h>		/* exit() */
+#include <string.h>		/* exit() */
 #include <grp.h>                // getgroups
 #include <spawn.h>              // posix_spawn
 #include <sys/wait.h>           // wait_pid
@@ -162,35 +163,35 @@ flavor_t flavors[] = {
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
-      .id = RTAPI_POSIX_ID,
+      .flavor_id = RTAPI_POSIX_ID,
       .flags = POSIX_FLAVOR_FLAGS // FLAVOR_USABLE
     },
     { .name = "sim", // alias for above- old habíts die hard
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
-      .id = RTAPI_POSIX_ID,
+      .flavor_id = RTAPI_POSIX_ID,
       .flags = POSIX_FLAVOR_FLAGS
     },
     { .name = RTAPI_RT_PREEMPT_NAME,
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
-      .id = RTAPI_RT_PREEMPT_ID,
+      .flavor_id = RTAPI_RT_PREEMPT_ID,
       .flags = RTPREEMPT_FLAVOR_FLAGS
     },
      { .name = RTAPI_XENOMAI_NAME,
       .mod_ext = ".so",
       .so_ext = ".so",
       .build_sys = "user-dso",
-      .id = RTAPI_XENOMAI_ID,
+      .flavor_id = RTAPI_XENOMAI_ID,
       .flags = XENOMAI_FLAVOR_FLAGS
     },
     { .name = RTAPI_RTAI_KERNEL_NAME,
       .mod_ext = ".ko",
       .so_ext = ".so",
       .build_sys = "kbuild",
-      .id = RTAPI_RTAI_KERNEL_ID,
+      .flavor_id = RTAPI_RTAI_KERNEL_ID,
       .flags = RTAI_KERNEL_FLAVOR_FLAGS
     },
 
@@ -198,7 +199,7 @@ flavor_t flavors[] = {
       .mod_ext = ".ko",
       .so_ext = ".so",
       .build_sys = "kbuild",
-      .id = RTAPI_XENOMAI_KERNEL_ID,
+      .flavor_id = RTAPI_XENOMAI_KERNEL_ID,
       .flags =  XENOMAI_KERNEL_FLAVOR_FLAGS
     },
 
@@ -206,12 +207,12 @@ flavor_t flavors[] = {
       .mod_ext = "",
       .so_ext = "",
       .build_sys = "n/a",
-      .id = RTAPI_NOTLOADED_ID,
+      .flavor_id = RTAPI_NOTLOADED_ID,
       .flags = 0
     },
 
     { .name = NULL, // list sentinel
-      .id = -1,
+      .flavor_id = -1,
       .flags = 0
     }
 };
@@ -231,7 +232,7 @@ flavor_ptr flavor_byid(int flavor_id)
 {
     flavor_ptr f = flavors;
     while (f->name) {
-	if (flavor_id == f->id)
+	if (flavor_id == f->flavor_id)
 	    return f;
 	f++;
     }

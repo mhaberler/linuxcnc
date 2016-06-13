@@ -1,0 +1,28 @@
+
+loadrt hal_gpio dir=255 # 8 outputs, rest input
+newinst stepgen-v2 vel step_type=2 ctrl_type=v # quadrature, velocity mode
+
+#newthread  base  50000   cpu=3
+newthread base  1000  posix  cpu=3 nowait
+newthread  servo 1000000 fp cpu=2
+
+addf hal_gpio.read       base
+addf stepgen.make-pulses base
+addf hal_gpio.write      base
+
+addf stepgen.update-freq      servo
+addf stepgen.capture-position servo
+
+net phase-A   vel.phase-A  hal_gpio.pin-03-out
+net phase-B   vel.phase-B  hal_gpio.pin-05-out
+
+setp vel.maxvel   100
+setp vel.maxaccel 1000
+setp vel.velocity-cmd 10
+setp vel.position-scale 32000
+setp vel.enable 1
+
+#setp  vel.jitter-correct 1
+
+
+start

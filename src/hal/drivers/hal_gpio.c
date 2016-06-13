@@ -336,11 +336,11 @@ int rtapi_app_main(void)
 
 void rtapi_app_exit(void)
 {
-  if (gpio)
-    munmap((void *) gpio, BCM2835_BLOCK_SIZE);
-  if (mem_fd > -1)
-      close(mem_fd);
-  hal_exit(comp_id);
+    hal_exit(comp_id);
+    if (gpio)
+	munmap((void *) gpio, BCM2835_BLOCK_SIZE);
+    if (mem_fd > -1)
+	close(mem_fd);
 }
 
 static void write_port(void *arg, long period)
