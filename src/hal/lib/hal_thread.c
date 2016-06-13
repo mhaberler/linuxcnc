@@ -117,7 +117,7 @@ static void thread_task(void *arg)
 	    // support actual period measurement (get the starting value right)
 	    fa.last_start_time = rtapi_get_time();
 
-	    rtapi_wait();
+	    rtapi_wait(thread->flags);
 	    continue;
 	}
 
