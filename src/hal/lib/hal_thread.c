@@ -328,6 +328,10 @@ extern int hal_thread_delete(const char *name)
     return halg_exit_thread(1, name);
 }
 
+int hal_exit_threads(void)
+{
+    return halg_exit_thread(1, NULL);
+}
 #endif /* RTAPI */
 
 
