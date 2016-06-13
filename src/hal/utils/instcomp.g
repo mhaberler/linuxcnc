@@ -374,8 +374,8 @@ def prologue(f):
     
     print >>f, "static char *compname = \"%s\";\n" % (comp_name)
 
-    for name in includes:
-        print >>f, "#include %s" % name
+    # for name in includes:
+    #     print >>f, "#include %s" % name
 
     names = {}
 
@@ -1602,7 +1602,7 @@ def process(filename, mode, outfilename):
             raise SystemExit, "Error: Component name (%s) does not match filename (%s)" % (comp_name, base_name)
         f = open(outfilename, "w")
 
-        if not pins:
+        if (not pins) and (not pin_ptrs):
             raise SystemExit, "Error: Component must have at least one pin"
         if not "return" in b:
             raise SystemExit, """ \
