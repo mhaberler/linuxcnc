@@ -51,6 +51,8 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 	zframe_t *f = zmsg_pop (msg);
 
 	if (!self->rx.ParseFromArray(zframe_data(f), zframe_size(f))) {
+	    zframe_t *o = zmsg_first (msg);  // freed with msg
+	    std::string origin( (const char *) zframe_data(o), zframe_size(o));
 	    rtapi_print_hex_dump(RTAPI_MSG_ALL, RTAPI_DUMP_PREFIX_OFFSET,
 				 16, 1, zframe_data(f), zframe_size(f),
 				 true, NULL,
@@ -62,7 +64,7 @@ handle_command_input(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
 		fprintf(stderr,"%s: req=%s\n",__func__,s.c_str());
 	    }
 	    // a valid protobuf. Interpret and reply as needed.
-	    dispatch_request(self, origin, poller->socket);
+	    dispatch_request(self, msg, poller->socket);
 	}
 	zframe_destroy(&f);
     }
