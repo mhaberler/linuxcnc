@@ -92,7 +92,7 @@ loadrt mux4 count=1
 loadrt wcomp count=2
 loadrt scale count=3
 loadrt modmath mod_dir=2
-loadrt charge_pump
+newinst charge_pump charge-pump
 loadrt tristate_bit
 loadrt tristate_float count=3
 loadrt conv_s32_float
@@ -162,13 +162,13 @@ addf scale.1                        servo-thread
 addf mux4.0                         servo-thread
 addf wcomp.0                        servo-thread
 addf wcomp.1                        servo-thread
-addf tristate-bit.0                 servo-thread
+addf tristate_bit.0                 servo-thread
 
 # misc stuff (jogwheel scale, tool number display)
-addf tristate-float.0               servo-thread
-addf tristate-float.1               servo-thread
-addf tristate-float.2               servo-thread
-addf conv-s32-float.0               servo-thread
+addf tristate_float.0               servo-thread
+addf tristate_float.1               servo-thread
+addf tristate_float.2               servo-thread
+addf conv_s32_float.0               servo-thread
 
 # output drivers are loaded last
 addf motenc.3.dac-write             servo-thread
@@ -485,9 +485,9 @@ net magazine-rev-req-store mod-dir.1.down
 # set encoder latch enable TRUE so encoder count "wraps" during toolchanges
 # and resets under motion controller command for rigid tapping
 net sp-index-enable motenc.3.enc-03-index-enable
-net sp-index-enable tristate-bit.0.out
-setp tristate-bit.0.in 1
-net tool-change tristate-bit.0.enable
+net sp-index-enable tristate_bit.0.out
+setp tristate_bit.0.in 1
+net tool-change tristate_bit.0.enable
 net sp-index-enable motion.spindle-index-enable
 
 # jogwheel signals
