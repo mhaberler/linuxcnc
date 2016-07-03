@@ -398,10 +398,12 @@ static int hm2_soc_register(hm2_soc_t *brd, const char *name)
     brd->fpga_state = -1;
 
     brd->llio.comp_id = comp_id;
-    brd->llio.num_ioport_connectors = 2;
+    brd->llio.num_ioport_connectors = 4;
     brd->llio.pins_per_connector = 17;
     brd->llio.ioport_connector_name[0] = "P3";
     brd->llio.ioport_connector_name[1] = "P2";
+    brd->llio.ioport_connector_name[2] = "P1";
+    brd->llio.ioport_connector_name[3] = "P0";
     brd->llio.fpga_part_number = 0; // "6slx9tqg144";
     brd->llio.num_leds = 2;
 
