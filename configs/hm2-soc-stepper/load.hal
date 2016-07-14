@@ -1,0 +1,11 @@
+
+
+
+loadrt hostmot2 debug_idrom=1 debug_module_descriptors=1 debug_modules=1
+
+loadrt hm2_soc_ol config="firmware=socfpga/dtbo/DE0_Nano_SoC_DB25.7I76_7I76_7I76_7I76.dtbo num_dplls=1 num_encoders=4 num_pwmgens=4 num_stepgens=3" 
+#loadrt hm2_soc_ol debug=1 config="firmware=socfpga/dtbo/DE0_NANO.dtbo  num_dplls=1 num_encoders=0 num_pwmgens=0 num_stepgens=3" 
+#loadrt hm2_soc_ol debug=1 config="firmware=socfpga/dtbo/DE0_Nano_SoC_DB25.7I76_7I85S_GPIO_GPIO.dtbo  num_dplls=1 num_encoders=0 num_pwmgens=0 num_stepgens=3" 
+#loadrt hm2_soc_ol debug=1 config="firmware=socfpga/dtbo/DE0_Nano_DB25.dtbo  num_dplls=1 num_encoders=0 num_pwmgens=0 num_stepgens=3" 
+
+

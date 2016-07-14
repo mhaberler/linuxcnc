@@ -371,10 +371,12 @@ static int hm2_soc_register(hm2_soc_t *brd,
     brd->uio_dev = uio_dev;
 
     brd->llio.comp_id = comp_id;
-    brd->llio.num_ioport_connectors = 2;
-    brd->llio.pins_per_connector = 17;
-    brd->llio.ioport_connector_name[0] = "P3";
-    brd->llio.ioport_connector_name[1] = "P2";
+    brd->llio.num_ioport_connectors = 4;
+    brd->llio.pins_per_connector = 68;
+    brd->llio.ioport_connector_name[0] = "GPIO.P3";
+    brd->llio.ioport_connector_name[1] = "GPIO.P2";
+    brd->llio.ioport_connector_name[0] = "GPI1.P3";
+    brd->llio.ioport_connector_name[1] = "GPI1.P2";
     brd->llio.fpga_part_number = 0; // "6slx9tqg144";
     brd->llio.num_leds = 2;
 
