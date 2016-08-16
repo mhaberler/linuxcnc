@@ -2418,8 +2418,9 @@ static void print_thread_info(char **patterns)
 	if ( match(patterns, tptr->name) ) {
 		/* note that the scriptmode format string has no \n */
 	    char flags[100];
-	    snprintf(flags, sizeof(flags),"%s%s",
+	    snprintf(flags, sizeof(flags),"%s%s%s",
 		     tptr->flags & TF_NONRT ? "posix ":"",
+		     tptr->flags & TF_ACTUAL_PERIOD ? "actual-period ":"",
 		     tptr->flags & TF_NOWAIT ? "nowait":"");
 
 	    halcmd_output(((scriptmode == 0) ? "%11ld %s%23s ( %8ld, %8ld ) %s\n" : "%ld %s %s %ld %ld %s"),
@@ -4116,6 +4117,10 @@ int do_newthread_cmd(char *name, char *args[])
 	    flags |= TF_NOWAIT;
 	    continue;
 	}
+	if (strcmp(s, "actual-period") == 0) {
+	    flags |= TF_ACTUAL_PERIOD;
+	    continue;
+	}
 	char *cp = s;
 	per = strtol(s, &cp, 0);
 	if ((*cp != '\0') && (!isspace(*cp))) {
@@ -4257,14 +4262,18 @@ int do_help_cmd(char *command)
 	printf("stype signame\n");
 	printf("  Gets the type of signal 'signame'\n");
     } else if (strcmp(command, "newthread") == 0) {
-	printf("newthread name [options] period\n");
+	printf("newthread name period [options] \n");
 	printf("  Creates a new realtime thread called 'name' which\n");
 	printf("  runs every 'period' nanoseconds.  Options are:\n");
 	printf("  cpu=N     assigns thread to CPU #N\n");
+	printf("  posix     non-realtime thread\n");
 	printf("  fp        (deprecated) thread supports floating point\n");
 	printf("  nofp      (deprecated) no floating point support (default)\n");
-	printf("  posix     (experimental) non-realtime thread\n");
-	printf("  nowait    (experimental) ignores period, for external sync\n");
+	printf("  nowait    (experimental) ignores period wait, for external sync\n");
+	printf("  actual-period (experimental) pass measured instead of nominal thread period to legacy functs\n");
+    } else if (strcmp(command, "delthread") == 0) {
+	printf("delthread name [options] period\n");
+	printf("  deletes an existing thread called 'name', and its function chain\n");
     } else if (strcmp(command, "addf") == 0) {
 	printf("addf functname threadname [position]\n");
 	printf("  Adds function 'functname' to thread 'threadname'.  If\n");

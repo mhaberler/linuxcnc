@@ -573,7 +573,8 @@ typedef void (*taskcode_t) (void*);
 typedef enum {
     TF_NONRT  = RTAPI_BIT(0),   // into low-prio class, no RT prio
     TF_NOWAIT  = RTAPI_BIT(1),  // skip rtapi_wait() in thread_task
-
+    // pass measured instead of nominal period to legacy thread functs
+    TF_ACTUAL_PERIOD  = RTAPI_BIT(2),
 } rtapi_thread_flags_t;
 
 // argument structure for rtapi_task_new():

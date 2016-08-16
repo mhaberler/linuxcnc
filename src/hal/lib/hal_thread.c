@@ -27,7 +27,9 @@ static void thread_task(void *arg)
 	.argc = 0,
 	.argv = NULL,
     };
+
     bool do_wait = ((thread->flags & TF_NOWAIT) == 0);
+    bool pass_actual_period = (thread->flags & TF_ACTUAL_PERIOD);
 
     // first time around after start threads,
     // use nominal period as actual period
@@ -38,6 +40,7 @@ static void thread_task(void *arg)
 	    /* point at first function on function list */
 	    funct_root = (hal_funct_entry_t *) & (thread->funct_list);
 	    funct_entry = SHMPTR(funct_root->links.next);
+
 	    /* execution time logging */
 	    fa.thread_start_time = fa.start_time = end_time =rtapi_get_time();
 	    fa.actual_period = fa.thread_start_time - fa.last_start_time;
@@ -50,7 +53,10 @@ static void thread_task(void *arg)
 		/* call the function */
 		switch (funct_entry->type) {
 		case FS_LEGACY_THREADFUNC:
-		    funct_entry->funct.l(funct_entry->arg, thread->period);
+		    funct_entry->funct.l(funct_entry->arg,
+					 pass_actual_period ?
+					 fa.actual_period :
+					 thread->period);
 		    break;
 		case FS_XTHREADFUNC:
 		    funct_entry->funct.x(funct_entry->arg, &fa);
