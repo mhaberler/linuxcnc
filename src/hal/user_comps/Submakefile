@@ -68,3 +68,17 @@ endif # HAVE_LIBUSB10
 	cp $^ $@
 ../include/%.hh: ./hal/user_comps/%.hh
 	cp $^ $@
+
+
+SHMTESTSRCS := hal/user_comps/shmemTest_USR.c
+SHMTESTLDFLAGS := $(GLIB_LIBS) $(LIBSHMTEST_LIBS)
+SHMTESTCCFLAGS := $(GLIB_CFLAGS) $(LIBSHMTEST_CFLAGS)
+USERSRCS += $(SHMTESTSRCS)
+
+$(call TOOBJSDEPS, $(SHMTESTSRCS)) : EXTRAFLAGS += $(SHMTESTCCFLAGS)
+
+../bin/shmemTest_USR: $(call TOOBJS, $(SHMTESTSRCS)) ../lib/liblinuxcnchal.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(SHMTESTLDFLAGS)
+TARGETS += ../bin/shmemTest_USR
+
