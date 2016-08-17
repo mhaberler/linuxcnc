@@ -199,3 +199,9 @@ obj-m += delayline.o
 delayline-objs := hal/components/delayline.o $(MATHSTUB)
 
 $(RTLIBDIR)/delayline$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(delayline-objs))
+
+
+obj-m += shmemTest.o
+shmemTest-objs := hal/components/shmemTest.o $(MATHSTUB)
+
+$(RTLIBDIR)/shmemTest$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(shmemTest-objs))
