@@ -1,0 +1,4 @@
+loadusr -W shmemTest_USR
+unloadusr shmemTest_USR
+loadrt shmemTest
+unload shmemTest
