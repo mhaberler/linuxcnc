@@ -1,7 +1,7 @@
 
 # test config for socfgpga / Charles' DB25 adapter / 7i76
 
-newthread servo nowait
+newthread servo nowait cpu=0
 
 loadrt hostmot2 irq_period_nsec=1000000  debug_module_descriptors=1 debug_modules=1 debug_pin_descriptors=1
 
@@ -12,6 +12,9 @@ newinst hm2_soc_ol hm2-socfpga0 config="firmware=zynq/dtbo/zturn_ztio_7z020_ol.d
 
 # in theory this disables DPLL tracking:
 setp hm2_ztio.0.dpll.plimit 0
+
+# 5kHz
+setp hm2_ztio.0.dpll.base-freq-khz 5
 
 # new options:
 # config="...  nofwid .."
@@ -37,13 +40,11 @@ newsig enable bit
 
 
 addf hm2_ztio.0.read           servo
-addf hm2_ztio.0.read_gpio      servo
 
 addf test.update               servo
 addf rate 		       servo
 
 addf hm2_ztio.0.write          servo
-addf hm2_ztio.0.write_gpio     servo
 addf servo-period              servo
 addf sp-stats                  servo
 

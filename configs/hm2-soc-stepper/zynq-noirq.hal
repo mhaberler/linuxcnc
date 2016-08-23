@@ -1,9 +1,9 @@
 
 # test config for socfgpga / Charles' DB25 adapter / 7i76
 
-newthread servo nowait
+newthread servo 200000 
 
-loadrt hostmot2 irq_period_nsec=1000000  debug_module_descriptors=1 debug_modules=1 debug_pin_descriptors=1
+loadrt hostmot2 debug_module_descriptors=1 debug_modules=1 debug_pin_descriptors=1
 
 # new style of loading hm2_soc_ol:
 # instance name must match device name from DTBO
@@ -11,7 +11,7 @@ loadrt hostmot2 irq_period_nsec=1000000  debug_module_descriptors=1 debug_module
 newinst hm2_soc_ol hm2-socfpga0 config="firmware=zynq/dtbo/zturn_ztio_7z020_ol.dtbo" debug=1
 
 # in theory this disables DPLL tracking:
-setp hm2_ztio.0.dpll.plimit 0
+#setp hm2_ztio.0.dpll.plimit 0
 
 # new options:
 # config="...  nofwid .."
@@ -37,17 +37,14 @@ newsig enable bit
 
 
 addf hm2_ztio.0.read           servo
-addf hm2_ztio.0.read_gpio      servo
 
 addf test.update               servo
 addf rate 		       servo
 
 addf hm2_ztio.0.write          servo
-addf hm2_ztio.0.write_gpio     servo
 addf servo-period              servo
 addf sp-stats                  servo
 
-addf hm2_ztio.0.waitirq        servo
 
 
 # -- stepgen.00
